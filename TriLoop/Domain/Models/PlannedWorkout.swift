@@ -20,11 +20,15 @@ final class PlannedWorkout {
     var prescribedDurationSeconds: TimeInterval?
     var targetDistanceMeters: Double?
     var status: PlannedWorkoutStatus
+    var completedAt: Date?
 
     var plan: WeeklyPlan?
 
     @Relationship(deleteRule: .cascade, inverse: \WorkoutStep.workout)
     var steps: [WorkoutStep]
+
+    @Relationship(deleteRule: .cascade, inverse: \WorkoutFeedback.workout)
+    var feedback: WorkoutFeedback?
 
     init(
         id: UUID = UUID(),
@@ -64,5 +68,33 @@ final class PlannedWorkout {
         if let targetDistanceMeters { return targetDistanceMeters }
         let totals = steps.compactMap(\.totalDistanceMeters)
         return totals.isEmpty ? nil : totals.reduce(0, +)
+    }
+
+    var isCompleted: Bool { status == .completed }
+
+    /// Rest and recovery days are scheduled but never reported on.
+    var acceptsFeedback: Bool { discipline.isTrainingSession }
+
+    func recordCompletion(with draft: FeedbackDraft, at date: Date = .now) {
+        discardFeedback()
+        feedback = draft.makeFeedback(createdAt: date)
+        status = .completed
+        completedAt = date
+    }
+
+    func clearCompletion() {
+        discardFeedback()
+        status = .planned
+        completedAt = nil
+    }
+
+    /// Nulling a SwiftData relationship only unlinks the object; the cascade
+    /// rule fires when the workout itself is deleted, not when the reference is
+    /// cleared. Without an explicit delete the old report is stranded in the store.
+    private func discardFeedback() {
+        if let feedback {
+            modelContext?.delete(feedback)
+        }
+        feedback = nil
     }
 }

@@ -7,7 +7,7 @@ struct TodayView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if let plan = plans.first {
+                if let plan = plans.currentPlan() {
                     content(for: plan)
                 } else {
                     ContentUnavailableView(

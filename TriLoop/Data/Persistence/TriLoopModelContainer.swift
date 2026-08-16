@@ -6,7 +6,8 @@ enum TriLoopSchema {
         AthleteProfile.self,
         WeeklyPlan.self,
         PlannedWorkout.self,
-        WorkoutStep.self
+        WorkoutStep.self,
+        WorkoutFeedback.self
     ]
 }
 

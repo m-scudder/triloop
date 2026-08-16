@@ -8,6 +8,22 @@ enum Sport: String, Codable, CaseIterable, Sendable {
     case running
     case swimming
     case cycling
+
+    var displayName: String {
+        switch self {
+        case .running: "Running"
+        case .swimming: "Swimming"
+        case .cycling: "Cycling"
+        }
+    }
+
+    var discipline: Discipline {
+        switch self {
+        case .running: .running
+        case .swimming: .swimming
+        case .cycling: .cycling
+        }
+    }
 }
 
 /// What a given day in a weekly plan actually is.

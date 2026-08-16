@@ -1,8 +1,8 @@
 import SwiftData
 import SwiftUI
 
-/// Deliberately minimal for Phase 1: weekly volume only. Meaningful trends
-/// arrive once the training engine (Phase 3) produces real assessments.
+/// Weekly volume plus a per-week review. Meaningful trends arrive once there is
+/// more than a week or two of history to trend.
 struct ProgressOverviewView: View {
     @Query(sort: \WeeklyPlan.startDate) private var plans: [WeeklyPlan]
 
@@ -15,12 +15,16 @@ struct ProgressOverviewView: View {
                             .foregroundStyle(.secondary)
                     }
                     ForEach(plans, id: \.id) { plan in
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Week \(plan.weekNumber)")
-                                .font(.body.weight(.medium))
-                            Text(summary(for: plan))
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                        NavigationLink {
+                            WeekReviewView(plan: plan)
+                        } label: {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Week \(plan.weekNumber)")
+                                    .font(.body.weight(.medium))
+                                Text(summary(for: plan))
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                     }
                 }
@@ -31,10 +35,11 @@ struct ProgressOverviewView: View {
 
     private func summary(for plan: WeeklyPlan) -> String {
         let sessions = plan.trainingSessions
+        let completed = sessions.filter(\.hasReport).count
         let minutes = sessions
             .compactMap(\.estimatedDurationSeconds)
             .reduce(0, +) / 60
-        return "\(sessions.count) workouts · \(Int(minutes.rounded())) min planned"
+        return "\(completed)/\(sessions.count) completed · \(Int(minutes.rounded())) min planned"
     }
 }
 

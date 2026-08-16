@@ -20,6 +20,9 @@ final class WeeklyPlan {
     /// Human-readable explanation of why this week looks the way it does.
     /// Phase 4's generator writes here; Phase 7's LLM layer will read from here.
     var generationReason: String
+    /// The dials this week's sessions were built from. Carried forward and
+    /// adjusted to produce the following week.
+    var parameters: TrainingParameters = TrainingParameters()
 
     @Relationship(deleteRule: .cascade, inverse: \PlannedWorkout.plan)
     var workouts: [PlannedWorkout]
@@ -32,6 +35,7 @@ final class WeeklyPlan {
         status: WeeklyPlanStatus = .active,
         generatedAt: Date = .now,
         generationReason: String = "",
+        parameters: TrainingParameters = TrainingParameters(),
         workouts: [PlannedWorkout] = []
     ) {
         self.id = id
@@ -41,6 +45,7 @@ final class WeeklyPlan {
         self.status = status
         self.generatedAt = generatedAt
         self.generationReason = generationReason
+        self.parameters = parameters
         self.workouts = workouts
     }
 

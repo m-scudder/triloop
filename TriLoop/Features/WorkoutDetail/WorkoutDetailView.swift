@@ -4,6 +4,8 @@ import SwiftUI
 struct WorkoutDetailView: View {
     let workout: PlannedWorkout
 
+    @State private var isPresentingFeedback = false
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
@@ -43,15 +45,47 @@ struct WorkoutDetailView: View {
                     Label("Add to Apple Watch", systemImage: "applewatch")
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.bordered)
                 .controlSize(.large)
                 .disabled(true)
                 .opacity(workout.discipline.isTrainingSession ? 1 : 0)
+
+                if workout.acceptsFeedback {
+                    completionSection
+                }
             }
             .padding(20)
         }
         .navigationTitle(workout.title)
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $isPresentingFeedback) {
+            FeedbackSheet(workout: workout)
+        }
+    }
+
+    @ViewBuilder
+    private var completionSection: some View {
+        if let feedback = workout.feedback {
+            LabeledSection(title: "Your report") {
+                VStack(alignment: .leading, spacing: 12) {
+                    FeedbackSummaryView(feedback: feedback)
+
+                    Button("Clear report", role: .destructive) {
+                        workout.clearCompletion()
+                    }
+                    .font(.subheadline)
+                }
+            }
+        } else {
+            Button {
+                isPresentingFeedback = true
+            } label: {
+                Label("Mark complete", systemImage: "checkmark.circle.fill")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+        }
     }
 
     private var header: some View {
