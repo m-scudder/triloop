@@ -8,6 +8,12 @@ struct TodayView: View {
     @State private var isScheduling = false
     @State private var scheduleMessage: String?
     @State private var checkInWorkout: PlannedWorkout?
+    @State private var activity: DailyActivity?
+    @State private var hourlySteps: [SamplePoint] = []
+    @State private var samples: WorkoutSamples?
+    @AppStorage("simulateHealthSamples") private var simulateSamples = false
+
+    private let health = HealthKitWorkoutImporter()
 
     var body: some View {
         NavigationStack {
@@ -52,6 +58,7 @@ struct TodayView: View {
                 RecoveryCheckInSheet(workout: workout)
             }
             .task {
+                await loadActivity()
                 guard automaticallySchedule, let plan = plans.currentPlan() else { return }
                 await autoScheduleIfPermitted(plan)
             }
@@ -73,6 +80,61 @@ struct TodayView: View {
         let scheduler = WorkoutKitScheduler()
         guard await scheduler.authorizationState() == .authorized else { return }
         _ = await WeekScheduler(scheduler: scheduler).scheduleWeek(plan)
+    }
+
+    /// All-day movement, shown as context rather than a target. TriLoop sets no
+    /// step goal: the plan decides the training, and steps are what else happened.
+    private func dailyActivity(_ activity: DailyActivity) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SectionEyebrow(text: "All day")
+
+            Card {
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack(alignment: .top, spacing: 8) {
+                        if let steps = activity.steps {
+                            StatTile(value: steps.formatted(.number), label: "Steps")
+                        }
+                        if let distance = activity.distanceMeters, distance > 0 {
+                            StatTile(
+                                value: TrainingFormatter.distance(meters: distance),
+                                label: "Walk + run"
+                            )
+                        }
+                    }
+
+                    if hourlySteps.contains(where: { $0.value > 0 }) {
+                        HourlyStepsChart(points: hourlySteps)
+                    }
+                }
+            }
+        }
+    }
+
+    private func loadActivity() async {
+        let todaysWorkout = plans.currentPlan().flatMap { plan in
+            TodayFocus.resolve(plan: plan).workoutID.flatMap { id in
+                plan.orderedWorkouts.first { $0.id == id }
+            }
+        }
+
+        #if DEBUG
+        if simulateSamples {
+            if let todaysWorkout, todaysWorkout.importedSummary != nil {
+                samples = SimulatedWorkoutSamples.make(for: todaysWorkout)
+            }
+            activity = DailyActivity(steps: 8_412, distanceMeters: 6_240)
+            hourlySteps = SimulatedDailySteps.today()
+            return
+        }
+        #endif
+
+        guard await health.authorizationStatus == .authorized else { return }
+        activity = try? await health.dailyActivity(on: .now)
+        hourlySteps = (try? await health.hourlySteps(on: .now)) ?? []
+
+        if let summary = todaysWorkout?.importedSummary {
+            samples = try? await health.samples(forWorkout: summary.healthKitUUID)
+        }
     }
 
     private func message(for outcome: WeekScheduler.Outcome) -> String {
@@ -129,36 +191,24 @@ struct TodayView: View {
                         SectionEyebrow(text: eyebrow(for: focus.kind))
                         FocusWorkoutCard(workout: workout)
                     }
+
+                    // Once today's session is in, the day's detail belongs here
+                    // rather than behind another tap.
+                    if let summary = workout.importedSummary {
+                        RecordedWorkoutView(workout: workout, summary: summary)
+
+                        if let samples, !samples.isEmpty {
+                            WorkoutChartsView(discipline: workout.discipline, samples: samples)
+                        }
+                    }
                 } else {
                     Text("This week is complete. Generate the next one when you're ready.")
                         .font(.body)
                         .foregroundStyle(.secondary)
                 }
 
-                VStack(alignment: .leading, spacing: 10) {
-                    SectionEyebrow(text: "This week")
-
-                    Card(padding: 4) {
-                        VStack(spacing: 0) {
-                            ForEach(plan.orderedWorkouts, id: \.id) { workout in
-                                NavigationLink {
-                                    WorkoutDetailView(workout: workout)
-                                } label: {
-                                    WorkoutRow(
-                                        workout: workout,
-                                        isToday: Calendar.current.isDateInToday(workout.date)
-                                    )
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 8)
-                                }
-                                .buttonStyle(.plain)
-
-                                if workout.id != plan.orderedWorkouts.last?.id {
-                                    Divider().padding(.leading, 10)
-                                }
-                            }
-                        }
-                    }
+                if let activity, activity.hasAnything {
+                    dailyActivity(activity)
                 }
             }
             .padding(.horizontal, 20)
@@ -182,17 +232,19 @@ struct TodayView: View {
     }
 }
 
-/// High-contrast hero for the session in focus. The only filled surface on the
-/// screen, so the eye lands on today's workout before anything else.
+/// High-contrast hero for the session in focus, coloured by its sport so the
+/// screen reads differently on a run day and a swim day.
 private struct FocusWorkoutCard: View {
     let workout: PlannedWorkout
+
+    private var surface: Color { workout.discipline.surface }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 12) {
                 Image(systemName: workout.discipline.symbolName)
                     .font(.headline)
-                    .foregroundStyle(Color.focusSurface)
+                    .foregroundStyle(surface)
                     .frame(width: 36, height: 36)
                     .background(Color.onFocusSurface, in: .circle)
 
@@ -250,18 +302,14 @@ private struct FocusWorkoutCard: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                     .background(Color.onFocusSurface, in: .rect(cornerRadius: 10))
-                    .foregroundStyle(Color.focusSurface)
+                    .foregroundStyle(surface)
             }
             .buttonStyle(.plain)
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.focusSurface, in: .rect(cornerRadius: 16))
-        // Keeps the card distinct from a near-black background in dark mode.
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(Color.onFocusSurface.opacity(0.12), lineWidth: 0.5)
-        )
+        .background(workout.discipline.gradient, in: .rect(cornerRadius: 16))
+        .shadow(color: surface.opacity(0.35), radius: 12, y: 6)
     }
 
     private var repeatCount: Int? {

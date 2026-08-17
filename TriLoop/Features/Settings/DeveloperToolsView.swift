@@ -11,6 +11,7 @@ struct DeveloperToolsView: View {
     @Query(sort: \WeeklyPlan.startDate, order: .reverse) private var plans: [WeeklyPlan]
 
     @State private var message: String?
+    @AppStorage("simulateHealthSamples") private var simulateSamples = false
 
     private struct Scenario: Identifiable {
         let id = UUID()
@@ -44,7 +45,7 @@ struct DeveloperToolsView: View {
 
     var body: some View {
         List {
-            if let plan = plans.currentPlan() {
+            if let plan = simulationPlan {
                 Section {
                     ForEach(scenarios) { scenario in
                         Button {
@@ -62,7 +63,7 @@ struct DeveloperToolsView: View {
                 } header: {
                     Text("Report week \(plan.weekNumber)")
                 } footer: {
-                    Text("Fills every training session with the same report, then Progress shows the analysis.")
+                    Text("Fills every training session with the same report, then creates the next week automatically.")
                 }
 
                 Section("Recovery check-ins") {
@@ -89,6 +90,12 @@ struct DeveloperToolsView: View {
                     Text("Simulated Apple Health")
                 } footer: {
                     Text("Stands in for an import so Workout Detail shows a Recorded section. Uses TriLoop's own model, not HealthKit.")
+                }
+
+                Section {
+                    Toggle("Simulate chart data", isOn: $simulateSamples)
+                } footer: {
+                    Text("Generates heart rate, cadence, pace and swim lengths so the charts can be seen without a real HealthKit session.")
                 }
 
                 Section {
@@ -127,11 +134,20 @@ struct DeveloperToolsView: View {
         Binding(get: { message != nil }, set: { if !$0 { message = nil } })
     }
 
+    /// Calendar selection stays on the real current week; simulation instead
+    /// advances through the first plan that has not already been completed.
+    private var simulationPlan: WeeklyPlan? {
+        plans
+            .filter { $0.status != .completed }
+            .min { $0.weekNumber < $1.weekNumber }
+    }
+
     private func complete(_ plan: WeeklyPlan, with draft: FeedbackDraft) {
         for workout in plan.trainingSessions {
             workout.recordCompletion(with: draft)
         }
         try? modelContext.save()
+        _ = PlanStore(context: modelContext).generateNextWeekIfReady(after: plan)
     }
 
     private func checkIn(_ plan: WeeklyPlan, pain: Int, soreness: SorenessLevel, energy: EnergyLevel) {

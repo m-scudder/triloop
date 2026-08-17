@@ -11,6 +11,11 @@ struct WorkoutDetailView: View {
     @State private var isScheduled = false
     @State private var scheduleMessage: String?
     @State private var isConfirmingShift = false
+    @State private var samples: WorkoutSamples?
+    @State private var samplesFailure: String?
+    @AppStorage("simulateHealthSamples") private var simulateSamples = false
+
+    private let health = HealthKitWorkoutImporter()
 
     var body: some View {
         ScrollView {
@@ -21,6 +26,14 @@ struct WorkoutDetailView: View {
                 // leads with what to do.
                 if let summary = workout.importedSummary {
                     RecordedWorkoutView(workout: workout, summary: summary)
+
+                    if let samples, !samples.isEmpty {
+                        WorkoutChartsView(discipline: workout.discipline, samples: samples)
+                    } else if let samplesFailure {
+                        Text(samplesFailure)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
                 }
 
                 if let feedback = workout.feedback {
@@ -77,7 +90,10 @@ struct WorkoutDetailView: View {
         }
         .navigationTitle("Workout")
         .navigationBarTitleDisplayMode(.inline)
-        .task { await refreshScheduledState() }
+        .task {
+            await refreshScheduledState()
+            await loadSamples()
+        }
         .confirmationDialog(
             "Move the rest of the week forward by one day?",
             isPresented: $isConfirmingShift,
@@ -161,8 +177,36 @@ struct WorkoutDetailView: View {
         .background(.bar)
     }
 
-    private func refreshScheduledState() async {
-        isScheduled = await scheduler.scheduledWorkoutIDs().contains(workout.id)
+    /// Fetched rather than stored: HealthKit already holds every sample, and a
+    /// copy would be a lot of data for a screen opened occasionally.
+    private func loadSamples() async {
+        guard let id = workout.importedSummary?.healthKitUUID else { return }
+
+        #if DEBUG
+        if simulateSamples {
+            samples = SimulatedWorkoutSamples.make(for: workout)
+            samplesFailure = nil
+            return
+        }
+        #endif
+
+        guard await health.authorizationStatus == .authorized else {
+            samplesFailure = "Connect Apple Health to see heart rate and pace detail."
+            return
+        }
+
+        do {
+            let loaded = try await health.samples(forWorkout: id)
+            samples = loaded
+            samplesFailure = loaded.isEmpty
+                ? "Apple Health has no heart rate or pace samples for this session."
+                : nil
+        } catch {
+            samplesFailure = "Could not read the detail for this session."
+        }
+    }
+
+    private func refreshScheduledState() async {        isScheduled = await scheduler.scheduledWorkoutIDs().contains(workout.id)
     }
 
     private func sendToWatch() {

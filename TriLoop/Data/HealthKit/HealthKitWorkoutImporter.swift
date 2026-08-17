@@ -12,6 +12,7 @@ final class HealthKitWorkoutImporter: HealthDataProviding, @unchecked Sendable {
         [
             HKObjectType.workoutType(),
             HKQuantityType(.heartRate),
+            HKQuantityType(.stepCount),
             HKQuantityType(.distanceWalkingRunning),
             HKQuantityType(.distanceCycling),
             HKQuantityType(.distanceSwimming)
@@ -58,8 +59,167 @@ final class HealthKitWorkoutImporter: HealthDataProviding, @unchecked Sendable {
         return try await descriptor.result(for: store).compactMap(Self.normalize)
     }
 
-    private func requestStatus() async throws -> HKAuthorizationRequestStatus {
-        try await withCheckedThrowingContinuation { continuation in
+    func dailyActivity(on date: Date) async throws -> DailyActivity {
+        guard HKHealthStore.isHealthDataAvailable() else {
+            throw HealthDataError.unavailableOnThisDevice
+        }
+
+        let calendar = Calendar.current
+        let start = calendar.startOfDay(for: date)
+        let end = calendar.date(byAdding: .day, value: 1, to: start) ?? date
+        let range = HKQuery.predicateForSamples(withStart: start, end: end, options: [.strictStartDate])
+
+        async let steps = sum(HKQuantityType(.stepCount), in: range)
+        async let distance = sum(HKQuantityType(.distanceWalkingRunning), in: range)
+
+        return DailyActivity(
+            steps: try await steps.map { Int($0.doubleValue(for: .count())) },
+            distanceMeters: try await distance.map { $0.doubleValue(for: .meter()) }
+        )
+    }
+
+    private func sum(_ type: HKQuantityType, in predicate: NSPredicate) async throws -> HKQuantity? {
+        let descriptor = HKStatisticsQueryDescriptor(
+            predicate: .quantitySample(type: type, predicate: predicate),
+            options: .cumulativeSum
+        )
+        return try await descriptor.result(for: store)?.sumQuantity()
+    }
+
+    func hourlySteps(on date: Date) async throws -> [SamplePoint] {
+        let calendar = Calendar.current
+        let start = calendar.startOfDay(for: date)
+        let end = calendar.date(byAdding: .day, value: 1, to: start) ?? date
+
+        let descriptor = HKStatisticsCollectionQueryDescriptor(
+            predicate: .quantitySample(
+                type: HKQuantityType(.stepCount),
+                predicate: HKQuery.predicateForSamples(withStart: start, end: end)
+            ),
+            options: .cumulativeSum,
+            anchorDate: start,
+            intervalComponents: DateComponents(hour: 1)
+        )
+
+        let collection = try await descriptor.result(for: store)
+        var points: [SamplePoint] = []
+
+        collection.enumerateStatistics(from: start, to: end) { statistics, _ in
+            let steps = statistics.sumQuantity()?.doubleValue(for: .count()) ?? 0
+            points.append(SamplePoint(date: statistics.startDate, value: steps))
+        }
+        return points
+    }
+
+    func samples(forWorkout id: UUID) async throws -> WorkoutSamples {
+        guard HKHealthStore.isHealthDataAvailable() else {
+            throw HealthDataError.unavailableOnThisDevice
+        }
+        guard let workout = try await workout(with: id) else { return WorkoutSamples() }
+
+        // Scoped by time rather than by workout association: samples recorded
+        // alongside a session are not always linked to it, and an association
+        // filter silently returns nothing when they are not.
+        let scope = HKQuery.predicateForSamples(
+            withStart: workout.startDate,
+            end: workout.endDate,
+            options: [.strictStartDate]
+        )
+        let minute = DateComponents(minute: 1)
+
+        async let heartRate = series(
+            HKQuantityType(.heartRate),
+            unit: .heartRate,
+            options: .discreteAverage,
+            scope: scope,
+            workout: workout,
+            interval: minute
+        )
+        async let cadence = series(
+            HKQuantityType(.stepCount),
+            unit: .count(),
+            options: .cumulativeSum,
+            scope: scope,
+            workout: workout,
+            interval: minute
+        )
+        async let distance = series(
+            workout.workoutActivityType.sport?.healthKitDistanceType ?? HKQuantityType(.distanceWalkingRunning),
+            unit: .meter(),
+            options: .cumulativeSum,
+            scope: scope,
+            workout: workout,
+            interval: minute
+        )
+
+        return WorkoutSamples(
+            heartRate: try await heartRate,
+            cadence: try await cadence,
+            distancePerMinute: try await distance,
+            swimLengths: Self.lengthPoints(from: workout)
+        )
+    }
+
+    private func workout(with id: UUID) async throws -> HKWorkout? {
+        let descriptor = HKSampleQueryDescriptor(
+            predicates: [.workout(HKQuery.predicateForObject(with: id))],
+            sortDescriptors: [],
+            limit: 1
+        )
+        return try await descriptor.result(for: store).first
+    }
+
+    /// Bucketed rather than raw: a 30 minute run can hold hundreds of heart-rate
+    /// samples, which is far more than a chart can show usefully.
+    private func series(
+        _ type: HKQuantityType,
+        unit: HKUnit,
+        options: HKStatisticsOptions,
+        scope: NSPredicate,
+        workout: HKWorkout,
+        interval: DateComponents
+    ) async throws -> [SamplePoint] {
+        let descriptor = HKStatisticsCollectionQueryDescriptor(
+            predicate: .quantitySample(type: type, predicate: scope),
+            options: options,
+            anchorDate: workout.startDate,
+            intervalComponents: interval
+        )
+
+        let collection = try await descriptor.result(for: store)
+        var points: [SamplePoint] = []
+
+        collection.enumerateStatistics(from: workout.startDate, to: workout.endDate) { statistics, _ in
+            let quantity = options == .cumulativeSum
+                ? statistics.sumQuantity()
+                : statistics.averageQuantity()
+            guard let value = quantity?.doubleValue(for: unit) else { return }
+            points.append(SamplePoint(date: statistics.startDate, value: value))
+        }
+        return points
+    }
+
+    private static func lengthPoints(from workout: HKWorkout) -> [SwimLengthPoint] {
+        let lengths = workout.swimmingLengths.sorted { $0.interval.start < $1.interval.start }
+        var points: [SwimLengthPoint] = []
+        var previousEnd: Date?
+
+        for (index, length) in lengths.enumerated() {
+            let rested = previousEnd.map { length.interval.start.timeIntervalSince($0) > restThreshold } ?? false
+            points.append(
+                SwimLengthPoint(
+                    index: index + 1,
+                    seconds: length.interval.duration,
+                    meters: length.meters,
+                    followedRest: rested
+                )
+            )
+            previousEnd = length.interval.end
+        }
+        return points
+    }
+
+    private func requestStatus() async throws -> HKAuthorizationRequestStatus {        try await withCheckedThrowingContinuation { continuation in
             store.getRequestStatusForAuthorization(toShare: [], read: readTypes) { status, error in
                 if let error {
                     continuation.resume(throwing: error)

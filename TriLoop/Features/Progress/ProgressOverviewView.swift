@@ -10,14 +10,33 @@ struct ProgressOverviewView: View {
         TrainingStatistics(plans: plans)
     }
 
+    private var current: CurrentTraining? {
+        CurrentTraining(plans: plans)
+    }
+
+    /// Newest first, across every week, so an older session is one tap away
+    /// rather than several weeks of navigation.
+    private var recentSessions: [PlannedWorkout] {
+        plans
+            .flatMap(\.trainingSessions)
+            .filter { $0.isCompleted }
+            .sorted { $0.date > $1.date }
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
+                    if let current, current.hasData {
+                        currentTraining(current)
+                    }
                     overview
                     if stats.hasData {
                         bySport
                         keyStats
+                    }
+                    if !recentSessions.isEmpty {
+                        history
                     }
                     weeks
                 }
@@ -25,6 +44,55 @@ struct ProgressOverviewView: View {
                 .padding(.bottom, 24)
             }
             .navigationTitle("Progress")
+        }
+    }
+
+    /// The headline TriLoop can give that a workout log cannot: what you are on
+    /// now, and which way it is going.
+    private func currentTraining(_ current: CurrentTraining) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SectionEyebrow(text: "Where you are now")
+
+            VStack(spacing: 10) {
+                ForEach(current.states) { state in
+                    HStack(spacing: 14) {
+                        Image(systemName: state.sport.discipline.symbolName)
+                            .font(.headline)
+                            .foregroundStyle(.white)
+                            .frame(width: 42, height: 42)
+                            .background(state.sport.discipline.gradient, in: .rect(cornerRadius: 12))
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(state.sport.displayName)
+                                .font(.subheadline.weight(.semibold))
+                            Text(state.prescription)
+                                .font(.subheadline)
+                                .monospacedDigit()
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Spacer(minLength: 8)
+
+                        if let status = state.status {
+                            HStack(spacing: 4) {
+                                Image(systemName: status.directionSymbol)
+                                Text(status.directionLabel)
+                            }
+                            .font(.caption.weight(.medium))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 5)
+                            .background(status.tint.opacity(0.16), in: .capsule)
+                            .foregroundStyle(status.tint)
+                        }
+                    }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(state.sport.discipline.tint.opacity(0.14))
+                    )
+                }
+            }
         }
     }
 
@@ -57,7 +125,7 @@ struct ProgressOverviewView: View {
                             HStack {
                                 Image(systemName: totals.sport.discipline.symbolName)
                                     .font(.footnote)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(totals.sport.discipline.tint)
                                 Text(totals.sport.displayName)
                                     .font(.subheadline.weight(.medium))
                                 Spacer()
@@ -68,7 +136,10 @@ struct ProgressOverviewView: View {
                             Text("\(totals.sessions) workout\(totals.sessions == 1 ? "" : "s")")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
-                            ProportionBar(fraction: share(of: totals))
+                            ProportionBar(
+                                fraction: share(of: totals),
+                                tint: totals.sport.discipline.tint
+                            )
                         }
                     }
                 }
@@ -107,8 +178,82 @@ struct ProgressOverviewView: View {
         .padding(.vertical, 12)
     }
 
-    private var weeks: some View {
+    private var history: some View {
         VStack(alignment: .leading, spacing: 10) {
+            SectionEyebrow(text: "Sessions")
+
+            Card(padding: 0) {
+                VStack(spacing: 0) {
+                    ForEach(recentSessions, id: \.id) { session in
+                        NavigationLink {
+                            WorkoutDetailView(workout: session)
+                        } label: {
+                            sessionRow(session)
+                        }
+                        .buttonStyle(.plain)
+
+                        if session.id != recentSessions.last?.id {
+                            Divider().padding(.leading, 62)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func sessionRow(_ session: PlannedWorkout) -> some View {
+        HStack(spacing: 12) {
+            DisciplineBadge(discipline: session.discipline, size: 38)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(session.date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)))
+                    .font(.subheadline.weight(.medium))
+                Text(sessionDetail(session))
+                    .font(.caption)
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer(minLength: 8)
+
+            if session.awaitingFeedback {
+                Image(systemName: "exclamationmark.circle.fill")
+                    .font(.footnote)
+                    .foregroundStyle(.orange)
+            }
+
+            Image(systemName: "chevron.right")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
+
+    private func sessionDetail(_ session: PlannedWorkout) -> String {
+        var parts: [String] = []
+
+        if let summary = session.importedSummary {
+            if session.discipline == .swimming, let distance = summary.distanceMeters, distance > 0 {
+                parts.append(TrainingFormatter.distance(meters: distance))
+            } else {
+                parts.append(TrainingFormatter.totalDuration(seconds: summary.duration))
+            }
+            if let heartRate = summary.averageHeartRate {
+                parts.append("\(Int(heartRate.rounded())) bpm")
+            }
+        } else if let summary = WorkoutSummaryText.make(for: session) {
+            parts.append(summary)
+        }
+
+        if let rpe = session.feedback?.rpe {
+            parts.append("RPE \(rpe)")
+        }
+
+        return parts.isEmpty ? session.title : parts.joined(separator: " · ")
+    }
+
+    private var weeks: some View {        VStack(alignment: .leading, spacing: 10) {
             SectionEyebrow(text: "Training weeks")
 
             if plans.isEmpty {

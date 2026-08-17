@@ -32,6 +32,15 @@ struct PlanStore {
         return next
     }
 
+    /// Advances only when every training session has a subjective report.
+    /// Imported data alone is deliberately insufficient: the engine needs RPE,
+    /// pain and recovery before it can safely prescribe another week.
+    @discardableResult
+    func generateNextWeekIfReady(after plan: WeeklyPlan) -> WeeklyPlan? {
+        guard analyser.analyse(plan).isReadyForNextWeek else { return nil }
+        return generateNextWeek(after: plan)
+    }
+
     struct ShiftOutcome: Equatable, Sendable {
         var moved: Int = 0
         /// The session pushed off the end of the week, if it was a real one.

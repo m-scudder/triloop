@@ -162,6 +162,23 @@ struct WeeklyPlanGeneratorTests {
         #expect(week1.status == .completed)
     }
 
+    @Test("A fully reported week advances without a separate generate action")
+    func completedWeekAdvancesAutomatically() throws {
+        let context = ModelContext(try TriLoopModelContainer.make(inMemory: true))
+        let week1 = seededWeek()
+        context.insert(week1)
+        completeEverything(week1, with: FeedbackDraft(rpe: 3, painScore: 0))
+        try context.save()
+
+        let store = PlanStore(context: context, generator: generator())
+        let week2 = try #require(store.generateNextWeekIfReady(after: week1))
+
+        #expect(week1.status == .completed)
+        #expect(week2.weekNumber == 2)
+        #expect([week1, week2].currentPlan(on: week1.startDate, calendar: calendar)?.weekNumber == 2)
+        #expect(store.generateNextWeekIfReady(after: week1) == nil)
+    }
+
     @Test("The current week is the one containing today, not the newest")
     func currentPlanPrefersTheWeekInProgress() {
         let week1 = seededWeek()

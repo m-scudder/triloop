@@ -189,6 +189,9 @@ struct FeedbackSheet: View {
     private func save() {
         workout.recordCompletion(with: draft)
         try? modelContext.save()
+        if let plan = workout.plan {
+            _ = PlanStore(context: modelContext).generateNextWeekIfReady(after: plan)
+        }
         dismiss()
     }
 }
