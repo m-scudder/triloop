@@ -7,10 +7,64 @@ import Foundation
 /// shape of the workout it is progressing.
 enum WorkoutTemplates {
 
+    /// Builds whichever session a schedule slot calls for.
+    static func session(
+        _ discipline: Discipline,
+        on date: Date,
+        parameters: TrainingParameters,
+        goal: String? = nil
+    ) -> PlannedWorkout {
+        switch discipline {
+        case .running: runWalk(on: date, parameters: parameters, goal: goal)
+        case .swimming: techniqueSwim(on: date, parameters: parameters, goal: goal)
+        case .cycling: easyRide(on: date, parameters: parameters, goal: goal)
+        case .recovery: recoveryDay(on: date, goal: goal)
+        case .rest: restDay(on: date)
+        }
+    }
+
     static func runWalk(
         on date: Date,
         parameters: TrainingParameters,
         goal: String? = nil
+    ) -> PlannedWorkout {
+        parameters.runIsContinuous
+            ? continuousRun(on: date, parameters: parameters, goal: goal)
+            : intervalRun(on: date, parameters: parameters, goal: goal)
+    }
+
+    private static func continuousRun(
+        on date: Date,
+        parameters: TrainingParameters,
+        goal: String?
+    ) -> PlannedWorkout {
+        let steps: [WorkoutStep] = [
+            .warmUp(order: 0, title: "Brisk walk", durationSeconds: parameters.runWarmUpSeconds),
+            WorkoutStep(
+                order: 1,
+                kind: .work,
+                title: "Easy run",
+                instructions: "No walk breaks. Slow down rather than stopping.",
+                durationSeconds: parameters.runContinuousSeconds,
+                targetIntensity: .easy
+            ),
+            .cooldown(order: 2, title: "Easy walk", durationSeconds: parameters.runCooldownSeconds)
+        ]
+
+        return PlannedWorkout(
+            date: date,
+            discipline: .running,
+            title: "Running",
+            goal: goal ?? "Hold one steady, conversational effort the whole way.",
+            targetRPE: RPERange(3, 4),
+            steps: steps
+        )
+    }
+
+    private static func intervalRun(
+        on date: Date,
+        parameters: TrainingParameters,
+        goal: String?
     ) -> PlannedWorkout {
         let steps: [WorkoutStep] = [
             .warmUp(order: 0, title: "Brisk walk", durationSeconds: parameters.runWarmUpSeconds),

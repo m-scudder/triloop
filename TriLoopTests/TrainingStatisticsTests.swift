@@ -21,7 +21,7 @@ struct TrainingStatisticsTests {
     }
 
     private func plan() -> WeeklyPlan {
-        SeedWeekOne.makePlan(startDate: monday(), calendar: calendar)
+        SeedWeekOne.makePlan(startDate: monday(), calendar: calendar, availability: .everything)
     }
 
     @Test("An untouched week has no statistics")
@@ -56,10 +56,10 @@ struct TrainingStatisticsTests {
 
         let stats = TrainingStatistics(plans: [plan], now: monday(), calendar: calendar)
 
-        #expect(stats.sessions == 5)
+        #expect(stats.sessions == 6)
         #expect(stats.bySport.map(\.sport) == [.running, .swimming, .cycling])
-        // Two 28 min runs, two 300 m swims and a 30 min ride.
-        #expect(stats.totalDuration == TimeInterval(2 * 1680 + 1800))
+        // Two 28 min runs, two 300 m swims and two 30 min rides.
+        #expect(stats.totalDuration == TimeInterval(2 * 1680 + 2 * 1800))
         #expect(stats.totalDistance == 600)
     }
 

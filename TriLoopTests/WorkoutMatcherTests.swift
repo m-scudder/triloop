@@ -42,7 +42,7 @@ struct WorkoutMatcherTests {
     }
 
     private func plan() -> WeeklyPlan {
-        SeedWeekOne.makePlan(startDate: monday(), calendar: calendar)
+        SeedWeekOne.makePlan(startDate: monday(), calendar: calendar, availability: .everything)
     }
 
     private func matcher(toleranceDays: Int = 1) -> WorkoutMatcher {
@@ -135,13 +135,14 @@ struct WorkoutMatcherTests {
             with: [
                 activity(.running, at: day(0)),
                 activity(.swimming, at: day(1), distance: 300),
+                activity(.cycling, at: day(2), duration: 1800),
                 activity(.running, at: day(3)),
                 activity(.swimming, at: day(4), distance: 300),
                 activity(.cycling, at: day(5), duration: 1800)
             ]
         )
 
-        #expect(result.matches.count == 5)
+        #expect(result.matches.count == 6)
         #expect(result.unmatchedPlanned.isEmpty)
         #expect(result.unmatchedImported.isEmpty)
     }

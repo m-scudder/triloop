@@ -13,6 +13,9 @@ struct TrainingParameters: Codable, Equatable, Sendable {
     var runWalkSeconds: TimeInterval = 120
     var runRepeatCount: Int = 6
     var runCooldownSeconds: TimeInterval = 5 * 60
+    /// Once the walk breaks are no longer needed, running becomes one block.
+    var runIsContinuous: Bool = false
+    var runContinuousSeconds: TimeInterval = 0
 
     var swimRepeatDistanceMeters: Double = 25
     var swimTotalMeters: Double = 300
@@ -23,6 +26,32 @@ struct TrainingParameters: Codable, Equatable, Sendable {
     var rideCooldownSeconds: TimeInterval = 5 * 60
 
     init() {}
+
+    /// Decoded key by key so parameters stored by an older build, which had
+    /// fewer fields, still load. The synthesized decoder would throw on the
+    /// missing keys and take the whole plan with it.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let defaults = TrainingParameters()
+
+        func value<T: Decodable>(_ key: CodingKeys, _ fallback: T) -> T {
+            (try? container.decodeIfPresent(T.self, forKey: key)) as? T ?? fallback
+        }
+
+        runWarmUpSeconds = value(.runWarmUpSeconds, defaults.runWarmUpSeconds)
+        runIntervalSeconds = value(.runIntervalSeconds, defaults.runIntervalSeconds)
+        runWalkSeconds = value(.runWalkSeconds, defaults.runWalkSeconds)
+        runRepeatCount = value(.runRepeatCount, defaults.runRepeatCount)
+        runCooldownSeconds = value(.runCooldownSeconds, defaults.runCooldownSeconds)
+        runIsContinuous = value(.runIsContinuous, defaults.runIsContinuous)
+        runContinuousSeconds = value(.runContinuousSeconds, defaults.runContinuousSeconds)
+        swimRepeatDistanceMeters = value(.swimRepeatDistanceMeters, defaults.swimRepeatDistanceMeters)
+        swimTotalMeters = value(.swimTotalMeters, defaults.swimTotalMeters)
+        swimRestSeconds = value(.swimRestSeconds, defaults.swimRestSeconds)
+        rideWarmUpSeconds = value(.rideWarmUpSeconds, defaults.rideWarmUpSeconds)
+        rideWorkSeconds = value(.rideWorkSeconds, defaults.rideWorkSeconds)
+        rideCooldownSeconds = value(.rideCooldownSeconds, defaults.rideCooldownSeconds)
+    }
 }
 
 extension TrainingParameters {
@@ -34,6 +63,8 @@ extension TrainingParameters {
         static let minimumSwimRestSeconds: TimeInterval = 20
         static let minimumSwimMeters: Double = 100
         static let minimumRideWorkSeconds: TimeInterval = 10 * 60
+        static let minimumRunWalkSeconds: TimeInterval = 30
+        static let minimumContinuousRunSeconds: TimeInterval = 8 * 60
     }
 
     func applying(_ adjustment: TrainingAdjustment, to sport: Sport) -> TrainingParameters {
@@ -47,6 +78,27 @@ extension TrainingParameters {
             next.runIntervalSeconds = max(
                 runIntervalSeconds + delta,
                 Limits.minimumRunIntervalSeconds
+            )
+
+        case .runWalkDuration(let delta):
+            next.runWalkSeconds = max(
+                runWalkSeconds + delta,
+                Limits.minimumRunWalkSeconds
+            )
+
+        case .graduateToContinuousRun:
+            next.runIsContinuous = true
+            // Half the interval work, not all of it: running without breaks is
+            // harder than the same minutes broken up.
+            next.runContinuousSeconds = max(
+                (runIntervalSeconds * Double(runRepeatCount) / 2).rounded(),
+                Limits.minimumContinuousRunSeconds
+            )
+
+        case .runContinuousDuration(let delta):
+            next.runContinuousSeconds = max(
+                runContinuousSeconds + delta,
+                Limits.minimumContinuousRunSeconds
             )
 
         case .rideDuration(let delta):
@@ -81,10 +133,17 @@ extension TrainingParameters {
 
         switch sport {
         case .running:
-            runRepeatCount = max(
-                Int((Double(runRepeatCount) * remaining).rounded()),
-                Limits.minimumRunRepeatCount
-            )
+            if runIsContinuous {
+                runContinuousSeconds = max(
+                    (runContinuousSeconds * remaining).rounded(),
+                    Limits.minimumContinuousRunSeconds
+                )
+            } else {
+                runRepeatCount = max(
+                    Int((Double(runRepeatCount) * remaining).rounded()),
+                    Limits.minimumRunRepeatCount
+                )
+            }
         case .swimming:
             swimTotalMeters = Self.roundedToRepeat(
                 max(swimTotalMeters * remaining, Limits.minimumSwimMeters),

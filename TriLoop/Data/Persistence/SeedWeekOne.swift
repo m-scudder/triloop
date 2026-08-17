@@ -25,38 +25,31 @@ enum SeedWeekOne {
 
     static func makePlan(
         startDate: Date? = nil,
-        calendar: Calendar = .current
+        calendar: Calendar = .current,
+        availability: SportAvailability? = nil
     ) -> WeeklyPlan {
         let monday = calendar.startOfDay(for: startDate ?? defaultStartDate(calendar: calendar))
         let parameters = TrainingParameters()
+        let schedule = WeeklySchedule.forWeek(
+            starting: monday,
+            availability: availability ?? .athlete(calendar: calendar),
+            calendar: calendar
+        )
 
         func day(_ offset: Int) -> Date {
             calendar.date(byAdding: .day, value: offset, to: monday) ?? monday
         }
 
-        let workouts: [PlannedWorkout] = [
-            WorkoutTemplates.runWalk(on: day(0), parameters: parameters),
-            WorkoutTemplates.techniqueSwim(on: day(1), parameters: parameters),
-            WorkoutTemplates.recoveryDay(
-                on: day(2),
-                goal: "Let the first run and swim settle before repeating them."
-            ),
-            WorkoutTemplates.runWalk(on: day(3), parameters: parameters),
-            WorkoutTemplates.techniqueSwim(on: day(4), parameters: parameters),
-            WorkoutTemplates.easyRide(
-                on: day(5),
-                parameters: parameters,
-                goal: "First ride on the new bike. Get used to handling, position and gearing."
-            ),
-            WorkoutTemplates.restDay(on: day(6))
-        ]
+        let workouts = schedule.disciplines.enumerated().map { offset, discipline in
+            WorkoutTemplates.session(discipline, on: day(offset), parameters: parameters)
+        }
 
         return WeeklyPlan(
             weekNumber: 1,
             startDate: monday,
-            endDate: day(6),
+            endDate: day(schedule.disciplines.count - 1),
             status: .active,
-            generationReason: "First week. Introductory volume across all three sports, with cycling starting Saturday.",
+            generationReason: "First week. Running while the bike arrives, then two easy rides to finish.",
             parameters: parameters,
             workouts: workouts
         )

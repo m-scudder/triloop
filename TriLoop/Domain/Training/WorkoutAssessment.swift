@@ -104,6 +104,11 @@ enum TrainingAdjustment: Equatable, Sendable {
     case hold
     /// Lengthen or shorten the running interval, leaving the count and walk recovery alone.
     case runIntervalDuration(deltaSeconds: TimeInterval)
+    /// Shorten the walk between running intervals, leaving the running alone.
+    case runWalkDuration(deltaSeconds: TimeInterval)
+    /// Drop the walk breaks entirely and run the session as one block.
+    case graduateToContinuousRun
+    case runContinuousDuration(deltaSeconds: TimeInterval)
     case rideDuration(deltaSeconds: TimeInterval)
     /// Tighten rest between swim repeats before touching distance.
     case swimRestDuration(deltaSeconds: TimeInterval)
@@ -117,6 +122,12 @@ enum TrainingAdjustment: Equatable, Sendable {
             "Repeat a similar workload"
         case .runIntervalDuration(let delta):
             "\(Self.signed(Int(delta)))s per running interval"
+        case .runWalkDuration(let delta):
+            "\(Self.signed(Int(delta)))s of walking between intervals"
+        case .graduateToContinuousRun:
+            "Run continuously, without walk breaks"
+        case .runContinuousDuration(let delta):
+            "\(Self.signed(Int(delta / 60))) min of continuous running"
         case .rideDuration(let delta):
             "\(Self.signed(Int(delta / 60))) min of riding"
         case .swimRestDuration(let delta):

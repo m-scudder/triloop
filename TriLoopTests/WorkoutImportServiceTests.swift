@@ -60,7 +60,7 @@ struct WorkoutImportServiceTests {
     }
 
     private func seededPlan(in context: ModelContext) -> WeeklyPlan {
-        let plan = SeedWeekOne.makePlan(startDate: monday(), calendar: calendar)
+        let plan = SeedWeekOne.makePlan(startDate: monday(), calendar: calendar, availability: .everything)
         context.insert(plan)
         return plan
     }

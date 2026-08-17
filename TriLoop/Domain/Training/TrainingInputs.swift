@@ -36,8 +36,11 @@ struct WorkoutResult: Equatable, Sendable {
     let distanceMeters: Double?
     let averageHeartRate: Double?
     /// Rest prescribed between intervals. Drives the swimming lever, which
-    /// tightens rest before adding volume.
+    /// tightens rest before adding volume, and the running walk break.
     let prescribedRestSeconds: TimeInterval?
+    /// Length of one running interval. `nil` once running is continuous, which
+    /// is how the engine knows the walk breaks are already gone.
+    let prescribedIntervalSeconds: TimeInterval?
 
     init(
         sport: Sport,
@@ -45,7 +48,8 @@ struct WorkoutResult: Equatable, Sendable {
         durationSeconds: TimeInterval? = nil,
         distanceMeters: Double? = nil,
         averageHeartRate: Double? = nil,
-        prescribedRestSeconds: TimeInterval? = nil
+        prescribedRestSeconds: TimeInterval? = nil,
+        prescribedIntervalSeconds: TimeInterval? = nil
     ) {
         self.sport = sport
         // Over-completion is still just "finished it" as far as triage is concerned.
@@ -54,6 +58,7 @@ struct WorkoutResult: Equatable, Sendable {
         self.distanceMeters = distanceMeters
         self.averageHeartRate = averageHeartRate
         self.prescribedRestSeconds = prescribedRestSeconds
+        self.prescribedIntervalSeconds = prescribedIntervalSeconds
     }
 }
 

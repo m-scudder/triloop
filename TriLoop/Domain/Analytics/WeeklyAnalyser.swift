@@ -44,7 +44,10 @@ struct WeeklyAnalyser: Sendable {
                     durationSeconds: workout.importedSummary?.duration ?? workout.estimatedDurationSeconds,
                     distanceMeters: workout.importedSummary?.distanceMeters ?? workout.estimatedDistanceMeters,
                     averageHeartRate: workout.importedSummary?.averageHeartRate,
-                    prescribedRestSeconds: sport == .swimming ? parameters.swimRestSeconds : nil
+                    prescribedRestSeconds: restSeconds(for: sport, parameters: parameters),
+                    prescribedIntervalSeconds: sport == .running && !parameters.runIsContinuous
+                        ? parameters.runIntervalSeconds
+                        : nil
                 ),
                 feedback: FeedbackSummary(report),
                 recovery: workout.recoveryCheckIn.map(RecoverySummary.init)
@@ -93,5 +96,14 @@ extension PlannedWorkout {
     /// Completed *and* reported on. A session without feedback cannot be assessed.
     var hasReport: Bool {
         isCompleted && feedback != nil
+    }
+}
+
+/// Rest means the walk break for running and the poolside rest for swimming.
+private func restSeconds(for sport: Sport, parameters: TrainingParameters) -> TimeInterval? {
+    switch sport {
+    case .swimming: parameters.swimRestSeconds
+    case .running: parameters.runIsContinuous ? nil : parameters.runWalkSeconds
+    case .cycling: nil
     }
 }

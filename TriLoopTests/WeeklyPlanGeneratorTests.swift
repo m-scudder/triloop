@@ -23,11 +23,11 @@ struct WeeklyPlanGeneratorTests {
     }
 
     private func seededWeek() -> WeeklyPlan {
-        SeedWeekOne.makePlan(startDate: monday(), calendar: calendar)
+        SeedWeekOne.makePlan(startDate: monday(), calendar: calendar, availability: .everything)
     }
 
     private func generator() -> WeeklyPlanGenerator {
-        WeeklyPlanGenerator(calendar: calendar)
+        WeeklyPlanGenerator(availability: .everything, calendar: calendar)
     }
 
     private func nextWeek(after plan: WeeklyPlan) -> WeeklyPlan {

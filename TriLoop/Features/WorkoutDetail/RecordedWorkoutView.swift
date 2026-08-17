@@ -1,93 +1,105 @@
 import SwiftUI
 
-/// What was actually recorded, shown beside what was prescribed.
+/// What was actually recorded, led by the headline figure.
 ///
-/// Every metric is optional because HealthKit may not hold it for a given
-/// session. Missing values are omitted rather than shown as zero, which would
-/// read as a real measurement.
+/// A finished session should read as something achieved rather than a table of
+/// readings, so the number that matters for that sport is set large and the rest
+/// supports it. Missing metrics are omitted rather than shown as zero, which
+/// would read as a real measurement.
 struct RecordedWorkoutView: View {
     let workout: PlannedWorkout
     let summary: ImportedWorkoutSummary
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SectionEyebrow(text: "Recorded")
+        Card {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.seal.fill")
+                        .foregroundStyle(.green)
+                    Text("Completed")
+                        .font(.subheadline.weight(.semibold))
+                    Spacer(minLength: 0)
+                    Text(summary.startDate.formatted(date: .abbreviated, time: .shortened))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
 
-            Card {
-                VStack(alignment: .leading, spacing: 14) {
-                    HStack(alignment: .top, spacing: 8) {
-                        StatTile(
-                            value: TrainingFormatter.totalDuration(seconds: summary.duration),
-                            label: "Duration"
-                        )
-                        if let distance = summary.distanceMeters, distance > 0 {
-                            StatTile(
-                                value: TrainingFormatter.distance(meters: distance),
-                                label: "Distance"
-                            )
-                        }
-                        StatTile(
-                            value: "\(Int((workout.recordedCompletion * 100).rounded()))%",
-                            label: "Of plan"
-                        )
-                    }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(headline)
+                        .font(.largeTitle.weight(.semibold))
+                        .monospacedDigit()
+                    Text(subheadline)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
 
-                    if summary.averageHeartRate != nil || summary.elevationAscendedMeters != nil {
-                        Divider()
+                completionBar
 
-                        HStack(alignment: .top, spacing: 8) {
-                            if let average = summary.averageHeartRate {
-                                StatTile(value: "\(Int(average.rounded()))", label: "Avg bpm")
-                            }
-                            if let maximum = summary.maximumHeartRate {
-                                StatTile(value: "\(Int(maximum.rounded()))", label: "Max bpm")
-                            }
-                            if let elevation = summary.elevationAscendedMeters {
-                                StatTile(
-                                    value: TrainingFormatter.distance(meters: elevation),
-                                    label: "Ascent"
-                                )
-                            }
-                        }
-                    }
-
-                    if summary.swimmingLengths != nil || summary.longestContinuousSwimMeters != nil {
-                        Divider()
-
-                        HStack(alignment: .top, spacing: 8) {
-                            if let lengths = summary.swimmingLengths {
-                                StatTile(value: "\(lengths)", label: "Lengths")
-                            }
-                            if let continuous = summary.longestContinuousSwimMeters {
-                                StatTile(
-                                    value: TrainingFormatter.distance(meters: continuous),
-                                    label: "Longest non-stop"
-                                )
-                            }
-                            if let strokes = summary.swimmingStrokeCount {
-                                StatTile(value: "\(Int(strokes.rounded()))", label: "Strokes")
-                            }
-                        }
-                    }
-
+                if !supportingStats.isEmpty {
                     Divider()
 
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(summary.startDate.formatted(date: .abbreviated, time: .shortened))
-                            .font(.footnote)
-                        Text(sourceName)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                    HStack(alignment: .top, spacing: 8) {
+                        ForEach(supportingStats, id: \.label) { stat in
+                            StatTile(value: stat.value, label: stat.label)
+                        }
                     }
                 }
             }
         }
     }
 
-    private var sourceName: String {
-        guard let source = summary.source else { return "Imported from Apple Health" }
-        return source == "com.apple.workout"
-            ? "Apple Workout · imported from Health"
-            : "\(source) · imported from Health"
+    private var completionBar: some View {
+        let ratio = workout.recordedCompletion
+
+        return VStack(alignment: .leading, spacing: 4) {
+            ProportionBar(fraction: ratio, tint: ratio >= 0.9 ? .green : .orange)
+            Text(ratio >= 1
+                 ? "Full session completed"
+                 : "\(Int((ratio * 100).rounded()))% of the planned session")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    /// The figure that defines the session: distance for swimming, time for the
+    /// rest, since that is how each is prescribed.
+    private var headline: String {
+        if workout.discipline == .swimming, let distance = summary.distanceMeters, distance > 0 {
+            return TrainingFormatter.distance(meters: distance)
+        }
+        return TrainingFormatter.totalDuration(seconds: summary.duration)
+    }
+
+    private var subheadline: String {
+        if workout.discipline == .swimming {
+            return TrainingFormatter.totalDuration(seconds: summary.duration)
+        }
+        if let distance = summary.distanceMeters, distance > 0 {
+            return TrainingFormatter.distance(meters: distance)
+        }
+        return workout.title
+    }
+
+    private var supportingStats: [(label: String, value: String)] {
+        var stats: [(String, String)] = []
+
+        if let continuous = summary.longestContinuousSwimMeters {
+            stats.append(("Non-stop", TrainingFormatter.distance(meters: continuous)))
+        }
+        if let lengths = summary.swimmingLengths {
+            stats.append(("Lengths", "\(lengths)"))
+        }
+        if let average = summary.averageHeartRate {
+            stats.append(("Avg bpm", "\(Int(average.rounded()))"))
+        }
+        if let maximum = summary.maximumHeartRate, summary.longestContinuousSwimMeters == nil {
+            stats.append(("Max bpm", "\(Int(maximum.rounded()))"))
+        }
+        if let elevation = summary.elevationAscendedMeters {
+            stats.append(("Ascent", TrainingFormatter.distance(meters: elevation)))
+        }
+
+        // Four tiles is as many as fit before the numbers start shrinking.
+        return Array(stats.prefix(4))
     }
 }
