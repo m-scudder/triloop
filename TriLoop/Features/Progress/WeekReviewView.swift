@@ -1,23 +1,10 @@
 import SwiftData
 import SwiftUI
 
-extension AssessmentStatus {
-    var tint: Color {
-        switch self {
-        case .progress: .green
-        case .maintain: .blue
-        case .reduce: .orange
-        case .recoveryRequired: .red
-        }
-    }
-}
-
-/// The §18 week review. Reports what happened and what follows from it, without
-/// inventing a readiness score.
+/// The §18 week review: what happened per sport, and what follows from it.
 struct WeekReviewView: View {
     let plan: WeeklyPlan
 
-    @Environment(\.modelContext) private var context
     @Query private var plans: [WeeklyPlan]
 
     private var analysis: WeeklyAnalysis {
@@ -28,78 +15,120 @@ struct WeekReviewView: View {
         plans.contains { $0.weekNumber == plan.weekNumber + 1 }
     }
 
-    var body: some View {
-        List {
-            Section {
-                LabeledContent("Workouts") {
-                    Text("\(analysis.completedSessions) / \(analysis.plannedSessions) completed")
-                }
-            }
-
-            ForEach(analysis.sports, id: \.sport) { sport in
-                Section(sport.sport.displayName) {
-                    LabeledContent("Status") {
-                        Text(sport.status.displayName)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(sport.status.tint)
-                    }
-                    LabeledContent("Sessions") {
-                        Text("\(sport.completedSessions) / \(sport.plannedSessions)")
-                    }
-                    if let rpe = sport.averageRPE {
-                        LabeledContent("Average effort") {
-                            Text("\(rpe.formatted(.number.precision(.fractionLength(0...1)))) / 10")
-                        }
-                    }
-                    LabeledContent("Highest pain") {
-                        Text("\(sport.highestPain) / 10")
-                    }
-                    if let volume = volume(for: sport) {
-                        LabeledContent("Volume") { Text(volume) }
-                    }
-
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Recommendation")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                        Text(sport.adjustment.summary)
-                            .font(.subheadline)
-                        if !sport.reasons.isEmpty {
-                            Text(sport.reasons.map(\.summary).joined(separator: ". ") + ".")
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .padding(.vertical, 2)
-                }
-            }
-
-            if !nextWeekExists {
-                Section {
-                    Button("Generate week \(plan.weekNumber + 1)") {
-                        PlanStore(context: context).generateNextWeek(after: plan)
-                    }
-                    .disabled(!analysis.isReadyForNextWeek)
-                } footer: {
-                    Text(
-                        analysis.isReadyForNextWeek
-                            ? "Builds next week from these results."
-                            : "Available once every session this week has been reported on."
-                    )
-                }
-            }
-        }
-        .navigationTitle("Week \(analysis.weekNumber) review")
-        .navigationBarTitleDisplayMode(.inline)
+    /// The week takes its most cautious sport, matching how the engine decides.
+    private var overallStatus: AssessmentStatus {
+        analysis.sports.map(\.status).max { $0.caution < $1.caution } ?? .maintain
     }
 
-    private func volume(for sport: SportAnalysis) -> String? {
-        if sport.sport == .swimming, sport.totalDistanceMeters > 0 {
-            return TrainingFormatter.distance(meters: sport.totalDistanceMeters)
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                Text(TrainingFormatter.weekRange(start: analysis.startDate, end: analysis.endDate))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
+                banner
+
+                ForEach(analysis.sports) { sport in
+                    sportCard(sport)
+                }
+
+                if analysis.sports.isEmpty {
+                    Text("No sessions have been reported for this week yet.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+
+                if !nextWeekExists {
+                    NavigationLink {
+                        NextWeekPreviewView(previousWeek: plan)
+                    } label: {
+                        Text("Preview Week \(plan.weekNumber + 1)")
+                            .font(.subheadline.weight(.semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(Color.focusSurface, in: .rect(cornerRadius: 12))
+                            .foregroundStyle(Color.onFocusSurface)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!analysis.isReadyForNextWeek)
+                    .opacity(analysis.isReadyForNextWeek ? 1 : 0.4)
+
+                    if !analysis.isReadyForNextWeek {
+                        Text("Available once every session this week has been reported on.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 24)
         }
-        if sport.totalDurationSeconds > 0 {
-            return TrainingFormatter.totalDuration(seconds: sport.totalDurationSeconds)
+        .navigationTitle("Week \(analysis.weekNumber) Analysis")
+        .navigationBarTitleDisplayMode(.large)
+    }
+
+    private var banner: some View {
+        HStack(spacing: 8) {
+            Image(systemName: overallStatus == .progress ? "checkmark.circle.fill" : "info.circle.fill")
+                .font(.footnote)
+            Text(overallStatus.weekHeadline)
+                .font(.subheadline.weight(.medium))
+            Spacer(minLength: 0)
+            Text("\(analysis.completedSessions)/\(analysis.plannedSessions)")
+                .font(.subheadline.weight(.medium))
+                .monospacedDigit()
         }
-        return nil
+        .padding(12)
+        .background(overallStatus.tint.opacity(0.14), in: .rect(cornerRadius: 12))
+        .foregroundStyle(overallStatus.tint)
+    }
+
+    private func sportCard(_ sport: SportAnalysis) -> some View {
+        Card {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Image(systemName: sport.sport.discipline.symbolName)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    Text(sport.sport.displayName)
+                        .font(.subheadline.weight(.semibold))
+                    Spacer()
+                    StatusPill(status: sport.status)
+                }
+
+                HStack(alignment: .top, spacing: 8) {
+                    StatTile(value: "\(sport.completedSessions) / \(sport.plannedSessions)", label: "Sessions")
+                    StatTile(value: volume(for: sport), label: sport.sport == .swimming ? "Distance" : "Duration")
+                    StatTile(
+                        value: sport.averageRPE.map { $0.formatted(.number.precision(.fractionLength(0...1))) } ?? "—",
+                        label: "Avg RPE"
+                    )
+                    StatTile(value: "\(sport.highestPain)", label: "Pain")
+                }
+
+                Divider()
+
+                Text(sport.adjustment.summary)
+                    .font(.subheadline)
+
+                if !sport.reasons.isEmpty {
+                    Text(sport.reasons.map(\.summary).joined(separator: ". ") + ".")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private func volume(for sport: SportAnalysis) -> String {
+        if sport.sport == .swimming {
+            return sport.totalDistanceMeters > 0
+                ? TrainingFormatter.distance(meters: sport.totalDistanceMeters)
+                : "—"
+        }
+        return sport.totalDurationSeconds > 0
+            ? TrainingFormatter.totalDuration(seconds: sport.totalDurationSeconds)
+            : "—"
     }
 }

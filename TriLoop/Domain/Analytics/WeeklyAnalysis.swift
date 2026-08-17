@@ -1,7 +1,7 @@
 import Foundation
 
 /// One sport's verdict for a week.
-struct SportAnalysis: Equatable, Sendable {
+struct SportAnalysis: Equatable, Sendable, Identifiable {
     let sport: Sport
     let status: AssessmentStatus
     let plannedSessions: Int
@@ -12,6 +12,8 @@ struct SportAnalysis: Equatable, Sendable {
     let totalDistanceMeters: Double
     let reasons: [AssessmentReason]
     let adjustment: TrainingAdjustment
+
+    var id: Sport { sport }
 
     var completedEverySession: Bool {
         plannedSessions > 0 && completedSessions == plannedSessions

@@ -65,4 +65,13 @@ final class WeeklyPlan {
     func workout(on date: Date, calendar: Calendar = .current) -> PlannedWorkout? {
         orderedWorkouts.first { calendar.isDate($0.date, inSameDayAs: date) }
     }
+
+    /// Yesterday's reported session, when it has not been checked in on yet.
+    /// Only the previous day is offered: a check-in three days later is guesswork.
+    func sessionAwaitingCheckIn(on date: Date = .now, calendar: Calendar = .current) -> PlannedWorkout? {
+        guard let yesterday = calendar.date(byAdding: .day, value: -1, to: date) else { return nil }
+        return orderedWorkouts.first {
+            calendar.isDate($0.date, inSameDayAs: yesterday) && $0.awaitingRecoveryCheckIn
+        }
+    }
 }

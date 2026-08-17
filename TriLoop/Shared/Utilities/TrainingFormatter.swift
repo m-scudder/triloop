@@ -38,4 +38,8 @@ enum TrainingFormatter {
     static func weekdayAbbreviation(for date: Date) -> String {
         date.formatted(.dateTime.weekday(.abbreviated))
     }
+
+    static func weekdayInitial(for date: Date) -> String {
+        String(date.formatted(.dateTime.weekday(.narrow)).prefix(1))
+    }
 }

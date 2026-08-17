@@ -47,7 +47,11 @@ struct WorkoutRow: View {
 
             Spacer(minLength: 8)
 
-            if workout.status == .completed {
+            if workout.awaitingFeedback {
+                Image(systemName: "exclamationmark.circle.fill")
+                    .foregroundStyle(.orange)
+                    .accessibilityHidden(true)
+            } else if workout.status == .completed {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundStyle(.green)
                     .accessibilityHidden(true)
@@ -66,7 +70,11 @@ struct WorkoutRow: View {
         var parts = [workout.date.formatted(.dateTime.weekday(.wide)), workout.title]
         if let summary = WorkoutSummaryText.make(for: workout) { parts.append(summary) }
         if isToday { parts.append("Today") }
-        if workout.status == .completed { parts.append("Completed") }
+        if workout.awaitingFeedback {
+            parts.append("Completed, needs feedback")
+        } else if workout.status == .completed {
+            parts.append("Completed")
+        }
         return parts.joined(separator: ", ")
     }
 }

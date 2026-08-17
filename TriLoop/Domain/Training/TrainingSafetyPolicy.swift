@@ -29,13 +29,21 @@ struct TrainingSafetyPolicy: Equatable, Sendable {
     /// Feeling this depleted after an easy beginner session is itself a signal.
     var recoveryRequiringRest: RecoveryFeeling = .exhausted
 
-    func evaluate(_ feedback: FeedbackSummary) -> SafetyVerdict {
-        var stopping: [AssessmentReason] = feedback.symptoms
+    func evaluate(
+        _ feedback: FeedbackSummary,
+        recovery: RecoverySummary? = nil
+    ) -> SafetyVerdict {
+        let symptoms = feedback.symptoms.union(recovery?.symptoms ?? [])
+
+        var stopping: [AssessmentReason] = symptoms
             .sorted { $0.rawValue < $1.rawValue }
             .map { .warningSymptom($0) }
 
         if feedback.painScore >= painRequiringEvaluation {
             stopping.append(.painRequiresEvaluation(score: feedback.painScore))
+        }
+        if let recovery, recovery.painScore >= painRequiringEvaluation {
+            stopping.append(.nextDayPain(score: recovery.painScore))
         }
         if feedback.recoveryFeeling.severity >= recoveryRequiringRest.severity {
             stopping.append(.recoveryIncomplete(feedback.recoveryFeeling))
@@ -46,6 +54,9 @@ struct TrainingSafetyPolicy: Equatable, Sendable {
 
         if feedback.painScore >= painBlockingProgression {
             return .blocksProgression([.painReported(score: feedback.painScore)])
+        }
+        if let recovery, recovery.painScore >= painBlockingProgression {
+            return .blocksProgression([.nextDayPain(score: recovery.painScore)])
         }
         return .clear
     }

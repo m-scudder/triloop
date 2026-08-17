@@ -13,6 +13,10 @@ struct TriagePolicy: Equatable, Sendable {
     var painRequiringReduction: Int = 4
     var worstRecoveryAllowingProgress: RecoveryFeeling = .good
     var reductionFraction: Double = 0.2
+
+    var maximumNextDayPainForProgress: Int = 1
+    var worstSorenessAllowingProgress: SorenessLevel = .mild
+    var worstEnergyAllowingProgress: EnergyLevel = .normal
 }
 
 extension TriagePolicy {

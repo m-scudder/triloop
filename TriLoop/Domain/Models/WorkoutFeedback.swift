@@ -30,6 +30,16 @@ enum RecoveryFeeling: String, Codable, CaseIterable, Sendable {
         case .exhausted: 4
         }
     }
+
+    var symbolName: String {
+        switch self {
+        case .fresh: "face.smiling"
+        case .good: "face.smiling.inverse"
+        case .okay: "face.dashed"
+        case .tired: "face.dashed.fill"
+        case .exhausted: "zzz"
+        }
+    }
 }
 
 enum PainLocation: String, Codable, CaseIterable, Sendable {
@@ -85,6 +95,7 @@ final class WorkoutFeedback {
     var painScore: Int
     var painLocations: [PainLocation]
     var recoveryFeeling: RecoveryFeeling
+    var symptoms: [WarningSymptom]
     var notes: String
     var createdAt: Date
 
@@ -96,6 +107,7 @@ final class WorkoutFeedback {
         painScore: Int,
         painLocations: [PainLocation] = [],
         recoveryFeeling: RecoveryFeeling,
+        symptoms: [WarningSymptom] = [],
         notes: String = "",
         createdAt: Date = .now
     ) {
@@ -105,6 +117,7 @@ final class WorkoutFeedback {
         self.painScore = clampedPain
         self.painLocations = clampedPain == 0 ? [] : painLocations
         self.recoveryFeeling = recoveryFeeling
+        self.symptoms = symptoms
         self.notes = notes
         self.createdAt = createdAt
     }

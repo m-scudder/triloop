@@ -42,7 +42,6 @@ struct WeeklyPlanGenerator: Sendable {
                 .map(\.sport)
         )
 
-        var sessionNumbers: [Sport: Int] = [:]
         var workouts: [PlannedWorkout] = []
 
         for (offset, discipline) in schedule.disciplines.enumerated() {
@@ -67,17 +66,14 @@ struct WeeklyPlanGenerator: Sendable {
                 continue
             }
 
-            let number = (sessionNumbers[sport] ?? 0) + 1
-            sessionNumbers[sport] = number
-
             switch sport {
             case .running:
                 workouts.append(
-                    WorkoutTemplates.runWalk(on: date, sessionNumber: number, parameters: parameters)
+                    WorkoutTemplates.runWalk(on: date, parameters: parameters)
                 )
             case .swimming:
                 workouts.append(
-                    WorkoutTemplates.techniqueSwim(on: date, sessionNumber: number, parameters: parameters)
+                    WorkoutTemplates.techniqueSwim(on: date, parameters: parameters)
                 )
             case .cycling:
                 workouts.append(

@@ -2,9 +2,8 @@ import Foundation
 
 /// Turns a finished week into one verdict per sport.
 ///
-/// One deliberate simplification while completion is entered by hand: a session
-/// marked complete counts as 100% completed. Phase 5 supplies real ratios from
-/// HealthKit.
+/// Completion comes from imported HealthKit data where a session was matched,
+/// and falls back to 100% for a manually completed session.
 struct WeeklyAnalyser: Sendable {
     var engine: TrainingEngine = TrainingEngine()
 
@@ -41,12 +40,14 @@ struct WeeklyAnalyser: Sendable {
             return engine.evaluate(
                 result: WorkoutResult(
                     sport: sport,
-                    completion: 1,
-                    durationSeconds: workout.estimatedDurationSeconds,
-                    distanceMeters: workout.estimatedDistanceMeters,
+                    completion: workout.recordedCompletion,
+                    durationSeconds: workout.importedSummary?.duration ?? workout.estimatedDurationSeconds,
+                    distanceMeters: workout.importedSummary?.distanceMeters ?? workout.estimatedDistanceMeters,
+                    averageHeartRate: workout.importedSummary?.averageHeartRate,
                     prescribedRestSeconds: sport == .swimming ? parameters.swimRestSeconds : nil
                 ),
-                feedback: FeedbackSummary(report)
+                feedback: FeedbackSummary(report),
+                recovery: workout.recoveryCheckIn.map(RecoverySummary.init)
             )
         }
 
@@ -76,8 +77,12 @@ struct WeeklyAnalyser: Sendable {
             completedSessions: completed.count,
             averageRPE: rpeScores.isEmpty ? nil : Double(rpeScores.reduce(0, +)) / Double(rpeScores.count),
             highestPain: reports.map(\.painScore).max() ?? 0,
-            totalDurationSeconds: completed.compactMap(\.estimatedDurationSeconds).reduce(0, +),
-            totalDistanceMeters: completed.compactMap(\.estimatedDistanceMeters).reduce(0, +),
+            totalDurationSeconds: completed
+                .compactMap { $0.importedSummary?.duration ?? $0.estimatedDurationSeconds }
+                .reduce(0, +),
+            totalDistanceMeters: completed
+                .compactMap { $0.importedSummary?.distanceMeters ?? $0.estimatedDistanceMeters }
+                .reduce(0, +),
             reasons: reasons,
             adjustment: adjustment
         )

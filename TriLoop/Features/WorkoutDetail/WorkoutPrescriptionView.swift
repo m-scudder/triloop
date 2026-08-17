@@ -27,59 +27,75 @@ private struct StepView: View {
     }
 
     private var simpleStep: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(sectionTitle)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .textCase(.uppercase)
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(step.title)
-                    .font(.title3.weight(.medium))
-                if let measure = measureText {
-                    Text(measure)
-                        .font(.title3)
-                        .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 8) {
+            SectionEyebrow(text: sectionTitle)
+
+            Card {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(step.title)
+                        .font(.body.weight(.medium))
+                    Spacer(minLength: 12)
+                    if let measure = measureText {
+                        Text(measure)
+                            .font(.body.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
+
             if let instructions = step.instructions {
                 Text(instructions)
-                    .font(.subheadline)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
             }
         }
     }
 
     private var repeatBlock: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("\(step.repeatCount ?? 1) rounds")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .textCase(.uppercase)
+        VStack(alignment: .leading, spacing: 8) {
+            SectionEyebrow(text: "Main set")
 
-            VStack(alignment: .leading, spacing: 10) {
-                ForEach(step.orderedChildren, id: \.id) { child in
-                    HStack(alignment: .firstTextBaseline) {
-                        Text(child.title)
-                            .font(.title3.weight(.medium))
-                        Spacer(minLength: 12)
-                        if let seconds = child.durationSeconds {
-                            Text(TrainingFormatter.intervalDuration(seconds: seconds))
-                                .font(.title3.monospacedDigit())
+            Card(padding: 0) {
+                VStack(spacing: 0) {
+                    Text("Repeat \(step.repeatCount ?? 1) times")
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+
+                    Divider()
+
+                    ForEach(step.orderedChildren, id: \.id) { child in
+                        HStack(alignment: .firstTextBaseline) {
+                            if let seconds = child.durationSeconds {
+                                Text(TrainingFormatter.intervalDuration(seconds: seconds))
+                                    .font(.body.weight(.medium))
+                                    .monospacedDigit()
+                            } else if let meters = child.distanceMeters {
+                                Text(TrainingFormatter.distance(meters: meters))
+                                    .font(.body.weight(.medium))
+                                    .monospacedDigit()
+                            }
+
+                            Text(child.title)
+                                .font(.body)
                                 .foregroundStyle(.secondary)
-                        } else if let meters = child.distanceMeters {
-                            Text(TrainingFormatter.distance(meters: meters))
-                                .font(.title3.monospacedDigit())
-                                .foregroundStyle(.secondary)
+
+                            Spacer(minLength: 12)
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+
+                        if child.id != step.orderedChildren.last?.id {
+                            Divider().padding(.leading, 14)
                         }
                     }
                 }
             }
-            .padding(14)
-            .background(.fill.tertiary, in: .rect(cornerRadius: 12))
 
             if let instructions = step.instructions {
                 Text(instructions)
-                    .font(.subheadline)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
             }
         }

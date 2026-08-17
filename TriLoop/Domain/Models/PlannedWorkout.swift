@@ -30,6 +30,12 @@ final class PlannedWorkout {
     @Relationship(deleteRule: .cascade, inverse: \WorkoutFeedback.workout)
     var feedback: WorkoutFeedback?
 
+    @Relationship(deleteRule: .cascade, inverse: \ImportedWorkoutSummary.workout)
+    var importedSummary: ImportedWorkoutSummary?
+
+    @Relationship(deleteRule: .cascade, inverse: \RecoveryCheckIn.workout)
+    var recoveryCheckIn: RecoveryCheckIn?
+
     init(
         id: UUID = UUID(),
         date: Date,
@@ -96,5 +102,57 @@ final class PlannedWorkout {
             modelContext?.delete(feedback)
         }
         feedback = nil
+    }
+
+    /// Attaches an imported activity and marks the session done. Feedback is
+    /// still required before the session can be assessed: §7 is explicit that
+    /// sensor data alone is not enough.
+    func attach(_ summary: ImportedWorkoutSummary) {
+        if let importedSummary, importedSummary !== summary {
+            modelContext?.delete(importedSummary)
+        }
+        importedSummary = summary
+        if status == .planned {
+            status = .completed
+        }
+        completedAt = completedAt ?? summary.endDate
+    }
+
+    /// How much of the prescription was actually covered. Falls back to 1 when
+    /// nothing was imported, since a manually completed session has no evidence
+    /// to contradict it.
+    var recordedCompletion: Double {
+        guard let importedSummary else { return 1 }
+        return completionRatio(for: importedSummary.imported)
+    }
+
+    var awaitingFeedback: Bool {
+        isCompleted && feedback == nil
+    }
+
+    /// Only a reported session can be checked in on: without knowing how it felt
+    /// at the time, the next day tells us little.
+    var awaitingRecoveryCheckIn: Bool {
+        hasReport && recoveryCheckIn == nil
+    }
+
+    func recordRecoveryCheckIn(
+        painScore: Int,
+        soreness: SorenessLevel,
+        energy: EnergyLevel,
+        symptoms: [WarningSymptom] = [],
+        at date: Date = .now
+    ) {
+        if let recoveryCheckIn {
+            modelContext?.delete(recoveryCheckIn)
+        }
+        recoveryCheckIn = RecoveryCheckIn(
+            date: date,
+            painScore: painScore,
+            soreness: soreness,
+            energy: energy,
+            symptoms: symptoms,
+            createdAt: date
+        )
     }
 }

@@ -4,10 +4,16 @@ import SwiftUI
 struct PlanView: View {
     @Query(sort: \WeeklyPlan.startDate, order: .reverse) private var plans: [WeeklyPlan]
 
+    @State private var selectedPlanID: UUID?
+
+    private var selectedPlan: WeeklyPlan? {
+        plans.first { $0.id == selectedPlanID } ?? plans.currentPlan()
+    }
+
     var body: some View {
         NavigationStack {
             Group {
-                if let plan = plans.currentPlan() {
+                if let plan = selectedPlan {
                     planList(plan)
                 } else {
                     ContentUnavailableView(
@@ -17,39 +23,80 @@ struct PlanView: View {
                     )
                 }
             }
-            .navigationTitle("Plan")
-        }
-    }
-
-    private func planList(_ plan: WeeklyPlan) -> some View {
-        List {
-            Section {
-                ForEach(plan.orderedWorkouts, id: \.id) { workout in
-                    NavigationLink {
-                        WorkoutDetailView(workout: workout)
-                    } label: {
-                        WorkoutRow(workout: workout, isToday: Calendar.current.isDateInToday(workout.date))
+            .navigationTitle(selectedPlan.map { "Week \($0.weekNumber)" } ?? "Plan")
+            .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                if plans.count > 1, let plan = selectedPlan {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Menu {
+                            Picker("Week", selection: weekSelection(default: plan.id)) {
+                                ForEach(plans.sorted { $0.weekNumber < $1.weekNumber }, id: \.id) { option in
+                                    Text("Week \(option.weekNumber)").tag(option.id)
+                                }
+                            }
+                        } label: {
+                            Label("Choose week", systemImage: "calendar")
+                        }
                     }
-                }
-            } header: {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Week \(plan.weekNumber)")
-                        .font(.headline)
-                        .foregroundStyle(.primary)
-                    Text(TrainingFormatter.weekRange(start: plan.startDate, end: plan.endDate))
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                .textCase(nil)
-                .padding(.bottom, 8)
-            } footer: {
-                if !plan.generationReason.isEmpty {
-                    Text(plan.generationReason)
-                        .padding(.top, 8)
                 }
             }
         }
-        .listStyle(.insetGrouped)
+    }
+
+    private func weekSelection(default id: UUID) -> Binding<UUID> {
+        Binding(
+            get: { selectedPlanID ?? id },
+            set: { selectedPlanID = $0 }
+        )
+    }
+
+    private func planList(_ plan: WeeklyPlan) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text(TrainingFormatter.weekRange(start: plan.startDate, end: plan.endDate))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
+                Card(padding: 4) {
+                    VStack(spacing: 0) {
+                        ForEach(plan.orderedWorkouts, id: \.id) { workout in
+                            NavigationLink {
+                                WorkoutDetailView(workout: workout)
+                            } label: {
+                                WorkoutRow(
+                                    workout: workout,
+                                    isToday: Calendar.current.isDateInToday(workout.date)
+                                )
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 10)
+                            }
+                            .buttonStyle(.plain)
+
+                            if workout.id != plan.orderedWorkouts.last?.id {
+                                Divider().padding(.leading, 10)
+                            }
+                        }
+                    }
+                }
+
+                Card {
+                    HStack(alignment: .top, spacing: 10) {
+                        Image(systemName: "arrow.trianglehead.2.clockwise.rotate.90")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                        Text(
+                            plan.generationReason.isEmpty
+                                ? "Plan adapts based on your performance, recovery and feedback."
+                                : plan.generationReason
+                        )
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 24)
+        }
     }
 }
 

@@ -79,3 +79,15 @@ extension PainLocation: Identifiable {
 extension RecoveryFeeling: Identifiable {
     var id: String { rawValue }
 }
+
+extension WarningSymptom: Identifiable {
+    var id: String { rawValue }
+}
+
+extension SorenessLevel: Identifiable {
+    var id: String { rawValue }
+}
+
+extension EnergyLevel: Identifiable {
+    var id: String { rawValue }
+}

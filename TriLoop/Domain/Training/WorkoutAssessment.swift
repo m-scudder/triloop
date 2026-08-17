@@ -45,6 +45,10 @@ enum AssessmentReason: Equatable, Sendable {
     case recoveryIncomplete(RecoveryFeeling)
     case warningSymptom(WarningSymptom)
     case sessionsMissed(count: Int)
+    case nextDayPain(score: Int)
+    case lingeringSoreness(SorenessLevel)
+    case lowEnergyNextDay(EnergyLevel)
+    case recoveredOvernight
 
     var summary: String {
         switch self {
@@ -74,6 +78,14 @@ enum AssessmentReason: Equatable, Sendable {
             "\(symptom.displayName) was reported"
         case .sessionsMissed(let count):
             count == 1 ? "One session was not completed" : "\(count) sessions were not completed"
+        case .nextDayPain(let score):
+            "Pain the next day was \(score)/10"
+        case .lingeringSoreness(let level):
+            "\(level.displayName) soreness the next day"
+        case .lowEnergyNextDay(let level):
+            "Energy the next day was \(level.displayName.lowercased())"
+        case .recoveredOvernight:
+            "Recovered well overnight"
         }
     }
 

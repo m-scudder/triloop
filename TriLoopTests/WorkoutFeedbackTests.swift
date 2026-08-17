@@ -15,7 +15,7 @@ struct WorkoutFeedbackTests {
         PlannedWorkout(
             date: Date(timeIntervalSince1970: 1_787_000_000),
             discipline: .running,
-            title: "Run / Walk #1"
+            title: "Running"
         )
     }
 

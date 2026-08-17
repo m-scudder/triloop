@@ -94,7 +94,42 @@ extension FeedbackSummary {
             painScore: feedback.painScore,
             painLocations: Set(feedback.painLocations),
             recoveryFeeling: feedback.recoveryFeeling,
+            symptoms: Set(feedback.symptoms),
             notes: feedback.notes
+        )
+    }
+}
+
+/// How the athlete was the day after a session.
+///
+/// Optional everywhere it is used: a skipped check-in must never be read as a
+/// good one.
+struct RecoverySummary: Equatable, Sendable {
+    let painScore: Int
+    let soreness: SorenessLevel
+    let energy: EnergyLevel
+    let symptoms: Set<WarningSymptom>
+
+    init(
+        painScore: Int = 0,
+        soreness: SorenessLevel = .none,
+        energy: EnergyLevel = .normal,
+        symptoms: Set<WarningSymptom> = []
+    ) {
+        self.painScore = min(max(painScore, PainScale.minimum), PainScale.maximum)
+        self.soreness = soreness
+        self.energy = energy
+        self.symptoms = symptoms
+    }
+}
+
+extension RecoverySummary {
+    init(_ checkIn: RecoveryCheckIn) {
+        self.init(
+            painScore: checkIn.painScore,
+            soreness: checkIn.soreness,
+            energy: checkIn.energy,
+            symptoms: Set(checkIn.symptoms)
         )
     }
 }

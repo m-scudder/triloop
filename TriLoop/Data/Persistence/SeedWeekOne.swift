@@ -35,14 +35,14 @@ enum SeedWeekOne {
         }
 
         let workouts: [PlannedWorkout] = [
-            WorkoutTemplates.runWalk(on: day(0), sessionNumber: 1, parameters: parameters),
-            WorkoutTemplates.techniqueSwim(on: day(1), sessionNumber: 1, parameters: parameters),
+            WorkoutTemplates.runWalk(on: day(0), parameters: parameters),
+            WorkoutTemplates.techniqueSwim(on: day(1), parameters: parameters),
             WorkoutTemplates.recoveryDay(
                 on: day(2),
                 goal: "Let the first run and swim settle before repeating them."
             ),
-            WorkoutTemplates.runWalk(on: day(3), sessionNumber: 2, parameters: parameters),
-            WorkoutTemplates.techniqueSwim(on: day(4), sessionNumber: 2, parameters: parameters),
+            WorkoutTemplates.runWalk(on: day(3), parameters: parameters),
+            WorkoutTemplates.techniqueSwim(on: day(4), parameters: parameters),
             WorkoutTemplates.easyRide(
                 on: day(5),
                 parameters: parameters,

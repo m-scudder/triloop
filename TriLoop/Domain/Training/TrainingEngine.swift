@@ -11,8 +11,12 @@ struct TrainingEngine: Sendable {
     var swimming: SwimmingTrainingEngine = SwimmingTrainingEngine()
     var cycling: CyclingTrainingEngine = CyclingTrainingEngine()
 
-    func evaluate(result: WorkoutResult, feedback: FeedbackSummary) -> WorkoutAssessment {
-        let verdict = safetyPolicy.evaluate(feedback)
+    func evaluate(
+        result: WorkoutResult,
+        feedback: FeedbackSummary,
+        recovery: RecoverySummary? = nil
+    ) -> WorkoutAssessment {
+        let verdict = safetyPolicy.evaluate(feedback, recovery: recovery)
 
         if case .requiresRecovery(let reasons) = verdict {
             return WorkoutAssessment(
@@ -23,7 +27,8 @@ struct TrainingEngine: Sendable {
             )
         }
 
-        let assessment = engine(for: result.sport).assess(result: result, feedback: feedback)
+        let assessment = engine(for: result.sport)
+            .assess(result: result, feedback: feedback, recovery: recovery)
 
         // Safety can veto an increase, but it never manufactures one.
         if case .blocksProgression(let reasons) = verdict, assessment.status == .progress {

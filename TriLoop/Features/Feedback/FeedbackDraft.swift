@@ -10,6 +10,7 @@ struct FeedbackDraft: Equatable, Sendable {
     var painScore: Int
     var painLocations: Set<PainLocation>
     var recoveryFeeling: RecoveryFeeling
+    var symptoms: Set<WarningSymptom>
     var notes: String
 
     /// Defaults describe an unremarkable easy session, which is the common case
@@ -19,12 +20,14 @@ struct FeedbackDraft: Equatable, Sendable {
         painScore: Int = 0,
         painLocations: Set<PainLocation> = [],
         recoveryFeeling: RecoveryFeeling = .good,
+        symptoms: Set<WarningSymptom> = [],
         notes: String = ""
     ) {
         self.rpe = rpe
         self.painScore = painScore
         self.painLocations = painLocations
         self.recoveryFeeling = recoveryFeeling
+        self.symptoms = symptoms
         self.notes = notes
     }
 
@@ -48,6 +51,7 @@ struct FeedbackDraft: Equatable, Sendable {
             painScore: clean.painScore,
             painLocations: clean.painLocations.sorted { $0.sortOrder < $1.sortOrder },
             recoveryFeeling: clean.recoveryFeeling,
+            symptoms: clean.symptoms.sorted { $0.rawValue < $1.rawValue },
             notes: clean.notes,
             createdAt: createdAt
         )

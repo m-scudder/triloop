@@ -9,7 +9,6 @@ enum WorkoutTemplates {
 
     static func runWalk(
         on date: Date,
-        sessionNumber: Int,
         parameters: TrainingParameters,
         goal: String? = nil
     ) -> PlannedWorkout {
@@ -43,7 +42,7 @@ enum WorkoutTemplates {
         return PlannedWorkout(
             date: date,
             discipline: .running,
-            title: "Beginner Run / Walk #\(sessionNumber)",
+            title: "Running",
             goal: goal ?? "Build running tolerance while keeping impact low.",
             targetRPE: RPERange(3, 4),
             steps: steps
@@ -52,7 +51,6 @@ enum WorkoutTemplates {
 
     static func techniqueSwim(
         on date: Date,
-        sessionNumber: Int,
         parameters: TrainingParameters,
         goal: String? = nil
     ) -> PlannedWorkout {
@@ -91,7 +89,7 @@ enum WorkoutTemplates {
         return PlannedWorkout(
             date: date,
             discipline: .swimming,
-            title: "Technique Swim #\(sessionNumber)",
+            title: "Swimming",
             goal: goal ?? "Get comfortable breathing and moving efficiently in the water.",
             targetRPE: RPERange(3, 5),
             targetDistanceMeters: warmUpMeters + breathingMeters + freestyleMeters,
@@ -120,7 +118,7 @@ enum WorkoutTemplates {
         return PlannedWorkout(
             date: date,
             discipline: .cycling,
-            title: "Easy Endurance Ride",
+            title: "Cycling",
             goal: goal ?? "Build aerobic base at a conversational effort.",
             targetRPE: RPERange(3, 4),
             steps: steps

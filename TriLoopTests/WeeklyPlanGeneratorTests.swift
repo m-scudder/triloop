@@ -132,8 +132,8 @@ struct WeeklyPlanGeneratorTests {
         #expect(week2.generationReason.contains("Running"))
     }
 
-    @Test("Sessions are renumbered within the new week")
-    func sessionsAreRenumbered() {
+    @Test("Generated sessions carry the sport's name")
+    func sessionsAreNamedBySport() {
         let week1 = seededWeek()
         completeEverything(week1, with: FeedbackDraft(rpe: 3, painScore: 0))
 
@@ -141,8 +141,7 @@ struct WeeklyPlanGeneratorTests {
         let runs = week2.orderedWorkouts.filter { $0.discipline == .running }
 
         #expect(runs.count == 2)
-        #expect(runs[0].title.hasSuffix("#1"))
-        #expect(runs[1].title.hasSuffix("#2"))
+        #expect(runs.allSatisfy { $0.title == "Running" })
     }
 
     @Test("The following week is only ever created once")
