@@ -78,6 +78,16 @@ struct DeveloperToolsView: View {
                 }
 
                 Section {
+                    Button("Add a swim session") {
+                        message = addSwim(to: plan)
+                    }
+                } header: {
+                    Text("Missing sports")
+                } footer: {
+                    Text("Swimming does not start until 14 September, so no generated week contains one. This replaces a free day so the swim prescription and lengths chart can be seen.")
+                }
+
+                Section {
                     Button("Attach recorded data — as prescribed") {
                         attachRecorded(plan, factor: 0.97)
                         message = "Recorded data attached at full completion."
@@ -155,6 +165,26 @@ struct DeveloperToolsView: View {
             workout.recordRecoveryCheckIn(painScore: pain, soreness: soreness, energy: energy)
         }
         try? modelContext.save()
+    }
+
+    /// Takes over a rest or recovery day rather than doubling up, so the week
+    /// stays one session per day as the generator produces it.
+    private func addSwim(to plan: WeeklyPlan) -> String {
+        guard let slot = plan.orderedWorkouts.first(where: {
+            !$0.discipline.isTrainingSession && !$0.hasReport
+        }) else {
+            return "No rest or recovery day free in week \(plan.weekNumber)."
+        }
+
+        let date = slot.date
+        let swim = WorkoutTemplates.techniqueSwim(on: date, parameters: plan.parameters)
+
+        modelContext.delete(slot)
+        modelContext.insert(swim)
+        plan.workouts.append(swim)
+        try? modelContext.save()
+
+        return "Swim added on \(date.formatted(.dateTime.weekday(.wide).day().month(.abbreviated)))."
     }
 
     /// Plausible per-sport metrics. Every sport records heart rate, including

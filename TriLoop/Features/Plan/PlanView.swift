@@ -10,6 +10,7 @@ struct PlanView: View {
 
     @State private var selection: Date = .now
     @State private var isPresentingCalendar = false
+    @State private var hasChosenOpeningDay = false
 
     private var allWorkouts: [PlannedWorkout] {
         plans.flatMap(\.orderedWorkouts).sorted { $0.date < $1.date }
@@ -93,8 +94,12 @@ struct PlanView: View {
     }
 
     /// Opens on today when it is part of a plan, and on the nearest planned day
-    /// otherwise, so the screen never starts empty.
+    /// otherwise, so the screen never starts empty. Runs once: `onAppear` fires
+    /// again when a pushed screen is popped, which would discard the chosen day.
     private func selectSensibleDay() {
+        guard !hasChosenOpeningDay, !allWorkouts.isEmpty else { return }
+        hasChosenOpeningDay = true
+
         let calendar = Calendar.current
         if allWorkouts.contains(where: { calendar.isDateInToday($0.date) }) {
             selection = .now

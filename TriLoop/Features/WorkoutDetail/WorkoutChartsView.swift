@@ -8,6 +8,9 @@ import SwiftUI
 struct WorkoutChartsView: View {
     let discipline: Discipline
     let samples: WorkoutSamples
+    /// HealthKit's own averages, so the card cannot disagree with the Recorded
+    /// block above it.
+    var summary: ImportedWorkoutSummary?
 
     private let columns = [
         GridItem(.flexible(), spacing: 12),
@@ -15,7 +18,7 @@ struct WorkoutChartsView: View {
     ]
 
     private var metrics: [WorkoutMetric] {
-        WorkoutMetric.all(for: discipline, samples: samples)
+        WorkoutMetric.all(for: discipline, samples: samples, summary: summary)
     }
 
     var body: some View {

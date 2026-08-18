@@ -31,7 +31,11 @@ struct WorkoutDayDetail: View {
                 }
 
                 if let samples, !samples.isEmpty {
-                    WorkoutChartsView(discipline: workout.discipline, samples: samples)
+                    WorkoutChartsView(
+                        discipline: workout.discipline,
+                        samples: samples,
+                        summary: workout.importedSummary
+                    )
                 } else if workout.importedSummary != nil, let samplesFailure {
                     Text(samplesFailure)
                         .font(.footnote)

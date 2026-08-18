@@ -243,7 +243,11 @@ struct TodayView: View {
                     }
 
                     if let samples, !samples.isEmpty {
-                        WorkoutChartsView(discipline: workout.discipline, samples: samples)
+                        WorkoutChartsView(
+                            discipline: workout.discipline,
+                            samples: samples,
+                            summary: workout.importedSummary
+                        )
                     }
                 } else {
                     Text("This week is complete. Generate the next one when you're ready.")

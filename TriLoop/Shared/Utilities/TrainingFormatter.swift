@@ -23,6 +23,12 @@ enum TrainingFormatter {
         return String(format: "%.1f km", meters / 1000)
     }
 
+    /// "1:52 / 100 m" without the suffix — swimmers compare on this unit.
+    static func swimPace(secondsPer100m: Double) -> String {
+        let total = Int(secondsPer100m.rounded())
+        return String(format: "%d:%02d", total / 60, total % 60)
+    }
+
     static func rpe(_ range: RPERange) -> String {
         range.isExact ? "\(range.lower) / 10" : "\(range.lower)–\(range.upper) / 10"
     }

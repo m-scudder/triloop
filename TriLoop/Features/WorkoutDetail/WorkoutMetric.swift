@@ -11,6 +11,7 @@ struct WorkoutMetric: Identifiable {
         case cadence
         case distance
         case swimLengths
+        case swimPace
     }
 
     let kind: Kind
@@ -21,6 +22,10 @@ struct WorkoutMetric: Identifiable {
     let points: [SamplePoint]
     let lengths: [SwimLengthPoint]
     let tint: Color
+    /// Kept beside the formatted headline so the detail screen can restate
+    /// HealthKit's figures instead of recomputing them from the buckets.
+    var average: Double? = nil
+    var peak: Double? = nil
 
     var id: String { kind.rawValue }
 
@@ -41,39 +46,68 @@ struct WorkoutMetric: Identifiable {
 }
 
 extension WorkoutMetric {
-    static func all(for discipline: Discipline, samples: WorkoutSamples) -> [WorkoutMetric] {
+    static func all(
+        for discipline: Discipline,
+        samples: WorkoutSamples,
+        summary: ImportedWorkoutSummary? = nil
+    ) -> [WorkoutMetric] {
         var metrics: [WorkoutMetric] = []
         let tint = discipline.tint
 
-        if !samples.heartRate.isEmpty, let average = samples.averageHeartRate {
+        // HealthKit averages every sample it holds; the series here is bucketed
+        // to one point a minute, so averaging it again gives a different figure.
+        let average = summary?.averageHeartRate ?? samples.averageHeartRate
+        let peak = summary?.maximumHeartRate ?? samples.peakHeartRate
+
+        if !samples.heartRate.isEmpty, let average {
             metrics.append(
                 WorkoutMetric(
                     kind: .heartRate,
                     title: "Heart rate",
                     headline: "\(Int(average.rounded()))",
-                    caption: samples.peakHeartRate.map { "avg bpm · peak \(Int($0.rounded()))" } ?? "avg bpm",
+                    caption: peak.map { "avg bpm · peak \(Int($0.rounded()))" } ?? "avg bpm",
                     symbol: "heart.fill",
                     points: samples.heartRate,
                     lengths: [],
-                    tint: Color(red: 0.95, green: 0.26, blue: 0.21)
+                    tint: Color(red: 0.95, green: 0.26, blue: 0.21),
+                    average: average,
+                    peak: peak
                 )
             )
         }
 
         if !samples.swimLengths.isEmpty {
             let fastest = samples.swimLengths.map(\.seconds).min() ?? 0
+            let sets = samples.swimLengths.filter(\.followedRest).count + 1
             metrics.append(
                 WorkoutMetric(
                     kind: .swimLengths,
                     title: "Lengths",
                     headline: "\(samples.swimLengths.count)",
-                    caption: "best \(Int(fastest))s",
+                    caption: "\(sets) set\(sets == 1 ? "" : "s") · best \(Int(fastest))s",
                     symbol: "figure.pool.swim",
                     points: [],
                     lengths: samples.swimLengths,
                     tint: tint
                 )
             )
+
+            let distance = samples.swimLengths.reduce(0) { $0 + $1.meters }
+            let seconds = samples.swimLengths.reduce(0) { $0 + $1.seconds }
+            if distance > 0 {
+                metrics.append(
+                    WorkoutMetric(
+                        kind: .swimPace,
+                        title: "Pace",
+                        headline: TrainingFormatter.swimPace(secondsPer100m: seconds / distance * 100),
+                        caption: "/ 100 m · rests excluded",
+                        symbol: "speedometer",
+                        points: [],
+                        lengths: samples.swimLengths,
+                        tint: tint
+                    )
+                )
+            }
         }
 
         if !samples.cadence.isEmpty, discipline == .running {

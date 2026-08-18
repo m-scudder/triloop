@@ -223,6 +223,7 @@ final class HealthKitWorkoutImporter: HealthDataProviding, @unchecked Sendable {
             points.append(
                 SwimLengthPoint(
                     index: index + 1,
+                    start: length.interval.start,
                     seconds: length.interval.duration,
                     meters: length.meters,
                     followedRest: rested
@@ -343,19 +344,21 @@ private extension HKWorkout {
         (metadata?[HKMetadataKeyElevationAscended] as? HKQuantity)?.doubleValue(for: .meter())
     }
 
-    /// Pool swims record one lap event per length, carrying the pool length in
-    /// metadata. Open-water swims have no laps, so this is empty for them.
+    /// Pool swims record one lap event per length. The pool length lives on the
+    /// *workout* — `HKMetadataKeyLapLength` is documented as "may be set on an
+    /// HKWorkout object" — so reading it off the event finds nothing. Open-water
+    /// swims have no laps, so this is empty for them.
     var swimmingLengths: [SwimLength] {
-        (workoutEvents ?? [])
+        let poolLength = (metadata?[HKMetadataKeyLapLength] as? HKQuantity)?
+            .doubleValue(for: .meter())
+
+        return (workoutEvents ?? [])
             .filter { $0.type == .lap }
             .compactMap { event in
-                guard let quantity = event.metadata?[HKMetadataKeyLapLength] as? HKQuantity else {
-                    return nil
-                }
-                return SwimLength(
-                    interval: event.dateInterval,
-                    meters: quantity.doubleValue(for: .meter())
-                )
+                let eventLength = (event.metadata?[HKMetadataKeyLapLength] as? HKQuantity)?
+                    .doubleValue(for: .meter())
+                guard let meters = eventLength ?? poolLength else { return nil }
+                return SwimLength(interval: event.dateInterval, meters: meters)
             }
     }
 }

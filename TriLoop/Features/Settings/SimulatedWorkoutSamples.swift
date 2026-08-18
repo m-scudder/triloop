@@ -67,14 +67,22 @@ enum SimulatedWorkoutSamples {
     private static func lengths(for workout: PlannedWorkout) -> [SwimLengthPoint] {
         let total = workout.importedSummary?.distanceMeters ?? workout.estimatedDistanceMeters ?? 300
         let count = max(Int(total / 25), 1)
+        var clock = workout.importedSummary?.startDate ?? workout.date
 
         return (1...count).map { index in
             // A rest every fourth length, which is how a beginner set actually runs.
             let rested = index > 1 && index % 4 == 1
             let fatigue = Double(index) / Double(count) * 4
+            let seconds = (Double.random(in: 28...34) + fatigue).rounded()
+
+            if rested { clock.addTimeInterval(20) }
+            let start = clock
+            clock.addTimeInterval(seconds)
+
             return SwimLengthPoint(
                 index: index,
-                seconds: (Double.random(in: 28...34) + fatigue).rounded(),
+                start: start,
+                seconds: seconds,
                 meters: 25,
                 followedRest: rested
             )

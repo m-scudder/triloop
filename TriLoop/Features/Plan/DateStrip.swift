@@ -15,10 +15,16 @@ struct DateStrip: View {
         let days: [PlannedWorkout]
     }
 
+    /// Grouped by the plan each day belongs to, not by `.weekOfYear`: the plan
+    /// runs Monday to Sunday, while the calendar's week starts on whichever day
+    /// the locale says, which splits a training week across two pages.
     private var weeks: [Week] {
         let grouped = Dictionary(grouping: workouts) { workout in
-            calendar.dateInterval(of: .weekOfYear, for: workout.date)?.start
-                ?? calendar.startOfDay(for: workout.date)
+            calendar.startOfDay(
+                for: workout.plan?.startDate
+                    ?? calendar.dateInterval(of: .weekOfYear, for: workout.date)?.start
+                    ?? workout.date
+            )
         }
         return grouped
             .map { Week(id: $0.key, days: $0.value.sorted { $0.date < $1.date }) }

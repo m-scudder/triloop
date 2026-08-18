@@ -64,6 +64,36 @@ struct MetricDetailView: View {
             }
             .chartXAxis { AxisMarks(values: .automatic(desiredCount: 6)) }
 
+        case .swimPace:
+            Chart(metric.lengths) { length in
+                LineMark(
+                    x: .value("Length", length.index),
+                    y: .value("Pace", length.pacePer100m)
+                )
+                .foregroundStyle(metric.gradient)
+                .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round))
+                .interpolationMethod(.monotone)
+
+                PointMark(
+                    x: .value("Length", length.index),
+                    y: .value("Pace", length.pacePer100m)
+                )
+                .foregroundStyle(metric.tint)
+                .symbolSize(length.followedRest ? 60 : 18)
+            }
+            .chartYAxis {
+                AxisMarks { value in
+                    AxisGridLine()
+                    AxisValueLabel {
+                        if let seconds = value.as(Double.self) {
+                            Text(TrainingFormatter.swimPace(secondsPer100m: seconds))
+                        }
+                    }
+                }
+            }
+            .chartXAxis { AxisMarks(values: .automatic(desiredCount: 6)) }
+            .chartPlotStyle { $0.clipped() }
+
         case .heartRate:
             Chart(metric.points) { point in
                 AreaMark(
@@ -108,6 +138,16 @@ struct MetricDetailView: View {
         }
     }
 
+    /// Wall-clock pace across the whole swim, rests included, which is the
+    /// convention Apple Health reports.
+    private var elapsedSwimPace: Double? {
+        guard let first = metric.lengths.first, let last = metric.lengths.last else { return nil }
+        let distance = metric.lengths.reduce(0) { $0 + $1.meters }
+        let elapsed = last.start.addingTimeInterval(last.seconds).timeIntervalSince(first.start)
+        guard distance > 0, elapsed > 0 else { return nil }
+        return elapsed / distance * 100
+    }
+
     private var heartRateDomain: ClosedRange<Double> {
         let values = metric.points.map(\.value)
         let low = (values.min() ?? 60) - 8
@@ -130,8 +170,9 @@ struct MetricDetailView: View {
         switch metric.kind {
         case .heartRate:
             let values = metric.points.map(\.value)
-            guard let low = values.min(), let high = values.max() else { return [] }
-            let average = values.reduce(0, +) / Double(values.count)
+            guard let low = values.min() else { return [] }
+            let high = metric.peak ?? values.max() ?? low
+            let average = metric.average ?? (values.reduce(0, +) / Double(values.count))
             return [
                 ("Low", "\(Int(low.rounded()))"),
                 ("Average", "\(Int(average.rounded()))"),
@@ -147,6 +188,19 @@ struct MetricDetailView: View {
                 ("Slowest", "\(Int(slowest))s"),
                 ("Rests", "\(rests)")
             ]
+
+        case .swimPace:
+            let paces = metric.lengths.map(\.pacePer100m)
+            guard let fastest = paces.min() else { return [] }
+            var stats: [(String, String)] = [
+                ("Fastest", TrainingFormatter.swimPace(secondsPer100m: fastest))
+            ]
+            if let elapsed = elapsedSwimPace {
+                stats.append(("Elapsed", TrainingFormatter.swimPace(secondsPer100m: elapsed)))
+            }
+            let distance = metric.lengths.reduce(0) { $0 + $1.meters }
+            stats.append(("Distance", TrainingFormatter.distance(meters: distance)))
+            return stats
 
         case .cadence:
             let values = metric.points.map(\.value)
@@ -171,6 +225,8 @@ struct MetricDetailView: View {
         switch metric.kind {
         case .swimLengths:
             "Bars are coloured fastest to slowest within this swim. Dashed lines mark where you rested."
+        case .swimPace:
+            "The headline excludes rests, so it reflects how fast you swam. “Elapsed” includes them and is the figure Apple Health shows. Larger points mark the first length after a rest."
         case .heartRate:
             "Sampled once a minute. Colour runs cool at easy effort through to hot at hard effort."
         default:

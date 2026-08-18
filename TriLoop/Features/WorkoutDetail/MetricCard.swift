@@ -70,6 +70,20 @@ struct MetricCard: View {
             .chartXAxis(.hidden)
             .chartYAxis(.hidden)
 
+        case .swimPace:
+            Chart(metric.lengths) { length in
+                LineMark(
+                    x: .value("Length", length.index),
+                    y: .value("Pace", length.pacePer100m)
+                )
+                .foregroundStyle(metric.tint)
+                .lineStyle(StrokeStyle(lineWidth: 1.5, lineCap: .round))
+                .interpolationMethod(.monotone)
+            }
+            .chartXAxis(.hidden)
+            .chartYAxis(.hidden)
+            .chartPlotStyle { $0.clipped() }
+
         case .heartRate:
             Chart(metric.points) { point in
                 AreaMark(

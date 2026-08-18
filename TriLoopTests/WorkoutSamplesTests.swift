@@ -33,14 +33,14 @@ struct WorkoutSamplesTests {
 
     @Test("Swim pace is expressed per hundred metres")
     func swimPaceIsPerHundred() {
-        let length = SwimLengthPoint(index: 1, seconds: 30, meters: 25, followedRest: false)
+        let length = SwimLengthPoint(index: 1, start: .now, seconds: 30, meters: 25, followedRest: false)
 
         #expect(length.pacePer100m == 120)
     }
 
     @Test("A length with no distance has no pace rather than a divide by zero")
     func zeroDistanceHasNoPace() {
-        let length = SwimLengthPoint(index: 1, seconds: 30, meters: 0, followedRest: false)
+        let length = SwimLengthPoint(index: 1, start: .now, seconds: 30, meters: 0, followedRest: false)
 
         #expect(length.pacePer100m == 0)
     }

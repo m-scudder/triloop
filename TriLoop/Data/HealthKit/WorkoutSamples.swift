@@ -11,6 +11,7 @@ struct SamplePoint: Equatable, Sendable, Identifiable {
 /// One pool length, with the pace it was swum at.
 struct SwimLengthPoint: Equatable, Sendable, Identifiable {
     let index: Int
+    let start: Date
     let seconds: TimeInterval
     let meters: Double
     /// True when a rest preceded this length, which is what breaks a set up.
