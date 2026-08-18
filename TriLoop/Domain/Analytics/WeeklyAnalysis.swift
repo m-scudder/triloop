@@ -42,7 +42,11 @@ struct WeeklyAnalysis: Equatable, Sendable {
     /// True once every planned session has been reported on *or* deliberately
     /// skipped. Skipping still counts against progression, but a skipped session
     /// would otherwise leave the week unable to close.
+    ///
+    /// A week with no training sessions at all — everything pulled for recovery
+    /// — is ready by definition. Requiring a report that can never be written
+    /// would strand the athlete on that week forever.
     var isReadyForNextWeek: Bool {
-        plannedSessions > 0 && completedSessions + skippedSessions == plannedSessions
+        completedSessions + skippedSessions == plannedSessions
     }
 }

@@ -126,9 +126,63 @@ struct WeeklyPlanGeneratorTests {
 
         #expect(week2.orderedWorkouts.contains { $0.discipline == .running } == false)
         #expect(week2.orderedWorkouts.contains { $0.discipline == .cycling } == false)
-        #expect(week2.orderedWorkouts.allSatisfy { $0.discipline == .recovery || $0.discipline == .rest })
+        #expect(week2.orderedWorkouts.allSatisfy { !$0.discipline.isTrainingSession })
     }
 
+    @Test("Recovery replaces the sessions pulled, not the whole week")
+    func recoveryDoesNotFloodTheWeek() {
+        let week1 = seededWeek()
+        // Running only: enough pain to pull it, not enough to stop everything.
+        for run in week1.trainingSessions where run.discipline == .running {
+            run.recordCompletion(with: FeedbackDraft(rpe: 2, painScore: 9))
+        }
+        for other in week1.trainingSessions where other.discipline != .running {
+            other.recordCompletion(with: FeedbackDraft(rpe: 3, painScore: 0))
+        }
+
+        let week2 = nextWeek(after: week1)
+        let recovery = week2.orderedWorkouts.filter { $0.discipline == .recovery }
+
+        // Two runs were pulled, so two recovery days replace them.
+        #expect(recovery.count == 2)
+        #expect(week2.orderedWorkouts.contains { $0.discipline == .rest })
+        #expect(week2.orderedWorkouts.contains { $0.discipline == .swimming })
+    }
+
+    @Test("A week with nothing to report can still be closed")
+    func recoveryWeekIsReady() {
+        let week1 = seededWeek()
+        completeEverything(week1, with: FeedbackDraft(rpe: 2, painScore: 9))
+
+        let week2 = nextWeek(after: week1)
+        let analysis = WeeklyAnalyser().analyse(week2)
+
+        #expect(analysis.plannedSessions == 0)
+        // Otherwise the athlete is stranded on a week that can never complete.
+        #expect(analysis.isReadyForNextWeek)
+    }
+
+    @Test("Training resumes after a week that carried no sessions")
+    func trainingResumesAfterRecovery() {
+        var generator = WeeklyPlanGenerator(schedule: .everyDay(), calendar: calendar)
+        generator.preferences = [
+            SportPreference(sport: .running, sessionsPerWeek: 2, typicalMinutes: 45),
+            SportPreference(sport: .swimming, sessionsPerWeek: 1, typicalMinutes: 45)
+        ]
+
+        let week1 = seededWeek()
+        completeEverything(week1, with: FeedbackDraft(rpe: 2, painScore: 9))
+        let recoveryWeek = generator.generate(after: week1, analysis: WeeklyAnalyser().analyse(week1))
+
+        let week3 = generator.generate(
+            after: recoveryWeek,
+            analysis: WeeklyAnalyser().analyse(recoveryWeek)
+        )
+
+        #expect(week3.trainingSessions.isEmpty == false)
+        #expect(week3.trainingSessions.filter { $0.discipline == .running }.count == 2)
+        #expect(week3.trainingSessions.filter { $0.discipline == .swimming }.count == 1)
+    }
     @Test("Generation records why the week looks the way it does")
     func generationReasonIsRecorded() {
         let week1 = seededWeek()

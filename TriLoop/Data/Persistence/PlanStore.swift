@@ -25,11 +25,24 @@ struct PlanStore {
     func generateNextWeek(after plan: WeeklyPlan) -> WeeklyPlan? {
         guard !hasWeek(after: plan) else { return nil }
 
-        let next = generator.generate(after: plan, analysis: analyser.analyse(plan))
+        let next = configuredGenerator().generate(after: plan, analysis: analyser.analyse(plan))
         plan.status = .completed
         context.insert(next)
         try? context.save()
         return next
+    }
+
+    /// The generator carries no athlete state of its own, so the stored setup is
+    /// applied here. Without this the next week is built against every-day
+    /// availability rather than the days the athlete chose.
+    private func configuredGenerator() -> WeeklyPlanGenerator {
+        var configured = generator
+        guard let setup = (try? context.fetch(FetchDescriptor<AthleteProfile>()))?.first?.setup else {
+            return configured
+        }
+        configured.schedule = setup.schedule
+        configured.preferences = setup.preferences
+        return configured
     }
 
     /// Advances only when every training session has a subjective report.
