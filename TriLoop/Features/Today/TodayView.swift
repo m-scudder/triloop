@@ -144,7 +144,7 @@ struct TodayView: View {
 
         #if DEBUG
         if simulateSamples {
-            if let todaysWorkout, todaysWorkout.importedSummary != nil {
+            if let todaysWorkout, todaysWorkout.isCompleted {
                 samples = SimulatedWorkoutSamples.make(for: todaysWorkout)
             }
             activity = DailyActivity(steps: 8_412, distanceMeters: 6_240)
@@ -240,10 +240,10 @@ struct TodayView: View {
                     // rather than behind another tap.
                     if let summary = workout.importedSummary {
                         RecordedWorkoutView(workout: workout, summary: summary)
+                    }
 
-                        if let samples, !samples.isEmpty {
-                            WorkoutChartsView(discipline: workout.discipline, samples: samples)
-                        }
+                    if let samples, !samples.isEmpty {
+                        WorkoutChartsView(discipline: workout.discipline, samples: samples)
                     }
                 } else {
                     Text("This week is complete. Generate the next one when you're ready.")

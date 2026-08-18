@@ -13,6 +13,8 @@ struct WorkoutDayDetail: View {
     @State private var isConfirmingShift = false
     @State private var samples: WorkoutSamples?
     @State private var samplesFailure: String?
+    @State private var isImporting = false
+    @State private var importMessage: String?
     @AppStorage("simulateHealthSamples") private var simulateSamples = false
 
     private let health = HealthKitWorkoutImporter()
@@ -26,14 +28,16 @@ struct WorkoutDayDetail: View {
                 // leads with what to do.
                 if let summary = workout.importedSummary {
                     RecordedWorkoutView(workout: workout, summary: summary)
+                }
 
-                    if let samples, !samples.isEmpty {
-                        WorkoutChartsView(discipline: workout.discipline, samples: samples)
-                    } else if let samplesFailure {
-                        Text(samplesFailure)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
+                if let samples, !samples.isEmpty {
+                    WorkoutChartsView(discipline: workout.discipline, samples: samples)
+                } else if workout.importedSummary != nil, let samplesFailure {
+                    Text(samplesFailure)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                } else if workout.importedSummary == nil, workout.hasReport {
+                    unlinkedSession
                 }
 
                 if let feedback = workout.feedback {
@@ -168,18 +172,65 @@ struct WorkoutDayDetail: View {
         .background(.bar)
     }
 
+    /// A session reported by hand has no sensor data behind it. Import only ever
+    /// ran for the current week from Settings, so an older week could sit here
+    /// forever with nothing explaining the empty space.
+    @ViewBuilder
+    private var unlinkedSession: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SectionEyebrow(text: "Recorded data")
+
+            Text("No Apple Health workout is linked to this session, so there is no heart rate or pace detail.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
+            if let importMessage {
+                Text(importMessage)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            Button(isImporting ? "Looking…" : "Look in Apple Health") {
+                importThisSession()
+            }
+            .font(.subheadline)
+            .disabled(isImporting)
+        }
+    }
+
+    private func importThisSession() {
+        guard let plan = workout.plan else { return }
+        isImporting = true
+
+        Task {
+            defer { isImporting = false }
+            do {
+                let service = WorkoutImportService(context: modelContext, provider: health)
+                try await service.importWorkouts(for: plan)
+                importMessage = workout.importedSummary == nil
+                    ? "Apple Health has no workout matching this session."
+                    : nil
+                await loadSamples()
+            } catch {
+                importMessage = "Could not reach Apple Health."
+            }
+        }
+    }
+
     /// Fetched rather than stored: HealthKit already holds every sample, and a
     /// copy would be a lot of data for a screen opened occasionally.
     private func loadSamples() async {
-        guard let id = workout.importedSummary?.healthKitUUID else { return }
-
+        // Ahead of the summary check: simulated series are built from the
+        // prescription, so they work on sessions Health never recorded.
         #if DEBUG
-        if simulateSamples {
+        if simulateSamples, workout.isCompleted {
             samples = SimulatedWorkoutSamples.make(for: workout)
             samplesFailure = nil
             return
         }
         #endif
+
+        guard let id = workout.importedSummary?.healthKitUUID else { return }
 
         guard await health.authorizationStatus == .authorized else {
             samplesFailure = "Connect Apple Health to see heart rate and pace detail."
@@ -197,7 +248,8 @@ struct WorkoutDayDetail: View {
         }
     }
 
-    private func refreshScheduledState() async {        isScheduled = await scheduler.scheduledWorkoutIDs().contains(workout.id)
+    private func refreshScheduledState() async {
+        isScheduled = await scheduler.scheduledWorkoutIDs().contains(workout.id)
     }
 
     private func sendToWatch() {
