@@ -122,7 +122,7 @@ struct RecoveryCheckInStorageTests {
     @Test("A check-in round-trips and feeds the analysis")
     func checkInPersists() throws {
         let context = ModelContext(try TriLoopModelContainer.make(inMemory: true))
-        let plan = SeedWeekOne.makePlan(startDate: monday(), calendar: calendar, availability: .everything)
+        let plan = SeedWeekOne.makePlan(startDate: monday(), calendar: calendar)
         context.insert(plan)
 
         let run = try #require(plan.orderedWorkouts.first { $0.discipline == .running })
@@ -142,7 +142,7 @@ struct RecoveryCheckInStorageTests {
     @Test("Re-answering replaces the check-in rather than stranding it")
     func checkInIsReplaced() throws {
         let context = ModelContext(try TriLoopModelContainer.make(inMemory: true))
-        let plan = SeedWeekOne.makePlan(startDate: monday(), calendar: calendar, availability: .everything)
+        let plan = SeedWeekOne.makePlan(startDate: monday(), calendar: calendar)
         context.insert(plan)
 
         let run = try #require(plan.orderedWorkouts.first { $0.discipline == .running })
@@ -158,7 +158,7 @@ struct RecoveryCheckInStorageTests {
 
     @Test("Only yesterday's reported session is offered for check-in")
     func onlyYesterdayIsOffered() throws {
-        let plan = SeedWeekOne.makePlan(startDate: monday(), calendar: calendar, availability: .everything)
+        let plan = SeedWeekOne.makePlan(startDate: monday(), calendar: calendar)
         let monday = try #require(plan.workout(on: monday(), calendar: calendar))
         monday.recordCompletion(with: FeedbackDraft(rpe: 3))
 
@@ -172,7 +172,7 @@ struct RecoveryCheckInStorageTests {
 
     @Test("An unreported session is not offered a check-in")
     func unreportedSessionIsNotOffered() throws {
-        let plan = SeedWeekOne.makePlan(startDate: monday(), calendar: calendar, availability: .everything)
+        let plan = SeedWeekOne.makePlan(startDate: monday(), calendar: calendar)
         let monday = try #require(plan.workout(on: monday(), calendar: calendar))
         let tuesday = calendar.date(byAdding: .day, value: 1, to: monday.date) ?? monday.date
 

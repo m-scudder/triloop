@@ -60,7 +60,7 @@ struct WorkoutImportServiceTests {
     }
 
     private func seededPlan(in context: ModelContext) -> WeeklyPlan {
-        let plan = SeedWeekOne.makePlan(startDate: monday(), calendar: calendar, availability: .everything)
+        let plan = SeedWeekOne.makePlan(startDate: monday(), calendar: calendar)
         context.insert(plan)
         return plan
     }
@@ -174,9 +174,9 @@ struct WorkoutImportServiceTests {
         let container = try TriLoopModelContainer.make(inMemory: true)
         let context = container.mainContext
 
-        let previous = SeedWeekOne.makePlan(startDate: lastWeek, calendar: current, availability: .everything)
+        let previous = SeedWeekOne.makePlan(startDate: lastWeek, calendar: current)
         context.insert(previous)
-        let latest = SeedWeekOne.makePlan(startDate: thisWeek, calendar: current, availability: .everything)
+        let latest = SeedWeekOne.makePlan(startDate: thisWeek, calendar: current)
         latest.weekNumber = 2
         context.insert(latest)
 
@@ -206,7 +206,7 @@ struct WorkoutImportServiceTests {
     func autoImportRequiresAuthorization() async throws {
         let container = try TriLoopModelContainer.make(inMemory: true)
         container.mainContext.insert(
-            SeedWeekOne.makePlan(startDate: Calendar.current.startOfDay(for: .now), availability: .everything)
+            SeedWeekOne.makePlan(startDate: Calendar.current.startOfDay(for: .now))
         )
 
         let importer = WorkoutAutoImporter(

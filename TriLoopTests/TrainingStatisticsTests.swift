@@ -21,7 +21,7 @@ struct TrainingStatisticsTests {
     }
 
     private func plan() -> WeeklyPlan {
-        SeedWeekOne.makePlan(startDate: monday(), calendar: calendar, availability: .everything)
+        SeedWeekOne.makePlan(startDate: monday(), calendar: calendar)
     }
 
     @Test("An untouched week has no statistics")

@@ -17,7 +17,7 @@ struct CurrentTrainingTests {
     }
 
     private func plan() -> WeeklyPlan {
-        SeedWeekOne.makePlan(startDate: monday(), calendar: calendar, availability: .everything)
+        SeedWeekOne.makePlan(startDate: monday(), calendar: calendar)
     }
 
     @Test("No plans means no summary")

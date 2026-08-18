@@ -10,6 +10,7 @@ struct PlanStore {
     let context: ModelContext
     var analyser: WeeklyAnalyser = WeeklyAnalyser()
     var generator: WeeklyPlanGenerator = WeeklyPlanGenerator()
+    var reshaper: PlanReshaper = PlanReshaper()
 
     func hasWeek(after plan: WeeklyPlan) -> Bool {
         let target = plan.weekNumber + 1
@@ -60,51 +61,48 @@ struct PlanStore {
         var dropped: Discipline?
     }
 
-    /// Rewrites the remaining days of a week to the current schedule.
+    /// Rebuilds the days still ahead of the athlete against their current
+    /// availability.
     ///
-    /// Needed whenever availability changes under an already-generated week —
-    /// equipment arriving, a sport starting sooner than planned. Anything
-    /// already reported on or deliberately skipped is left alone.
+    /// Only unresolved future sessions move. Reported, skipped and past days are
+    /// history, and the week's own record of why it changed is updated so a
+    /// later explanation layer can say what happened.
     @discardableResult
-    func reshapeWeek(
-        _ plan: WeeklyPlan,
-        availability: SportAvailability = .athlete(),
-        calendar: Calendar = .current
-    ) -> Int {
-        let schedule = WeeklySchedule.forWeek(
-            starting: plan.startDate,
-            availability: availability,
-            calendar: calendar
+    func reshapeWeek(_ plan: WeeklyPlan, asOf now: Date = .now) -> PlanReshaper.Outcome {
+        guard let setup = athleteSetup() else { return PlanReshaper.Outcome() }
+
+        let outcome = reshaper.reshape(
+            plan,
+            schedule: setup.schedule,
+            preferences: setup.preferences,
+            asOf: now
         )
-        var changed = 0
 
-        for (offset, discipline) in schedule.disciplines.enumerated() {
-            guard let date = calendar.date(byAdding: .day, value: offset, to: plan.startDate) else { continue }
-            let existing = plan.workout(on: date, calendar: calendar)
+        guard !outcome.isUnchanged else { return outcome }
 
-            // Anything already reported on or deliberately skipped is a decision
-            // the athlete made, not a plan to be rewritten.
-            if let existing, existing.hasReport || existing.isSkipped { continue }
-            if let existing, existing.discipline == discipline { continue }
+        let calendar = reshaper.calendar
 
-            if let existing {
+        for change in outcome.changes {
+            if let existing = plan.workout(on: change.date, calendar: calendar) {
                 context.delete(existing)
             }
 
             let replacement = WorkoutTemplates.session(
-                discipline,
-                on: date,
+                change.discipline,
+                on: change.date,
                 parameters: plan.parameters
             )
             replacement.plan = plan
             context.insert(replacement)
-            changed += 1
         }
 
-        if changed > 0 {
-            try? context.save()
-        }
-        return changed
+        plan.generationReasonCode = .availabilityChanged
+        try? context.save()
+        return outcome
+    }
+
+    private func athleteSetup() -> AthleteSetup? {
+        (try? context.fetch(FetchDescriptor<AthleteProfile>()))?.first?.setup
     }
 
     /// Pushes everything from `date` onward forward by a day, turning the missed

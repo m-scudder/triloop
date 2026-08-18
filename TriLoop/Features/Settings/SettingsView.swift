@@ -222,13 +222,24 @@ struct SettingsView: View {
 
     private func reshapeThisWeek() {
         guard let plan = plans.currentPlan() else { return }
-        let changed = PlanStore(context: modelContext).reshapeWeek(plan)
+        let outcome = PlanStore(context: modelContext).reshapeWeek(plan)
 
-        importMessage = switch changed {
-        case 0: "This week already matches your schedule."
+        let changed = outcome.changes.count
+        var message = switch changed {
+        case 0: "The days ahead already match your schedule."
         case 1: "One day updated."
         default: "\(changed) days updated."
         }
+
+        if outcome.dropped > 0 {
+            let sessions = outcome.dropped == 1 ? "session" : "sessions"
+            message += " \(outcome.dropped) \(sessions) no longer fit and were dropped."
+        }
+        if outcome.preserved > 0 {
+            message += " Days you have already reported on or skipped were left alone."
+        }
+
+        importMessage = message
     }
 
     private func message(for outcome: WorkoutImportService.Outcome) -> String {

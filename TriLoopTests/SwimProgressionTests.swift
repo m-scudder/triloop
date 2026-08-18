@@ -100,8 +100,40 @@ struct SwimProgressionTests {
 
         #expect(next.swimRepeatDistanceMeters == 50)
         #expect(next.swimTotalMeters == 300)
-        // Rest is not tightened by a structural step; the floor simply rises.
-        #expect(next.swimRestSeconds == 60)
+        // Floor for 50 m is 60; one decrement above it leaves rest to tighten.
+        #expect(next.swimRestSeconds == 75)
+    }
+
+    @Test("Distance and rest alternate rather than distance stepping every week")
+    func leversAlternate() {
+        let swim = engine()
+        var parameters = TrainingParameters()
+        parameters.swimRepeatDistanceMeters = 25
+        parameters.swimRestSeconds = 30
+
+        // At the floor for 25 m, so the repeat lengthens.
+        let first = swim.progressionAdjustment(
+            result: result(rest: parameters.swimRestSeconds, repeatDistance: parameters.swimRepeatDistanceMeters),
+            feedback: easy
+        )
+        #expect(first == .swimRepeatDistance(meters: 50))
+        parameters = parameters.applying(first, to: .swimming)
+
+        // Now rest has room again, so it tightens instead of stepping straight
+        // from 50 m to 75 m.
+        let second = swim.progressionAdjustment(
+            result: result(rest: parameters.swimRestSeconds, repeatDistance: parameters.swimRepeatDistanceMeters),
+            feedback: easy
+        )
+        #expect(second == .swimRestDuration(deltaSeconds: -15))
+        parameters = parameters.applying(second, to: .swimming)
+
+        // Only once rest is spent does the repeat lengthen again.
+        let third = swim.progressionAdjustment(
+            result: result(rest: parameters.swimRestSeconds, repeatDistance: parameters.swimRepeatDistanceMeters),
+            feedback: easy
+        )
+        #expect(third == .swimRepeatDistance(meters: 75))
     }
 
     @Test("A longer repeat leaves room to tighten rest again next week")
@@ -109,7 +141,7 @@ struct SwimProgressionTests {
         let stepped = TrainingParameters().applying(.swimRepeatDistance(meters: 50), to: .swimming)
 
         let adjustment = engine(pool: 50).progressionAdjustment(
-            result: result(rest: stepped.swimRestSeconds + 15, repeatDistance: 50),
+            result: result(rest: stepped.swimRestSeconds, repeatDistance: 50),
             feedback: easy
         )
 

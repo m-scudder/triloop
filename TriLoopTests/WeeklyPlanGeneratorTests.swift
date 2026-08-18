@@ -23,7 +23,7 @@ struct WeeklyPlanGeneratorTests {
     }
 
     private func seededWeek() -> WeeklyPlan {
-        SeedWeekOne.makePlan(startDate: monday(), calendar: calendar, availability: .everything)
+        SeedWeekOne.makePlan(startDate: monday(), calendar: calendar)
     }
 
     private func generator() -> WeeklyPlanGenerator {
@@ -105,7 +105,14 @@ struct WeeklyPlanGeneratorTests {
         // lever rather than more broken lengths.
         #expect(week3.parameters.swimRepeatDistanceMeters == 50)
         #expect(week3.parameters.swimTotalMeters == 300)
-        #expect(week3.parameters.swimRestSeconds == 60)
+        #expect(week3.parameters.swimRestSeconds == 75)
+
+        completeEverything(week3, with: FeedbackDraft(rpe: 3, painScore: 0))
+        let week4 = nextWeek(after: week3)
+
+        // Rest again, not another jump in continuity.
+        #expect(week4.parameters.swimRepeatDistanceMeters == 50)
+        #expect(week4.parameters.swimRestSeconds == 60)
     }
 
     @Test("An unreported week repeats itself")

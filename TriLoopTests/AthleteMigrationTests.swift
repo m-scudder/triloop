@@ -19,7 +19,7 @@ struct AthleteMigrationTests {
         let profile = AthleteProfile(name: "Athlete", trainingStartDate: .now)
         context.insert(profile)
 
-        let plan = SeedWeekOne.makePlan(availability: .everything)
+        let plan = SeedWeekOne.makePlan()
         context.insert(plan)
 
         if let run = plan.trainingSessions.first(where: { $0.discipline == .running }) {
@@ -164,7 +164,7 @@ struct AthleteMigrationTests {
         let container = try store()
         let context = container.mainContext
 
-        let plan = SeedWeekOne.makePlan(availability: .everything)
+        let plan = SeedWeekOne.makePlan()
         plan.generationReasonCode = .initialAssessment
         context.insert(plan)
         try context.save()
@@ -180,7 +180,7 @@ struct AthleteMigrationTests {
         let container = try store()
         let context = container.mainContext
 
-        let plan = SeedWeekOne.makePlan(availability: .everything)
+        let plan = SeedWeekOne.makePlan()
         context.insert(plan)
         try context.save()
 

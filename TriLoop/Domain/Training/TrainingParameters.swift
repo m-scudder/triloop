@@ -76,6 +76,10 @@ extension TrainingParameters {
             let scaled = (30 * (meters / 25)).rounded()
             return max(min(scaled, 90), minimumSwimRestSeconds)
         }
+
+        /// Rest allowed above the floor when a repeat lengthens, so tightening
+        /// it is available as the next week's lever.
+        static let restHeadroomSeconds: TimeInterval = 15
     }
 
     func applying(_ adjustment: TrainingAdjustment, to sport: Sport) -> TrainingParameters {
@@ -126,10 +130,10 @@ extension TrainingParameters {
 
         case .swimRepeatDistance(let meters):
             next.swimRepeatDistanceMeters = meters
-            // The floor rises with the repeat, so a longer repeat is not also
-            // asked to hold the old rest. Only the structure changed; rest
-            // becomes the next lever to tighten rather than a second change now.
-            next.swimRestSeconds = max(swimRestSeconds, Limits.restFloor(forRepeat: meters))
+            // Landing exactly on the new floor would leave the rest lever with
+            // no room, so distance would step again the very next week. One
+            // decrement of headroom makes the two levers alternate.
+            next.swimRestSeconds = Limits.restFloor(forRepeat: meters) + Limits.restHeadroomSeconds
             next.swimTotalMeters = Self.roundedToRepeat(
                 swimTotalMeters,
                 repeatDistance: meters

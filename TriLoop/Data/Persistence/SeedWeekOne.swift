@@ -23,33 +23,36 @@ enum SeedWeekOne {
         )
     }
 
+    /// A fixed three-sport week, for previews, tests and Developer tools.
+    ///
+    /// No availability input: a real athlete's week is planned from their own
+    /// schedule by `FirstWeekBuilder`. This exists only to give the rest of the
+    /// app something predictable to render.
+    static let disciplines: [Discipline] = [
+        .running, .swimming, .cycling, .running, .swimming, .cycling, .rest
+    ]
+
     static func makePlan(
         startDate: Date? = nil,
-        calendar: Calendar = .current,
-        availability: SportAvailability? = nil
+        calendar: Calendar = .current
     ) -> WeeklyPlan {
         let monday = calendar.startOfDay(for: startDate ?? defaultStartDate(calendar: calendar))
         let parameters = TrainingParameters()
-        let schedule = WeeklySchedule.forWeek(
-            starting: monday,
-            availability: availability ?? .athlete(calendar: calendar),
-            calendar: calendar
-        )
 
         func day(_ offset: Int) -> Date {
             calendar.date(byAdding: .day, value: offset, to: monday) ?? monday
         }
 
-        let workouts = schedule.disciplines.enumerated().map { offset, discipline in
+        let workouts = disciplines.enumerated().map { offset, discipline in
             WorkoutTemplates.session(discipline, on: day(offset), parameters: parameters)
         }
 
         return WeeklyPlan(
             weekNumber: 1,
             startDate: monday,
-            endDate: day(schedule.disciplines.count - 1),
+            endDate: day(disciplines.count - 1),
             status: .active,
-            generationReason: "First week. Easy running and swimming while the bike arrives.",
+            generationReason: "Fixed development week across all three sports.",
             parameters: parameters,
             workouts: workouts
         )

@@ -28,7 +28,7 @@ struct WeekShiftTests {
 
     private func makeStore() throws -> (PlanStore, WeeklyPlan) {
         let context = ModelContext(try TriLoopModelContainer.make(inMemory: true))
-        let plan = SeedWeekOne.makePlan(startDate: monday(), calendar: calendar, availability: .everything)
+        let plan = SeedWeekOne.makePlan(startDate: monday(), calendar: calendar)
         context.insert(plan)
         try context.save()
         return (PlanStore(context: context), plan)

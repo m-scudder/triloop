@@ -9,7 +9,7 @@ struct WeeklyAnalysisTests {
 
     /// Full availability keeps the canonical three-sport week these tests describe.
     private func seedPlan() -> WeeklyPlan {
-        SeedWeekOne.makePlan(availability: .everything)
+        SeedWeekOne.makePlan()
     }
 
     private func sessions(_ plan: WeeklyPlan, for sport: Sport) -> [PlannedWorkout] {

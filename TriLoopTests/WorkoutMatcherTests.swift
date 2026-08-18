@@ -42,7 +42,7 @@ struct WorkoutMatcherTests {
     }
 
     private func plan() -> WeeklyPlan {
-        SeedWeekOne.makePlan(startDate: monday(), calendar: calendar, availability: .everything)
+        SeedWeekOne.makePlan(startDate: monday(), calendar: calendar)
     }
 
     private func matcher(toleranceDays: Int = 1) -> WorkoutMatcher {

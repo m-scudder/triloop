@@ -36,13 +36,13 @@ struct SeedWeekOneTests {
         #expect(days == 6)
     }
 
-    @Test func disciplinesMatchTheAthletesFirstWeek() throws {
+    @Test func seedIsAFixedThreeSportWeek() throws {
         let plan = SeedWeekOne.makePlan(startDate: monday(), calendar: calendar)
 
-        // Swimming is available from the start; the bike arrives on the Friday,
-        // so the Wednesday ride falls back to running.
+        // A development fixture, not an athlete's plan: no availability, no
+        // real-world dates, the same every time.
         #expect(plan.orderedWorkouts.map(\.discipline) == [
-            .running, .swimming, .running, .running, .swimming, .cycling, .rest
+            .running, .swimming, .cycling, .running, .swimming, .cycling, .rest
         ])
     }
 
@@ -51,26 +51,13 @@ struct SeedWeekOneTests {
         #expect(plan.trainingSessions.count == 6)
     }
 
-    @Test func swimmingIsAvailableFromWeekOne() throws {
-        let plan = SeedWeekOne.makePlan(startDate: monday(), calendar: calendar)
-        #expect(plan.orderedWorkouts.filter { $0.discipline == .swimming }.count == 2)
-
-        // Once the bike has arrived too, every week carries all three sports.
+    @Test func seedIsIndependentOfTheDateItStartsOn() throws {
         let september = calendar.date(from: DateComponents(year: 2026, month: 9, day: 14)) ?? monday()
+
+        let august = SeedWeekOne.makePlan(startDate: monday(), calendar: calendar)
         let later = SeedWeekOne.makePlan(startDate: september, calendar: calendar)
 
-        #expect(later.orderedWorkouts.map(\.discipline) == [
-            .running, .swimming, .cycling, .running, .swimming, .cycling, .rest
-        ])
-    }
-
-    @Test func cyclingWaitsForTheBike() throws {
-        let plan = SeedWeekOne.makePlan(startDate: monday(), calendar: calendar)
-        let rides = plan.orderedWorkouts.filter { $0.discipline == .cycling }
-
-        // Friday 21 August is the first day a ride can be prescribed.
-        let friday = calendar.date(byAdding: .day, value: 4, to: monday()) ?? monday()
-        #expect(rides.allSatisfy { $0.date >= friday })
+        #expect(august.orderedWorkouts.map(\.discipline) == later.orderedWorkouts.map(\.discipline))
     }
 
     @Test func runWalkExpandsToTwentyEightMinutes() throws {
