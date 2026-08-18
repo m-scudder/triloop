@@ -105,6 +105,45 @@ struct PlanStore {
         (try? context.fetch(FetchDescriptor<AthleteProfile>()))?.first?.setup
     }
 
+    /// Rebuilds the days still ahead using different training dials, keeping
+    /// each day's sport.
+    ///
+    /// For a reassessed baseline: the athlete says they can do more (or less)
+    /// than they could, so the prescription changes while the week's shape and
+    /// everything already recorded stay exactly as they are.
+    @discardableResult
+    func reapplyParameters(
+        _ parameters: TrainingParameters,
+        to plan: WeeklyPlan,
+        asOf now: Date = .now,
+        calendar: Calendar = .current
+    ) -> Int {
+        let boundary = calendar.startOfDay(for: now)
+
+        let rebuildable = plan.orderedWorkouts.filter { workout in
+            calendar.startOfDay(for: workout.date) >= boundary
+                && !workout.hasReport
+                && !workout.isSkipped
+        }
+
+        guard !rebuildable.isEmpty else { return 0 }
+
+        for workout in rebuildable {
+            let discipline = workout.discipline
+            let date = workout.date
+            context.delete(workout)
+
+            let replacement = WorkoutTemplates.session(discipline, on: date, parameters: parameters)
+            replacement.plan = plan
+            context.insert(replacement)
+        }
+
+        plan.parameters = parameters
+        plan.generationReasonCode = .profileChanged
+        try? context.save()
+        return rebuildable.count
+    }
+
     /// Pushes everything from `date` onward forward by a day, turning the missed
     /// day into recovery.
     ///

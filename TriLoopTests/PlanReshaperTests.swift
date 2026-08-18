@@ -207,4 +207,65 @@ struct PlanReshaperTests {
         #expect(week.generationReasonCode == .availabilityChanged)
         #expect(week.orderedWorkouts.count == 7)
     }
+
+    @Test("Reassessing rebuilds only what is still ahead")
+    func reassessmentSparesHistory() throws {
+        let container = try TriLoopModelContainer.make(inMemory: true)
+        let context = container.mainContext
+
+        let week = plan()
+        context.insert(week)
+
+        // Monday reported, Tuesday skipped: both are decisions already made.
+        let reported = try #require(week.workout(on: monday(), calendar: calendar))
+        reported.recordCompletion(with: FeedbackDraft(rpe: 3, painScore: 0))
+        let skipped = try #require(week.workout(on: day(1), calendar: calendar))
+        skipped.skip()
+        try context.save()
+
+        let stronger = StartingParameterResolver().resolve(
+            baseline: AthleteBaseline(running: .regular5K, swimming: .continuous200Plus, cycling: .sixtyPlus),
+            goal: .improveEndurance,
+            poolLengthMeters: 25
+        )
+
+        let rebuilt = PlanStore(context: context).reapplyParameters(
+            stronger,
+            to: week,
+            asOf: day(2),
+            calendar: calendar
+        )
+
+        #expect(rebuilt == 5)
+        #expect(reported.hasReport)
+        #expect(skipped.isSkipped)
+        #expect(week.parameters.runIsContinuous)
+        #expect(week.generationReasonCode == .profileChanged)
+        #expect(week.orderedWorkouts.count == 7)
+    }
+
+    @Test("Reassessing keeps each day's sport")
+    func reassessmentKeepsTheWeekShape() throws {
+        let container = try TriLoopModelContainer.make(inMemory: true)
+        let context = container.mainContext
+
+        let week = plan()
+        context.insert(week)
+        try context.save()
+
+        let before = week.orderedWorkouts.map(\.discipline)
+
+        PlanStore(context: context).reapplyParameters(
+            StartingParameterResolver().resolve(
+                baseline: AthleteBaseline(running: .regular5K),
+                goal: .generalFitness,
+                poolLengthMeters: 25
+            ),
+            to: week,
+            asOf: monday(),
+            calendar: calendar
+        )
+
+        #expect(week.orderedWorkouts.map(\.discipline) == before)
+    }
 }

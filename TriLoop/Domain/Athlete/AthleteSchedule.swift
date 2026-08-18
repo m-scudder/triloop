@@ -44,8 +44,6 @@ enum Weekday: Int, Codable, CaseIterable, Comparable, Sendable {
         }
     }
 
-    var shortName: String { String(displayName.prefix(3)) }
-
     var initial: String { String(displayName.prefix(1)) }
 }
 

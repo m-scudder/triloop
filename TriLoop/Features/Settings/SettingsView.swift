@@ -54,20 +54,17 @@ struct SettingsView: View {
                     Text("Automatic import links a session as soon as Apple Health records it, and checks again each time you open TriLoop.")
                 }
 
-                Section {
-                    Button("Update this week to my schedule") { reshapeThisWeek() }
-                        .disabled(isWorking || plans.currentPlan() == nil)
-                } header: {
-                    Text("Plan")
-                } footer: {
-                    Text("Rebuilds the days still ahead of you when a sport becomes available. Sessions you have already reported on or skipped are left alone.")
-                }
-
                 if let profile = profiles.first {
-                    Section("Training") {
-                        LabeledContent("Pool length", value: TrainingFormatter.distance(meters: profile.poolLengthMeters))
-                        LabeledContent("Experience", value: profile.experienceLevel.displayName)
-                        LabeledContent("Started", value: profile.trainingStartDate.formatted(date: .abbreviated, time: .omitted))
+                    Section {
+                        NavigationLink {
+                            TrainingProfileView(profile: profile)
+                        } label: {
+                            LabeledContent("Training profile", value: profile.setup?.goal.displayName ?? "Not set")
+                        }
+                    } header: {
+                        Text("Training")
+                    } footer: {
+                        Text("Your goal, what you can do today, the days you train and the pool you use.")
                     }
                 }
 
@@ -218,28 +215,6 @@ struct SettingsView: View {
                 importMessage = "Import failed."
             }
         }
-    }
-
-    private func reshapeThisWeek() {
-        guard let plan = plans.currentPlan() else { return }
-        let outcome = PlanStore(context: modelContext).reshapeWeek(plan)
-
-        let changed = outcome.changes.count
-        var message = switch changed {
-        case 0: "The days ahead already match your schedule."
-        case 1: "One day updated."
-        default: "\(changed) days updated."
-        }
-
-        if outcome.dropped > 0 {
-            let sessions = outcome.dropped == 1 ? "session" : "sessions"
-            message += " \(outcome.dropped) \(sessions) no longer fit and were dropped."
-        }
-        if outcome.preserved > 0 {
-            message += " Days you have already reported on or skipped were left alone."
-        }
-
-        importMessage = message
     }
 
     private func message(for outcome: WorkoutImportService.Outcome) -> String {
