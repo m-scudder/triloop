@@ -44,15 +44,9 @@ struct WeekReviewView: View {
                         NextWeekPreviewView(previousWeek: plan)
                     } label: {
                         Text("Preview Week \(plan.weekNumber + 1)")
-                            .font(.subheadline.weight(.semibold))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(Color.focusSurface, in: .rect(cornerRadius: 12))
-                            .foregroundStyle(Color.onFocusSurface)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(PrimaryActionButtonStyle())
                     .disabled(!analysis.isReadyForNextWeek)
-                    .opacity(analysis.isReadyForNextWeek ? 1 : 0.4)
 
                     if !analysis.isReadyForNextWeek {
                         Text("Available once every session this week has been reported on.")

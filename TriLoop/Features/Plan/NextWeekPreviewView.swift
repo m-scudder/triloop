@@ -60,13 +60,8 @@ struct NextWeekPreviewView: View {
                     generate()
                 } label: {
                     Text(generated ? "Week \(plan.weekNumber) Added" : "Generate Week \(plan.weekNumber)")
-                        .font(.subheadline.weight(.semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(Color.focusSurface, in: .rect(cornerRadius: 12))
-                        .foregroundStyle(Color.onFocusSurface)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(PrimaryActionButtonStyle())
                 .disabled(generated)
 
                 Text("You can review and regenerate anytime.")

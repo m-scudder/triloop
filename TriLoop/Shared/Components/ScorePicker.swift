@@ -27,6 +27,10 @@ struct ScorePicker: View {
                             RoundedRectangle(cornerRadius: 10, style: .continuous)
                                 .fill(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(.fill.tertiary))
                         )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .strokeBorder(.separator, lineWidth: isSelected ? 0 : 0.5)
+                        )
                         .foregroundStyle(isSelected ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
                 }
                 .buttonStyle(.plain)
@@ -62,6 +66,10 @@ struct ChipGrid<Value: Hashable & Identifiable>: View {
                         .background(
                             RoundedRectangle(cornerRadius: 10, style: .continuous)
                                 .fill(selected ? AnyShapeStyle(.tint) : AnyShapeStyle(.fill.tertiary))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .strokeBorder(.separator, lineWidth: selected ? 0 : 0.5)
                         )
                         .foregroundStyle(selected ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
                 }

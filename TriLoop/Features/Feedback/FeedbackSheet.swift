@@ -30,13 +30,8 @@ struct FeedbackSheet: View {
 
                     Button(action: save) {
                         Text("Save Feedback")
-                            .font(.subheadline.weight(.semibold))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(Color.focusSurface, in: .rect(cornerRadius: 12))
-                            .foregroundStyle(Color.onFocusSurface)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(PrimaryActionButtonStyle())
                 }
                 .padding(20)
             }

@@ -221,7 +221,11 @@ struct TodayView: View {
                         }
                         .font(.subheadline)
                         .padding(12)
-                        .background(.fill.quaternary, in: .rect(cornerRadius: 12))
+                        .background(.fill.tertiary, in: .rect(cornerRadius: 12))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .strokeBorder(.separator, lineWidth: 0.5)
+                        )
                     }
                     .buttonStyle(.plain)
                 }

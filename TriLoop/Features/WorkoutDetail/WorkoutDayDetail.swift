@@ -143,13 +143,8 @@ struct WorkoutDayDetail: View {
                         isPresentingFeedback = true
                     } label: {
                         Text(workout.hasReport ? "Update Report" : "Mark as Done")
-                            .font(.subheadline.weight(.semibold))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(Color.focusSurface, in: .rect(cornerRadius: 12))
-                            .foregroundStyle(Color.onFocusSurface)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(PrimaryActionButtonStyle())
                 }
 
                 if workout.discipline.isTrainingSession {
@@ -160,14 +155,10 @@ struct WorkoutDayDetail: View {
                             isScheduled ? "On Watch" : "Send to Watch",
                             systemImage: isScheduled ? "checkmark.circle.fill" : "applewatch"
                         )
-                        .font(.subheadline.weight(.medium))
                         .labelStyle(.titleAndIcon)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 14)
-                        .background(.fill.tertiary, in: .rect(cornerRadius: 12))
                         .foregroundStyle(isScheduled ? Color.green : .primary)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(SecondaryActionButtonStyle())
                     .disabled(isScheduling || isScheduled)
                 }
             }

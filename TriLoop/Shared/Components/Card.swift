@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 extension Color {
     /// Fixed dark surface for the focus card and primary actions.
@@ -9,6 +10,66 @@ extension Color {
 
     /// Text and glyphs drawn on `focusSurface`, in both appearances.
     static let onFocusSurface = Color.white
+
+    /// Filled button surface. Inverts with the appearance, because a fixed dark
+    /// fill disappears against a dark background.
+    static let actionSurface = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(white: 0.94, alpha: 1)
+            : UIColor(red: 0.10, green: 0.11, blue: 0.12, alpha: 1)
+    })
+
+    static let onActionSurface = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(white: 0.07, alpha: 1)
+            : .white
+    })
+}
+
+/// Filled, full-width button for the one action a screen most wants.
+struct PrimaryActionButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.subheadline.weight(.semibold))
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .background(Color.actionSurface, in: .rect(cornerRadius: 12))
+            .foregroundStyle(Color.onActionSurface)
+            .opacity(opacity(pressed: configuration.isPressed))
+    }
+
+    private func opacity(pressed: Bool) -> Double {
+        if !isEnabled { return 0.4 }
+        return pressed ? 0.85 : 1
+    }
+}
+
+/// Companion to `PrimaryActionButtonStyle`, for actions that sit beside it.
+///
+/// Carries a border as well as a fill: the system fill styles are nearly
+/// invisible against a dark background on their own.
+struct SecondaryActionButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.subheadline.weight(.medium))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 14)
+            .background(.fill.tertiary, in: .rect(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(.separator, lineWidth: 0.5)
+            )
+            .opacity(opacity(pressed: configuration.isPressed))
+    }
+
+    private func opacity(pressed: Bool) -> Double {
+        if !isEnabled { return 0.5 }
+        return pressed ? 0.85 : 1
+    }
 }
 
 /// Small uppercase label above a group, as used throughout the wireframes.
