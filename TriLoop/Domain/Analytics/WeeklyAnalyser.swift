@@ -23,6 +23,7 @@ struct WeeklyAnalyser: Sendable {
             endDate: plan.endDate,
             plannedSessions: sessions.count,
             completedSessions: completed.count,
+            skippedSessions: sessions.filter(\.isSkipped).count,
             sports: sports
         )
     }
@@ -34,6 +35,10 @@ struct WeeklyAnalyser: Sendable {
     ) -> SportAnalysis {
         let completed = planned.filter(\.hasReport)
         let reports = completed.compactMap(\.feedback)
+
+        // The pool the week was built for decides how far a repeat can step up.
+        var engine = engine
+        engine.swimming.poolLengthMeters = parameters.swimPoolLengthMeters
 
         let assessments: [WorkoutAssessment] = completed.compactMap { workout in
             guard let report = workout.feedback else { return nil }
@@ -47,6 +52,9 @@ struct WeeklyAnalyser: Sendable {
                     prescribedRestSeconds: restSeconds(for: sport, parameters: parameters),
                     prescribedIntervalSeconds: sport == .running && !parameters.runIsContinuous
                         ? parameters.runIntervalSeconds
+                        : nil,
+                    prescribedRepeatDistanceMeters: sport == .swimming
+                        ? parameters.swimRepeatDistanceMeters
                         : nil
                 ),
                 feedback: FeedbackSummary(report),

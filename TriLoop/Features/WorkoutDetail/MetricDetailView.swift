@@ -65,34 +65,50 @@ struct MetricDetailView: View {
             .chartXAxis { AxisMarks(values: .automatic(desiredCount: 6)) }
 
         case .swimPace:
-            Chart(metric.lengths) { length in
-                LineMark(
-                    x: .value("Length", length.index),
-                    y: .value("Pace", length.pacePer100m)
-                )
-                .foregroundStyle(metric.gradient)
-                .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round))
-                .interpolationMethod(.monotone)
+            if metric.lengths.isEmpty {
+                Chart(metric.points) { point in
+                    BarMark(
+                        x: .value("Time", point.date, unit: .minute),
+                        y: .value("Distance", point.value)
+                    )
+                    .foregroundStyle(metric.gradient)
+                    .cornerRadius(2)
+                }
+                .chartXAxis {
+                    AxisMarks(values: .automatic(desiredCount: 4)) {
+                        AxisValueLabel(format: .dateTime.hour().minute())
+                    }
+                }
+            } else {
+                Chart(metric.lengths) { length in
+                    LineMark(
+                        x: .value("Length", length.index),
+                        y: .value("Pace", length.pacePer100m)
+                    )
+                    .foregroundStyle(metric.gradient)
+                    .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round))
+                    .interpolationMethod(.monotone)
 
-                PointMark(
-                    x: .value("Length", length.index),
-                    y: .value("Pace", length.pacePer100m)
-                )
-                .foregroundStyle(metric.tint)
-                .symbolSize(length.followedRest ? 60 : 18)
-            }
-            .chartYAxis {
-                AxisMarks { value in
-                    AxisGridLine()
-                    AxisValueLabel {
-                        if let seconds = value.as(Double.self) {
-                            Text(TrainingFormatter.swimPace(secondsPer100m: seconds))
+                    PointMark(
+                        x: .value("Length", length.index),
+                        y: .value("Pace", length.pacePer100m)
+                    )
+                    .foregroundStyle(metric.tint)
+                    .symbolSize(length.followedRest ? 60 : 18)
+                }
+                .chartYAxis {
+                    AxisMarks { value in
+                        AxisGridLine()
+                        AxisValueLabel {
+                            if let seconds = value.as(Double.self) {
+                                Text(TrainingFormatter.swimPace(secondsPer100m: seconds))
+                            }
                         }
                     }
                 }
+                .chartXAxis { AxisMarks(values: .automatic(desiredCount: 6)) }
+                .chartPlotStyle { $0.clipped() }
             }
-            .chartXAxis { AxisMarks(values: .automatic(desiredCount: 6)) }
-            .chartPlotStyle { $0.clipped() }
 
         case .heartRate:
             Chart(metric.points) { point in
@@ -190,6 +206,14 @@ struct MetricDetailView: View {
             ]
 
         case .swimPace:
+            guard !metric.lengths.isEmpty else {
+                let distance = metric.points.reduce(0) { $0 + $1.value }
+                guard distance > 0 else { return [] }
+                return [
+                    ("Distance", TrainingFormatter.distance(meters: distance)),
+                    ("Time", TrainingFormatter.totalDuration(seconds: Double(metric.points.count) * 60))
+                ]
+            }
             let paces = metric.lengths.map(\.pacePer100m)
             guard let fastest = paces.min() else { return [] }
             var stats: [(String, String)] = [
@@ -226,7 +250,9 @@ struct MetricDetailView: View {
         case .swimLengths:
             "Bars are coloured fastest to slowest within this swim. Dashed lines mark where you rested."
         case .swimPace:
-            "The headline excludes rests, so it reflects how fast you swam. “Elapsed” includes them and is the figure Apple Health shows. Larger points mark the first length after a rest."
+            metric.lengths.isEmpty
+                ? "Open water has no lengths to split on, so this is distance covered each minute and an elapsed pace across the whole swim."
+                : "The headline excludes rests, so it reflects how fast you swam. “Elapsed” includes them and is the figure Apple Health shows. Larger points mark the first length after a rest."
         case .heartRate:
             "Sampled once a minute. Colour runs cool at easy effort through to hot at hard effort."
         default:

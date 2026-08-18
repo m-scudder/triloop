@@ -49,7 +49,7 @@ enum SeedWeekOne {
             startDate: monday,
             endDate: day(schedule.disciplines.count - 1),
             status: .active,
-            generationReason: "First week. Running while the bike arrives, then two easy rides to finish.",
+            generationReason: "First week. Easy running and swimming while the bike arrives.",
             parameters: parameters,
             workouts: workouts
         )

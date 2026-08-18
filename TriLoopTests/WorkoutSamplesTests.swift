@@ -45,6 +45,48 @@ struct WorkoutSamplesTests {
         #expect(length.pacePer100m == 0)
     }
 
+    @Test("An open-water swim reports pace from the distance series")
+    func openWaterSwimStillHasPace() {
+        let start = Date(timeIntervalSince1970: 1_787_000_000)
+        // 30 m a minute for ten minutes: 300 m, so 3:20 per 100 m.
+        let points = (0..<10).map {
+            SamplePoint(date: start.addingTimeInterval(Double($0) * 60), value: 30)
+        }
+
+        let metrics = WorkoutMetric.all(
+            for: .swimming,
+            samples: WorkoutSamples(distancePerMinute: points)
+        )
+
+        #expect(metrics.map(\.kind) == [.swimPace])
+        #expect(metrics.first?.headline == "3:20")
+        #expect(metrics.first?.lengths.isEmpty == true)
+    }
+
+    @Test("A pool swim prefers lengths over the distance series")
+    func poolSwimPrefersLengths() {
+        let start = Date(timeIntervalSince1970: 1_787_000_000)
+        let lengths = (1...4).map { index in
+            SwimLengthPoint(
+                index: index,
+                start: start.addingTimeInterval(Double(index - 1) * 30),
+                seconds: 30,
+                meters: 25,
+                followedRest: false
+            )
+        }
+        let points = [SamplePoint(date: start, value: 100)]
+
+        let metrics = WorkoutMetric.all(
+            for: .swimming,
+            samples: WorkoutSamples(distancePerMinute: points, swimLengths: lengths)
+        )
+
+        #expect(metrics.map(\.kind) == [.swimLengths, .swimPace])
+        // 120 s over 100 m, from the lengths rather than the series.
+        #expect(metrics.last?.headline == "2:00")
+    }
+
     @Test("A provider without authorization refuses to hand over samples")
     func unauthorizedSamplesThrow() async {
         let provider = StubHealthDataProvider(status: .denied)

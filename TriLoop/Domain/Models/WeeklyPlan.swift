@@ -20,6 +20,9 @@ final class WeeklyPlan {
     /// Human-readable explanation of why this week looks the way it does.
     /// Phase 4's generator writes here; Phase 7's LLM layer will read from here.
     var generationReason: String
+    /// Machine-readable companion to `generationReason`, so a later explanation
+    /// layer can reason about the cause instead of parsing the sentence.
+    var generationReasonCode: PlanGenerationReason?
     /// The dials this week's sessions were built from. Carried forward and
     /// adjusted to produce the following week.
     var parameters: TrainingParameters = TrainingParameters()
@@ -35,6 +38,7 @@ final class WeeklyPlan {
         status: WeeklyPlanStatus = .active,
         generatedAt: Date = .now,
         generationReason: String = "",
+        generationReasonCode: PlanGenerationReason? = nil,
         parameters: TrainingParameters = TrainingParameters(),
         workouts: [PlannedWorkout] = []
     ) {
@@ -45,6 +49,7 @@ final class WeeklyPlan {
         self.status = status
         self.generatedAt = generatedAt
         self.generationReason = generationReason
+        self.generationReasonCode = generationReasonCode
         self.parameters = parameters
         self.workouts = workouts
     }

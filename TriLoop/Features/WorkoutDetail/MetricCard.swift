@@ -71,18 +71,31 @@ struct MetricCard: View {
             .chartYAxis(.hidden)
 
         case .swimPace:
-            Chart(metric.lengths) { length in
-                LineMark(
-                    x: .value("Length", length.index),
-                    y: .value("Pace", length.pacePer100m)
-                )
-                .foregroundStyle(metric.tint)
-                .lineStyle(StrokeStyle(lineWidth: 1.5, lineCap: .round))
-                .interpolationMethod(.monotone)
+            if metric.lengths.isEmpty {
+                Chart(metric.points) { point in
+                    BarMark(
+                        x: .value("Time", point.date, unit: .minute),
+                        y: .value("Distance", point.value)
+                    )
+                    .foregroundStyle(metric.tint)
+                    .cornerRadius(1)
+                }
+                .chartXAxis(.hidden)
+                .chartYAxis(.hidden)
+            } else {
+                Chart(metric.lengths) { length in
+                    LineMark(
+                        x: .value("Length", length.index),
+                        y: .value("Pace", length.pacePer100m)
+                    )
+                    .foregroundStyle(metric.tint)
+                    .lineStyle(StrokeStyle(lineWidth: 1.5, lineCap: .round))
+                    .interpolationMethod(.monotone)
+                }
+                .chartXAxis(.hidden)
+                .chartYAxis(.hidden)
+                .chartPlotStyle { $0.clipped() }
             }
-            .chartXAxis(.hidden)
-            .chartYAxis(.hidden)
-            .chartPlotStyle { $0.clipped() }
 
         case .heartRate:
             Chart(metric.points) { point in

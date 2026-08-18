@@ -20,6 +20,9 @@ struct TrainingParameters: Codable, Equatable, Sendable {
     var swimRepeatDistanceMeters: Double = 25
     var swimTotalMeters: Double = 300
     var swimRestSeconds: TimeInterval = 45
+    /// The pool the week was built for. A dial rather than a profile lookup, so
+    /// a plan stays reproducible even if the athlete later changes pools.
+    var swimPoolLengthMeters: Double = 25
 
     var rideWarmUpSeconds: TimeInterval = 5 * 60
     var rideWorkSeconds: TimeInterval = 20 * 60
@@ -48,6 +51,7 @@ struct TrainingParameters: Codable, Equatable, Sendable {
         swimRepeatDistanceMeters = value(.swimRepeatDistanceMeters, defaults.swimRepeatDistanceMeters)
         swimTotalMeters = value(.swimTotalMeters, defaults.swimTotalMeters)
         swimRestSeconds = value(.swimRestSeconds, defaults.swimRestSeconds)
+        swimPoolLengthMeters = value(.swimPoolLengthMeters, defaults.swimPoolLengthMeters)
         rideWarmUpSeconds = value(.rideWarmUpSeconds, defaults.rideWarmUpSeconds)
         rideWorkSeconds = value(.rideWorkSeconds, defaults.rideWorkSeconds)
         rideCooldownSeconds = value(.rideCooldownSeconds, defaults.rideCooldownSeconds)
@@ -65,6 +69,13 @@ extension TrainingParameters {
         static let minimumRideWorkSeconds: TimeInterval = 10 * 60
         static let minimumRunWalkSeconds: TimeInterval = 30
         static let minimumContinuousRunSeconds: TimeInterval = 8 * 60
+
+        /// Rest cannot be tightened indefinitely, and a longer repeat needs more
+        /// of it: 30 seconds after 25 m is brisk, after 100 m it is nothing.
+        static func restFloor(forRepeat meters: Double) -> TimeInterval {
+            let scaled = (30 * (meters / 25)).rounded()
+            return max(min(scaled, 90), minimumSwimRestSeconds)
+        }
     }
 
     func applying(_ adjustment: TrainingAdjustment, to sport: Sport) -> TrainingParameters {
@@ -110,7 +121,18 @@ extension TrainingParameters {
         case .swimRestDuration(let delta):
             next.swimRestSeconds = max(
                 swimRestSeconds + delta,
-                Limits.minimumSwimRestSeconds
+                Limits.restFloor(forRepeat: swimRepeatDistanceMeters)
+            )
+
+        case .swimRepeatDistance(let meters):
+            next.swimRepeatDistanceMeters = meters
+            // The floor rises with the repeat, so a longer repeat is not also
+            // asked to hold the old rest. Only the structure changed; rest
+            // becomes the next lever to tighten rather than a second change now.
+            next.swimRestSeconds = max(swimRestSeconds, Limits.restFloor(forRepeat: meters))
+            next.swimTotalMeters = Self.roundedToRepeat(
+                swimTotalMeters,
+                repeatDistance: meters
             )
 
         case .swimVolume(let delta):

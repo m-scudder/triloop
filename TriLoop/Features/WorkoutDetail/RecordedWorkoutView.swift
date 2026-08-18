@@ -98,6 +98,9 @@ struct RecordedWorkoutView: View {
         if let elevation = summary.elevationAscendedMeters {
             stats.append(("Ascent", TrainingFormatter.distance(meters: elevation)))
         }
+        if let cadence = summary.metrics?.averageCadence {
+            stats.append(("Cadence", "\(Int(cadence.rounded()))"))
+        }
 
         // Four tiles is as many as fit before the numbers start shrinking.
         return Array(stats.prefix(4))

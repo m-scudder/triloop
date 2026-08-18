@@ -66,15 +66,17 @@ struct TrainingEngineTests {
         #expect(assessment.adjustment == .swimRestDuration(deltaSeconds: -15))
     }
 
-    @Test("Swim at the rest floor adds distance instead")
-    func swimmingProgressesByVolumeOnceRestIsMinimal() {
+    @Test("Swim at the rest floor lengthens the repeat instead")
+    func swimmingProgressesByContinuityOnceRestIsMinimal() {
         let assessment = engine.evaluate(
             result: WorkoutResult(sport: .swimming, completion: 1.0, distanceMeters: 300, prescribedRestSeconds: 30),
             feedback: FeedbackSummary(rpe: 4, painScore: 0, recoveryFeeling: .fresh)
         )
 
         #expect(assessment.status == .progress)
-        #expect(assessment.adjustment == .swimVolume(deltaMeters: 50))
+        // Continuity before volume: swimming further without stopping is the
+        // point, where more broken repeats is not.
+        #expect(assessment.adjustment == .swimRepeatDistance(meters: 50))
     }
 
     @Test("Swimming still progresses at an effort that would hold running back")

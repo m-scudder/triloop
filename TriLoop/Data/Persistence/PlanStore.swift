@@ -47,12 +47,11 @@ struct PlanStore {
         var dropped: Discipline?
     }
 
-    /// Rewrites the week to the current schedule, keeping anything already
-    /// reported on.
+    /// Rewrites the remaining days of a week to the current schedule.
     ///
-    /// Used when the athlete's circumstances change mid-week — equipment
-    /// arriving, a sport starting later — so the plan can follow without
-    /// discarding training that has already happened.
+    /// Needed whenever availability changes under an already-generated week —
+    /// equipment arriving, a sport starting sooner than planned. Anything
+    /// already reported on or deliberately skipped is left alone.
     @discardableResult
     func reshapeWeek(
         _ plan: WeeklyPlan,
@@ -70,8 +69,9 @@ struct PlanStore {
             guard let date = calendar.date(byAdding: .day, value: offset, to: plan.startDate) else { continue }
             let existing = plan.workout(on: date, calendar: calendar)
 
-            // Anything already reported on is history, not a plan.
-            if let existing, existing.hasReport { continue }
+            // Anything already reported on or deliberately skipped is a decision
+            // the athlete made, not a plan to be rewritten.
+            if let existing, existing.hasReport || existing.isSkipped { continue }
             if let existing, existing.discipline == discipline { continue }
 
             if let existing {
@@ -111,7 +111,7 @@ struct PlanStore {
         guard plan.contains(day, calendar: calendar) else { return ShiftOutcome() }
 
         let affected = plan.orderedWorkouts.filter { calendar.startOfDay(for: $0.date) >= day }
-        guard let missed = affected.first, !missed.hasReport else { return ShiftOutcome() }
+        guard let missed = affected.first, !missed.hasReport, !missed.isSkipped else { return ShiftOutcome() }
 
         var outcome = ShiftOutcome()
 

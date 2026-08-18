@@ -3,8 +3,11 @@ import SwiftUI
 
 struct RootView: View {
     var storeOutcome: StoreOutcome = .opened
+    var autoImporter: WorkoutAutoImporter?
 
     @State private var hasShownStoreAlert = false
+    @AppStorage("automaticallyImportWorkouts") private var automaticallyImport = true
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         TabView {
@@ -20,6 +23,13 @@ struct RootView: View {
             Tab("Settings", systemImage: "gearshape") {
                 SettingsView()
             }
+        }
+        .task(id: automaticallyImport) {
+            await autoImporter?.setEnabled(automaticallyImport)
+        }
+        .task(id: scenePhase) {
+            guard scenePhase == .active, automaticallyImport else { return }
+            await autoImporter?.importRecentWeeks()
         }
         .alert("Training data was reset", isPresented: showStoreAlert) {
             Button("OK", role: .cancel) { hasShownStoreAlert = true }

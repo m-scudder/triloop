@@ -14,6 +14,7 @@ struct SettingsView: View {
     @State private var watchAuthorization: WorkoutSchedulingAuthorization = .notDetermined
     @State private var permissionMessage: String?
     @AppStorage("automaticallyScheduleWorkouts") private var automaticallySchedule = false
+    @AppStorage("automaticallyImportWorkouts") private var automaticallyImport = true
 
     private let health = HealthKitWorkoutImporter()
     private let scheduler = WorkoutKitScheduler()
@@ -40,11 +41,26 @@ struct SettingsView: View {
                     Text("Tap a row to grant or re-check.")
                 }
 
-                Section("Workouts") {
+                Section {
                     Button("Import completed workouts") { importThisWeek() }
                         .disabled(isWorking || healthStatus != .authorized || plans.isEmpty)
 
+                    Toggle("Import automatically", isOn: $automaticallyImport)
+
                     Toggle("Send week to Apple Watch automatically", isOn: $automaticallySchedule)
+                } header: {
+                    Text("Workouts")
+                } footer: {
+                    Text("Automatic import links a session as soon as Apple Health records it, and checks again each time you open TriLoop.")
+                }
+
+                Section {
+                    Button("Update this week to my schedule") { reshapeThisWeek() }
+                        .disabled(isWorking || plans.currentPlan() == nil)
+                } header: {
+                    Text("Plan")
+                } footer: {
+                    Text("Rebuilds the days still ahead of you when a sport becomes available. Sessions you have already reported on or skipped are left alone.")
                 }
 
                 if let profile = profiles.first {
@@ -201,6 +217,17 @@ struct SettingsView: View {
             } catch {
                 importMessage = "Import failed."
             }
+        }
+    }
+
+    private func reshapeThisWeek() {
+        guard let plan = plans.currentPlan() else { return }
+        let changed = PlanStore(context: modelContext).reshapeWeek(plan)
+
+        importMessage = switch changed {
+        case 0: "This week already matches your schedule."
+        case 1: "One day updated."
+        default: "\(changed) days updated."
         }
     }
 

@@ -112,6 +112,9 @@ enum TrainingAdjustment: Equatable, Sendable {
     case rideDuration(deltaSeconds: TimeInterval)
     /// Tighten rest between swim repeats before touching distance.
     case swimRestDuration(deltaSeconds: TimeInterval)
+    /// Swim further before stopping. The structural step from 25 m repeats to
+    /// 50 m, and the lever that actually builds continuous swimming.
+    case swimRepeatDistance(meters: Double)
     case swimVolume(deltaMeters: Double)
     case reduceVolume(fraction: Double)
     case substituteRecovery
@@ -132,6 +135,8 @@ enum TrainingAdjustment: Equatable, Sendable {
             "\(Self.signed(Int(delta / 60))) min of riding"
         case .swimRestDuration(let delta):
             "\(Self.signed(Int(delta)))s rest between repeats"
+        case .swimRepeatDistance(let meters):
+            "Swim \(Int(meters)) m before resting"
         case .swimVolume(let delta):
             "\(Self.signed(Int(delta))) m of swimming"
         case .reduceVolume(let fraction):

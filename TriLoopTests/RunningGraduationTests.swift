@@ -137,5 +137,7 @@ struct RunningGraduationTests {
         #expect(decoded.runIntervalSeconds == 75)
         #expect(decoded.runIsContinuous == false)
         #expect(decoded.runContinuousSeconds == 0)
+        // Added after this payload was written; the default keeps it usable.
+        #expect(decoded.swimPoolLengthMeters == 25)
     }
 }

@@ -123,4 +123,61 @@ struct WeeklyAnalysisTests {
         #expect(analysis.analysis(for: .running)?.status == .recoveryRequired)
         #expect(analysis.analysis(for: .running)?.adjustment == .substituteRecovery)
     }
+
+    @Test("A skipped session lets the week close without counting as done")
+    func skippedSessionClosesTheWeek() {
+        let plan = seedPlan()
+        let all = plan.trainingSessions
+        for workout in all.dropLast() {
+            workout.recordCompletion(with: FeedbackDraft(rpe: 3, painScore: 0))
+        }
+        all.last?.skip()
+
+        let analysis = analyser.analyse(plan)
+
+        #expect(analysis.skippedSessions == 1)
+        #expect(analysis.completedSessions == all.count - 1)
+        #expect(analysis.isReadyForNextWeek)
+        #expect(analysis.completedEverySession == false)
+    }
+
+    @Test("Skipping still blocks progression for that sport")
+    func skippingBlocksProgression() {
+        let plan = seedPlan()
+        let runs = sessions(plan, for: .running)
+        runs[0].recordCompletion(with: FeedbackDraft(rpe: 3, painScore: 0, recoveryFeeling: .good))
+        runs[1].skip()
+
+        let running = analyser.analyse(plan).analysis(for: .running)
+
+        #expect(running?.status == .maintain)
+        #expect(running?.adjustment == .hold)
+        #expect(running?.reasons.contains(.sessionsMissed(count: 1)) == true)
+    }
+
+    @Test("An unresolved past session is missed, a future one is not")
+    func missedIsDerivedFromTheDate() {
+        let plan = seedPlan()
+        guard let session = plan.trainingSessions.first else { return }
+        let calendar = Calendar.current
+        let dayAfter = calendar.date(byAdding: .day, value: 1, to: session.date) ?? session.date
+
+        #expect(session.isMissed(asOf: dayAfter))
+        #expect(session.isMissed(asOf: session.date) == false)
+    }
+
+    @Test("A reported or skipped session is never missed")
+    func resolvedSessionsAreNotMissed() {
+        let plan = seedPlan()
+        let all = plan.trainingSessions
+        let calendar = Calendar.current
+        guard let reported = all.first, let skipped = all.last else { return }
+        let later = calendar.date(byAdding: .day, value: 30, to: reported.date) ?? reported.date
+
+        reported.recordCompletion(with: FeedbackDraft(rpe: 3, painScore: 0))
+        skipped.skip()
+
+        #expect(reported.isMissed(asOf: later) == false)
+        #expect(skipped.isMissed(asOf: later) == false)
+    }
 }

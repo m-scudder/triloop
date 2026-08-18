@@ -41,6 +41,9 @@ struct WorkoutResult: Equatable, Sendable {
     /// Length of one running interval. `nil` once running is continuous, which
     /// is how the engine knows the walk breaks are already gone.
     let prescribedIntervalSeconds: TimeInterval?
+    /// Distance of one swim repeat, so the engine knows whether continuity has
+    /// room to grow before volume does.
+    let prescribedRepeatDistanceMeters: Double?
 
     init(
         sport: Sport,
@@ -49,7 +52,8 @@ struct WorkoutResult: Equatable, Sendable {
         distanceMeters: Double? = nil,
         averageHeartRate: Double? = nil,
         prescribedRestSeconds: TimeInterval? = nil,
-        prescribedIntervalSeconds: TimeInterval? = nil
+        prescribedIntervalSeconds: TimeInterval? = nil,
+        prescribedRepeatDistanceMeters: Double? = nil
     ) {
         self.sport = sport
         // Over-completion is still just "finished it" as far as triage is concerned.
@@ -59,6 +63,7 @@ struct WorkoutResult: Equatable, Sendable {
         self.averageHeartRate = averageHeartRate
         self.prescribedRestSeconds = prescribedRestSeconds
         self.prescribedIntervalSeconds = prescribedIntervalSeconds
+        self.prescribedRepeatDistanceMeters = prescribedRepeatDistanceMeters
     }
 }
 

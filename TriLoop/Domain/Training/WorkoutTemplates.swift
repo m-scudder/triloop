@@ -109,7 +109,13 @@ enum WorkoutTemplates {
         goal: String? = nil
     ) -> PlannedWorkout {
         let repeatDistance = parameters.swimRepeatDistanceMeters
-        let warmUpMeters = 4 * repeatDistance
+        // A quarter of the session, not a fixed number of repeats: four 50 m
+        // repeats in a long pool would leave a 300 m swim almost entirely
+        // warm-up. Never less than one repeat, never more than half the swim.
+        let warmUpMeters = min(
+            max(rounded(parameters.swimTotalMeters / 4, to: repeatDistance), repeatDistance),
+            max(rounded(parameters.swimTotalMeters / 2, to: repeatDistance), repeatDistance)
+        )
         let mainMeters = max(parameters.swimTotalMeters - warmUpMeters, repeatDistance)
         let breathingMeters = rounded(mainMeters / 2, to: repeatDistance)
         let freestyleMeters = mainMeters - breathingMeters

@@ -21,6 +21,13 @@ final class ImportedWorkoutSummary {
     var swimmingLengths: Int?
     var swimmingStrokeCount: Double?
     var longestContinuousSwimMeters: Double?
+    /// Extensible bag of sensor values. New metrics go in here rather than
+    /// becoming columns, so the schema version does not move.
+    ///
+    /// Optional because SwiftData does not apply a Swift default to rows that
+    /// were stored without the property: the generated getter casts whatever is
+    /// there, and a non-optional type traps on the `nil`.
+    var metrics: RecordedMetrics?
     var source: String?
     var importedAt: Date
 
@@ -40,6 +47,7 @@ final class ImportedWorkoutSummary {
         swimmingLengths: Int? = nil,
         swimmingStrokeCount: Double? = nil,
         longestContinuousSwimMeters: Double? = nil,
+        metrics: RecordedMetrics? = nil,
         source: String? = nil,
         importedAt: Date = .now
     ) {
@@ -56,6 +64,7 @@ final class ImportedWorkoutSummary {
         self.swimmingLengths = swimmingLengths
         self.swimmingStrokeCount = swimmingStrokeCount
         self.longestContinuousSwimMeters = longestContinuousSwimMeters
+        self.metrics = metrics
         self.source = source
         self.importedAt = importedAt
     }
@@ -74,6 +83,7 @@ final class ImportedWorkoutSummary {
             swimmingLengths: imported.swimmingLengths,
             swimmingStrokeCount: imported.swimmingStrokeCount,
             longestContinuousSwimMeters: imported.longestContinuousSwimMeters,
+            metrics: imported.metrics,
             source: imported.source,
             importedAt: importedAt
         )
@@ -93,6 +103,7 @@ final class ImportedWorkoutSummary {
             swimmingLengths: swimmingLengths,
             swimmingStrokeCount: swimmingStrokeCount,
             longestContinuousSwimMeters: longestContinuousSwimMeters,
+            metrics: metrics ?? RecordedMetrics(),
             source: source
         )
     }

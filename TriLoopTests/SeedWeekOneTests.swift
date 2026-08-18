@@ -39,10 +39,10 @@ struct SeedWeekOneTests {
     @Test func disciplinesMatchTheAthletesFirstWeek() throws {
         let plan = SeedWeekOne.makePlan(startDate: monday(), calendar: calendar)
 
-        // Swimming starts in September and the bike arrives on the Thursday, so
-        // week one is running until it does, then two rides.
+        // Swimming is available from the start; the bike arrives on the Friday,
+        // so the Wednesday ride falls back to running.
         #expect(plan.orderedWorkouts.map(\.discipline) == [
-            .running, .running, .running, .running, .cycling, .cycling, .rest
+            .running, .swimming, .running, .running, .swimming, .cycling, .rest
         ])
     }
 
@@ -51,11 +51,11 @@ struct SeedWeekOneTests {
         #expect(plan.trainingSessions.count == 6)
     }
 
-    @Test func swimmingIsHeldBackUntilItsStartDate() throws {
+    @Test func swimmingIsAvailableFromWeekOne() throws {
         let plan = SeedWeekOne.makePlan(startDate: monday(), calendar: calendar)
-        #expect(plan.orderedWorkouts.contains { $0.discipline == .swimming } == false)
+        #expect(plan.orderedWorkouts.filter { $0.discipline == .swimming }.count == 2)
 
-        // Mid-September, once swimming is available, all three sports appear.
+        // Once the bike has arrived too, every week carries all three sports.
         let september = calendar.date(from: DateComponents(year: 2026, month: 9, day: 14)) ?? monday()
         let later = SeedWeekOne.makePlan(startDate: september, calendar: calendar)
 
@@ -86,9 +86,7 @@ struct SeedWeekOneTests {
     }
 
     @Test func swimTotalsThreeHundredMetres() throws {
-        let plan = SeedWeekOne.makePlan(
-            startDate: monday(), calendar: calendar, availability: .everything
-        )
+        let plan = SeedWeekOne.makePlan(startDate: monday(), calendar: calendar)
         let swim = try #require(plan.orderedWorkouts.first { $0.discipline == .swimming })
 
         #expect(swim.estimatedDistanceMeters == 300)

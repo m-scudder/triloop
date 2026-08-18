@@ -24,12 +24,12 @@ extension SportAvailability {
     }
 
     /// The athlete's actual start dates: the bike arrives Thursday 20 August, so
-    /// riding begins the day after; swimming is deferred to mid-September.
+    /// riding begins the day after. Swimming is available from the first week.
     static func athlete(calendar: Calendar = .current) -> SportAvailability {
         SportAvailability(
             availableFrom: [
                 .cycling: date(2026, 8, 21, calendar: calendar),
-                .swimming: date(2026, 9, 14, calendar: calendar)
+                .swimming: date(2026, 8, 17, calendar: calendar)
             ]
         )
     }

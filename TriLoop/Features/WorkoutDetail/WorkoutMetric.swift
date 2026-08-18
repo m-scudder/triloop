@@ -108,6 +108,27 @@ extension WorkoutMetric {
                     )
                 )
             }
+        } else if discipline == .swimming, !samples.distancePerMinute.isEmpty {
+            // Open water has no lap events, so pace comes from the distance
+            // series instead. That is elapsed pace: there is no way to tell a
+            // rest from slow swimming without lengths.
+            let distance = samples.distancePerMinute.reduce(0) { $0 + $1.value }
+            let seconds = Double(samples.distancePerMinute.count) * 60
+
+            if distance > 0 {
+                metrics.append(
+                    WorkoutMetric(
+                        kind: .swimPace,
+                        title: "Pace",
+                        headline: TrainingFormatter.swimPace(secondsPer100m: seconds / distance * 100),
+                        caption: "/ 100 m · elapsed",
+                        symbol: "speedometer",
+                        points: samples.distancePerMinute,
+                        lengths: [],
+                        tint: tint
+                    )
+                )
+            }
         }
 
         if !samples.cadence.isEmpty, discipline == .running {
@@ -116,7 +137,7 @@ extension WorkoutMetric {
                 WorkoutMetric(
                     kind: .cadence,
                     title: "Cadence",
-                    headline: "\(Int(average.rounded()))",
+                    headline: "\(Int((summary?.metrics?.averageCadence ?? average).rounded()))",
                     caption: "avg steps / min",
                     symbol: "shoeprints.fill",
                     points: samples.cadence,

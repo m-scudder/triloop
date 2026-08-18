@@ -22,6 +22,8 @@ struct ImportedWorkout: Equatable, Sendable, Identifiable {
     /// Longest distance swum without stopping. §14 progresses on continuous
     /// swimming, which total distance alone cannot show.
     let longestContinuousSwimMeters: Double?
+    /// Sensor values that need no schema column of their own.
+    let metrics: RecordedMetrics
     /// Bundle identifier of the app that recorded it, e.g. Apple's Workout app.
     let source: String?
 
@@ -40,6 +42,7 @@ struct ImportedWorkout: Equatable, Sendable, Identifiable {
         swimmingLengths: Int? = nil,
         swimmingStrokeCount: Double? = nil,
         longestContinuousSwimMeters: Double? = nil,
+        metrics: RecordedMetrics = RecordedMetrics(),
         source: String? = nil
     ) {
         self.healthKitUUID = healthKitUUID
@@ -54,6 +57,7 @@ struct ImportedWorkout: Equatable, Sendable, Identifiable {
         self.swimmingLengths = swimmingLengths
         self.swimmingStrokeCount = swimmingStrokeCount
         self.longestContinuousSwimMeters = longestContinuousSwimMeters
+        self.metrics = metrics
         self.source = source
     }
 }

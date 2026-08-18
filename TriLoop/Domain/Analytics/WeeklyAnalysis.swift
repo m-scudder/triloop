@@ -27,6 +27,7 @@ struct WeeklyAnalysis: Equatable, Sendable {
     let endDate: Date
     let plannedSessions: Int
     let completedSessions: Int
+    let skippedSessions: Int
     /// Ordered by `Sport.allCases` so the review never reshuffles between runs.
     let sports: [SportAnalysis]
 
@@ -38,9 +39,10 @@ struct WeeklyAnalysis: Equatable, Sendable {
         plannedSessions > 0 && completedSessions == plannedSessions
     }
 
-    /// True once every planned session has been reported on, which is the point
-    /// at which generating the next week is meaningful rather than premature.
+    /// True once every planned session has been reported on *or* deliberately
+    /// skipped. Skipping still counts against progression, but a skipped session
+    /// would otherwise leave the week unable to close.
     var isReadyForNextWeek: Bool {
-        completedEverySession
+        plannedSessions > 0 && completedSessions + skippedSessions == plannedSessions
     }
 }

@@ -74,6 +74,7 @@ struct DateStrip: View {
     private func day(_ workout: PlannedWorkout) -> some View {
         let isSelected = calendar.isDate(workout.date, inSameDayAs: selection)
         let isToday = calendar.isDateInToday(workout.date)
+        let isSkipped = workout.isSkipped
         let tint = workout.discipline.tint
 
         return VStack(spacing: 6) {
@@ -81,12 +82,12 @@ struct DateStrip: View {
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(isSelected ? .white : .secondary)
 
-            Image(systemName: workout.discipline.symbolName)
+            Image(systemName: isSkipped ? "slash.circle" : workout.discipline.symbolName)
                 .font(.footnote)
-                .foregroundStyle(isSelected ? .white : tint)
+                .foregroundStyle(isSelected ? .white : (isSkipped ? Color.secondary : tint))
 
             Circle()
-                .fill(workout.hasReport ? (isSelected ? Color.white : .green) : .clear)
+                .fill(marker(for: workout, isSelected: isSelected))
                 .frame(width: 4, height: 4)
         }
         .frame(maxWidth: .infinity)
@@ -101,11 +102,25 @@ struct DateStrip: View {
                     .strokeBorder(tint, lineWidth: 1.5)
             }
         }
+        .opacity(isSkipped && !isSelected ? 0.55 : 1)
         .contentShape(.rect)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
-            "\(workout.date.formatted(.dateTime.weekday(.wide).day().month(.wide))), \(workout.title)"
+            "\(workout.date.formatted(.dateTime.weekday(.wide).day().month(.wide))), \(workout.title)\(stateLabel(for: workout))"
         )
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+    }
+
+    private func marker(for workout: PlannedWorkout, isSelected: Bool) -> Color {
+        if workout.hasReport { return isSelected ? .white : .green }
+        if workout.isMissed(calendar: calendar) { return isSelected ? .white : .orange }
+        return .clear
+    }
+
+    private func stateLabel(for workout: PlannedWorkout) -> String {
+        if workout.isSkipped { return ", skipped" }
+        if workout.hasReport { return ", reported" }
+        if workout.isMissed(calendar: calendar) { return ", missed" }
+        return ""
     }
 }

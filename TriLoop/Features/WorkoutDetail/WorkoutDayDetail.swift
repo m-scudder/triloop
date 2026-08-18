@@ -44,6 +44,26 @@ struct WorkoutDayDetail: View {
                     unlinkedSession
                 }
 
+                if workout.isSkipped {
+                    stateBanner(
+                        "Skipped",
+                        detail: "This session was deliberately skipped. It still counts against progression.",
+                        symbol: "slash.circle.fill",
+                        tint: .secondary
+                    ) {
+                        Button("Un-skip") { workout.clearCompletion() }
+                    }
+                } else if workout.isMissed() {
+                    stateBanner(
+                        "Missed",
+                        detail: "This day has passed with nothing recorded. Report it if you trained, or skip it.",
+                        symbol: "exclamationmark.circle.fill",
+                        tint: .orange
+                    ) {
+                        Button("Skip this session") { workout.skip() }
+                    }
+                }
+
                 if let feedback = workout.feedback {
                     VStack(alignment: .leading, spacing: 10) {
                         SectionEyebrow(text: "Your report")
@@ -88,6 +108,13 @@ struct WorkoutDayDetail: View {
                     }
                     .font(.subheadline)
                 }
+
+                if canSkip {
+                    Button("Skip this session", role: .destructive) {
+                        workout.skip()
+                    }
+                    .font(.subheadline)
+                }
             }
             .padding(20)
         }
@@ -122,6 +149,38 @@ struct WorkoutDayDetail: View {
     private var canShift: Bool {
         guard workout.discipline.isTrainingSession, !workout.hasReport else { return false }
         return Calendar.current.startOfDay(for: workout.date) <= Calendar.current.startOfDay(for: .now)
+    }
+
+    /// Skipping is a decision about work not done, so it is offered right up
+    /// until a report exists. A missed day gets the action in its banner instead.
+    private var canSkip: Bool {
+        workout.discipline.isTrainingSession
+            && !workout.hasReport
+            && !workout.isSkipped
+            && !workout.isMissed()
+    }
+
+    @ViewBuilder
+    private func stateBanner(
+        _ title: String,
+        detail: String,
+        symbol: String,
+        tint: Color,
+        @ViewBuilder action: () -> some View
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(title, systemImage: symbol)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(tint)
+            Text(detail)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            action()
+                .font(.subheadline)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(tint.opacity(0.12), in: .rect(cornerRadius: 14))
     }
 
     private func shiftWeek() {

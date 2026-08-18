@@ -264,8 +264,17 @@ final class HealthKitWorkoutImporter: HealthDataProviding, @unchecked Sendable {
             swimmingLengths: lengths.isEmpty ? nil : lengths.count,
             swimmingStrokeCount: workout.sum(HKQuantityType(.swimmingStrokeCount), in: .count()),
             longestContinuousSwimMeters: Self.longestContinuous(in: lengths),
+            metrics: RecordedMetrics(averageCadence: Self.averageCadence(of: workout)),
             source: workout.sourceRevision.source.bundleIdentifier
         )
+    }
+
+    /// Steps per minute across the session. Only meaningful on foot, so a ride's
+    /// incidental steps are not reported as cadence.
+    private static func averageCadence(of workout: HKWorkout) -> Double? {
+        guard workout.workoutActivityType == .running, workout.duration > 0 else { return nil }
+        guard let steps = workout.sum(HKQuantityType(.stepCount), in: .count()) else { return nil }
+        return steps / (workout.duration / 60)
     }
 
     /// A pause of more than this between lengths counts as rest, ending the

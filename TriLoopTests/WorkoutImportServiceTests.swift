@@ -162,4 +162,58 @@ struct WorkoutImportServiceTests {
         // 250 m imported for Tuesday, 300 m planned for the unmatched Friday swim.
         #expect(swimming?.totalDistanceMeters == 550)
     }
+
+    @Test("Automatic import covers the current week and the one before it")
+    func autoImportCoversRecentWeeks() async throws {
+        // Anchored to the current calendar: the importer builds its own matcher,
+        // so a fixed UTC week would not line up with the device's time zone.
+        let current = Calendar.current
+        let thisWeek = current.startOfDay(for: .now)
+        let lastWeek = try #require(current.date(byAdding: .day, value: -7, to: thisWeek))
+
+        let container = try TriLoopModelContainer.make(inMemory: true)
+        let context = container.mainContext
+
+        let previous = SeedWeekOne.makePlan(startDate: lastWeek, calendar: current, availability: .everything)
+        context.insert(previous)
+        let latest = SeedWeekOne.makePlan(startDate: thisWeek, calendar: current, availability: .everything)
+        latest.weekNumber = 2
+        context.insert(latest)
+
+        let runs = [previous, latest].compactMap { plan in
+            plan.orderedWorkouts.first { $0.discipline == .running }
+        }
+        let stored = runs.map { run in
+            ImportedWorkout(
+                healthKitUUID: UUID(),
+                sport: .running,
+                startDate: run.date.addingTimeInterval(9 * 3600),
+                endDate: run.date.addingTimeInterval(9 * 3600 + 1680),
+                duration: 1680,
+                averageHeartRate: 132
+            )
+        }
+
+        let importer = WorkoutAutoImporter(
+            container: container,
+            provider: StubHealthDataProvider(stored: stored)
+        )
+
+        #expect(await importer.importRecentWeeks() == 2)
+    }
+
+    @Test("Automatic import does nothing without authorization")
+    func autoImportRequiresAuthorization() async throws {
+        let container = try TriLoopModelContainer.make(inMemory: true)
+        container.mainContext.insert(
+            SeedWeekOne.makePlan(startDate: Calendar.current.startOfDay(for: .now), availability: .everything)
+        )
+
+        let importer = WorkoutAutoImporter(
+            container: container,
+            provider: StubHealthDataProvider(status: .denied, stored: [activity(.running, on: 0)])
+        )
+
+        #expect(await importer.importRecentWeeks() == 0)
+    }
 }

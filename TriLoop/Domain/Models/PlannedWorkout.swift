@@ -78,6 +78,16 @@ final class PlannedWorkout {
 
     var isCompleted: Bool { status == .completed }
 
+    var isSkipped: Bool { status == .skipped }
+
+    /// A training session whose day has passed with nothing recorded and no
+    /// decision made. Derived rather than stored: it becomes true through the
+    /// passage of time, so a stored flag would need sweeping to stay honest.
+    func isMissed(asOf now: Date = .now, calendar: Calendar = .current) -> Bool {
+        guard discipline.isTrainingSession, status == .planned else { return false }
+        return calendar.startOfDay(for: date) < calendar.startOfDay(for: now)
+    }
+
     /// Rest and recovery days are scheduled but never reported on.
     var acceptsFeedback: Bool { discipline.isTrainingSession }
 
@@ -86,6 +96,14 @@ final class PlannedWorkout {
         feedback = draft.makeFeedback(createdAt: date)
         status = .completed
         completedAt = date
+    }
+
+    /// A deliberate decision not to train, as opposed to a session that simply
+    /// passed. The week can still close, but the work does not count as done.
+    func skip() {
+        discardFeedback()
+        status = .skipped
+        completedAt = nil
     }
 
     func clearCompletion() {
