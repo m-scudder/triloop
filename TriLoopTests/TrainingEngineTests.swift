@@ -12,12 +12,24 @@ struct TrainingEngineTests {
     @Test("Easy, complete and painless running session progresses")
     func runningProgressesAfterAComfortableSession() {
         let assessment = engine.evaluate(
-            result: WorkoutResult(sport: .running, completion: 1.0),
+            // The interval is what marks this as run/walk rather than a
+            // continuous run, and it is the lever that should move.
+            result: WorkoutResult(sport: .running, completion: 1.0, prescribedIntervalSeconds: 60),
             feedback: FeedbackSummary(rpe: 3, painScore: 0, recoveryFeeling: .good)
         )
 
         #expect(assessment.status == .progress)
         #expect(assessment.adjustment == .runIntervalDuration(deltaSeconds: 15))
+    }
+
+    @Test("A session with no interval is already continuous and grows in duration")
+    func continuousRunningGrowsInDuration() {
+        let assessment = engine.evaluate(
+            result: WorkoutResult(sport: .running, completion: 1.0),
+            feedback: FeedbackSummary(rpe: 3, painScore: 0, recoveryFeeling: .good)
+        )
+
+        #expect(assessment.adjustment == .runContinuousDuration(deltaSeconds: 120))
     }
 
     @Test("Hard but complete running session holds the workload")

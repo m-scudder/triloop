@@ -12,6 +12,7 @@ struct NextWeekPreviewView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var generated = false
+    @State private var failure: String?
 
     private var preview: WeeklyPlan {
         WeeklyPlanGenerator().generate(
@@ -74,11 +75,24 @@ struct NextWeekPreviewView: View {
         }
         .navigationTitle("Week \(plan.weekNumber) Preview")
         .navigationBarTitleDisplayMode(.large)
+        .alert("Week not created", isPresented: showingFailure) {
+            Button("OK", role: .cancel) { failure = nil }
+        } message: {
+            Text(failure ?? "")
+        }
     }
 
     private func generate() {
-        PlanStore(context: modelContext).generateNextWeek(after: previousWeek)
-        generated = true
-        dismiss()
+        do {
+            try PlanStore(context: modelContext).generateNextWeek(after: previousWeek)
+            generated = true
+            dismiss()
+        } catch {
+            failure = "Could not create the week: \(error.localizedDescription)"
+        }
+    }
+
+    private var showingFailure: Binding<Bool> {
+        Binding(get: { failure != nil }, set: { if !$0 { failure = nil } })
     }
 }

@@ -35,9 +35,9 @@ struct WeekSchedulerTests {
         let stub = StubWorkoutScheduler()
         let outcome = await weekScheduler(stub).scheduleWeek(plan(), now: date(day: 17))
 
-        #expect(outcome.added == 5)
+        #expect(outcome.added == 6)
         #expect(outcome.failed == 0)
-        #expect(stub.scheduled.count == 5)
+        #expect(stub.scheduled.count == 6)
     }
 
     @Test("Running it again schedules nothing new")
@@ -50,14 +50,14 @@ struct WeekSchedulerTests {
         let second = await scheduler.scheduleWeek(plan, now: date(day: 17))
 
         #expect(second.added == 0)
-        #expect(second.alreadyScheduled == 5)
-        #expect(stub.scheduled.count == 5)
+        #expect(second.alreadyScheduled == 6)
+        #expect(stub.scheduled.count == 6)
     }
 
     @Test("Days that have already gone are skipped")
     func pastDaysAreSkipped() async {
         let stub = StubWorkoutScheduler()
-        // Friday: Monday, Tuesday and Thursday have passed.
+        // Friday: Monday through Thursday have passed.
         let outcome = await weekScheduler(stub).scheduleWeek(plan(), now: date(day: 21))
 
         #expect(outcome.added == 2)
@@ -73,7 +73,8 @@ struct WeekSchedulerTests {
 
         let outcome = await weekScheduler(stub).scheduleWeek(plan, now: date(day: 17))
 
-        #expect(outcome.added == 3)
+        // Two runs reported; the two swims and two rides remain.
+        #expect(outcome.added == 4)
     }
 
     @Test("Without a Watch nothing is attempted")
@@ -91,6 +92,6 @@ struct WeekSchedulerTests {
         let outcome = await weekScheduler(stub).scheduleWeek(plan(), now: date(day: 17))
 
         #expect(outcome.added == 0)
-        #expect(outcome.failed == 5)
+        #expect(outcome.failed == 6)
     }
 }

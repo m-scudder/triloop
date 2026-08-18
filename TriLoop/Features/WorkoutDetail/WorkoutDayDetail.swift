@@ -185,11 +185,16 @@ struct WorkoutDayDetail: View {
 
     private func shiftWeek() {
         guard let plan = workout.plan else { return }
-        let outcome = PlanStore(context: modelContext).shiftWeekForward(plan, from: workout.date)
 
-        scheduleMessage = outcome.dropped.map {
-            "Week moved on. \($0.displayName) dropped off the end."
-        } ?? "Week moved on by a day."
+        do {
+            let outcome = try PlanStore(context: modelContext).shiftWeekForward(plan, from: workout.date)
+
+            scheduleMessage = outcome.dropped.map {
+                "Week moved on. \($0.displayName) dropped off the end."
+            } ?? "Week moved on by a day."
+        } catch {
+            scheduleMessage = "Could not move the week: \(error.localizedDescription)"
+        }
     }
 
     /// Pinned to the bottom so the primary action is reachable without scrolling

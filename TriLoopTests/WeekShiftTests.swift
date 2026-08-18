@@ -42,7 +42,7 @@ struct WeekShiftTests {
     func missingMondayRotatesTheWeek() throws {
         let (store, plan) = try makeStore()
 
-        let outcome = store.shiftWeekForward(plan, from: day(0), calendar: calendar)
+        let outcome = try store.shiftWeekForward(plan, from: day(0), calendar: calendar)
 
         #expect(disciplines(plan) == [
             .recovery, .running, .swimming, .cycling, .running, .swimming, .cycling
@@ -54,7 +54,7 @@ struct WeekShiftTests {
     @Test("The week still covers seven days")
     func weekKeepsItsShape() throws {
         let (store, plan) = try makeStore()
-        store.shiftWeekForward(plan, from: day(0), calendar: calendar)
+        try store.shiftWeekForward(plan, from: day(0), calendar: calendar)
 
         #expect(plan.orderedWorkouts.count == 7)
         #expect(calendar.isDate(plan.orderedWorkouts.first?.date ?? .now, inSameDayAs: plan.startDate))
@@ -66,7 +66,7 @@ struct WeekShiftTests {
         let (store, plan) = try makeStore()
 
         // Thursday's run is missed; Monday and Tuesday have already happened.
-        store.shiftWeekForward(plan, from: day(3), calendar: calendar)
+        try store.shiftWeekForward(plan, from: day(3), calendar: calendar)
 
         #expect(disciplines(plan) == [
             .running, .swimming, .cycling, .recovery, .running, .swimming, .cycling
@@ -79,8 +79,8 @@ struct WeekShiftTests {
         let ridesBefore = plan.orderedWorkouts.filter { $0.discipline == .cycling }.count
 
         // Shift twice: the second push moves the final ride off the end.
-        store.shiftWeekForward(plan, from: day(0), calendar: calendar)
-        let outcome = store.shiftWeekForward(plan, from: day(1), calendar: calendar)
+        try store.shiftWeekForward(plan, from: day(0), calendar: calendar)
+        let outcome = try store.shiftWeekForward(plan, from: day(1), calendar: calendar)
 
         #expect(outcome.dropped == .cycling)
         #expect(plan.orderedWorkouts.filter { $0.discipline == .cycling }.count == ridesBefore - 1)
@@ -92,7 +92,7 @@ struct WeekShiftTests {
         let monday = try #require(plan.workout(on: day(0), calendar: calendar))
         monday.recordCompletion(with: FeedbackDraft(rpe: 3))
 
-        let outcome = store.shiftWeekForward(plan, from: day(0), calendar: calendar)
+        let outcome = try store.shiftWeekForward(plan, from: day(0), calendar: calendar)
 
         #expect(outcome == PlanStore.ShiftOutcome())
         #expect(disciplines(plan) == [
@@ -104,7 +104,7 @@ struct WeekShiftTests {
     func outsideTheWeekIsIgnored() throws {
         let (store, plan) = try makeStore()
 
-        let outcome = store.shiftWeekForward(plan, from: day(20), calendar: calendar)
+        let outcome = try store.shiftWeekForward(plan, from: day(20), calendar: calendar)
 
         #expect(outcome == PlanStore.ShiftOutcome())
         #expect(plan.orderedWorkouts.count == 7)
@@ -116,7 +116,7 @@ struct WeekShiftTests {
         let monday = try #require(plan.workout(on: day(0), calendar: calendar))
         monday.recordCompletion(with: FeedbackDraft(rpe: 4, painScore: 1))
 
-        store.shiftWeekForward(plan, from: day(1), calendar: calendar)
+        try store.shiftWeekForward(plan, from: day(1), calendar: calendar)
 
         #expect(monday.feedback?.rpe == 4)
         #expect(calendar.isDate(monday.date, inSameDayAs: day(0)))

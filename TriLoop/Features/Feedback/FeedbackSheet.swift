@@ -7,6 +7,7 @@ struct FeedbackSheet: View {
     let workout: PlannedWorkout
 
     @State private var draft = FeedbackDraft()
+    @State private var failure: String?
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
@@ -42,7 +43,16 @@ struct FeedbackSheet: View {
                     Button("Cancel") { dismiss() }
                 }
             }
+            .alert("Report not saved", isPresented: showingFailure) {
+                Button("OK", role: .cancel) { failure = nil }
+            } message: {
+                Text(failure ?? "")
+            }
         }
+    }
+
+    private var showingFailure: Binding<Bool> {
+        Binding(get: { failure != nil }, set: { if !$0 { failure = nil } })
     }
 
     private var effortSection: some View {
@@ -183,11 +193,18 @@ struct FeedbackSheet: View {
 
     private func save() {
         workout.recordCompletion(with: draft)
-        try? modelContext.save()
-        if let plan = workout.plan {
-            _ = PlanStore(context: modelContext).generateNextWeekIfReady(after: plan)
+
+        do {
+            try modelContext.save()
+            if let plan = workout.plan {
+                try PlanStore(context: modelContext).generateNextWeekIfReady(after: plan)
+            }
+            dismiss()
+        } catch {
+            // A report that silently failed to save is worse than none: the
+            // athlete believes the week is closed when it is not.
+            failure = "Could not save your report: \(error.localizedDescription)"
         }
-        dismiss()
     }
 }
 

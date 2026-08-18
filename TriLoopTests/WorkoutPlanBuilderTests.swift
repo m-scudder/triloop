@@ -57,10 +57,11 @@ struct WorkoutPlanBuilderTests {
 
         #expect(workout.activity == .swimming)
         #expect(workout.location == .indoor)
-        #expect(workout.warmup?.goal == .distance(100, .meters))
+        // Warm-up is a quarter of the 300 m session, rounded to whole lengths.
+        #expect(workout.warmup?.goal == .distance(75, .meters))
         #expect(workout.blocks.count == 2)
         #expect(workout.blocks.allSatisfy { $0.iterations == 1 })
-        #expect(workout.blocks.first?.steps.first?.step.goal == .distance(100, .meters))
+        #expect(workout.blocks.first?.steps.first?.step.goal == .distance(125, .meters))
     }
 
     @Test("A ride is warm-up, work and cooldown")

@@ -10,6 +10,7 @@ struct RecoveryCheckInSheet: View {
     @State private var soreness: SorenessLevel = .none
     @State private var energy: EnergyLevel = .normal
     @State private var symptoms: Set<WarningSymptom> = []
+    @State private var failure: String?
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -78,6 +79,11 @@ struct RecoveryCheckInSheet: View {
                     Button("Save", action: save).fontWeight(.semibold)
                 }
             }
+            .alert("Check-in not saved", isPresented: showingFailure) {
+                Button("OK", role: .cancel) { failure = nil }
+            } message: {
+                Text(failure ?? "")
+            }
         }
     }
 
@@ -88,7 +94,16 @@ struct RecoveryCheckInSheet: View {
             energy: energy,
             symptoms: symptoms.sorted { $0.rawValue < $1.rawValue }
         )
-        try? modelContext.save()
-        dismiss()
+
+        do {
+            try modelContext.save()
+            dismiss()
+        } catch {
+            failure = "Could not save your check-in: \(error.localizedDescription)"
+        }
+    }
+
+    private var showingFailure: Binding<Bool> {
+        Binding(get: { failure != nil }, set: { if !$0 { failure = nil } })
     }
 }

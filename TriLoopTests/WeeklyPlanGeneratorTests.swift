@@ -223,8 +223,8 @@ struct WeeklyPlanGeneratorTests {
 
         let store = PlanStore(context: context, generator: generator())
 
-        #expect(store.generateNextWeek(after: week1) != nil)
-        #expect(store.generateNextWeek(after: week1) == nil)
+        #expect(try store.generateNextWeek(after: week1) != nil)
+        #expect(try store.generateNextWeek(after: week1) == nil)
 
         let plans = try context.fetch(FetchDescriptor<WeeklyPlan>())
         #expect(plans.count == 2)
@@ -240,12 +240,12 @@ struct WeeklyPlanGeneratorTests {
         try context.save()
 
         let store = PlanStore(context: context, generator: generator())
-        let week2 = try #require(store.generateNextWeekIfReady(after: week1))
+        let week2 = try #require(try store.generateNextWeekIfReady(after: week1))
 
         #expect(week1.status == .completed)
         #expect(week2.weekNumber == 2)
         #expect([week1, week2].currentPlan(on: week1.startDate, calendar: calendar)?.weekNumber == 2)
-        #expect(store.generateNextWeekIfReady(after: week1) == nil)
+        #expect(try store.generateNextWeekIfReady(after: week1) == nil)
     }
 
     @Test("The current week is the one containing today, not the newest")

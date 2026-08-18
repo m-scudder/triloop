@@ -219,31 +219,38 @@ struct TrainingProfileView: View {
 
     private func reshape() {
         guard let plan = plans.currentPlan() else { return }
-        let outcome = PlanStore(context: modelContext).reshapeWeek(plan)
 
-        var summary = outcome.isUnchanged
-            ? "The days ahead already match your schedule."
-            : "\(outcome.changes.count) day\(outcome.changes.count == 1 ? "" : "s") updated."
+        do {
+            let outcome = try PlanStore(context: modelContext).reshapeWeek(plan)
 
-        if outcome.dropped > 0 {
-            summary += " \(outcome.dropped) session\(outcome.dropped == 1 ? "" : "s") no longer fit."
+            var summary = outcome.isUnchanged
+                ? "The days ahead already match your schedule."
+                : "\(outcome.changes.count) day\(outcome.changes.count == 1 ? "" : "s") updated."
+
+            if outcome.dropped > 0 {
+                summary += " \(outcome.dropped) session\(outcome.dropped == 1 ? "" : "s") no longer fit."
+            }
+            message = summary
+        } catch {
+            message = "Could not update your week: \(error.localizedDescription)"
         }
-        message = summary
     }
 
     private func reassess() {
         guard let plan = plans.currentPlan() else { return }
 
-        let parameters = StartingParameterResolver().resolve(
-            baseline: setup.baseline,
-            goal: setup.goal,
-            poolLengthMeters: profile.poolLengthMeters
-        )
-        let rebuilt = PlanStore(context: modelContext).reapplyParameters(parameters, to: plan)
+        do {
+            let rebuilt = try PlanStore(context: modelContext).reassess(
+                plan,
+                poolLengthMeters: profile.poolLengthMeters
+            )
 
-        message = rebuilt == 0
-            ? "Nothing ahead to rebuild this week."
-            : "\(rebuilt) day\(rebuilt == 1 ? "" : "s") rebuilt from your current ability."
+            message = rebuilt == 0
+                ? "Nothing ahead to rebuild this week."
+                : "\(rebuilt) day\(rebuilt == 1 ? "" : "s") rebuilt from your current ability."
+        } catch {
+            message = "Could not rebuild your week: \(error.localizedDescription)"
+        }
     }
 
     private var showingMessage: Binding<Bool> {

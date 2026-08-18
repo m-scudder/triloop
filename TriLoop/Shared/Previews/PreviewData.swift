@@ -1,3 +1,4 @@
+#if DEBUG
 import SwiftData
 import SwiftUI
 
@@ -32,3 +33,4 @@ enum PreviewData {
     /// A date inside the seeded week, for previewing the "today" state.
     static var sampleToday: Date { plan.startDate }
 }
+#endif

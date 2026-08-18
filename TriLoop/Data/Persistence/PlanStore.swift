@@ -23,13 +23,13 @@ struct PlanStore {
     /// Returns `nil` when the following week already exists, so tapping twice
     /// cannot produce two week 2s.
     @discardableResult
-    func generateNextWeek(after plan: WeeklyPlan) -> WeeklyPlan? {
+    func generateNextWeek(after plan: WeeklyPlan) throws -> WeeklyPlan? {
         guard !hasWeek(after: plan) else { return nil }
 
         let next = configuredGenerator().generate(after: plan, analysis: analyser.analyse(plan))
         plan.status = .completed
         context.insert(next)
-        try? context.save()
+        try context.save()
         return next
     }
 
@@ -50,9 +50,9 @@ struct PlanStore {
     /// Imported data alone is deliberately insufficient: the engine needs RPE,
     /// pain and recovery before it can safely prescribe another week.
     @discardableResult
-    func generateNextWeekIfReady(after plan: WeeklyPlan) -> WeeklyPlan? {
+    func generateNextWeekIfReady(after plan: WeeklyPlan) throws -> WeeklyPlan? {
         guard analyser.analyse(plan).isReadyForNextWeek else { return nil }
-        return generateNextWeek(after: plan)
+        return try generateNextWeek(after: plan)
     }
 
     struct ShiftOutcome: Equatable, Sendable {
@@ -68,7 +68,7 @@ struct PlanStore {
     /// history, and the week's own record of why it changed is updated so a
     /// later explanation layer can say what happened.
     @discardableResult
-    func reshapeWeek(_ plan: WeeklyPlan, asOf now: Date = .now) -> PlanReshaper.Outcome {
+    func reshapeWeek(_ plan: WeeklyPlan, asOf now: Date = .now) throws -> PlanReshaper.Outcome {
         guard let setup = athleteSetup() else { return PlanReshaper.Outcome() }
 
         let outcome = reshaper.reshape(
@@ -97,7 +97,7 @@ struct PlanStore {
         }
 
         plan.generationReasonCode = .availabilityChanged
-        try? context.save()
+        try context.save()
         return outcome
     }
 
@@ -117,7 +117,7 @@ struct PlanStore {
         to plan: WeeklyPlan,
         asOf now: Date = .now,
         calendar: Calendar = .current
-    ) -> Int {
+    ) throws -> Int {
         let boundary = calendar.startOfDay(for: now)
 
         let rebuildable = plan.orderedWorkouts.filter { workout in
@@ -140,8 +140,29 @@ struct PlanStore {
 
         plan.parameters = parameters
         plan.generationReasonCode = .profileChanged
-        try? context.save()
+        try context.save()
         return rebuildable.count
+    }
+
+    /// Rebuilds the days ahead from the athlete's current assessment.
+    ///
+    /// The view asks for a reassessment; deciding what that means is the
+    /// domain's job, so the resolver is called here rather than in the UI.
+    @discardableResult
+    func reassess(
+        _ plan: WeeklyPlan,
+        poolLengthMeters: Double,
+        resolver: any StartingParameterResolving = StartingParameterResolver(),
+        asOf now: Date = .now
+    ) throws -> Int {
+        guard let setup = athleteSetup() else { return 0 }
+
+        let parameters = resolver.resolve(
+            baseline: setup.baseline,
+            goal: setup.goal,
+            poolLengthMeters: poolLengthMeters
+        )
+        return try reapplyParameters(parameters, to: plan, asOf: now)
     }
 
     /// Pushes everything from `date` onward forward by a day, turning the missed
@@ -156,7 +177,7 @@ struct PlanStore {
         _ plan: WeeklyPlan,
         from date: Date,
         calendar: Calendar = .current
-    ) -> ShiftOutcome {
+    ) throws -> ShiftOutcome {
         let day = calendar.startOfDay(for: date)
         guard plan.contains(day, calendar: calendar) else { return ShiftOutcome() }
 
@@ -186,7 +207,7 @@ struct PlanStore {
         recovery.plan = plan
         context.insert(recovery)
 
-        try? context.save()
+        try context.save()
         return outcome
     }
 }

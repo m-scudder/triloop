@@ -27,10 +27,22 @@ struct CurrentTrainingTests {
 
     @Test("Only sports actually prescribed appear")
     func onlyPrescribedSportsAppear() throws {
-        let runOnly = SeedWeekOne.makePlan(startDate: monday(), calendar: calendar)
-        let summary = try #require(CurrentTraining(plans: [runOnly]))
+        let plan = SeedWeekOne.makePlan(startDate: monday(), calendar: calendar)
+        let summary = try #require(CurrentTraining(plans: [plan]))
 
-        // Week one has no swimming until September.
+        // The fixture carries all three sports.
+        #expect(summary.states.map(\.sport) == [.running, .swimming, .cycling])
+    }
+
+    @Test("A sport missing from the week is not reported")
+    func absentSportIsOmitted() throws {
+        let plan = SeedWeekOne.makePlan(startDate: monday(), calendar: calendar)
+        for swim in plan.orderedWorkouts where swim.discipline == .swimming {
+            plan.workouts.removeAll { $0 === swim }
+        }
+
+        let summary = try #require(CurrentTraining(plans: [plan]))
+
         #expect(summary.states.map(\.sport) == [.running, .cycling])
     }
 

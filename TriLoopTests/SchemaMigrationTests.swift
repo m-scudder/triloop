@@ -19,9 +19,17 @@ struct SchemaMigrationTests {
 
     @Test("Versions are ordered oldest first, which is the order they migrate in")
     func schemasAreOrdered() {
-        let versions = TriLoopMigrationPlan.schemas.map(\.versionIdentifier)
+        // Iterated rather than mapped: a key path over `[any VersionedSchema.Type]`
+        // crashes SILGen in this toolchain.
+        var previous: Schema.Version?
 
-        #expect(versions == versions.sorted())
+        for schema in TriLoopMigrationPlan.schemas {
+            let version = schema.versionIdentifier
+            if let previous { #expect(previous < version) }
+            previous = version
+        }
+
+        #expect(previous == TriLoopSchemaV4.versionIdentifier)
     }
 
     @Test("Every persisted model is part of the versioned schema")

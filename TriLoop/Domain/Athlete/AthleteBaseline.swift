@@ -147,7 +147,7 @@ struct AthleteBaseline: Codable, Equatable, Sendable {
         let defaults = AthleteBaseline()
 
         func value<T: Decodable>(_ key: CodingKeys, _ fallback: T) -> T {
-            (try? container.decodeIfPresent(T.self, forKey: key)) as? T ?? fallback
+            (try? container.decodeIfPresent(T.self, forKey: key)) ?? fallback
         }
 
         running = value(.running, defaults.running)

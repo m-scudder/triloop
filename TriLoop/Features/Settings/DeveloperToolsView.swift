@@ -152,7 +152,7 @@ struct DeveloperToolsView: View {
             workout.recordCompletion(with: draft)
         }
         try? modelContext.save()
-        _ = PlanStore(context: modelContext).generateNextWeekIfReady(after: plan)
+        _ = try? PlanStore(context: modelContext).generateNextWeekIfReady(after: plan)
     }
 
     private func checkIn(_ plan: WeeklyPlan, pain: Int, soreness: SorenessLevel, energy: EnergyLevel) {

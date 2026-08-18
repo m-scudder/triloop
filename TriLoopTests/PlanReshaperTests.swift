@@ -201,7 +201,7 @@ struct PlanReshaperTests {
 
         var store = PlanStore(context: context)
         store.reshaper = reshaper()
-        let outcome = store.reshapeWeek(week, asOf: monday())
+        let outcome = try store.reshapeWeek(week, asOf: monday())
 
         #expect(outcome.isUnchanged == false)
         #expect(week.generationReasonCode == .availabilityChanged)
@@ -229,7 +229,7 @@ struct PlanReshaperTests {
             poolLengthMeters: 25
         )
 
-        let rebuilt = PlanStore(context: context).reapplyParameters(
+        let rebuilt = try PlanStore(context: context).reapplyParameters(
             stronger,
             to: week,
             asOf: day(2),
@@ -255,7 +255,7 @@ struct PlanReshaperTests {
 
         let before = week.orderedWorkouts.map(\.discipline)
 
-        PlanStore(context: context).reapplyParameters(
+        try PlanStore(context: context).reapplyParameters(
             StartingParameterResolver().resolve(
                 baseline: AthleteBaseline(running: .regular5K),
                 goal: .generalFitness,
