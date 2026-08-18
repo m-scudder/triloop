@@ -18,9 +18,9 @@ struct FirstWeekBuilder: Sendable {
     }
 
     /// - Parameters:
-    ///   - startDate: the first day of the plan. Need not be a Monday: starting
-    ///     mid-week produces a short first week that still ends on the Sunday,
-    ///     so every following week is a full Monday-to-Sunday one.
+    ///   - startDate: the first day the athlete will train. The plan still runs
+    ///     Monday to Sunday — days before this become rest — so every week in
+    ///     the app has the same shape.
     ///   - weekNumber: where this sits in the athlete's history. Not always 1:
     ///     an existing athlete completing setup gets their next week, never a
     ///     second week one.
@@ -40,38 +40,52 @@ struct FirstWeekBuilder: Sendable {
 
         let start = calendar.startOfDay(for: startDate)
         let firstWeekday = Weekday(date: start, calendar: calendar) ?? .monday
-        let remainingDays = 6 - firstWeekday.offsetFromMonday
+        let monday = calendar.date(byAdding: .day, value: -firstWeekday.offsetFromMonday, to: start) ?? start
+
+        // Both the ask and the placement use the days that are left, so a
+        // partial first week is simply smaller rather than reported as a week
+        // that failed to fit.
+        let available = remaining(setup.schedule, from: firstWeekday)
 
         let shape = planner.plan(
-            schedule: setup.schedule,
-            frequencies: WeekShapePlanner.frequencies(from: setup.preferences, schedule: setup.schedule),
+            schedule: available,
+            frequencies: WeekShapePlanner.frequencies(from: setup.preferences, schedule: available),
             durations: durations(from: parameters, preferences: setup.preferences)
         )
 
         guard shape.isViable else { throw BuildFailure.noSessionsFit }
 
-        // Indexed by weekday, not by position, so a short week still puts each
-        // sport on the day the athlete said they could train it.
-        let workouts = (0...remainingDays).compactMap { offset -> PlannedWorkout? in
-            guard let date = calendar.date(byAdding: .day, value: offset, to: start),
-                  let weekday = Weekday(date: date, calendar: calendar) else { return nil }
-
-            return WorkoutTemplates.session(
-                shape.disciplines[weekday.offsetFromMonday],
-                on: date,
-                parameters: parameters
-            )
+        let workouts = Weekday.trainingWeek.compactMap { weekday -> PlannedWorkout? in
+            guard let date = calendar.date(byAdding: .day, value: weekday.offsetFromMonday, to: monday) else {
+                return nil
+            }
+            // Days already gone by the time setup finished are rest, not a
+            // session the athlete silently failed to do.
+            let discipline = weekday < firstWeekday ? Discipline.rest : shape.disciplines[weekday.offsetFromMonday]
+            return WorkoutTemplates.session(discipline, on: date, parameters: parameters)
         }
 
         return WeeklyPlan(
             weekNumber: weekNumber,
-            startDate: start,
-            endDate: calendar.date(byAdding: .day, value: remainingDays, to: start) ?? start,
+            startDate: monday,
+            endDate: calendar.date(byAdding: .day, value: 6, to: monday) ?? monday,
             status: .active,
             generationReason: reason(for: setup, shape: shape),
             generationReasonCode: .initialAssessment,
             parameters: parameters,
             workouts: workouts
+        )
+    }
+
+    /// The schedule with elapsed days closed off, so every session the athlete
+    /// asked for is placed in the part of the week they still have.
+    private func remaining(_ schedule: AthleteSchedule, from weekday: Weekday) -> AthleteSchedule {
+        AthleteSchedule(
+            days: schedule.days.map { day in
+                var updated = day
+                if day.weekday < weekday { updated.isAvailable = false }
+                return updated
+            }
         )
     }
 

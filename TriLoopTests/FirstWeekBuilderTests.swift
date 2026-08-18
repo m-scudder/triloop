@@ -59,8 +59,8 @@ struct FirstWeekBuilderTests {
         #expect(plan.parameters.rideWorkSeconds >= TimeInterval(45 * 60))
     }
 
-    @Test("Starting mid-week gives a short week that still ends on the Sunday")
-    func midWeekStartEndsOnSunday() throws {
+    @Test("Starting mid-week still gives a full Monday to Sunday plan")
+    func midWeekStartCoversTheWholeWeek() throws {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "UTC") ?? .gmt
         var builder = FirstWeekBuilder()
@@ -70,11 +70,36 @@ struct FirstWeekBuilderTests {
         let thursday = try #require(calendar.date(from: DateComponents(year: 2026, month: 8, day: 20)))
         let plan = try builder.build(setup: setup(), poolLengthMeters: 25, startDate: thursday)
 
-        #expect(plan.startDate == thursday)
+        #expect(Weekday(date: plan.startDate, calendar: calendar) == .monday)
         #expect(Weekday(date: plan.endDate, calendar: calendar) == .sunday)
-        #expect(plan.orderedWorkouts.count == 4)
-        // Nothing is created before the athlete asked to start.
-        #expect(plan.orderedWorkouts.allSatisfy { $0.date >= thursday })
+        #expect(plan.orderedWorkouts.count == 7)
+
+        // Nothing to do on the days that had already gone.
+        let elapsed = plan.orderedWorkouts.filter { $0.date < thursday }
+        #expect(elapsed.count == 3)
+        #expect(elapsed.allSatisfy { $0.discipline == .rest })
+        #expect(plan.trainingSessions.allSatisfy { $0.date >= thursday })
+    }
+
+    @Test("Sessions asked for are packed into the days that remain")
+    func sessionsFitTheRemainingDays() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC") ?? .gmt
+        var builder = FirstWeekBuilder()
+        builder.calendar = calendar
+
+        let thursday = try #require(calendar.date(from: DateComponents(year: 2026, month: 8, day: 20)))
+        let plan = try builder.build(
+            setup: setup(preferences: [
+                SportPreference(sport: .running, sessionsPerWeek: 2, typicalMinutes: 30),
+                SportPreference(sport: .swimming, sessionsPerWeek: 1, typicalMinutes: 45)
+            ]),
+            poolLengthMeters: 25,
+            startDate: thursday
+        )
+
+        #expect(plan.trainingSessions.count == 3)
+        #expect(plan.trainingSessions.allSatisfy { $0.date >= thursday })
     }
 
     @Test("A short week still places sessions only on training days")
@@ -97,9 +122,10 @@ struct FirstWeekBuilderTests {
             startDate: friday
         )
 
-        for workout in plan.orderedWorkouts where workout.discipline.isTrainingSession {
+        for workout in plan.trainingSessions {
             let weekday = try #require(Weekday(date: workout.date, calendar: calendar))
             #expect(schedule.isAvailable(on: weekday))
+            #expect(workout.date >= friday)
         }
     }
 

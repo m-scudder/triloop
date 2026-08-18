@@ -56,23 +56,23 @@ struct PlanPreviewStepView: View {
             get: { model.startChoice },
             set: { model.choose(start: $0) }
         )) {
-            Text("Start today").tag(OnboardingModel.StartChoice.now)
+            Text("Start this week").tag(OnboardingModel.StartChoice.now)
             Text("Start Monday").tag(OnboardingModel.StartChoice.nextMonday)
         }
         .pickerStyle(.segmented)
     }
 
-    /// Training weeks end on a Sunday, so starting mid-week gives a short first
-    /// week rather than backdating sessions the athlete never had.
+    /// Weeks always run Monday to Sunday, so the useful thing to state is when
+    /// the athlete actually trains, not when the plan's calendar week opens.
     private func startLine(_ plan: WeeklyPlan) -> String {
         let calendar = Calendar.current
-        let days = (calendar.dateComponents([.day], from: plan.startDate, to: plan.endDate).day ?? 6) + 1
+        guard let first = plan.trainingSessions.map(\.date).min() else {
+            return "No sessions scheduled"
+        }
 
-        let opening = calendar.isDateInToday(plan.startDate)
-            ? "Starting today"
-            : "Starting \(plan.startDate.formatted(.dateTime.weekday(.wide).day().month(.wide)))"
-
-        return days < 7 ? "\(opening) · \(days) days to Sunday" : opening
+        if calendar.isDateInToday(first) { return "First session today" }
+        if calendar.isDateInTomorrow(first) { return "First session tomorrow" }
+        return "First session \(first.formatted(.dateTime.weekday(.wide).day().month(.wide)))"
     }
 
     private func week(_ plan: WeeklyPlan) -> some View {
