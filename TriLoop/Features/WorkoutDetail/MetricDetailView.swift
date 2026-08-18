@@ -1,0 +1,177 @@
+import Charts
+import SwiftUI
+
+/// Full-size chart for a single metric, with the numbers behind it.
+struct MetricDetailView: View {
+    let metric: WorkoutMetric
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(metric.headline)
+                        .font(.system(size: 44, weight: .semibold))
+                        .monospacedDigit()
+                    Text(metric.caption)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+
+                Card {
+                    chart
+                        .frame(height: 220)
+                }
+
+                if !summaryStats.isEmpty {
+                    Card {
+                        HStack(alignment: .top, spacing: 8) {
+                            ForEach(summaryStats, id: \.label) { stat in
+                                StatTile(value: stat.value, label: stat.label)
+                            }
+                        }
+                    }
+                }
+
+                if let note {
+                    Text(note)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(20)
+        }
+        .navigationTitle(metric.title)
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    @ViewBuilder
+    private var chart: some View {
+        switch metric.kind {
+        case .swimLengths:
+            Chart(metric.lengths) { length in
+                BarMark(
+                    x: .value("Length", length.index),
+                    y: .value("Seconds", length.seconds)
+                )
+                .foregroundStyle(paceColour(for: length))
+                .cornerRadius(3)
+
+                if length.followedRest {
+                    RuleMark(x: .value("Length", length.index))
+                        .foregroundStyle(.secondary.opacity(0.35))
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                }
+            }
+            .chartXAxis { AxisMarks(values: .automatic(desiredCount: 6)) }
+
+        case .heartRate:
+            Chart(metric.points) { point in
+                AreaMark(
+                    x: .value("Time", point.date),
+                    y: .value("BPM", point.value)
+                )
+                .foregroundStyle(metric.gradient.opacity(0.28))
+                .interpolationMethod(.catmullRom)
+
+                LineMark(
+                    x: .value("Time", point.date),
+                    y: .value("BPM", point.value)
+                )
+                .foregroundStyle(metric.gradient)
+                .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round))
+                .interpolationMethod(.catmullRom)
+            }
+            .chartYScale(domain: heartRateDomain)
+            .chartXAxis {
+                AxisMarks(values: .automatic(desiredCount: 4)) {
+                    AxisValueLabel(format: .dateTime.hour().minute())
+                }
+            }
+
+        default:
+            Chart(metric.points) { point in
+                BarMark(
+                    x: .value("Time", point.date, unit: .minute),
+                    y: .value("Value", point.value)
+                )
+                .foregroundStyle(metric.gradient)
+                .cornerRadius(2)
+            }
+            .chartXAxis {
+                AxisMarks(values: .automatic(desiredCount: 4)) {
+                    AxisValueLabel(format: .dateTime.hour().minute())
+                }
+            }
+        }
+    }
+
+    private var heartRateDomain: ClosedRange<Double> {
+        let values = metric.points.map(\.value)
+        let low = (values.min() ?? 60) - 8
+        let high = (values.max() ?? 160) + 8
+        return max(low, 40)...high
+    }
+
+    /// Ranked within this session rather than against an absolute standard, so
+    /// an easy swim is not rendered entirely as slow.
+    private func paceColour(for length: SwimLengthPoint) -> Color {
+        let paces = metric.lengths.map(\.pacePer100m)
+        guard let fastest = paces.min(), let slowest = paces.max(), slowest > fastest else {
+            return metric.tint
+        }
+        let position = (length.pacePer100m - fastest) / (slowest - fastest)
+        return Color(hue: 0.38 - (0.30 * position), saturation: 0.75, brightness: 0.85)
+    }
+
+    private var summaryStats: [(label: String, value: String)] {
+        switch metric.kind {
+        case .heartRate:
+            let values = metric.points.map(\.value)
+            guard let low = values.min(), let high = values.max() else { return [] }
+            let average = values.reduce(0, +) / Double(values.count)
+            return [
+                ("Low", "\(Int(low.rounded()))"),
+                ("Average", "\(Int(average.rounded()))"),
+                ("Peak", "\(Int(high.rounded()))")
+            ]
+
+        case .swimLengths:
+            let seconds = metric.lengths.map(\.seconds)
+            guard let fastest = seconds.min(), let slowest = seconds.max() else { return [] }
+            let rests = metric.lengths.filter(\.followedRest).count
+            return [
+                ("Fastest", "\(Int(fastest))s"),
+                ("Slowest", "\(Int(slowest))s"),
+                ("Rests", "\(rests)")
+            ]
+
+        case .cadence:
+            let values = metric.points.map(\.value)
+            guard let high = values.max() else { return [] }
+            let average = values.reduce(0, +) / Double(values.count)
+            return [
+                ("Average", "\(Int(average.rounded()))"),
+                ("Peak", "\(Int(high.rounded()))")
+            ]
+
+        case .distance:
+            let total = metric.points.reduce(0) { $0 + $1.value }
+            let best = metric.points.map(\.value).max() ?? 0
+            return [
+                ("Total", TrainingFormatter.distance(meters: total)),
+                ("Best minute", TrainingFormatter.distance(meters: best))
+            ]
+        }
+    }
+
+    private var note: String? {
+        switch metric.kind {
+        case .swimLengths:
+            "Bars are coloured fastest to slowest within this swim. Dashed lines mark where you rested."
+        case .heartRate:
+            "Sampled once a minute. Colour runs cool at easy effort through to hot at hard effort."
+        default:
+            nil
+        }
+    }
+}

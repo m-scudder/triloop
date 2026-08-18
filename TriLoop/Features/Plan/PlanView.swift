@@ -1,128 +1,110 @@
 import SwiftData
 import SwiftUI
 
+/// Date-led view of the plan: pick a day, see that day's session in full.
+///
+/// Replaces the week-list-plus-hidden-picker arrangement, where choosing a week
+/// meant finding it behind an overflow menu.
 struct PlanView: View {
-    @Query(sort: \WeeklyPlan.startDate, order: .reverse) private var plans: [WeeklyPlan]
+    @Query(sort: \WeeklyPlan.startDate) private var plans: [WeeklyPlan]
 
-    @Environment(\.modelContext) private var modelContext
-    @State private var selectedPlanID: UUID?
-    @State private var reshapeMessage: String?
+    @State private var selection: Date = .now
+    @State private var isPresentingCalendar = false
 
-    private var selectedPlan: WeeklyPlan? {
-        plans.first { $0.id == selectedPlanID } ?? plans.currentPlan()
+    private var allWorkouts: [PlannedWorkout] {
+        plans.flatMap(\.orderedWorkouts).sorted { $0.date < $1.date }
+    }
+
+    private var selectedWorkout: PlannedWorkout? {
+        allWorkouts.first { Calendar.current.isDate($0.date, inSameDayAs: selection) }
     }
 
     var body: some View {
         NavigationStack {
             Group {
-                if let plan = selectedPlan {
-                    planList(plan)
-                } else {
+                if allWorkouts.isEmpty {
                     ContentUnavailableView(
                         "No plan yet",
                         systemImage: "calendar",
                         description: Text("Your first training week has not been generated.")
                     )
-                }
-            }
-            .navigationTitle(selectedPlan.map { "Week \($0.weekNumber)" } ?? "Plan")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                if let plan = selectedPlan {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Menu {
-                            if plans.count > 1 {
-                                Picker("Week", selection: weekSelection(default: plan.id)) {
-                                    ForEach(plans.sorted { $0.weekNumber < $1.weekNumber }, id: \.id) { option in
-                                        Text("Week \(option.weekNumber)").tag(option.id)
-                                    }
-                                }
-                            }
-                            Button("Update to current schedule") {
-                                reshapeMessage = message(
-                                    for: PlanStore(context: modelContext).reshapeWeek(plan)
-                                )
-                            }
-                        } label: {
-                            Label("Week options", systemImage: "ellipsis.circle")
-                        }
-                    }
-                }
-            }
-            .alert("Plan", isPresented: showingReshapeMessage) {
-                Button("OK", role: .cancel) { reshapeMessage = nil }
-            } message: {
-                Text(reshapeMessage ?? "")
-            }
-        }
-    }
-
-    private var showingReshapeMessage: Binding<Bool> {
-        Binding(get: { reshapeMessage != nil }, set: { if !$0 { reshapeMessage = nil } })
-    }
-
-    private func message(for changed: Int) -> String {
-        switch changed {
-        case 0: "This week already matches your schedule."
-        case 1: "One day updated. Reported sessions were left alone."
-        default: "\(changed) days updated. Reported sessions were left alone."
-        }
-    }
-
-    private func weekSelection(default id: UUID) -> Binding<UUID> {
-        Binding(
-            get: { selectedPlanID ?? id },
-            set: { selectedPlanID = $0 }
-        )
-    }
-
-    private func planList(_ plan: WeeklyPlan) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                Text(TrainingFormatter.weekRange(start: plan.startDate, end: plan.endDate))
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-
-                Card(padding: 4) {
+                } else {
                     VStack(spacing: 0) {
-                        ForEach(plan.orderedWorkouts, id: \.id) { workout in
-                            NavigationLink {
-                                WorkoutDetailView(workout: workout)
-                            } label: {
-                                WorkoutRow(
-                                    workout: workout,
-                                    isToday: Calendar.current.isDateInToday(workout.date)
-                                )
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 10)
-                            }
-                            .buttonStyle(.plain)
+                        DateStrip(workouts: allWorkouts, selection: $selection)
 
-                            if workout.id != plan.orderedWorkouts.last?.id {
-                                Divider().padding(.leading, 10)
-                            }
+                        Divider()
+
+                        if let workout = selectedWorkout {
+                            WorkoutDayDetail(workout: workout)
+                        } else {
+                            ContentUnavailableView(
+                                "Nothing planned",
+                                systemImage: "moon.zzz",
+                                description: Text("There is no session on this date.")
+                            )
                         }
                     }
                 }
-
-                Card {
-                    HStack(alignment: .top, spacing: 10) {
-                        Image(systemName: "arrow.trianglehead.2.clockwise.rotate.90")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                        Text(
-                            plan.generationReason.isEmpty
-                                ? "Plan adapts based on your performance, recovery and feedback."
-                                : plan.generationReason
-                        )
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+            }
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        isPresentingCalendar = true
+                    } label: {
+                        Label("Choose a date", systemImage: "calendar")
                     }
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 24)
+            .sheet(isPresented: $isPresentingCalendar) {
+                calendarSheet
+            }
+            .onAppear(perform: selectSensibleDay)
         }
+    }
+
+    private var title: String {
+        selection.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated))
+    }
+
+    private var calendarSheet: some View {
+        DatePicker(
+            "Date",
+            selection: $selection,
+            in: dateRange,
+            displayedComponents: .date
+        )
+        .datePickerStyle(.graphical)
+        .labelsHidden()
+        .padding(.horizontal, 12)
+        .onChange(of: selection) { isPresentingCalendar = false }
+        .presentationDetents([.medium])
+    }
+
+    /// Bounded by the plan itself: there is nothing to show on a date TriLoop
+    /// has never prescribed.
+    private var dateRange: ClosedRange<Date> {
+        let dates = allWorkouts.map(\.date)
+        guard let first = dates.min(), let last = dates.max() else {
+            return Date.now...Date.now
+        }
+        return first...max(last, first)
+    }
+
+    /// Opens on today when it is part of a plan, and on the nearest planned day
+    /// otherwise, so the screen never starts empty.
+    private func selectSensibleDay() {
+        let calendar = Calendar.current
+        if allWorkouts.contains(where: { calendar.isDateInToday($0.date) }) {
+            selection = .now
+            return
+        }
+        let now = Date.now
+        let nearest = allWorkouts.min {
+            abs($0.date.timeIntervalSince(now)) < abs($1.date.timeIntervalSince(now))
+        }
+        if let nearest { selection = nearest.date }
     }
 }
 

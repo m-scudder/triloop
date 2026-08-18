@@ -1,10 +1,19 @@
 import SwiftData
 import SwiftUI
 
-/// Overview, per-sport volume and a few durable bests. No trend charts until
-/// there is enough history for a trend to mean anything.
+/// Overview, per-sport volume and a few durable bests, with the full session
+/// history behind its own segment so neither list buries the other.
 struct ProgressOverviewView: View {
     @Query(sort: \WeeklyPlan.startDate) private var plans: [WeeklyPlan]
+
+    private enum Segment: String, CaseIterable, Identifiable {
+        case progress = "Progress"
+        case sessions = "Sessions"
+
+        var id: Self { self }
+    }
+
+    @State private var segment: Segment = .progress
 
     private var stats: TrainingStatistics {
         TrainingStatistics(plans: plans)
@@ -23,27 +32,67 @@ struct ProgressOverviewView: View {
             .sorted { $0.date > $1.date }
     }
 
+    private var sessionMonths: [SessionMonth] {
+        let calendar = Calendar.current
+        return Dictionary(grouping: recentSessions) { session in
+            calendar.dateInterval(of: .month, for: session.date)?.start ?? session.date
+        }
+        .map { SessionMonth(start: $0.key, sessions: $0.value) }
+        .sorted { $0.start > $1.start }
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
-                    if let current, current.hasData {
-                        currentTraining(current)
+                    switch segment {
+                    case .progress: progressContent
+                    case .sessions: sessionsContent
                     }
-                    overview
-                    if stats.hasData {
-                        bySport
-                        keyStats
-                    }
-                    if !recentSessions.isEmpty {
-                        history
-                    }
-                    weeks
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 24)
             }
             .navigationTitle("Progress")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Picker("View", selection: $segment) {
+                        ForEach(Segment.allCases) { Text($0.rawValue).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(width: 220)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var progressContent: some View {
+        if let current, current.hasData {
+            currentTraining(current)
+        }
+        overview
+        if stats.hasData {
+            bySport
+            keyStats
+        }
+        weeks
+    }
+
+    @ViewBuilder
+    private var sessionsContent: some View {
+        if recentSessions.isEmpty {
+            ContentUnavailableView(
+                "No sessions yet",
+                systemImage: "figure.run",
+                description: Text("Completed workouts appear here once you report them.")
+            )
+            .padding(.top, 60)
+        } else {
+            ForEach(sessionMonths) { month in
+                history(month)
+            }
         }
     }
 
@@ -178,13 +227,13 @@ struct ProgressOverviewView: View {
         .padding(.vertical, 12)
     }
 
-    private var history: some View {
+    private func history(_ month: SessionMonth) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            SectionEyebrow(text: "Sessions")
+            SectionEyebrow(text: month.title)
 
             Card(padding: 0) {
                 VStack(spacing: 0) {
-                    ForEach(recentSessions, id: \.id) { session in
+                    ForEach(month.sessions, id: \.id) { session in
                         NavigationLink {
                             WorkoutDetailView(workout: session)
                         } label: {
@@ -192,7 +241,7 @@ struct ProgressOverviewView: View {
                         }
                         .buttonStyle(.plain)
 
-                        if session.id != recentSessions.last?.id {
+                        if session.id != month.sessions.last?.id {
                             Divider().padding(.leading, 62)
                         }
                     }
@@ -253,7 +302,8 @@ struct ProgressOverviewView: View {
         return parts.isEmpty ? session.title : parts.joined(separator: " · ")
     }
 
-    private var weeks: some View {        VStack(alignment: .leading, spacing: 10) {
+    private var weeks: some View {
+        VStack(alignment: .leading, spacing: 10) {
             SectionEyebrow(text: "Training weeks")
 
             if plans.isEmpty {
@@ -319,6 +369,20 @@ struct ProgressOverviewView: View {
             .compactMap(\.estimatedDurationSeconds)
             .reduce(0, +) / 60
         return "\(completed)/\(sessions.count) completed · \(Int(minutes.rounded())) min planned"
+    }
+}
+
+private struct SessionMonth: Identifiable {
+    let start: Date
+    let sessions: [PlannedWorkout]
+
+    var id: Date { start }
+
+    var title: String {
+        let format: Date.FormatStyle = Calendar.current.isDate(start, equalTo: .now, toGranularity: .year)
+            ? .dateTime.month(.wide)
+            : .dateTime.month(.wide).year()
+        return start.formatted(format)
     }
 }
 
