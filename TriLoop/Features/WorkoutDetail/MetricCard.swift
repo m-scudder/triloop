@@ -77,7 +77,7 @@ struct MetricCard: View {
                     y: .value("Value", point.value)
                 )
                 .foregroundStyle(metric.gradient.opacity(0.35))
-                .interpolationMethod(.catmullRom)
+                .interpolationMethod(.monotone)
 
                 LineMark(
                     x: .value("Time", point.date),
@@ -85,11 +85,12 @@ struct MetricCard: View {
                 )
                 .foregroundStyle(metric.tint)
                 .lineStyle(StrokeStyle(lineWidth: 1.5, lineCap: .round))
-                .interpolationMethod(.catmullRom)
+                .interpolationMethod(.monotone)
             }
             .chartXAxis(.hidden)
             .chartYAxis(.hidden)
             .chartYScale(domain: previewDomain)
+            .chartPlotStyle { $0.clipped() }
 
         default:
             Chart(metric.points) { point in

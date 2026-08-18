@@ -71,7 +71,7 @@ struct MetricDetailView: View {
                     y: .value("BPM", point.value)
                 )
                 .foregroundStyle(metric.gradient.opacity(0.28))
-                .interpolationMethod(.catmullRom)
+                .interpolationMethod(.monotone)
 
                 LineMark(
                     x: .value("Time", point.date),
@@ -79,9 +79,12 @@ struct MetricDetailView: View {
                 )
                 .foregroundStyle(metric.gradient)
                 .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round))
-                .interpolationMethod(.catmullRom)
+                .interpolationMethod(.monotone)
             }
             .chartYScale(domain: heartRateDomain)
+            // A y-scale bounds the data, not the drawing: a smoothed curve can
+            // still be painted past the axis.
+            .chartPlotStyle { $0.clipped() }
             .chartXAxis {
                 AxisMarks(values: .automatic(desiredCount: 4)) {
                     AxisValueLabel(format: .dateTime.hour().minute())
