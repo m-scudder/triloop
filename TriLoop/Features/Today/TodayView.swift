@@ -11,7 +11,9 @@ struct TodayView: View {
     @State private var activity: DailyActivity?
     @State private var hourlySteps: [SamplePoint] = []
     @State private var samples: WorkoutSamples?
+    @State private var activityFailure: String?
     @AppStorage("simulateHealthSamples") private var simulateSamples = false
+    @Environment(\.scenePhase) private var scenePhase
 
     private let health = HealthKitWorkoutImporter()
 
@@ -58,9 +60,17 @@ struct TodayView: View {
                 RecoveryCheckInSheet(workout: workout)
             }
             .task {
-                await loadActivity()
                 guard automaticallySchedule, let plan = plans.currentPlan() else { return }
                 await autoScheduleIfPermitted(plan)
+            }
+            // Steps keep accruing while the app is open, so the card re-reads
+            // HealthKit rather than showing whatever was true on launch.
+            .task(id: scenePhase) {
+                guard scenePhase == .active else { return }
+                while !Task.isCancelled {
+                    await loadActivity()
+                    try? await Task.sleep(for: .seconds(60))
+                }
             }
         }
     }
@@ -88,25 +98,40 @@ struct TodayView: View {
         VStack(alignment: .leading, spacing: 10) {
             SectionEyebrow(text: "All day")
 
-            Card {
-                VStack(alignment: .leading, spacing: 14) {
-                    HStack(alignment: .top, spacing: 8) {
-                        if let steps = activity.steps {
-                            StatTile(value: steps.formatted(.number), label: "Steps")
+            NavigationLink {
+                ActivityDetailView()
+            } label: {
+                Card {
+                    VStack(alignment: .leading, spacing: 14) {
+                        HStack(alignment: .top, spacing: 8) {
+                            if let steps = activity.steps {
+                                StatTile(value: steps.formatted(.number), label: "Steps")
+                            }
+                            if let distance = activity.distanceMeters, distance > 0 {
+                                StatTile(
+                                    value: TrainingFormatter.distance(meters: distance),
+                                    label: "Walk + run"
+                                )
+                            }
+                            Spacer(minLength: 0)
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
                         }
-                        if let distance = activity.distanceMeters, distance > 0 {
-                            StatTile(
-                                value: TrainingFormatter.distance(meters: distance),
-                                label: "Walk + run"
-                            )
-                        }
-                    }
 
-                    if hourlySteps.contains(where: { $0.value > 0 }) {
-                        HourlyStepsChart(points: hourlySteps)
+                        if hourlySteps.contains(where: { $0.value > 0 }) {
+                            HourlyStepsChart(points: hourlySteps)
+                        }
+
+                        if let activityFailure {
+                            Text(activityFailure)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
             }
+            .buttonStyle(.plain)
         }
     }
 
@@ -128,9 +153,24 @@ struct TodayView: View {
         }
         #endif
 
-        guard await health.authorizationStatus == .authorized else { return }
-        activity = try? await health.dailyActivity(on: .now)
-        hourlySteps = (try? await health.hourlySteps(on: .now)) ?? []
+        switch await health.authorizationStatus {
+        case .unavailable:
+            activityFailure = "Health data isn't available on this device."
+            return
+        case .notDetermined, .denied:
+            activityFailure = "Connect Apple Health in Settings to see your daily movement."
+            return
+        case .authorized:
+            break
+        }
+
+        do {
+            activity = try await health.dailyActivity(on: .now)
+            hourlySteps = try await health.hourlySteps(on: .now)
+            activityFailure = nil
+        } catch {
+            activityFailure = "Could not read today's steps: \(error.localizedDescription)"
+        }
 
         if let summary = todaysWorkout?.importedSummary {
             samples = try? await health.samples(forWorkout: summary.healthKitUUID)
@@ -209,6 +249,8 @@ struct TodayView: View {
 
                 if let activity, activity.hasAnything {
                     dailyActivity(activity)
+                } else if activityFailure != nil {
+                    dailyActivity(DailyActivity())
                 }
             }
             .padding(.horizontal, 20)

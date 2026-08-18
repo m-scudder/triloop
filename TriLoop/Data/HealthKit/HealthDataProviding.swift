@@ -43,6 +43,9 @@ protocol HealthDataProviding: Sendable {
 
     /// Steps bucketed by hour for a single day.
     func hourlySteps(on date: Date) async throws -> [SamplePoint]
+
+    /// Steps bucketed by day across a range, for week and month views.
+    func dailySteps(from startDate: Date, to endDate: Date) async throws -> [SamplePoint]
 }
 
 /// Fixed data for previews, tests and Developer Mode.
@@ -52,6 +55,7 @@ struct StubHealthDataProvider: HealthDataProviding {
     var activity: DailyActivity = DailyActivity(steps: 6_240, distanceMeters: 4_100)
     var samples: WorkoutSamples = WorkoutSamples()
     var hourly: [SamplePoint] = []
+    var daily: [SamplePoint] = []
 
     var authorizationStatus: HealthAuthorizationStatus {
         get async { status }
@@ -81,5 +85,10 @@ struct StubHealthDataProvider: HealthDataProviding {
     func hourlySteps(on date: Date) async throws -> [SamplePoint] {
         guard status == .authorized else { throw HealthDataError.notAuthorized }
         return hourly
+    }
+
+    func dailySteps(from startDate: Date, to endDate: Date) async throws -> [SamplePoint] {
+        guard status == .authorized else { throw HealthDataError.notAuthorized }
+        return daily
     }
 }

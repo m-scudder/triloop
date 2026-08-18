@@ -102,5 +102,17 @@ enum SimulatedDailySteps {
             )
         }
     }
+
+    /// Whole-day totals ending today, with lighter weekends.
+    static func daily(days: Int, calendar: Calendar = .current) -> [SamplePoint] {
+        let today = calendar.startOfDay(for: .now)
+
+        return (0..<days).reversed().compactMap { offset in
+            guard let date = calendar.date(byAdding: .day, value: -offset, to: today) else { return nil }
+            let isWeekend = calendar.isDateInWeekend(date)
+            let steps = Double.random(in: isWeekend ? 3_000...7_000 : 6_500...14_000)
+            return SamplePoint(date: date, value: steps.rounded())
+        }
+    }
 }
 #endif

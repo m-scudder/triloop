@@ -90,7 +90,21 @@ final class HealthKitWorkoutImporter: HealthDataProviding, @unchecked Sendable {
         let calendar = Calendar.current
         let start = calendar.startOfDay(for: date)
         let end = calendar.date(byAdding: .day, value: 1, to: start) ?? date
+        return try await steps(from: start, to: end, bucket: DateComponents(hour: 1))
+    }
 
+    func dailySteps(from startDate: Date, to endDate: Date) async throws -> [SamplePoint] {
+        let calendar = Calendar.current
+        let start = calendar.startOfDay(for: startDate)
+        let end = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: endDate)) ?? endDate
+        return try await steps(from: start, to: end, bucket: DateComponents(day: 1))
+    }
+
+    private func steps(
+        from start: Date,
+        to end: Date,
+        bucket: DateComponents
+    ) async throws -> [SamplePoint] {
         let descriptor = HKStatisticsCollectionQueryDescriptor(
             predicate: .quantitySample(
                 type: HKQuantityType(.stepCount),
@@ -98,7 +112,7 @@ final class HealthKitWorkoutImporter: HealthDataProviding, @unchecked Sendable {
             ),
             options: .cumulativeSum,
             anchorDate: start,
-            intervalComponents: DateComponents(hour: 1)
+            intervalComponents: bucket
         )
 
         let collection = try await descriptor.result(for: store)
