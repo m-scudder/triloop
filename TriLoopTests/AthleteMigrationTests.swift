@@ -88,9 +88,9 @@ struct AthleteMigrationTests {
         var schedule = AthleteSchedule.empty
         schedule.days = schedule.days.map { day in
             var updated = day
-            if day.weekday == .tuesday { updated.sports = [.swimming] }
+            if day.weekday == .tuesday { updated.isAvailable = true }
             if day.weekday == .saturday {
-                updated.sports = [.running, .cycling]
+                updated.isAvailable = true
                 updated.maxDurationMinutes = 90
             }
             return updated
@@ -120,8 +120,8 @@ struct AthleteMigrationTests {
         #expect(setup.baseline.running == .continuous20To30Minutes)
         #expect(setup.baseline.swimming == .continuous100)
         #expect(setup.baseline.cycling == .sixtyPlus)
-        #expect(setup.schedule.allows(.swimming, on: .tuesday))
-        #expect(setup.schedule.allows(.running, on: .monday) == false)
+        #expect(setup.schedule.isAvailable(on: .tuesday))
+        #expect(setup.schedule.isAvailable(on: .monday) == false)
         #expect(setup.schedule.availability(on: .saturday).maxDurationMinutes == 90)
         #expect(stored.hasCompletedSetup)
     }

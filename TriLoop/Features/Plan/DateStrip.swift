@@ -1,3 +1,4 @@
+import SwiftData
 import SwiftUI
 
 /// Week-by-week day picker.
@@ -11,24 +12,26 @@ struct DateStrip: View {
     var calendar: Calendar = .current
 
     private struct Week: Identifiable {
-        let id: Date
+        let id: PersistentIdentifier
+        let start: Date
         let days: [PlannedWorkout]
     }
 
     /// Grouped by the plan each day belongs to, not by `.weekOfYear`: the plan
     /// runs Monday to Sunday, while the calendar's week starts on whichever day
     /// the locale says, which splits a training week across two pages.
+    ///
+    /// Keyed on the plan itself rather than its start date, so two plans that
+    /// somehow share a date stay separate pages instead of merging into one
+    /// fourteen-day strip.
     private var weeks: [Week] {
-        let grouped = Dictionary(grouping: workouts) { workout in
-            calendar.startOfDay(
-                for: workout.plan?.startDate
-                    ?? calendar.dateInterval(of: .weekOfYear, for: workout.date)?.start
-                    ?? workout.date
-            )
+        let grouped = Dictionary(grouping: workouts.filter { $0.plan != nil }) { $0.plan!.persistentModelID }
+
+        return grouped.compactMap { id, days -> Week? in
+            guard let start = days.first?.plan?.startDate else { return nil }
+            return Week(id: id, start: start, days: days.sorted { $0.date < $1.date })
         }
-        return grouped
-            .map { Week(id: $0.key, days: $0.value.sorted { $0.date < $1.date }) }
-            .sorted { $0.id < $1.id }
+        .sorted { $0.start < $1.start }
     }
 
     var body: some View {

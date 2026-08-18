@@ -12,7 +12,10 @@ struct TriLoopApp: App {
         modelContainer = container
         storeOutcome = outcome
         autoImporter = WorkoutAutoImporter(container: container)
-        SeedDataInstaller.installIfNeeded(in: container.mainContext)
+
+        // Nothing is seeded at launch. A week comes from onboarding, in every
+        // build — otherwise a debug install can never see the first-run flow,
+        // and a seeded week collides with the one setup generates.
 
         // Registered here rather than from a view: HealthKit can launch the app
         // straight into the background, where no scene appears and a view's

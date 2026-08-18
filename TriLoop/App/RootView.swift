@@ -1,15 +1,37 @@
 import SwiftData
 import SwiftUI
-
 struct RootView: View {
     var storeOutcome: StoreOutcome = .opened
     var autoImporter: WorkoutAutoImporter?
 
+    @Query private var profiles: [AthleteProfile]
     @State private var hasShownStoreAlert = false
     @AppStorage("automaticallyImportWorkouts") private var automaticallyImport = true
     @Environment(\.scenePhase) private var scenePhase
 
+    /// Setup state is asked of the profile rather than inferred from whether a
+    /// plan exists: an athlete migrated from an earlier build has plans but has
+    /// never been asked anything.
+    private var needsSetup: Bool {
+        profiles.first?.hasCompletedSetup != true
+    }
+
     var body: some View {
+        Group {
+            if needsSetup {
+                OnboardingView()
+            } else {
+                tabs
+            }
+        }
+        .alert("Training data was reset", isPresented: showStoreAlert) {
+            Button("OK", role: .cancel) { hasShownStoreAlert = true }
+        } message: {
+            Text(storeMessage)
+        }
+    }
+
+    private var tabs: some View {
         TabView {
             Tab("Today", systemImage: "sun.max") {
                 TodayView()
@@ -30,11 +52,6 @@ struct RootView: View {
         .task(id: scenePhase) {
             guard scenePhase == .active, automaticallyImport else { return }
             await autoImporter?.importRecentWeeks()
-        }
-        .alert("Training data was reset", isPresented: showStoreAlert) {
-            Button("OK", role: .cancel) { hasShownStoreAlert = true }
-        } message: {
-            Text(storeMessage)
         }
     }
 

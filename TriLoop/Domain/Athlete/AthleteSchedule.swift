@@ -45,36 +45,47 @@ enum Weekday: Int, Codable, CaseIterable, Comparable, Sendable {
     }
 
     var shortName: String { String(displayName.prefix(3)) }
+
+    var initial: String { String(displayName.prefix(1)) }
 }
 
-/// What the athlete *can* do on one weekday.
+/// Whether the athlete can train on one weekday, and for how long.
 ///
-/// Permission, not instruction: an available day may still end up as rest. The
-/// scheduler decides what to place, this only bounds what it may consider.
+/// Deliberately not per-sport: which sport lands where is the planner's job,
+/// and a twenty-one-cell grid asked more of the athlete than it was worth.
 struct TrainingAvailability: Codable, Equatable, Sendable {
     var weekday: Weekday
-    var sports: Set<Sport>
+    var isAvailable: Bool
     /// Longest session that fits that day. `nil` means no stated limit.
     var maxDurationMinutes: Int?
 
-    init(weekday: Weekday, sports: Set<Sport> = [], maxDurationMinutes: Int? = nil) {
+    init(weekday: Weekday, isAvailable: Bool = false, maxDurationMinutes: Int? = nil) {
         self.weekday = weekday
-        self.sports = sports
+        self.isAvailable = isAvailable
         self.maxDurationMinutes = maxDurationMinutes
     }
-
-    var isAvailable: Bool { !sports.isEmpty }
-
-    func allows(_ sport: Sport) -> Bool { sports.contains(sport) }
 
     /// Whether a session of this length fits. An unstated limit allows anything.
     func accommodates(seconds: TimeInterval?) -> Bool {
         guard let maxDurationMinutes, let seconds else { return true }
         return seconds <= TimeInterval(maxDurationMinutes * 60)
     }
+
+    /// Decoded key by key so a schedule stored by an earlier build still loads.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        func value<T: Decodable>(_ key: CodingKeys, _ fallback: T) -> T {
+            (try? container.decodeIfPresent(T.self, forKey: key)) as? T ?? fallback
+        }
+
+        weekday = value(.weekday, Weekday.monday)
+        isAvailable = value(.isAvailable, false)
+        maxDurationMinutes = (try? container.decodeIfPresent(Int.self, forKey: .maxDurationMinutes)) ?? nil
+    }
 }
 
-/// The athlete's whole week of availability.
+/// The days the athlete can train, and by omission the days they rest.
 struct AthleteSchedule: Codable, Equatable, Sendable {
     var days: [TrainingAvailability]
 
@@ -88,12 +99,22 @@ struct AthleteSchedule: Codable, Equatable, Sendable {
         AthleteSchedule(days: Weekday.trainingWeek.map { TrainingAvailability(weekday: $0) })
     }
 
+    /// Every day open. For previews and tests about something other than
+    /// availability.
+    static func everyDay(maxDurationMinutes: Int? = nil) -> AthleteSchedule {
+        AthleteSchedule(
+            days: Weekday.trainingWeek.map {
+                TrainingAvailability(weekday: $0, isAvailable: true, maxDurationMinutes: maxDurationMinutes)
+            }
+        )
+    }
+
     func availability(on weekday: Weekday) -> TrainingAvailability {
         days.first { $0.weekday == weekday } ?? TrainingAvailability(weekday: weekday)
     }
 
-    func allows(_ sport: Sport, on weekday: Weekday) -> Bool {
-        availability(on: weekday).allows(sport)
+    func isAvailable(on weekday: Weekday) -> Bool {
+        availability(on: weekday).isAvailable
     }
 
     var availableDays: [TrainingAvailability] {
@@ -102,9 +123,8 @@ struct AthleteSchedule: Codable, Equatable, Sendable {
             .filter(\.isAvailable)
     }
 
-    /// Every sport the athlete can train at least once a week.
-    var trainableSports: Set<Sport> {
-        availableDays.reduce(into: Set<Sport>()) { $0.formUnion($1.sports) }
+    var restDays: [Weekday] {
+        Weekday.trainingWeek.filter { !isAvailable(on: $0) }
     }
 
     /// Two available days is the least that can carry a week with any recovery

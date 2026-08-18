@@ -27,7 +27,7 @@ struct WeeklyPlanGeneratorTests {
     }
 
     private func generator() -> WeeklyPlanGenerator {
-        WeeklyPlanGenerator(availability: .everything, calendar: calendar)
+        WeeklyPlanGenerator(schedule: .everyDay(), calendar: calendar)
     }
 
     private func nextWeek(after plan: WeeklyPlan) -> WeeklyPlan {
@@ -50,9 +50,13 @@ struct WeeklyPlanGeneratorTests {
         #expect(week2.weekNumber == 2)
         #expect(week2.startDate == calendar.date(byAdding: .day, value: 7, to: week1.startDate))
         #expect(calendar.dateComponents([.day], from: week2.startDate, to: week2.endDate).day == 6)
-        #expect(week2.orderedWorkouts.map(\.discipline) == [
-            .running, .swimming, .recovery, .running, .swimming, .cycling, .rest
-        ])
+        // Placement now follows availability, so the week is asserted by what it
+        // contains rather than by a fixed Monday-to-Sunday order.
+        #expect(week2.orderedWorkouts.count == 7)
+        #expect(week2.trainingSessions.filter { $0.discipline == .running }.count == 2)
+        #expect(week2.trainingSessions.filter { $0.discipline == .swimming }.count == 2)
+        #expect(week2.trainingSessions.filter { $0.discipline == .cycling }.count == 2)
+        #expect(week2.orderedWorkouts.contains { $0.discipline == .rest })
         #expect(week2.status == .active)
     }
 
@@ -84,20 +88,24 @@ struct WeeklyPlanGeneratorTests {
         #expect(ride?.estimatedDurationSeconds == TimeInterval(35 * 60))
     }
 
-    @Test("Swimming tightens rest before adding distance")
-    func swimmingTightensRestFirst() {
+    @Test("Swimming tightens rest, then lengthens the repeat")
+    func swimmingTightensRestThenLengthensRepeat() {
         let week1 = seededWeek()
         completeEverything(week1, with: FeedbackDraft(rpe: 3, painScore: 0))
 
         let week2 = nextWeek(after: week1)
         #expect(week2.parameters.swimRestSeconds == 30)
+        #expect(week2.parameters.swimRepeatDistanceMeters == 25)
         #expect(week2.parameters.swimTotalMeters == 300)
 
         completeEverything(week2, with: FeedbackDraft(rpe: 3, painScore: 0))
         let week3 = nextWeek(after: week2)
 
-        #expect(week3.parameters.swimRestSeconds == 30)
-        #expect(week3.parameters.swimTotalMeters == 350)
+        // Rest is at its floor for a 25 m repeat, so continuity is the next
+        // lever rather than more broken lengths.
+        #expect(week3.parameters.swimRepeatDistanceMeters == 50)
+        #expect(week3.parameters.swimTotalMeters == 300)
+        #expect(week3.parameters.swimRestSeconds == 60)
     }
 
     @Test("An unreported week repeats itself")

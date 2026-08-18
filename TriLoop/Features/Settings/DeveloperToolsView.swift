@@ -113,12 +113,17 @@ struct DeveloperToolsView: View {
             }
 
             Section {
+                Button("Start over — erase everything", role: .destructive) {
+                    SeedDataInstaller.eraseAll(in: modelContext)
+                    message = "Everything erased. Relaunch to go through setup."
+                }
+
                 Button("Reset seed data", role: .destructive) {
                     SeedDataInstaller.reset(in: modelContext)
                     message = "Seed reinstalled."
                 }
             } footer: {
-                Text("Deletes every plan, report and check-in, then reinstalls week one.")
+                Text("Erasing clears the athlete profile too, so the app returns to first-run setup. Resetting reinstalls the fixed week one without touching setup.")
             }
         }
         .navigationTitle("Developer")

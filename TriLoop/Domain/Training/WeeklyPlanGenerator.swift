@@ -44,17 +44,16 @@ struct WeeklySchedule: Equatable, Sendable {
 /// Deterministic and side-effect free: it returns a new `WeeklyPlan` and leaves
 /// the previous one untouched. Persisting the result is the caller's job.
 struct WeeklyPlanGenerator: Sendable {
-    var availability: SportAvailability = .athlete()
+    /// When the athlete can train. Supplied from their stored setup; the
+    /// fallback opens every day so tests and previews about progression do not
+    /// have to describe a schedule.
+    var schedule: AthleteSchedule = .everyDay()
+    var planner: WeekShapePlanner = WeekShapePlanner()
     var calendar: Calendar = .current
 
     func generate(after plan: WeeklyPlan, analysis: WeeklyAnalysis) -> WeeklyPlan {
         let monday = calendar.startOfDay(
             for: calendar.date(byAdding: .day, value: 1, to: plan.endDate) ?? plan.endDate
-        )
-        let schedule = WeeklySchedule.forWeek(
-            starting: monday,
-            availability: availability,
-            calendar: calendar
         )
 
         func day(_ offset: Int) -> Date {
@@ -73,26 +72,41 @@ struct WeeklyPlanGenerator: Sendable {
                 .map(\.sport)
         )
 
+        // Frequency carries forward from what the athlete was already doing, so
+        // availability changes the placement of sessions and never their number.
+        let days = schedule.availableDays.count
+        let frequencies = Sport.allCases.compactMap { sport -> SportFrequency? in
+            guard !recovering.contains(sport) else { return nil }
+            let count = plan.trainingSessions.filter { $0.discipline.sport == sport }.count
+            guard count > 0, days > 0 else { return nil }
+            return SportFrequency(sport: sport, sessions: min(count, days))
+        }
+
+        let shape = planner.plan(
+            schedule: schedule,
+            frequencies: frequencies,
+            durations: durations(from: parameters)
+        )
+
         var workouts: [PlannedWorkout] = []
 
-        for (offset, discipline) in schedule.disciplines.enumerated() {
+        for (offset, discipline) in shape.disciplines.enumerated() {
             let date = day(offset)
 
             guard let sport = discipline.sport else {
+                // A rest day becomes recovery when a sport was pulled for it, so
+                // the week still shows why the session is missing.
+                let replaced = recovering.isEmpty ? Discipline.rest : .recovery
                 workouts.append(
-                    discipline == .recovery
-                        ? WorkoutTemplates.recoveryDay(on: date)
+                    replaced == .recovery
+                        ? WorkoutTemplates.recoveryDay(
+                            on: date,
+                            goal: recovering
+                                .sorted { $0.rawValue < $1.rawValue }
+                                .first
+                                .map { "Replacing \($0.displayName.lowercased()) while last week's symptoms settle." }
+                        )
                         : WorkoutTemplates.restDay(on: date)
-                )
-                continue
-            }
-
-            if recovering.contains(sport) {
-                workouts.append(
-                    WorkoutTemplates.recoveryDay(
-                        on: date,
-                        goal: "Replacing \(sport.displayName.lowercased()) while last week's symptoms settle."
-                    )
                 )
                 continue
             }
@@ -116,12 +130,22 @@ struct WeeklyPlanGenerator: Sendable {
         return WeeklyPlan(
             weekNumber: plan.weekNumber + 1,
             startDate: monday,
-            endDate: day(schedule.disciplines.count - 1),
+            endDate: day(6),
             status: .active,
             generationReason: reason(from: analysis),
+            generationReasonCode: PlanGenerationReason.from(analysis.sports.map(\.status)),
             parameters: parameters,
             workouts: workouts
         )
+    }
+
+    private func durations(from parameters: TrainingParameters) -> [Sport: TimeInterval] {
+        let reference = Date.now
+        return Sport.allCases.reduce(into: [:]) { totals, sport in
+            totals[sport] = WorkoutTemplates
+                .session(sport.discipline, on: reference, parameters: parameters)
+                .estimatedDurationSeconds
+        }
     }
 
     private func reason(from analysis: WeeklyAnalysis) -> String {

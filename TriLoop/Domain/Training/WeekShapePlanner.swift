@@ -40,14 +40,14 @@ struct WeekShapePlanner: Sendable {
         var placed: [Weekday: Sport] = [:]
         var unplaced: [Sport: Int] = [:]
 
-        // Scarcest sport first: a sport with one possible day must claim it
-        // before a sport that could go anywhere takes it.
+        // Longest session first: it fits the fewest days, so it must claim one
+        // before a shorter session takes the only day long enough for it.
         let ordered = frequencies
             .filter { $0.sessions > 0 }
             .sorted { lhs, rhs in
-                let left = candidates(for: lhs.sport, schedule: schedule, durations: durations).count
-                let right = candidates(for: rhs.sport, schedule: schedule, durations: durations).count
-                if left != right { return left < right }
+                let left = durations[lhs.sport] ?? 0
+                let right = durations[rhs.sport] ?? 0
+                if left != right { return left > right }
                 return lhs.sport.rawValue < rhs.sport.rawValue
             }
 
@@ -76,7 +76,7 @@ struct WeekShapePlanner: Sendable {
         return WeekShape(disciplines: disciplines, unplaced: unplaced)
     }
 
-    /// Days the athlete allows this sport and that a session of it would fit.
+    /// Days the athlete can train and that a session of this sport would fit.
     private func candidates(
         for sport: Sport,
         schedule: AthleteSchedule,
@@ -84,7 +84,7 @@ struct WeekShapePlanner: Sendable {
     ) -> [Weekday] {
         Weekday.trainingWeek.filter { weekday in
             let availability = schedule.availability(on: weekday)
-            return availability.allows(sport) && availability.accommodates(seconds: durations[sport])
+            return availability.isAvailable && availability.accommodates(seconds: durations[sport])
         }
     }
 
@@ -127,19 +127,18 @@ struct WeekShapePlanner: Sendable {
 }
 
 extension WeekShapePlanner {
-    /// The default weekly frequency for a sport the athlete can train.
+    /// What the athlete asked for, capped by the days they have.
     ///
-    /// Two sessions is what the existing three-sport week carries, and it is
-    /// the least that lets a sport be progressed on evidence rather than a
-    /// single data point. Capped by how many days actually allow it.
-    static func defaultFrequencies(
-        for schedule: AthleteSchedule,
-        preferred: Int = 2
+    /// Stated intent, not a quota: the planner still schedules fewer sessions
+    /// when the week cannot hold them, and reports the shortfall.
+    static func frequencies(
+        from preferences: [SportPreference],
+        schedule: AthleteSchedule
     ) -> [SportFrequency] {
-        Sport.allCases.compactMap { sport in
-            let days = schedule.availableDays.filter { $0.allows(sport) }.count
-            guard days > 0 else { return nil }
-            return SportFrequency(sport: sport, sessions: min(preferred, days))
-        }
+        let days = schedule.availableDays.count
+
+        return preferences
+            .filter(\.isTrained)
+            .map { SportFrequency(sport: $0.sport, sessions: min($0.sessionsPerWeek, days)) }
     }
 }

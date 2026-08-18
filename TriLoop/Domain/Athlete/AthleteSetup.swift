@@ -19,7 +19,8 @@ struct AthleteSetup: Codable, Equatable, Sendable {
         case running
         case swimming
         case cycling
-        case availability
+        case days
+        case commitment
         case pool
         case health
         case watch
@@ -44,6 +45,9 @@ struct AthleteSetup: Codable, Equatable, Sendable {
     var goal: TrainingGoal
     var baseline: AthleteBaseline
     var schedule: AthleteSchedule
+    /// How much of each sport the athlete wants. Empty until the commitment
+    /// step, which seeds it from the baselines.
+    var preferences: [SportPreference]
     var stage: Stage
     var completedAt: Date?
 
@@ -51,12 +55,14 @@ struct AthleteSetup: Codable, Equatable, Sendable {
         goal: TrainingGoal = .generalFitness,
         baseline: AthleteBaseline = AthleteBaseline(),
         schedule: AthleteSchedule = .empty,
+        preferences: [SportPreference] = [],
         stage: Stage = .welcome,
         completedAt: Date? = nil
     ) {
         self.goal = goal
         self.baseline = baseline
         self.schedule = schedule
+        self.preferences = preferences
         self.stage = stage
         self.completedAt = completedAt
     }
@@ -66,7 +72,7 @@ struct AthleteSetup: Codable, Equatable, Sendable {
     /// Enough information to build a week. Checked before generation so an
     /// interrupted setup can never produce a plan from half an assessment.
     var canGeneratePlan: Bool {
-        schedule.isUsable && !schedule.trainableSports.isEmpty
+        schedule.isUsable && preferences.contains(where: \.isTrained)
     }
 
     /// Decoded key by key so a setup stored by an earlier build still loads once
@@ -82,6 +88,7 @@ struct AthleteSetup: Codable, Equatable, Sendable {
         goal = value(.goal, defaults.goal)
         baseline = value(.baseline, defaults.baseline)
         schedule = value(.schedule, defaults.schedule)
+        preferences = value(.preferences, defaults.preferences)
         stage = value(.stage, defaults.stage)
         completedAt = (try? container.decodeIfPresent(Date.self, forKey: .completedAt)) ?? nil
     }
