@@ -58,8 +58,12 @@ struct DeveloperToolsView: View {
             NavigationLink("Browse workout history") {
                 WorkoutHistoryView()
             }
+
+            NavigationLink("Shadow evaluation") {
+                ShadowEvaluationView()
+            }
         } footer: {
-            Text("Everything in Health, including activities TriLoop does not train. Read-only, with load, intensity and sport balance computed from the workouts you filter to.")
+            Text("Everything in Health, including activities TriLoop does not train. Read-only, with load, intensity and sport balance computed from the workouts you filter to.\n\nShadow evaluation compares the training engine's decision with what the intelligence signals suggest. It never changes your plan.")
         }
     }
 

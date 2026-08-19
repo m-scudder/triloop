@@ -41,11 +41,8 @@ struct WorkoutDayDetail: View {
                     )
                 }
 
-                // Effort alone is enough to read intensity and load, so these
-                // sit outside the samples branch: a session reported by hand
-                // still has something to say about how hard it was.
-                intensity(with: zoneBreakdown)
-
+                // §49's order: what happened, how it compared, the heart-rate
+                // detail, then the derived readings, then sensor specifics.
                 if let samples, !samples.isEmpty {
                     WorkoutChartsView(
                         discipline: workout.discipline,
@@ -60,6 +57,15 @@ struct WorkoutDayDetail: View {
                         .foregroundStyle(.secondary)
                 } else if workout.importedSummary == nil, workout.hasReport {
                     unlinkedSession
+                }
+
+                // Effort alone is enough to read intensity and load, so these
+                // sit outside the samples branch: a session reported by hand
+                // still has something to say about how hard it was.
+                intensity(with: zoneBreakdown)
+
+                if let metrics = workout.importedSummary?.metrics {
+                    AdvancedMetricsView(metrics: metrics, sport: workout.discipline.sport)
                 }
 
                 if workout.isSkipped {
