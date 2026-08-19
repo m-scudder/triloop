@@ -113,7 +113,9 @@ struct PlanView: View {
     }
 }
 
+#if DEBUG
 #Preview {
     PlanView()
         .modelContainer(PreviewData.container)
 }
+#endif

@@ -15,8 +15,7 @@ struct SettingsView: View {
     @State private var permissionMessage: String?
     @AppStorage("automaticallyScheduleWorkouts") private var automaticallySchedule = false
     @AppStorage("automaticallyImportWorkouts") private var automaticallyImport = true
-
-    private let health = HealthKitWorkoutImporter()
+    @Environment(\.healthProvider) private var health
     private let scheduler = WorkoutKitScheduler()
 
     var body: some View {
@@ -229,7 +228,9 @@ struct SettingsView: View {
     }
 }
 
+#if DEBUG
 #Preview {
     SettingsView()
         .modelContainer(PreviewData.container)
 }
+#endif

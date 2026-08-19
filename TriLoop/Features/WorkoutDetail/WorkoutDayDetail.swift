@@ -16,8 +16,9 @@ struct WorkoutDayDetail: View {
     @State private var isImporting = false
     @State private var importMessage: String?
     @AppStorage("simulateHealthSamples") private var simulateSamples = false
-
-    private let health = HealthKitWorkoutImporter()
+    @Environment(\.healthProvider) private var health
+    @Query private var profiles: [AthleteProfile]
+    @Query private var recordedSummaries: [ImportedWorkoutSummary]
 
     var body: some View {
         ScrollView {
@@ -30,12 +31,24 @@ struct WorkoutDayDetail: View {
                     RecordedWorkoutView(workout: workout, summary: summary)
                 }
 
+                if let execution {
+                    SessionExecutionView(
+                        outcome: execution,
+                        plannedSeconds: workout.prescribedDurationSeconds,
+                        actualSeconds: workout.importedSummary?.duration,
+                        targetRPE: workout.targetRPE,
+                        reportedRPE: workout.feedback?.rpe
+                    )
+                }
+
                 if let samples, !samples.isEmpty {
                     WorkoutChartsView(
                         discipline: workout.discipline,
                         samples: samples,
                         summary: workout.importedSummary
                     )
+
+                    zones(for: samples)
                 } else if workout.importedSummary != nil, let samplesFailure {
                     Text(samplesFailure)
                         .font(.footnote)
@@ -240,10 +253,84 @@ struct WorkoutDayDetail: View {
         .background(.bar)
     }
 
+    /// The hardest effort the athlete has actually recorded, which can raise a
+    /// ceiling the age formula underestimates.
+    private var observedMaximumHeartRate: Double? {
+        recordedSummaries.compactMap(\.maximumHeartRate).max()
+    }
+
+    private var execution: ExecutionComparison.Outcome? {
+        ExecutionComparison.compare(
+            plannedSeconds: workout.prescribedDurationSeconds,
+            actualSeconds: workout.importedSummary?.duration,
+            targetRPE: workout.targetRPE,
+            reportedRPE: workout.feedback?.rpe,
+            completion: completion
+        )
+    }
+
+    private var completion: ExecutionComparison.Completion {
+        if workout.isSkipped { return .skipped }
+        if workout.importedSummary != nil || workout.hasReport { return .recorded }
+        return workout.isMissed() ? .missed : .notYetDue
+    }
+
+    /// A missing ceiling is worth saying out loud, since the athlete can fix it.
+    /// Missing heart rate is not: the charts above already show there is none.
+    @ViewBuilder
+    private func zones(for samples: WorkoutSamples) -> some View {
+        let result = HeartRateZoneResolver.breakdown(
+            heartRate: samples.heartRate,
+            birthDate: profiles.first?.setup?.birthDate,
+            observedMaximum: observedMaximumHeartRate
+        )
+
+        intensity(with: try? result.get())
+
+        switch result {
+        case .success(let breakdown):
+            HeartRateZoneView(breakdown: breakdown)
+
+        case .failure(.noCeiling):
+            Text(HeartRateZoneResolver.Unavailable.noCeiling.message)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
+        case .failure(.noHeartRateSamples):
+            EmptyView()
+        }
+    }
+
+    /// Only shown when something was actually measured. §33: silence is more
+    /// honest than labelling an unmeasured session easy.
+    @ViewBuilder
+    private func intensity(with breakdown: HeartRateZoneBreakdown?) -> some View {
+        let reading = WorkoutIntensityPolicy.intensity(
+            zones: breakdown,
+            effort: EffortEvidence(
+                targetRPE: workout.targetRPE?.upper,
+                reportedRPE: workout.feedback?.rpe,
+                healthKitEffort: workout.importedSummary?.metrics?.workoutEffort,
+                estimatedHealthKitEffort: workout.importedSummary?.metrics?.estimatedWorkoutEffort
+            )
+        )
+
+        if let reading = reading.value {
+            VStack(alignment: .leading, spacing: 4) {
+                SectionEyebrow(text: "Intensity")
+                Text(reading.intensity.displayName)
+                    .font(.title3.weight(.semibold))
+                Text(reading.evidence.explanation)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
     /// A session reported by hand has no sensor data behind it. Import only ever
     /// ran for the current week from Settings, so an older week could sit here
     /// forever with nothing explaining the empty space.
-    @ViewBuilder
     private var unlinkedSession: some View {
         VStack(alignment: .leading, spacing: 10) {
             SectionEyebrow(text: "Recorded data")

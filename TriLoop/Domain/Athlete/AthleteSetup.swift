@@ -15,6 +15,7 @@ struct AthleteSetup: Codable, Equatable, Sendable {
     /// answer rather than inferred from whether a plan happens to exist.
     enum Stage: String, Codable, CaseIterable, Sendable {
         case welcome
+        case about
         case goal
         case running
         case swimming
@@ -44,6 +45,9 @@ struct AthleteSetup: Codable, Equatable, Sendable {
 
     var goal: TrainingGoal
     var baseline: AthleteBaseline
+    /// Anchors heart-rate zones. Optional because zones report Unavailable
+    /// rather than guessing when the athlete would rather not say.
+    var birthDate: Date?
     var schedule: AthleteSchedule
     /// How much of each sport the athlete wants. Empty until the commitment
     /// step, which seeds it from the baselines.
@@ -54,6 +58,7 @@ struct AthleteSetup: Codable, Equatable, Sendable {
     init(
         goal: TrainingGoal = .generalFitness,
         baseline: AthleteBaseline = AthleteBaseline(),
+        birthDate: Date? = nil,
         schedule: AthleteSchedule = .empty,
         preferences: [SportPreference] = [],
         stage: Stage = .welcome,
@@ -61,6 +66,7 @@ struct AthleteSetup: Codable, Equatable, Sendable {
     ) {
         self.goal = goal
         self.baseline = baseline
+        self.birthDate = birthDate
         self.schedule = schedule
         self.preferences = preferences
         self.stage = stage
@@ -87,6 +93,7 @@ struct AthleteSetup: Codable, Equatable, Sendable {
 
         goal = value(.goal, defaults.goal)
         baseline = value(.baseline, defaults.baseline)
+        birthDate = (try? container.decodeIfPresent(Date.self, forKey: .birthDate)) ?? nil
         schedule = value(.schedule, defaults.schedule)
         preferences = value(.preferences, defaults.preferences)
         stage = value(.stage, defaults.stage)

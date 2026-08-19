@@ -38,6 +38,8 @@ struct OnboardingView: View {
         switch model.stage {
         case .welcome:
             WelcomeStepView(isUpgrade: model.isUpgrade, start: model.advance)
+        case .about:
+            AboutYouStepView(model: model)
         case .goal:
             GoalStepView(model: model)
         case .running:
@@ -92,7 +94,9 @@ struct OnboardingView: View {
     }
 }
 
+#if DEBUG
 #Preview {
     OnboardingView()
         .modelContainer(PreviewData.container)
 }
+#endif

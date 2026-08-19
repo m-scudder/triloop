@@ -36,10 +36,14 @@ struct WorkoutSamples: Equatable, Sendable {
     var cadence: [SamplePoint] = []
     /// Distance covered per minute, which reads as effort over time.
     var distancePerMinute: [SamplePoint] = []
+    /// Active energy per minute. The one metric every activity type records,
+    /// including strength work that has no distance or pace.
+    var energy: [SamplePoint] = []
     var swimLengths: [SwimLengthPoint] = []
 
     var isEmpty: Bool {
-        heartRate.isEmpty && cadence.isEmpty && distancePerMinute.isEmpty && swimLengths.isEmpty
+        heartRate.isEmpty && cadence.isEmpty && distancePerMinute.isEmpty
+            && energy.isEmpty && swimLengths.isEmpty
     }
 
     var averageHeartRate: Double? {

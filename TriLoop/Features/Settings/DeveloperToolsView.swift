@@ -12,6 +12,56 @@ struct DeveloperToolsView: View {
 
     @State private var message: String?
     @AppStorage("simulateHealthSamples") private var simulateSamples = false
+    @State private var source = HealthProviderResolver.selected
+    @State private var dataset = SimulationSettings.dataset
+
+    /// Chooses what the app reads health data from.
+    ///
+    /// The provider is resolved once at launch, so a change here needs a
+    /// relaunch to take effect — saying so is better than appearing to switch
+    /// and leaving half the app on the old data.
+    @ViewBuilder
+    private var healthSourceSection: some View {
+        Section {
+            Picker("Source", selection: $source) {
+                ForEach(HealthDataSource.allCases, id: \.self) { option in
+                    Text(option.displayName).tag(option)
+                }
+            }
+            .onChange(of: source) { _, newValue in
+                HealthProviderResolver.selected = newValue
+                message = "Source set to \(newValue.displayName). Relaunch to apply."
+            }
+
+            if source == .simulated {
+                Picker("Dataset", selection: $dataset) {
+                    ForEach(SimulationDataset.allCases) { option in
+                        Text(option.displayName).tag(option)
+                    }
+                }
+                .onChange(of: dataset) { _, newValue in
+                    SimulationSettings.dataset = newValue
+                    message = "Dataset set to \(newValue.displayName). Relaunch to apply."
+                }
+
+                Text(dataset.detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        } header: {
+            Text("Health data source")
+        } footer: {
+            Text("Simulated data is Debug-only, never written back to Health, and never used by a release build. Relaunch after changing.")
+        }
+
+        Section {
+            NavigationLink("Browse workout history") {
+                WorkoutHistoryView()
+            }
+        } footer: {
+            Text("Everything in Health, including activities TriLoop does not train. Read-only.")
+        }
+    }
 
     private struct Scenario: Identifiable {
         let id = UUID()
@@ -45,6 +95,8 @@ struct DeveloperToolsView: View {
 
     var body: some View {
         List {
+            healthSourceSection
+
             if let plan = simulationPlan {
                 Section {
                     ForEach(scenarios) { scenario in

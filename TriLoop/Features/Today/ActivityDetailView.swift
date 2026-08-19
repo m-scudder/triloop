@@ -25,8 +25,7 @@ struct ActivityDetailView: View {
     @State private var failure: String?
     @State private var isLoading = false
     @AppStorage("simulateHealthSamples") private var simulateSamples = false
-
-    private let health = HealthKitWorkoutImporter()
+    @Environment(\.healthProvider) private var health
 
     private var total: Double { points.reduce(0) { $0 + $1.value } }
 

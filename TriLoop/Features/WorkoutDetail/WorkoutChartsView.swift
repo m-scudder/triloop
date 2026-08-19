@@ -6,7 +6,8 @@ import SwiftUI
 /// data that is mostly glanced at; a square card carries the headline figure and
 /// the shape, and the detail is one tap away.
 struct WorkoutChartsView: View {
-    let discipline: Discipline
+    /// Nil for an activity TriLoop does not train.
+    let discipline: Discipline?
     let samples: WorkoutSamples
     /// HealthKit's own averages, so the card cannot disagree with the Recorded
     /// block above it.

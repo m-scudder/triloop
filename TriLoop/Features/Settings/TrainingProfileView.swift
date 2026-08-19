@@ -20,6 +20,7 @@ struct TrainingProfileView: View {
     var body: some View {
         List {
             goalSection
+            aboutSection
             baselineSection
             daysSection
             sportsSection
@@ -150,6 +151,66 @@ struct TrainingProfileView: View {
 
     private var isStandardPool: Bool {
         profile.poolLengthMeters == 25 || profile.poolLengthMeters == 50
+    }
+
+    private var aboutSection: some View {
+        Section {
+            Toggle("Use my age for zones", isOn: usesBirthDate)
+
+            if setup.birthDate != nil {
+                DatePicker(
+                    "Date of birth",
+                    selection: birthDateBinding,
+                    in: birthDateRange,
+                    displayedComponents: .date
+                )
+            }
+        } header: {
+            Text("Heart-rate zones")
+        } footer: {
+            Text(zoneFooter)
+        }
+    }
+
+    private var zoneFooter: String {
+        guard let birthDate = setup.birthDate,
+              let maximum = HeartRateCeiling.ageBased(birthDate: birthDate, asOf: .now) else {
+            return "Without a date of birth, zones are only available once you record a hard effort TriLoop can measure against."
+        }
+        return "Estimated maximum \(Int(maximum)) bpm. If you record a harder effort, TriLoop uses what you actually did."
+    }
+
+    private var birthDateRange: ClosedRange<Date> {
+        let calendar = Calendar.current
+        let oldest = calendar.date(byAdding: .year, value: -100, to: .now) ?? .now
+        let youngest = calendar.date(byAdding: .year, value: -10, to: .now) ?? .now
+        return oldest...youngest
+    }
+
+    private var usesBirthDate: Binding<Bool> {
+        Binding(
+            get: { setup.birthDate != nil },
+            set: { isOn in
+                var updated = setup
+                updated.birthDate = isOn
+                    ? Calendar.current.date(byAdding: .year, value: -30, to: .now)
+                    : nil
+                profile.setup = updated
+                save()
+            }
+        )
+    }
+
+    private var birthDateBinding: Binding<Date> {
+        Binding(
+            get: { setup.birthDate ?? .now },
+            set: { date in
+                var updated = setup
+                updated.birthDate = date
+                profile.setup = updated
+                save()
+            }
+        )
     }
 
     private func binding<Value>(_ path: WritableKeyPath<AthleteSetup, Value>) -> Binding<Value> {

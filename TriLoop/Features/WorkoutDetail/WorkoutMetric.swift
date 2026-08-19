@@ -9,6 +9,8 @@ struct WorkoutMetric: Identifiable {
     enum Kind: String {
         case heartRate
         case cadence
+        case steps
+        case energy
         case distance
         case swimLengths
         case swimPace
@@ -46,13 +48,17 @@ struct WorkoutMetric: Identifiable {
 }
 
 extension WorkoutMetric {
+    /// A nil discipline means an activity TriLoop does not train. Those still
+    /// get everything HealthKit recorded — only the sport-specific readings
+    /// (pace, cadence) are withheld, because they would be inventing meaning
+    /// the numbers do not carry.
     static func all(
-        for discipline: Discipline,
+        for discipline: Discipline?,
         samples: WorkoutSamples,
         summary: ImportedWorkoutSummary? = nil
     ) -> [WorkoutMetric] {
         var metrics: [WorkoutMetric] = []
-        let tint = discipline.tint
+        let tint = discipline?.tint ?? .secondary
 
         // HealthKit averages every sample it holds; the series here is bucketed
         // to one point a minute, so averaging it again gives a different figure.
@@ -145,9 +151,45 @@ extension WorkoutMetric {
                     tint: tint
                 )
             )
+        } else if !samples.cadence.isEmpty, discipline == nil {
+            // Steps during strength work are movement, not cadence: calling it
+            // cadence would imply a running rhythm that isn't being measured.
+            let total = samples.cadence.reduce(0) { $0 + $1.value }
+            if total > 0 {
+                metrics.append(
+                    WorkoutMetric(
+                        kind: .steps,
+                        title: "Steps",
+                        headline: "\(Int(total.rounded()))",
+                        caption: "total during session",
+                        symbol: "shoeprints.fill",
+                        points: samples.cadence,
+                        lengths: [],
+                        tint: tint
+                    )
+                )
+            }
         }
 
-        if !samples.distancePerMinute.isEmpty, discipline != .swimming {
+        if !samples.energy.isEmpty {
+            let total = samples.energy.reduce(0) { $0 + $1.value }
+            if total > 0 {
+                metrics.append(
+                    WorkoutMetric(
+                        kind: .energy,
+                        title: "Energy",
+                        headline: "\(Int(total.rounded()))",
+                        caption: "active kcal",
+                        symbol: "flame.fill",
+                        points: samples.energy,
+                        lengths: [],
+                        tint: Color(red: 0.98, green: 0.55, blue: 0.15)
+                    )
+                )
+            }
+        }
+
+        if !samples.distancePerMinute.isEmpty, let discipline, discipline != .swimming {
             let total = samples.distancePerMinute.reduce(0) { $0 + $1.value }
             let perMinute = total / Double(max(samples.distancePerMinute.count, 1))
             metrics.append(
@@ -162,6 +204,24 @@ extension WorkoutMetric {
                     tint: tint
                 )
             )
+        } else if !samples.distancePerMinute.isEmpty, discipline == nil {
+            // Reported as a total rather than a pace: distance covered while
+            // lifting is incidental, and a pace would read as a performance.
+            let total = samples.distancePerMinute.reduce(0) { $0 + $1.value }
+            if total > 0 {
+                metrics.append(
+                    WorkoutMetric(
+                        kind: .distance,
+                        title: "Distance",
+                        headline: TrainingFormatter.distance(meters: total),
+                        caption: "covered during session",
+                        symbol: "point.topleft.down.curvedto.point.bottomright.up",
+                        points: samples.distancePerMinute,
+                        lengths: [],
+                        tint: tint
+                    )
+                )
+            }
         }
 
         return metrics

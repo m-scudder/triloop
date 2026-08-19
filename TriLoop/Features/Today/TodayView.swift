@@ -14,8 +14,7 @@ struct TodayView: View {
     @State private var activityFailure: String?
     @AppStorage("simulateHealthSamples") private var simulateSamples = false
     @Environment(\.scenePhase) private var scenePhase
-
-    private let health = HealthKitWorkoutImporter()
+    @Environment(\.healthProvider) private var health
 
     var body: some View {
         NavigationStack {
@@ -378,7 +377,9 @@ private struct FocusWorkoutCard: View {
     }
 }
 
+#if DEBUG
 #Preview {
     TodayView()
         .modelContainer(PreviewData.container)
 }
+#endif

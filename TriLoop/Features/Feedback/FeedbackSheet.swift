@@ -208,7 +208,9 @@ struct FeedbackSheet: View {
     }
 }
 
+#if DEBUG
 #Preview {
     FeedbackSheet(workout: PreviewData.workout(.running))
         .modelContainer(PreviewData.container)
 }
+#endif

@@ -66,6 +66,11 @@ final class OnboardingModel {
         persist()
     }
 
+    func setBirthDate(_ date: Date?) {
+        setup.birthDate = date
+        persist()
+    }
+
     func choose(running: RunningBaseline) {
         setup.baseline.running = running
         persist()

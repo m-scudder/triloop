@@ -122,6 +122,7 @@ private struct StepView: View {
     }
 }
 
+#if DEBUG
 #Preview("Running") {
     ScrollView {
         WorkoutPrescriptionView(workout: PreviewData.workout(.running))
@@ -137,3 +138,4 @@ private struct StepView: View {
     }
     .modelContainer(PreviewData.container)
 }
+#endif

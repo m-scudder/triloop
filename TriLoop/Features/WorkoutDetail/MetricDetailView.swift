@@ -242,6 +242,25 @@ struct MetricDetailView: View {
                 ("Total", TrainingFormatter.distance(meters: total)),
                 ("Best minute", TrainingFormatter.distance(meters: best))
             ]
+
+        case .steps:
+            let total = metric.points.reduce(0) { $0 + $1.value }
+            let best = metric.points.map(\.value).max() ?? 0
+            return [
+                ("Total", "\(Int(total.rounded()))"),
+                ("Best minute", "\(Int(best.rounded()))")
+            ]
+
+        case .energy:
+            let values = metric.points.map(\.value)
+            let total = values.reduce(0, +)
+            guard total > 0 else { return [] }
+            let average = total / Double(values.count)
+            return [
+                ("Total", "\(Int(total.rounded())) kcal"),
+                ("Per minute", String(format: "%.1f", average)),
+                ("Peak minute", "\(Int((values.max() ?? 0).rounded()))")
+            ]
         }
     }
 

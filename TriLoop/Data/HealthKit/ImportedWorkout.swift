@@ -23,7 +23,7 @@ struct ImportedWorkout: Equatable, Sendable, Identifiable {
     /// swimming, which total distance alone cannot show.
     let longestContinuousSwimMeters: Double?
     /// Sensor values that need no schema column of their own.
-    let metrics: RecordedMetrics
+    var metrics: RecordedMetrics
     /// Bundle identifier of the app that recorded it, e.g. Apple's Workout app.
     let source: String?
 

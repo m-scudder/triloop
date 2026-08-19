@@ -31,9 +31,11 @@ struct LabeledSection<Content: View>: View {
     }
 }
 
+#if DEBUG
 #Preview {
     NavigationStack {
         WorkoutDetailView(workout: PreviewData.workout(.running))
     }
     .modelContainer(PreviewData.container)
 }
+#endif

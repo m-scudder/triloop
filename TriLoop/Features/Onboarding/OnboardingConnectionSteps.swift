@@ -6,8 +6,7 @@ struct HealthStepView: View {
     @Bindable var model: OnboardingModel
     @State private var status: HealthAuthorizationStatus = .notDetermined
     @State private var message: String?
-
-    private let health = HealthKitWorkoutImporter()
+    @Environment(\.healthProvider) private var health
 
     private struct DataUse: Identifiable {
         let symbol: String

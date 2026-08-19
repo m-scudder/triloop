@@ -386,7 +386,9 @@ private struct SessionMonth: Identifiable {
     }
 }
 
+#if DEBUG
 #Preview {
     ProgressOverviewView()
         .modelContainer(PreviewData.container)
 }
+#endif

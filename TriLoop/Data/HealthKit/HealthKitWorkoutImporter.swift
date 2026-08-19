@@ -13,9 +13,21 @@ final class HealthKitWorkoutImporter: HealthDataProviding, @unchecked Sendable {
             HKObjectType.workoutType(),
             HKQuantityType(.heartRate),
             HKQuantityType(.stepCount),
+            HKQuantityType(.activeEnergyBurned),
             HKQuantityType(.distanceWalkingRunning),
             HKQuantityType(.distanceCycling),
-            HKQuantityType(.distanceSwimming)
+            HKQuantityType(.distanceSwimming),
+            HKQuantityType(.runningSpeed),
+            HKQuantityType(.runningPower),
+            HKQuantityType(.runningStrideLength),
+            HKQuantityType(.runningGroundContactTime),
+            HKQuantityType(.runningVerticalOscillation),
+            HKQuantityType(.cyclingSpeed),
+            HKQuantityType(.cyclingCadence),
+            HKQuantityType(.cyclingPower),
+            HKQuantityType(.cyclingFunctionalThresholdPower),
+            HKQuantityType(.workoutEffortScore),
+            HKQuantityType(.estimatedWorkoutEffortScore)
         ]
     }
 
@@ -56,7 +68,58 @@ final class HealthKitWorkoutImporter: HealthDataProviding, @unchecked Sendable {
             sortDescriptors: [SortDescriptor(\.startDate, order: .reverse)]
         )
 
-        return try await descriptor.result(for: store).compactMap(Self.normalize)
+        let workouts = try await descriptor.result(for: store)
+        return await withEffort(workouts)
+    }
+
+    /// Fills in each workout's effort score.
+    ///
+    /// Concurrent because every workout needs its own relationship query, and a
+    /// year of history run serially would take noticeably long.
+    func withEffort(_ workouts: [HKWorkout]) async -> [ImportedWorkout] {
+        await withTaskGroup(of: (Int, ImportedWorkout)?.self) { group in
+            for (index, workout) in workouts.enumerated() {
+                group.addTask {
+                    guard var imported = Self.normalize(workout) else { return nil }
+                    let effort = await self.effort(for: workout)
+                    imported.metrics.workoutEffort = effort.rated
+                    imported.metrics.estimatedWorkoutEffort = effort.estimated
+                    return (index, imported)
+                }
+            }
+
+            var results: [(Int, ImportedWorkout)] = []
+            for await result in group {
+                if let result { results.append(result) }
+            }
+            // The task group finishes out of order; the caller expects the sort
+            // the query asked for.
+            return results.sorted { $0.0 < $1.0 }.map(\.1)
+        }
+    }
+
+    /// Apple's effort scores for one workout.
+    ///
+    /// §27 keeps the rated and estimated scores apart: one is the athlete's own
+    /// judgement, the other is the system guessing.
+    func effort(for workout: HKWorkout) async -> (rated: Double?, estimated: Double?) {
+        let related = HKQuery.predicateForWorkoutEffortSamplesRelated(workout: workout, activity: nil)
+
+        async let rated = effortValue(HKQuantityType(.workoutEffortScore), related: related)
+        async let estimated = effortValue(HKQuantityType(.estimatedWorkoutEffortScore), related: related)
+        return (await rated, await estimated)
+    }
+
+    private func effortValue(_ type: HKQuantityType, related: NSPredicate) async -> Double? {
+        let descriptor = HKSampleQueryDescriptor(
+            predicates: [.quantitySample(type: type, predicate: related)],
+            sortDescriptors: [SortDescriptor(\.startDate, order: .reverse)],
+            limit: 1
+        )
+        return try? await descriptor.result(for: store)
+            .first?
+            .quantity
+            .doubleValue(for: .appleEffortScore())
     }
 
     func dailyActivity(on date: Date) async throws -> DailyActivity {
@@ -165,11 +228,20 @@ final class HealthKitWorkoutImporter: HealthDataProviding, @unchecked Sendable {
             workout: workout,
             interval: minute
         )
+        async let energy = series(
+            HKQuantityType(.activeEnergyBurned),
+            unit: .kilocalorie(),
+            options: .cumulativeSum,
+            scope: scope,
+            workout: workout,
+            interval: minute
+        )
 
         return WorkoutSamples(
             heartRate: try await heartRate,
             cadence: try await cadence,
             distancePerMinute: try await distance,
+            energy: try await energy,
             swimLengths: Self.lengthPoints(from: workout)
         )
     }
@@ -264,11 +336,57 @@ final class HealthKitWorkoutImporter: HealthDataProviding, @unchecked Sendable {
             swimmingLengths: lengths.isEmpty ? nil : lengths.count,
             swimmingStrokeCount: workout.sum(HKQuantityType(.swimmingStrokeCount), in: .count()),
             longestContinuousSwimMeters: Self.longestContinuous(in: lengths),
-            metrics: RecordedMetrics(averageCadence: Self.averageCadence(of: workout)),
+            metrics: Self.recordedMetrics(of: workout, sport: sport),
             source: workout.sourceRevision.source.bundleIdentifier
         )
     }
 
+    /// Sport-specific sensor values, taken only where they mean something.
+    ///
+    /// §27: none of these may be required. A first-generation watch reports
+    /// speed and nothing else, and a rider without a power meter has no watts —
+    /// both are normal, so every reading here is allowed to be absent.
+    ///
+    /// A nil sport is an activity TriLoop does not train, which still has an
+    /// effort score and nothing sport-specific worth reading.
+    static func recordedMetrics(of workout: HKWorkout, sport: Sport?) -> RecordedMetrics {
+        var metrics = RecordedMetrics(averageCadence: averageCadence(of: workout))
+
+        // Effort is deliberately not read here. It is stored as samples *related*
+        // to the workout rather than collected by it, so workout statistics
+        // never return it — see `effort(for:)`.
+
+        switch sport {
+        case .running:
+            metrics.averageRunningSpeed = workout.average(HKQuantityType(.runningSpeed), in: .metersPerSecond)
+            metrics.averageRunningPower = workout.average(HKQuantityType(.runningPower), in: .watt())
+            metrics.averageStrideLength = workout.average(HKQuantityType(.runningStrideLength), in: .meter())
+            metrics.averageGroundContactTime = workout.average(
+                HKQuantityType(.runningGroundContactTime),
+                in: .secondUnit(with: .milli)
+            )
+            metrics.averageVerticalOscillation = workout.average(
+                HKQuantityType(.runningVerticalOscillation),
+                in: .meterUnit(with: .centi)
+            )
+
+        case .cycling:
+            metrics.averageCyclingSpeed = workout.average(HKQuantityType(.cyclingSpeed), in: .metersPerSecond)
+            metrics.averageCyclingCadence = workout.average(HKQuantityType(.cyclingCadence), in: .rpm)
+            metrics.averageCyclingPower = workout.average(HKQuantityType(.cyclingPower), in: .watt())
+            // FTP is deliberately not read here. It is a standing athlete value
+            // like VO₂ max, not something a ride measures, so workout statistics
+            // never carry it. It needs its own most-recent-sample query.
+
+        case .swimming:
+            break
+
+        case nil:
+            break
+        }
+
+        return metrics
+    }
     /// Steps per minute across the session. Only meaningful on foot, so a ride's
     /// incidental steps are not reported as cadence.
     private static func averageCadence(of workout: HKWorkout) -> Double? {
@@ -332,6 +450,8 @@ extension Sport {
 
 private extension HKUnit {
     static let heartRate = HKUnit.count().unitDivided(by: .minute())
+    static let metersPerSecond = HKUnit.meter().unitDivided(by: .second())
+    static let rpm = HKUnit.count().unitDivided(by: .minute())
 }
 
 /// `totalDistance` and friends are deprecated; statistics are the supported path
@@ -371,3 +491,16 @@ private extension HKWorkout {
             }
     }
 }
+
+#if DEBUG
+extension HealthKitWorkoutImporter {
+    /// Lets the read-only history tool share this instance's store.
+    var historyStore: HKHealthStore { store }
+}
+
+extension HKWorkout {
+    /// Bridges the file-private lap reading to the history tool.
+    var historySwimmingLengthCount: Int { swimmingLengths.count }
+}
+#endif
+

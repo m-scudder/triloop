@@ -99,6 +99,72 @@ struct WorkoutSamplesTests {
         }
     }
 
+    @Test("An untrained activity reports distance as a total, never as a pace")
+    func untrainedActivityHasNoPace() {
+        // HealthKit returns walking distance for a strength session, so the
+        // guard here is that incidental movement is not dressed up as a pace.
+        let samples = WorkoutSamples(distancePerMinute: [point(0, 40), point(1, 60)])
+
+        let metrics = WorkoutMetric.all(for: nil, samples: samples)
+
+        #expect(metrics.map(\.kind) == [.distance])
+        #expect(metrics.first?.title == "Distance")
+        #expect(metrics.first?.headline == TrainingFormatter.distance(meters: 100))
+    }
+
+    @Test("A trained discipline still reports distance as a pace")
+    func trainedDisciplineKeepsPace() {
+        let samples = WorkoutSamples(distancePerMinute: [point(0, 40), point(1, 60)])
+
+        let metrics = WorkoutMetric.all(for: .running, samples: samples)
+
+        #expect(metrics.map(\.kind) == [.distance])
+        #expect(metrics.first?.title == "Pace")
+    }
+
+    @Test("Steps during an untrained activity are movement, not cadence")
+    func untrainedActivityHasNoCadence() {
+        let samples = WorkoutSamples(cadence: [point(0, 30), point(1, 20)])
+
+        let untrained = WorkoutMetric.all(for: nil, samples: samples)
+        let running = WorkoutMetric.all(for: .running, samples: samples)
+
+        #expect(untrained.map(\.kind) == [.steps])
+        #expect(untrained.first?.headline == "50")
+        #expect(running.map(\.kind) == [.cadence])
+    }
+
+    @Test("Energy is reported for any activity type")
+    func energyAppliesEverywhere() {
+        let samples = WorkoutSamples(energy: [point(0, 8), point(1, 9)])
+
+        for discipline in [Discipline?.none, .running, .swimming] {
+            let metrics = WorkoutMetric.all(for: discipline, samples: samples)
+
+            #expect(metrics.map(\.kind) == [.energy])
+            #expect(metrics.first?.headline == "17")
+        }
+    }
+
+    @Test("An energy series of zeroes produces no card rather than an empty chart")
+    func zeroEnergyIsNotACard() {
+        let samples = WorkoutSamples(energy: [point(0, 0), point(1, 0)])
+
+        #expect(WorkoutMetric.all(for: nil, samples: samples).isEmpty)
+    }
+
+    @Test("An untrained activity still gets heart rate and energy together")
+    func untrainedActivityKeepsWhatItMeasured() {
+        let samples = WorkoutSamples(
+            heartRate: [point(0, 120), point(1, 140)],
+            energy: [point(0, 10)]
+        )
+
+        let metrics = WorkoutMetric.all(for: nil, samples: samples)
+
+        #expect(metrics.map(\.kind) == [.heartRate, .energy])
+    }
+
     @Test("Daily activity reports nothing when no movement was recorded")
     func emptyActivityIsReported() async throws {
         let provider = StubHealthDataProvider(activity: DailyActivity())

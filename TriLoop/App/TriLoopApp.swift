@@ -6,12 +6,14 @@ struct TriLoopApp: App {
     private let modelContainer: ModelContainer
     private let storeOutcome: StoreOutcome
     private let autoImporter: WorkoutAutoImporter
+    private let healthProvider: any HealthDataProviding
 
     init() {
         let (container, outcome) = TriLoopModelContainer.makeWithFallback()
         modelContainer = container
         storeOutcome = outcome
-        autoImporter = WorkoutAutoImporter(container: container)
+        healthProvider = HealthProviderResolver.current()
+        autoImporter = WorkoutAutoImporter(container: container, provider: healthProvider)
 
         // Nothing is seeded at launch. A week comes from onboarding, in every
         // build — otherwise a debug install can never see the first-run flow,
@@ -29,6 +31,7 @@ struct TriLoopApp: App {
     var body: some Scene {
         WindowGroup {
             RootView(storeOutcome: storeOutcome, autoImporter: autoImporter)
+                .environment(\.healthProvider, healthProvider)
         }
         .modelContainer(modelContainer)
     }
