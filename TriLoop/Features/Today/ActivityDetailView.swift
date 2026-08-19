@@ -24,7 +24,6 @@ struct ActivityDetailView: View {
     @State private var points: [SamplePoint] = []
     @State private var failure: String?
     @State private var isLoading = false
-    @AppStorage("simulateHealthSamples") private var simulateSamples = false
     @Environment(\.healthProvider) private var health
 
     private var total: Double { points.reduce(0) { $0 + $1.value } }
@@ -124,14 +123,6 @@ struct ActivityDetailView: View {
         guard !isLoading else { return }
         isLoading = true
         defer { isLoading = false }
-
-        #if DEBUG
-        if simulateSamples {
-            points = SimulatedDailySteps.daily(days: range.days)
-            failure = nil
-            return
-        }
-        #endif
 
         switch await health.authorizationStatus {
         case .unavailable:

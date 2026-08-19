@@ -46,9 +46,73 @@ enum SimulationFixture {
 
         data.dailySteps = makeDailySteps(days: max(days, 28), endingAt: today, calendar: calendar, generator: &generator)
         data.hourlySteps = makeHourlySteps(on: today, calendar: calendar, generator: &generator)
+        data.recovery = makeRecovery(dataset, endingAt: today, calendar: calendar, generator: &generator)
         data.authorization = dataset == .partialData ? .authorized : .authorized
 
         return data
+    }
+
+    /// Daily recovery readings for the metrics a fixture claims to provide.
+    ///
+    /// The poor-recovery dataset trends resting heart rate up while HRV and
+    /// sleep fall, so §43's "below your recent range" language has something
+    /// real to describe.
+    private static func makeRecovery(
+        _ dataset: SimulationDataset,
+        endingAt today: Date,
+        calendar: Calendar,
+        generator: inout DeterministicGenerator
+    ) -> [RecoveryMetric: [SamplePoint]] {
+        var result: [RecoveryMetric: [SamplePoint]] = [:]
+        let days = dataset.recoveryDays
+        guard days > 0 else { return result }
+
+        for metric in RecoveryMetric.allCases where dataset.provides(metric) {
+            var points: [SamplePoint] = []
+
+            for offset in stride(from: days - 1, through: 0, by: -1) {
+                guard let date = calendar.date(byAdding: .day, value: -offset, to: today) else { continue }
+
+                // Cardio fitness is estimated occasionally, not daily, so
+                // sampling it every day would misrepresent how HealthKit works.
+                if metric == .cardioFitness, offset % 7 != 0 { continue }
+
+                let progress = Double(days - 1 - offset) / Double(max(days - 1, 1))
+                points.append(
+                    SamplePoint(
+                        date: date,
+                        value: value(for: metric, dataset: dataset, progress: progress, generator: &generator)
+                    )
+                )
+            }
+
+            result[metric] = points
+        }
+
+        return result
+    }
+
+    private static func value(
+        for metric: RecoveryMetric,
+        dataset: SimulationDataset,
+        progress: Double,
+        generator: inout DeterministicGenerator
+    ) -> Double {
+        let declining = dataset == .poorRecovery
+        let trend = declining ? progress : 0
+
+        return switch metric {
+        case .restingHeartRate:
+            (52 + trend * 9 + generator.value(in: -1.5...1.5)).rounded()
+        case .heartRateVariability:
+            (48 - trend * 14 + generator.value(in: -4...4)).rounded()
+        case .sleepDuration:
+            max(3.5, 7.4 - trend * 1.8 + generator.value(in: -0.6...0.6))
+        case .cardioFitness:
+            (dataset.hasPower ? 52.0 : 41.0) + generator.value(in: -0.4...0.4)
+        case .heartRateRecovery:
+            (32 - trend * 8 + generator.value(in: -2...2)).rounded()
+        }
     }
 
     /// Fixed per dataset, so two datasets differ but one dataset never does.

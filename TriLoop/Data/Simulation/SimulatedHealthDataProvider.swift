@@ -66,6 +66,15 @@ struct SimulatedHealthDataProvider: HealthDataProviding {
         return data.dailySteps.filter { $0.date >= startDate && $0.date <= endDate }
     }
 
+    func recoverySeries(
+        _ metric: RecoveryMetric,
+        from startDate: Date,
+        to endDate: Date
+    ) async throws -> [SamplePoint] {
+        try requireAuthorization()
+        return (data.recovery[metric] ?? []).filter { $0.date >= startDate && $0.date <= endDate }
+    }
+
     private func requireAuthorization() throws {
         guard data.authorization == .authorized else { throw HealthDataError.notAuthorized }
     }

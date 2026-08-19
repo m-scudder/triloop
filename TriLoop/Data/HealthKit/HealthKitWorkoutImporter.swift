@@ -6,10 +6,12 @@ import HealthKit
 /// `HKHealthStore` is safe to use across threads but is not annotated
 /// `Sendable`, hence the unchecked conformance.
 final class HealthKitWorkoutImporter: HealthDataProviding, @unchecked Sendable {
-    private let store = HKHealthStore()
+    /// Shared with the recovery and history extensions, which query the same
+    /// store rather than opening their own.
+    let store = HKHealthStore()
 
     private var readTypes: Set<HKObjectType> {
-        [
+        let workoutTypes: Set<HKObjectType> = [
             HKObjectType.workoutType(),
             HKQuantityType(.heartRate),
             HKQuantityType(.stepCount),
@@ -29,6 +31,7 @@ final class HealthKitWorkoutImporter: HealthDataProviding, @unchecked Sendable {
             HKQuantityType(.workoutEffortScore),
             HKQuantityType(.estimatedWorkoutEffortScore)
         ]
+        return workoutTypes.union(Self.recoveryReadTypes)
     }
 
     /// HealthKit never discloses whether *read* access was granted — that is a
@@ -493,11 +496,6 @@ private extension HKWorkout {
 }
 
 #if DEBUG
-extension HealthKitWorkoutImporter {
-    /// Lets the read-only history tool share this instance's store.
-    var historyStore: HKHealthStore { store }
-}
-
 extension HKWorkout {
     /// Bridges the file-private lap reading to the history tool.
     var historySwimmingLengthCount: Int { swimmingLengths.count }

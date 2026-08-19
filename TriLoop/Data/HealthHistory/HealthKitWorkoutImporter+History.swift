@@ -23,7 +23,7 @@ extension HealthKitWorkoutImporter: HealthHistoryReading {
             sortDescriptors: [SortDescriptor(\.startDate, order: .reverse)]
         )
 
-        let workouts = try await descriptor.result(for: historyStore)
+        let workouts = try await descriptor.result(for: store)
 
         return await withTaskGroup(of: (Int, HealthWorkoutRecord).self) { group in
             for (index, workout) in workouts.enumerated() {

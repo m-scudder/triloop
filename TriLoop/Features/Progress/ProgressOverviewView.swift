@@ -72,6 +72,7 @@ struct ProgressOverviewView: View {
         if let current, current.hasData {
             currentTraining(current)
         }
+        TrainingIntelligenceView()
         overview
         if stats.hasData {
             bySport

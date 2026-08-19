@@ -15,7 +15,7 @@ struct WorkoutDayDetail: View {
     @State private var samplesFailure: String?
     @State private var isImporting = false
     @State private var importMessage: String?
-    @AppStorage("simulateHealthSamples") private var simulateSamples = false
+    @AppStorage("automaticallyImportWorkouts") private var automaticallyImport = true
     @Environment(\.healthProvider) private var health
     @Query private var profiles: [AthleteProfile]
     @Query private var recordedSummaries: [ImportedWorkoutSummary]
@@ -40,6 +40,11 @@ struct WorkoutDayDetail: View {
                         reportedRPE: workout.feedback?.rpe
                     )
                 }
+
+                // Effort alone is enough to read intensity and load, so these
+                // sit outside the samples branch: a session reported by hand
+                // still has something to say about how hard it was.
+                intensity(with: zoneBreakdown)
 
                 if let samples, !samples.isEmpty {
                     WorkoutChartsView(
@@ -275,6 +280,17 @@ struct WorkoutDayDetail: View {
         return workout.isMissed() ? .missed : .notYetDue
     }
 
+    /// Nil when there is no heart rate to derive zones from, which is normal
+    /// for a manually reported session.
+    private var zoneBreakdown: HeartRateZoneBreakdown? {
+        guard let samples, !samples.heartRate.isEmpty else { return nil }
+        return try? HeartRateZoneResolver.breakdown(
+            heartRate: samples.heartRate,
+            birthDate: profiles.first?.setup?.birthDate,
+            observedMaximum: observedMaximumHeartRate
+        ).get()
+    }
+
     /// A missing ceiling is worth saying out loud, since the athlete can fix it.
     /// Missing heart rate is not: the charts above already show there is none.
     @ViewBuilder
@@ -284,8 +300,6 @@ struct WorkoutDayDetail: View {
             birthDate: profiles.first?.setup?.birthDate,
             observedMaximum: observedMaximumHeartRate
         )
-
-        intensity(with: try? result.get())
 
         switch result {
         case .success(let breakdown):
@@ -305,26 +319,46 @@ struct WorkoutDayDetail: View {
     /// honest than labelling an unmeasured session easy.
     @ViewBuilder
     private func intensity(with breakdown: HeartRateZoneBreakdown?) -> some View {
-        let reading = WorkoutIntensityPolicy.intensity(
+        let evidence = EffortEvidence(
+            targetRPE: workout.targetRPE?.upper,
+            reportedRPE: workout.feedback?.rpe,
+            healthKitEffort: workout.importedSummary?.metrics?.workoutEffort,
+            estimatedHealthKitEffort: workout.importedSummary?.metrics?.estimatedWorkoutEffort
+        )
+        let reading = WorkoutIntensityPolicy.intensity(zones: breakdown, effort: evidence)
+        let load = SessionLoadPolicy.load(
+            durationSeconds: workout.importedSummary?.duration ?? workout.prescribedDurationSeconds,
             zones: breakdown,
-            effort: EffortEvidence(
-                targetRPE: workout.targetRPE?.upper,
-                reportedRPE: workout.feedback?.rpe,
-                healthKitEffort: workout.importedSummary?.metrics?.workoutEffort,
-                estimatedHealthKitEffort: workout.importedSummary?.metrics?.estimatedWorkoutEffort
-            )
+            effort: evidence
         )
 
-        if let reading = reading.value {
-            VStack(alignment: .leading, spacing: 4) {
-                SectionEyebrow(text: "Intensity")
-                Text(reading.intensity.displayName)
-                    .font(.title3.weight(.semibold))
-                Text(reading.evidence.explanation)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+        if reading.value != nil || load.value != nil {
+            HStack(alignment: .top, spacing: 24) {
+                if let reading = reading.value {
+                    VStack(alignment: .leading, spacing: 4) {
+                        SectionEyebrow(text: "Intensity")
+                        Text(reading.intensity.displayName)
+                            .font(.title3.weight(.semibold))
+                        Text(reading.evidence.explanation)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                if let load = load.value {
+                    VStack(alignment: .leading, spacing: 4) {
+                        SectionEyebrow(text: "Load")
+                        Text("\(Int(load.value.rounded()))")
+                            .font(.title3.weight(.semibold))
+                            .monospacedDigit()
+                        Text(load.provenance.explanation)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -375,16 +409,6 @@ struct WorkoutDayDetail: View {
     /// Fetched rather than stored: HealthKit already holds every sample, and a
     /// copy would be a lot of data for a screen opened occasionally.
     private func loadSamples() async {
-        // Ahead of the summary check: simulated series are built from the
-        // prescription, so they work on sessions Health never recorded.
-        #if DEBUG
-        if simulateSamples, workout.isCompleted {
-            samples = SimulatedWorkoutSamples.make(for: workout)
-            samplesFailure = nil
-            return
-        }
-        #endif
-
         guard let id = workout.importedSummary?.healthKitUUID else { return }
 
         guard await health.authorizationStatus == .authorized else {

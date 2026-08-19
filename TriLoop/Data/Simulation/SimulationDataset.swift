@@ -11,6 +11,7 @@ struct SimulatedHealthData: Sendable {
     var samples: [UUID: WorkoutSamples] = [:]
     var dailySteps: [SamplePoint] = []
     var hourlySteps: [SamplePoint] = []
+    var recovery: [RecoveryMetric: [SamplePoint]] = [:]
     var authorization: HealthAuthorizationStatus = .authorized
 
     var workoutCount: Int { workouts.count }
@@ -111,6 +112,33 @@ enum SimulationDataset: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .noData, .missingHeartRate, .partialData, .sparseHistory: false
         default: true
+        }
+    }
+
+    /// §40's recovery metrics. Partial-data fixtures deliberately lack them.
+    func provides(_ metric: RecoveryMetric) -> Bool {
+        switch self {
+        case .noData:
+            false
+        case .partialData:
+            // Workouts and heart rate, but nothing about recovery.
+            false
+        case .sparseHistory:
+            metric == .restingHeartRate
+        case .missingHeartRate:
+            metric == .sleepDuration
+        default:
+            true
+        }
+    }
+
+    /// Recovery readings are kept even for short fixtures, so a baseline can be
+    /// tested against a history longer than the training itself.
+    var recoveryDays: Int {
+        switch self {
+        case .noData: 0
+        case .sparseHistory: 5
+        default: max(weeks * 7, 28)
         }
     }
 

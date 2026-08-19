@@ -12,7 +12,6 @@ struct TodayView: View {
     @State private var hourlySteps: [SamplePoint] = []
     @State private var samples: WorkoutSamples?
     @State private var activityFailure: String?
-    @AppStorage("simulateHealthSamples") private var simulateSamples = false
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.healthProvider) private var health
 
@@ -140,17 +139,6 @@ struct TodayView: View {
                 plan.orderedWorkouts.first { $0.id == id }
             }
         }
-
-        #if DEBUG
-        if simulateSamples {
-            if let todaysWorkout, todaysWorkout.isCompleted {
-                samples = SimulatedWorkoutSamples.make(for: todaysWorkout)
-            }
-            activity = DailyActivity(steps: 8_412, distanceMeters: 6_240)
-            hourlySteps = SimulatedDailySteps.today()
-            return
-        }
-        #endif
 
         switch await health.authorizationStatus {
         case .unavailable:

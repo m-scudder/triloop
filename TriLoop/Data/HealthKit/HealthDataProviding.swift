@@ -23,6 +23,46 @@ struct DailyActivity: Equatable, Sendable {
     var hasAnything: Bool { steps != nil || distanceMeters != nil }
 }
 
+/// Health readings that describe recovery and fitness rather than a session.
+///
+/// §40 treats these as context only during Phase 9: they are shown to the
+/// athlete but never allowed to change training.
+enum RecoveryMetric: String, CaseIterable, Sendable {
+    case restingHeartRate
+    case heartRateVariability
+    case sleepDuration
+    case cardioFitness
+    case heartRateRecovery
+
+    var displayName: String {
+        switch self {
+        case .restingHeartRate: "Resting heart rate"
+        case .heartRateVariability: "Heart rate variability"
+        case .sleepDuration: "Sleep"
+        case .cardioFitness: "Cardio fitness"
+        case .heartRateRecovery: "Heart rate recovery"
+        }
+    }
+
+    var unitLabel: String {
+        switch self {
+        case .restingHeartRate, .heartRateRecovery: "bpm"
+        case .heartRateVariability: "ms"
+        case .sleepDuration: "h"
+        case .cardioFitness: "ml/kg·min"
+        }
+    }
+
+    /// A rise being good or bad depends on the metric, and the athlete should
+    /// never have to guess which way to read a trend.
+    var higherIsBetter: Bool {
+        switch self {
+        case .restingHeartRate: false
+        case .heartRateVariability, .sleepDuration, .cardioFitness, .heartRateRecovery: true
+        }
+    }
+}
+
 /// §24's boundary for health data.
 ///
 /// Deliberately small: TriLoop reads completed workouts and nothing else. Any
@@ -46,6 +86,14 @@ protocol HealthDataProviding: Sendable {
 
     /// Steps bucketed by day across a range, for week and month views.
     func dailySteps(from startDate: Date, to endDate: Date) async throws -> [SamplePoint]
+
+    /// One reading per day for a recovery metric. Days with no reading are
+    /// absent from the result rather than present as zero.
+    func recoverySeries(
+        _ metric: RecoveryMetric,
+        from startDate: Date,
+        to endDate: Date
+    ) async throws -> [SamplePoint]
 }
 
 /// Fixed data for previews, tests and Developer Mode.
@@ -56,6 +104,7 @@ struct StubHealthDataProvider: HealthDataProviding {
     var samples: WorkoutSamples = WorkoutSamples()
     var hourly: [SamplePoint] = []
     var daily: [SamplePoint] = []
+    var recovery: [RecoveryMetric: [SamplePoint]] = [:]
 
     var authorizationStatus: HealthAuthorizationStatus {
         get async { status }
@@ -90,5 +139,14 @@ struct StubHealthDataProvider: HealthDataProviding {
     func dailySteps(from startDate: Date, to endDate: Date) async throws -> [SamplePoint] {
         guard status == .authorized else { throw HealthDataError.notAuthorized }
         return daily
+    }
+
+    func recoverySeries(
+        _ metric: RecoveryMetric,
+        from startDate: Date,
+        to endDate: Date
+    ) async throws -> [SamplePoint] {
+        guard status == .authorized else { throw HealthDataError.notAuthorized }
+        return (recovery[metric] ?? []).filter { $0.date >= startDate && $0.date <= endDate }
     }
 }

@@ -1,4 +1,5 @@
 #if DEBUG
+import SwiftData
 import SwiftUI
 
 /// Read-only view of the athlete's real HealthKit workout history.
@@ -14,6 +15,7 @@ struct WorkoutHistoryView: View {
     @State private var state: LoadState = .idle
     @State private var query = ""
     @State private var sportFilter: SportFilter = .all
+    @Query private var profiles: [AthleteProfile]
 
     enum SportFilter: String, CaseIterable, Identifiable {
         case all = "All"
@@ -158,9 +160,57 @@ struct WorkoutHistoryView: View {
                 }
             } else {
                 summary(matching)
+                analysis(matching)
                 coverage(matching)
                 breakdown(matching)
                 months(matching)
+            }
+        }
+    }
+
+    /// The intelligence layer run over real workouts.
+    ///
+    /// Follows the filters above, so narrowing to one sport or range narrows the
+    /// calculation too — which is what makes it useful for checking the maths
+    /// against data you recognise.
+    @ViewBuilder
+    private func analysis(_ records: [HealthWorkoutRecord]) -> some View {
+        let sessions = RealHistoryAnalysis.sessions(
+            from: records,
+            birthDate: profiles.first?.setup?.birthDate
+        )
+
+        if sessions.isEmpty {
+            Section("Analysis") {
+                Text("No running, swimming or cycling in this selection.")
+                    .foregroundStyle(.secondary)
+            }
+        } else {
+            Section {
+                TrainingLoadSection(
+                    weeks: RealHistoryAnalysis.rollingWeeks(of: sessions),
+                    average: .unavailable
+                )
+                .padding(.vertical, 4)
+
+                IntensityDistributionSection(
+                    distribution: IntensityDistributionPolicy.distribution(for: sessions),
+                    sports: [],
+                    selectedSport: .constant(nil)
+                )
+                .padding(.vertical, 4)
+
+                SportBalanceSection(
+                    balance: SportBalancePolicy.balance(of: sessions),
+                    comparisons: []
+                )
+                .padding(.vertical, 4)
+            } header: {
+                Text("Analysis")
+            } footer: {
+                // Weeks are counted back from today because real history
+                // predates every plan, so §37's plan weeks cannot anchor it.
+                Text("Computed from these workouts only. Weeks are seven-day windows counted back from today, and nothing here affects your training.")
             }
         }
     }

@@ -18,12 +18,21 @@ enum WorkoutIntensityPolicy {
 
     static func intensity(
         zones: HeartRateZoneBreakdown?,
-        effort: EffortEvidence
+        effort: EffortEvidence,
+        averageHeartRate: Double? = nil,
+        maximumHeartRate: Double? = nil
     ) -> IntelligenceValue<WorkoutIntensityReading> {
         var candidates: [(intensity: WorkoutIntensity, evidence: IntensityEvidence)] = []
 
         if let zones, let fromZones = intensity(from: zones) {
             candidates.append((fromZones, .heartRateZones))
+        } else if let fromAverage = intensity(
+            averageHeartRate: averageHeartRate,
+            maximumHeartRate: maximumHeartRate
+        ) {
+            // Weaker than time in zone: an average hides a session that
+            // alternated hard and easy. Used only when no series exists.
+            candidates.append((fromAverage, .heartRateZones))
         }
 
         // The athlete's own rating outranks Apple's estimate; they are not
@@ -62,6 +71,21 @@ enum WorkoutIntensityPolicy {
 
         if hard >= hardZoneShare { return .hard }
         if hard + moderate >= moderateZoneShare { return .moderate }
+        return .easy
+    }
+
+    /// Bands a single average against the athlete's ceiling.
+    ///
+    /// Uses the same boundaries as the zone calculator, so a session classified
+    /// this way agrees with one classified from a full series whenever the
+    /// session was steady.
+    static func intensity(averageHeartRate: Double?, maximumHeartRate: Double?) -> WorkoutIntensity? {
+        guard let averageHeartRate, let maximumHeartRate, maximumHeartRate > 0,
+              averageHeartRate > 0 else { return nil }
+
+        let share = averageHeartRate / maximumHeartRate
+        if share >= 0.80 { return .hard }
+        if share >= 0.70 { return .moderate }
         return .easy
     }
 

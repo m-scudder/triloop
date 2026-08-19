@@ -8,10 +8,10 @@ import SwiftUI
 /// the engine sees here is identical to a real report.
 struct DeveloperToolsView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.healthProvider) private var health
     @Query(sort: \WeeklyPlan.startDate, order: .reverse) private var plans: [WeeklyPlan]
 
     @State private var message: String?
-    @AppStorage("simulateHealthSamples") private var simulateSamples = false
     @State private var source = HealthProviderResolver.selected
     @State private var dataset = SimulationSettings.dataset
 
@@ -59,7 +59,7 @@ struct DeveloperToolsView: View {
                 WorkoutHistoryView()
             }
         } footer: {
-            Text("Everything in Health, including activities TriLoop does not train. Read-only.")
+            Text("Everything in Health, including activities TriLoop does not train. Read-only, with load, intensity and sport balance computed from the workouts you filter to.")
         }
     }
 
@@ -130,6 +130,32 @@ struct DeveloperToolsView: View {
                 }
 
                 Section {
+                    if source == .simulated {
+                        Button("Attach simulated Health workouts") {
+                            Task { await attachFromProvider(plan) }
+                        }
+                    } else {
+                        Text("Switch Source to Simulated Data above to attach fixture workouts.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                } footer: {
+                    // Fabricated summaries carry a random UUID that HealthKit
+                    // cannot resolve, so no samples come back and the charts
+                    // stay empty. Provider workouts keep their fixture id.
+                    Text("Takes workouts from the chosen dataset, so heart-rate charts, zones, intensity and load all render through the production path.")
+                }
+
+                Section {
+                    Button("Strip evidence from week \(plan.weekNumber)") {
+                        stripEvidence(plan)
+                        message = "Reports and recorded data removed."
+                    }
+                } footer: {
+                    Text("Leaves the sessions in place with no report and no Health data, so the unmeasured case can be checked.")
+                }
+
+                Section {
                     Button("Attach recorded data — as prescribed") {
                         attachRecorded(plan, factor: 0.97)
                         message = "Recorded data attached at full completion."
@@ -142,12 +168,6 @@ struct DeveloperToolsView: View {
                     Text("Simulated Apple Health")
                 } footer: {
                     Text("Stands in for an import so Workout Detail shows a Recorded section. Uses TriLoop's own model, not HealthKit.")
-                }
-
-                Section {
-                    Toggle("Simulate chart data", isOn: $simulateSamples)
-                } footer: {
-                    Text("Generates heart rate, cadence, pace and swim lengths so the charts can be seen without a real HealthKit session.")
                 }
 
                 Section {
@@ -207,8 +227,61 @@ struct DeveloperToolsView: View {
         _ = try? PlanStore(context: modelContext).generateNextWeekIfReady(after: plan)
     }
 
-    private func checkIn(_ plan: WeeklyPlan, pain: Int, soreness: SorenessLevel, energy: EnergyLevel) {
-        for workout in plan.trainingSessions where workout.hasReport {
+    /// Attaches workouts from whichever provider is selected.
+    ///
+    /// Matched by sport rather than by date: a fixture's days rarely coincide
+    /// with the plan's, and the point is to populate the week rather than to
+    /// exercise the matcher.
+    private func attachFromProvider(_ plan: WeeklyPlan) async {
+        let end = Date.now
+        guard let start = Calendar.current.date(byAdding: .day, value: -120, to: end),
+              let workouts = try? await health.workouts(from: start, to: end) else {
+            message = "Could not read workouts from the selected source."
+            return
+        }
+
+        let known = Set(
+            (try? modelContext.fetch(FetchDescriptor<ImportedWorkoutSummary>()))?.map(\.healthKitUUID) ?? []
+        )
+        var available = workouts.filter { !known.contains($0.healthKitUUID) }
+
+        var attached = 0
+        for session in plan.trainingSessions where session.importedSummary == nil {
+            guard let sport = session.discipline.sport,
+                  let index = available.firstIndex(where: { $0.sport == sport }) else { continue }
+
+            let summary = ImportedWorkoutSummary(available.remove(at: index))
+            modelContext.insert(summary)
+            session.attach(summary)
+            attached += 1
+        }
+
+        guard attached > 0 else {
+            message = "No unused workouts matched this week's sports."
+            return
+        }
+
+        try? modelContext.save()
+        message = "Attached \(attached) workout\(attached == 1 ? "" : "s") with full sample data."
+    }
+
+    /// Removes every trace of what happened, leaving sessions that took place
+    /// with nothing measuring them — the one case real data rarely produces.
+    private func stripEvidence(_ plan: WeeklyPlan) {
+        for workout in plan.trainingSessions {
+            if let feedback = workout.feedback {
+                modelContext.delete(feedback)
+                workout.feedback = nil
+            }
+            if let summary = workout.importedSummary {
+                modelContext.delete(summary)
+                workout.importedSummary = nil
+            }
+        }
+        try? modelContext.save()
+    }
+
+    private func checkIn(_ plan: WeeklyPlan, pain: Int, soreness: SorenessLevel, energy: EnergyLevel) {        for workout in plan.trainingSessions where workout.hasReport {
             workout.recordRecoveryCheckIn(painScore: pain, soreness: soreness, energy: energy)
         }
         try? modelContext.save()
