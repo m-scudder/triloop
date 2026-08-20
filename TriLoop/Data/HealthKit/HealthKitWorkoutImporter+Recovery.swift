@@ -55,8 +55,28 @@ extension HealthKitWorkoutImporter {
         return points
     }
 
-    private static func quantity(for metric: RecoveryMetric) -> (HKQuantityType, HKUnit)? {
-        let beatsPerMinute = HKUnit.count().unitDivided(by: .minute())
+    /// Most recent FTP, in watts.
+    ///
+    /// Queried on its own rather than from workout statistics: FTP is a standing
+    /// athlete value like VO₂ max, so a ride never carries it.
+    func functionalThresholdPower() async throws -> Double? {
+        guard HKHealthStore.isHealthDataAvailable() else {
+            throw HealthDataError.unavailableOnThisDevice
+        }
+
+        let descriptor = HKSampleQueryDescriptor(
+            predicates: [.quantitySample(type: HKQuantityType(.cyclingFunctionalThresholdPower))],
+            sortDescriptors: [SortDescriptor(\.startDate, order: .reverse)],
+            limit: 1
+        )
+
+        return try await descriptor.result(for: store)
+            .first?
+            .quantity
+            .doubleValue(for: .watt())
+    }
+
+    private static func quantity(for metric: RecoveryMetric) -> (HKQuantityType, HKUnit)? {        let beatsPerMinute = HKUnit.count().unitDivided(by: .minute())
 
         return switch metric {
         case .restingHeartRate:

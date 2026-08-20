@@ -34,15 +34,21 @@ enum HeartRateZoneResolver {
             return .failure(.noCeiling)
         }
 
-        let calculator = HeartRateZoneCalculator(
+        // Delegates rather than calculating: §3 allows only one zone
+        // implementation, and this type exists for the reason, not the maths.
+        let evidence = WorkoutEvidence(
+            date: heartRate[0].date,
+            sport: .running,
+            heartRateSamples: heartRate.map {
+                HeartRateReading(date: $0.date, beatsPerMinute: $0.value)
+            }
+        )
+
+        guard let breakdown = WorkoutIntelligence.zoneBreakdown(
+            for: evidence,
             maximumHeartRate: ceiling.maximum,
             source: ceiling.source
-        )
-        let readings = heartRate.map {
-            HeartRateReading(date: $0.date, beatsPerMinute: $0.value)
-        }
-
-        guard let breakdown = calculator.breakdown(from: readings) else {
+        ) else {
             return .failure(.noHeartRateSamples)
         }
         return .success(breakdown)

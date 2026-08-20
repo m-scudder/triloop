@@ -5,6 +5,36 @@ import Foundation
 /// Duration multiplied by how hard it was. That is the whole model, and it is
 /// deliberately simple: the athlete should be able to see why a number is what
 /// it is, which §36 values more than precision the evidence cannot support.
+///
+/// **TriLoop Session Load is a normalized internal workload index. It is not
+/// TSS, TRIMP, or a clinically validated physiological score.** Nothing should
+/// present it as one.
+///
+/// Supported inputs, in the order they are preferred:
+///
+/// 1. **Time in heart-rate zones** — minutes in each zone, weighted by zone.
+///    The strongest evidence, because it reflects how the session was actually
+///    distributed rather than a single figure.
+/// 2. **Reported effort** — duration multiplied by the athlete's RPE.
+/// 3. **Apple's effort score** — the same arithmetic, used only when the
+///    athlete rated nothing.
+/// 4. **Intensity band** — duration multiplied by a band weight. Coarsest, used
+///    only for historical workouts with an average heart rate and nothing else.
+///
+/// When both zone and effort evidence exist the two are averaged and the result
+/// is marked `.hybrid`; neither is discarded, because they measured the same
+/// session by different means.
+///
+/// Provenance travels with every figure, so a week built from heart rate is
+/// never silently compared with one built from self-reported effort.
+///
+/// Known limitations:
+///
+/// - The weights are chosen, not measured against physiological outcomes.
+/// - The four sources are not calibrated against one another beyond sharing a
+///   1–10 scale, so a mixed week is approximate.
+/// - Sessions with no evidence contribute nothing rather than zero, which means
+///   a week's total describes only what was measured.
 enum SessionLoadPolicy {
 
     /// Weight applied to a minute spent in each zone, on the same 1–10 scale as
@@ -17,10 +47,24 @@ enum SessionLoadPolicy {
         min(Double(number) * 2, 10)
     }
 
+    /// Weight applied to a minute at each intensity band.
+    ///
+    /// Used only when neither time in zone nor a reported effort exists — a
+    /// historical workout with an average heart rate and nothing else. Coarser
+    /// than the other paths, which is why it ranks last.
+    static func weight(for intensity: WorkoutIntensity) -> Double {
+        switch intensity {
+        case .easy: 3
+        case .moderate: 5
+        case .hard: 8
+        }
+    }
+
     static func load(
         durationSeconds: TimeInterval?,
         zones: HeartRateZoneBreakdown?,
-        effort: EffortEvidence
+        effort: EffortEvidence,
+        intensity: WorkoutIntensity? = nil
     ) -> IntelligenceValue<SessionLoad> {
         let fromZones = zoneLoad(zones)
         let fromEffort = effortLoad(durationSeconds: durationSeconds, effort: effort)
@@ -34,10 +78,22 @@ enum SessionLoadPolicy {
         case let (nil, effort?):
             return .available(effort)
         case (nil, nil):
-            // §35: no evidence is unavailable, never zero. A zero would pull
-            // down every weekly average it landed in.
-            return .unavailable
+            guard let band = bandLoad(durationSeconds: durationSeconds, intensity: intensity) else {
+                // §35: no evidence is unavailable, never zero. A zero would pull
+                // down every weekly average it landed in.
+                return .unavailable
+            }
+            return .available(band)
         }
+    }
+
+    /// Duration weighted by the band, when that is all there is.
+    static func bandLoad(durationSeconds: TimeInterval?, intensity: WorkoutIntensity?) -> SessionLoad? {
+        guard let durationSeconds, durationSeconds > 0, let intensity else { return nil }
+        return SessionLoad(
+            value: (durationSeconds / 60) * weight(for: intensity),
+            provenance: .heartRate
+        )
     }
 
     /// Minutes in each zone, weighted by that zone. Uses the measured time

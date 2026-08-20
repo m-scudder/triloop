@@ -14,6 +14,7 @@ struct ShadowEvaluationView: View {
     @Environment(\.healthProvider) private var health
 
     @State private var recovery: [RecoveryMetricKey: [RecoveryReading]] = [:]
+    @State private var interpreted: [TrainingIntelligenceBuilder.Interpreted] = []
     @State private var isLoading = true
 
     var body: some View {
@@ -118,7 +119,8 @@ struct ShadowEvaluationView: View {
             observedMaximumHeartRate: summaries.compactMap(\.maximumHeartRate).max()
         )
         return TrainingSignalsBuilder.build(
-            weeks: builder.weeks(from: plans),
+            weeks: builder.weeks(from: plans, interpreted: interpreted),
+            adherence: builder.adherence(from: interpreted),
             recovery: recovery,
             asOf: .now
         )
@@ -126,6 +128,12 @@ struct ShadowEvaluationView: View {
 
     private func loadRecovery() async {
         defer { isLoading = false }
+
+        let builder = TrainingIntelligenceBuilder(
+            birthDate: profiles.first?.setup?.birthDate,
+            observedMaximumHeartRate: summaries.compactMap(\.maximumHeartRate).max()
+        )
+        interpreted = builder.interpret(await builder.evidence(in: plans, provider: health))
 
         let end = Date.now
         guard let start = Calendar.current.date(byAdding: .day, value: -28, to: end) else { return }

@@ -75,6 +75,12 @@ struct SimulatedHealthDataProvider: HealthDataProviding {
         return (data.recovery[metric] ?? []).filter { $0.date >= startDate && $0.date <= endDate }
     }
 
+    /// Only fixtures that claim a power meter have one.
+    func functionalThresholdPower() async throws -> Double? {
+        try requireAuthorization()
+        return dataset.hasPower ? 220 : nil
+    }
+
     private func requireAuthorization() throws {
         guard data.authorization == .authorized else { throw HealthDataError.notAuthorized }
     }

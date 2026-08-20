@@ -113,6 +113,7 @@ enum TrainingSignalsBuilder {
 
     static func build(
         weeks: [PlanWeekSessions],
+        adherence: [SessionAdherence] = [],
         recovery: [RecoveryMetricKey: [RecoveryReading]],
         asOf now: Date,
         calendar: Calendar = .current
@@ -122,7 +123,7 @@ enum TrainingSignalsBuilder {
 
         return TrainingSignals(
             workload: workload(from: loads),
-            adherence: AdherenceSignals(outcomes: []),
+            adherence: AdherenceSignals(outcomes: adherence),
             intensity: IntensitySignals(
                 distribution: IntensityDistributionPolicy.distribution(for: sessions),
                 balance: SportBalancePolicy.balance(of: sessions)

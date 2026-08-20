@@ -94,6 +94,13 @@ protocol HealthDataProviding: Sendable {
         from startDate: Date,
         to endDate: Date
     ) async throws -> [SamplePoint]
+
+    /// The athlete's most recent functional threshold power, in watts.
+    ///
+    /// A standing value rather than something a ride measures, so it has its own
+    /// query. Nil when never recorded — most riders have no power meter, and
+    /// §55 forbids representing that as zero.
+    func functionalThresholdPower() async throws -> Double?
 }
 
 /// Fixed data for previews, tests and Developer Mode.
@@ -105,6 +112,7 @@ struct StubHealthDataProvider: HealthDataProviding {
     var hourly: [SamplePoint] = []
     var daily: [SamplePoint] = []
     var recovery: [RecoveryMetric: [SamplePoint]] = [:]
+    var ftp: Double?
 
     var authorizationStatus: HealthAuthorizationStatus {
         get async { status }
@@ -148,5 +156,10 @@ struct StubHealthDataProvider: HealthDataProviding {
     ) async throws -> [SamplePoint] {
         guard status == .authorized else { throw HealthDataError.notAuthorized }
         return (recovery[metric] ?? []).filter { $0.date >= startDate && $0.date <= endDate }
+    }
+
+    func functionalThresholdPower() async throws -> Double? {
+        guard status == .authorized else { throw HealthDataError.notAuthorized }
+        return ftp
     }
 }

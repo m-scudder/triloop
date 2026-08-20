@@ -15,6 +15,7 @@ struct TrainingIntelligenceView: View {
     @State private var range: TrendRange = .fourWeeks
     @State private var selectedSport: Sport?
     @State private var recovery: [RecoveryMetric: [RecoveryReading]] = [:]
+    @State private var interpreted: [TrainingIntelligenceBuilder.Interpreted] = []
 
     enum TrendRange: String, CaseIterable, Identifiable {
         case thisWeek = "This Week"
@@ -99,18 +100,18 @@ struct TrainingIntelligenceView: View {
     }
 
     private var sessions: [LoadedSession] {
-        builder.completedSessions(in: consideredPlans)
+        interpreted.map(\.session)
     }
 
     private var weeklyLoads: [WeeklyLoad] {
-        builder.weeks(from: consideredPlans)
+        builder.weeks(from: consideredPlans, interpreted: interpreted)
             .compactMap { WeeklyTrainingLoad.load(for: $0).value }
     }
 
     /// Always computed over the full history rather than the selected range, so
     /// a four-week average does not become a one-week average on This Week.
     private var rollingAverage: IntelligenceValue<Double> {
-        let all = builder.weeks(from: plans)
+        let all = builder.weeks(from: plans, interpreted: interpreted)
             .compactMap { WeeklyTrainingLoad.load(for: $0).value }
         return WeeklyTrainingLoad.rollingAverage(of: all)
     }
@@ -140,6 +141,8 @@ struct TrainingIntelligenceView: View {
     }
 
     private func loadRecovery() async {
+        interpreted = builder.interpret(await builder.evidence(in: plans, provider: health))
+
         let end = Date.now
         guard let start = Calendar.current.date(byAdding: .day, value: -28, to: end) else { return }
 

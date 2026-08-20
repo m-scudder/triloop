@@ -270,31 +270,36 @@ struct WorkoutDayDetail: View {
         recordedSummaries.compactMap(\.maximumHeartRate).max()
     }
 
-    private var execution: ExecutionComparison.Outcome? {
-        ExecutionComparison.compare(
-            plannedSeconds: workout.prescribedDurationSeconds,
-            actualSeconds: workout.importedSummary?.duration,
-            targetRPE: workout.targetRPE,
-            reportedRPE: workout.feedback?.rpe,
-            completion: completion
+    private var builder: TrainingIntelligenceBuilder {
+        TrainingIntelligenceBuilder(
+            birthDate: profiles.first?.setup?.birthDate,
+            observedMaximumHeartRate: observedMaximumHeartRate
         )
     }
 
-    private var completion: ExecutionComparison.Completion {
-        if workout.isSkipped { return .skipped }
-        if workout.importedSummary != nil || workout.hasReport { return .recorded }
-        return workout.isMissed() ? .missed : .notYetDue
+    /// §3: one interpretation, shared with Progress and the history browser.
+    private var interpretation: WorkoutInterpretation? {
+        let readings = (samples?.heartRate ?? []).map {
+            HeartRateReading(date: $0.date, beatsPerMinute: $0.value)
+        }
+        guard let evidence = builder.evidence(from: workout, samples: readings) else { return nil }
+
+        let ceiling = builder.ceiling
+        return WorkoutIntelligence.interpret(
+            evidence,
+            maximumHeartRate: ceiling?.maximum,
+            zoneSource: ceiling?.source ?? .ageBasedMaximum
+        )
+    }
+
+    private var execution: ExecutionComparison.Outcome? {
+        interpretation?.adherence
     }
 
     /// Nil when there is no heart rate to derive zones from, which is normal
     /// for a manually reported session.
     private var zoneBreakdown: HeartRateZoneBreakdown? {
-        guard let samples, !samples.heartRate.isEmpty else { return nil }
-        return try? HeartRateZoneResolver.breakdown(
-            heartRate: samples.heartRate,
-            birthDate: profiles.first?.setup?.birthDate,
-            observedMaximum: observedMaximumHeartRate
-        ).get()
+        interpretation?.zones
     }
 
     /// A missing ceiling is worth saying out loud, since the athlete can fix it.
@@ -325,44 +330,36 @@ struct WorkoutDayDetail: View {
     /// honest than labelling an unmeasured session easy.
     @ViewBuilder
     private func intensity(with breakdown: HeartRateZoneBreakdown?) -> some View {
-        let evidence = EffortEvidence(
-            targetRPE: workout.targetRPE?.upper,
-            reportedRPE: workout.feedback?.rpe,
-            healthKitEffort: workout.importedSummary?.metrics?.workoutEffort,
-            estimatedHealthKitEffort: workout.importedSummary?.metrics?.estimatedWorkoutEffort
-        )
-        let reading = WorkoutIntensityPolicy.intensity(zones: breakdown, effort: evidence)
-        let load = SessionLoadPolicy.load(
-            durationSeconds: workout.importedSummary?.duration ?? workout.prescribedDurationSeconds,
-            zones: breakdown,
-            effort: evidence
-        )
+        if let interpretation {
+            let reading = interpretation.intensity.value
+            let load = interpretation.load.value
 
-        if reading.value != nil || load.value != nil {
-            HStack(alignment: .top, spacing: 24) {
-                if let reading = reading.value {
-                    VStack(alignment: .leading, spacing: 4) {
-                        SectionEyebrow(text: "Intensity")
-                        Text(reading.intensity.displayName)
-                            .font(.title3.weight(.semibold))
-                        Text(reading.evidence.explanation)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+            if reading != nil || load != nil {
+                HStack(alignment: .top, spacing: 24) {
+                    if let reading {
+                        VStack(alignment: .leading, spacing: 4) {
+                            SectionEyebrow(text: "Intensity")
+                            Text(reading.intensity.displayName)
+                                .font(.title3.weight(.semibold))
+                            Text(reading.evidence.explanation)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
 
-                if let load = load.value {
-                    VStack(alignment: .leading, spacing: 4) {
-                        SectionEyebrow(text: "Load")
-                        Text("\(Int(load.value.rounded()))")
-                            .font(.title3.weight(.semibold))
-                            .monospacedDigit()
-                        Text(load.provenance.explanation)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                    if let load {
+                        VStack(alignment: .leading, spacing: 4) {
+                            SectionEyebrow(text: "Load")
+                            Text("\(Int(load.value.rounded()))")
+                                .font(.title3.weight(.semibold))
+                                .monospacedDigit()
+                            Text(load.provenance.explanation)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
         }

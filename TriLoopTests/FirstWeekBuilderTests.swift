@@ -201,9 +201,13 @@ struct FirstWeekBuilderTests {
 
     @Test("The pool the athlete swims in reaches the prescription")
     func poolLengthReachesTheWorkout() throws {
+        // Anchored like every other case here: without a start date the week
+        // begins today, and days already elapsed become rest — which silently
+        // removes the swim on some weekdays.
         let plan = try builder.build(
             setup: setup(swimming: .continuous100),
-            poolLengthMeters: 50
+            poolLengthMeters: 50,
+            startDate: monday()
         )
 
         #expect(plan.parameters.swimPoolLengthMeters == 50)

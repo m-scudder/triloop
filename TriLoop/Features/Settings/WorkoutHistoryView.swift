@@ -16,6 +16,7 @@ struct WorkoutHistoryView: View {
     @State private var query = ""
     @State private var sportFilter: SportFilter = .all
     @Query private var profiles: [AthleteProfile]
+    @State private var analysisSessions: [LoadedSession] = []
 
     enum SportFilter: String, CaseIterable, Identifiable {
         case all = "All"
@@ -115,6 +116,7 @@ struct WorkoutHistoryView: View {
             prompt: "Activity name"
         )
         .task(id: range) { await load() }
+        .task(id: analysisKey) { await refreshAnalysis() }
     }
 
     @ViewBuilder
@@ -175,12 +177,7 @@ struct WorkoutHistoryView: View {
     /// against data you recognise.
     @ViewBuilder
     private func analysis(_ records: [HealthWorkoutRecord]) -> some View {
-        let sessions = RealHistoryAnalysis.sessions(
-            from: records,
-            birthDate: profiles.first?.setup?.birthDate
-        )
-
-        if sessions.isEmpty {
+        if analysisSessions.isEmpty {
             Section("Analysis") {
                 Text("No running, swimming or cycling in this selection.")
                     .foregroundStyle(.secondary)
@@ -188,20 +185,20 @@ struct WorkoutHistoryView: View {
         } else {
             Section {
                 TrainingLoadSection(
-                    weeks: RealHistoryAnalysis.rollingWeeks(of: sessions),
+                    weeks: RealHistoryAnalysis.rollingWeeks(of: analysisSessions),
                     average: .unavailable
                 )
                 .padding(.vertical, 4)
 
                 IntensityDistributionSection(
-                    distribution: IntensityDistributionPolicy.distribution(for: sessions),
+                    distribution: IntensityDistributionPolicy.distribution(for: analysisSessions),
                     sports: [],
                     selectedSport: .constant(nil)
                 )
                 .padding(.vertical, 4)
 
                 SportBalanceSection(
-                    balance: SportBalancePolicy.balance(of: sessions),
+                    balance: SportBalancePolicy.balance(of: analysisSessions),
                     comparisons: []
                 )
                 .padding(.vertical, 4)
@@ -210,7 +207,7 @@ struct WorkoutHistoryView: View {
             } footer: {
                 // Weeks are counted back from today because real history
                 // predates every plan, so §37's plan weeks cannot anchor it.
-                Text("Computed from these workouts only. Weeks are seven-day windows counted back from today, and nothing here affects your training.")
+                Text("Computed from these workouts only, through the same intelligence the rest of the app uses. Weeks are seven-day windows counted back from today, and nothing here affects your training.")
             }
         }
     }
@@ -315,6 +312,26 @@ struct WorkoutHistoryView: View {
             return "Health holds no activities outside running, swimming and cycling in this range. All \(total) workouts here are sports TriLoop trains."
         }
         return "No \(sportFilter.rawValue) workouts in this range, out of \(total) total."
+    }
+
+    /// Changes whenever the visible set does, so the analysis follows the
+    /// filters rather than the last load.
+    private var analysisKey: String {
+        let count = if case .loaded(let records) = state { records.count } else { 0 }
+        return "\(range.rawValue)-\(sportFilter.rawValue)-\(query)-\(count)"
+    }
+
+    private func refreshAnalysis() async {
+        guard case .loaded(let records) = state else {
+            analysisSessions = []
+            return
+        }
+
+        analysisSessions = await RealHistoryAnalysis.sessions(
+            from: matches(in: records),
+            provider: provider,
+            birthDate: profiles.first?.setup?.birthDate
+        )
     }
 
     private func load(force: Bool = false) async {

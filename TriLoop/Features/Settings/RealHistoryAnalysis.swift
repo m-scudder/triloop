@@ -3,30 +3,96 @@ import Foundation
 
 /// Turns real Health workouts into intelligence inputs.
 ///
-/// §16's permitted path: historical workouts feed analysis and verification,
-/// never current weekly adaptation. Nothing here is persisted, attached to a
-/// plan, or able to influence progression — the sessions live only as long as
-/// the screen showing them.
+/// §12: routes through the shared `WorkoutIntelligence` rather than repeating
+/// the calculations, so a historical workout is read exactly as an imported one
+/// would be. §16 keeps it read-only and away from current training.
 enum RealHistoryAnalysis {
 
+    /// Fetches heart-rate series so time in zone can be used where it exists.
+    ///
+    /// §4 prefers a series over an average; the average survives only as a
+    /// fallback for workouts that never recorded one.
     static func sessions(
         from records: [HealthWorkoutRecord],
-        asOf now: Date = .now,
+        provider: any HealthDataProviding,
         birthDate: Date?,
+        asOf now: Date = .now,
         calendar: Calendar = .current
-    ) -> [LoadedSession] {
-        // The athlete's hardest recorded effort can raise a ceiling the age
-        // formula underestimates, exactly as it does for planned sessions.
+    ) async -> [LoadedSession] {
+        let trained = records.filter { $0.sport != nil }
+        guard !trained.isEmpty else { return [] }
+
         let ceiling = HeartRateCeiling.resolve(
             birthDate: birthDate,
-            observedMaximum: records.compactMap(\.averageHeartRate).max(),
+            observedMaximum: trained.compactMap(\.averageHeartRate).max(),
             asOf: now,
             calendar: calendar
-        )?.maximum
+        )
 
-        return records
-            .compactMap { session(from: $0, ceiling: ceiling) }
+        let samples = await heartRateSamples(for: trained, provider: provider)
+
+        return trained
+            .compactMap { record -> LoadedSession? in
+                guard let evidence = evidence(from: record, samples: samples[record.id] ?? []) else {
+                    return nil
+                }
+                let interpretation = WorkoutIntelligence.interpret(
+                    evidence,
+                    maximumHeartRate: ceiling?.maximum,
+                    zoneSource: ceiling?.source ?? .ageBasedMaximum
+                )
+                return WorkoutIntelligence.session(from: evidence, interpretation: interpretation)
+            }
             .sorted { $0.date < $1.date }
+    }
+
+    /// Concurrent because a year of history is a lot of separate lookups.
+    private static func heartRateSamples(
+        for records: [HealthWorkoutRecord],
+        provider: any HealthDataProviding
+    ) async -> [UUID: [HeartRateReading]] {
+        await withTaskGroup(of: (UUID, [HeartRateReading]).self) { group in
+            for record in records {
+                group.addTask {
+                    let samples = try? await provider.samples(forWorkout: record.id)
+                    let readings = (samples?.heartRate ?? []).map {
+                        HeartRateReading(date: $0.date, beatsPerMinute: $0.value)
+                    }
+                    return (record.id, readings)
+                }
+            }
+
+            var result: [UUID: [HeartRateReading]] = [:]
+            for await (id, readings) in group where !readings.isEmpty {
+                result[id] = readings
+            }
+            return result
+        }
+    }
+
+    /// Nil for activities TriLoop does not train, which have no sport to
+    /// aggregate under.
+    static func evidence(
+        from record: HealthWorkoutRecord,
+        samples: [HeartRateReading]
+    ) -> WorkoutEvidence? {
+        guard let sport = record.sport else { return nil }
+
+        return WorkoutEvidence(
+            date: record.start,
+            sport: sport,
+            durationSeconds: record.duration,
+            distanceMeters: record.distanceMeters,
+            averageHeartRate: record.averageHeartRate,
+            heartRateSamples: samples,
+            metrics: record.metrics,
+            effort: EffortEvidence(
+                healthKitEffort: record.metrics.workoutEffort,
+                estimatedHealthKitEffort: record.metrics.estimatedWorkoutEffort
+            ),
+            // No plan asked for these, so there is nothing to compare against.
+            completion: .recorded
+        )
     }
 
     /// Seven-day buckets counted back from today.
@@ -57,54 +123,6 @@ enum RealHistoryAnalysis {
                     )
                 ).value
             }
-    }
-
-    /// Nil for activities TriLoop does not train, which have no sport to
-    /// aggregate under.
-    private static func session(from record: HealthWorkoutRecord, ceiling: Double?) -> LoadedSession? {
-        guard let sport = record.sport else { return nil }
-
-        let effort = EffortEvidence(
-            healthKitEffort: record.metrics.workoutEffort,
-            estimatedHealthKitEffort: record.metrics.estimatedWorkoutEffort
-        )
-
-        let intensity = WorkoutIntensityPolicy.intensity(
-            zones: nil,
-            effort: effort,
-            averageHeartRate: record.averageHeartRate,
-            maximumHeartRate: ceiling
-        ).value?.intensity
-
-        return LoadedSession(
-            date: record.start,
-            sport: sport,
-            load: load(for: record, intensity: intensity),
-            durationSeconds: record.duration,
-            intensity: intensity,
-            distanceMeters: record.distanceMeters,
-            averageHeartRate: record.averageHeartRate,
-            metrics: record.metrics
-        )
-    }
-
-    /// Duration weighted by the classified band.
-    ///
-    /// Real history has almost no effort scores and no stored sample series, so
-    /// the band is the only intensity evidence there is.
-    private static func load(for record: HealthWorkoutRecord, intensity: WorkoutIntensity?) -> SessionLoad? {
-        guard let intensity, record.duration > 0 else { return nil }
-
-        let weight: Double = switch intensity {
-        case .easy: 3
-        case .moderate: 5
-        case .hard: 8
-        }
-
-        return SessionLoad(
-            value: (record.duration / 60) * weight,
-            provenance: record.averageHeartRate != nil ? .heartRate : .healthKitEffort
-        )
     }
 }
 #endif
