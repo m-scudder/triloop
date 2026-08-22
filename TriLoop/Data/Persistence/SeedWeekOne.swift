@@ -44,7 +44,7 @@ enum SeedWeekOne {
         }
 
         let workouts = disciplines.enumerated().map { offset, discipline in
-            WorkoutTemplates.session(discipline, on: day(offset), parameters: parameters)
+            PrescribedSessions.session(discipline, on: day(offset), parameters: parameters)
         }
 
         return WeeklyPlan(

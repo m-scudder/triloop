@@ -30,7 +30,6 @@ struct TodayView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 26) {
-                    header
                     if let pending = pendingCheckIn {
                         if checkInLeads {
                             checkInCard(pending)
@@ -47,12 +46,15 @@ struct TodayView: View {
                     }
                 }
                 .padding(.horizontal, 20)
-                .padding(.top, 8)
+                .padding(.top, 12)
                 .padding(.bottom, 32)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .navigationTitle("")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationTitle(Date.now.formatted(.dateTime.weekday(.wide).day().month(.abbreviated)))
+            .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) { profileButton }
+            }
             .overlay(alignment: .bottom) { toast }
             .animation(.default, value: scheduleMessage)
             .sheet(item: $feedbackWorkout) { FeedbackSheet(workout: $0) }
@@ -68,13 +70,35 @@ struct TodayView: View {
 
     // MARK: - Sections
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            SectionEyebrow(text: "Today")
-
-            Text(Date.now.formatted(.dateTime.weekday(.wide).day().month(.abbreviated)))
-                .font(.title3.weight(.semibold))
+    /// §10.1.1.2: the profile reached from Today rather than a fifth tab.
+    @ViewBuilder
+    private var profileButton: some View {
+        if let profile = profiles.first {
+            NavigationLink {
+                TrainingProfileView(profile: profile)
+            } label: {
+                Group {
+                    // The display name is optional, so there is not always a
+                    // letter to show.
+                    if let monogram = monogram(of: profile.name) {
+                        Text(monogram)
+                            .font(.footnote.weight(.semibold))
+                    } else {
+                        Image(systemName: "person.fill")
+                            .font(.footnote)
+                    }
+                }
+                .foregroundStyle(.primary)
+                .frame(width: 30, height: 30)
+                .background(.fill.tertiary, in: .circle)
+            }
+            .accessibilityLabel("Training profile")
         }
+    }
+
+    private func monogram(of name: String) -> String? {
+        guard let first = name.trimmingCharacters(in: .whitespacesAndNewlines).first else { return nil }
+        return String(first).uppercased()
     }
 
     /// §2: the week's shape, sized as context rather than as the subject.
@@ -387,7 +411,7 @@ struct TodayView: View {
         await syncWatchState()
 
         if automaticallySchedule, let plan = plans.currentPlan() {
-            await autoScheduleIfPermitted(plan)
+            await WatchScheduleSync.sync(plan, scheduler: scheduler)
             await syncWatchState()
         }
         isResolved = true
@@ -436,16 +460,15 @@ struct TodayView: View {
 
     /// Never prompts. Automatic scheduling stays silent until the athlete has
     /// already granted permission through the explicit action.
-    private func autoScheduleIfPermitted(_ plan: WeeklyPlan) async {
-        guard await scheduler.authorizationState() == .authorized else { return }
-        _ = await WeekScheduler(scheduler: scheduler).scheduleWeek(plan)
-    }
-
     private func reshape() {
         guard let plan = plans.currentPlan(), let context = plan.modelContext else { return }
         do {
             _ = try PlanStore(context: context).reshapeWeek(plan)
             scheduleMessage = "Upcoming days updated."
+            Task {
+                await WatchScheduleSync.sync(plan, scheduler: scheduler)
+                await syncWatchState()
+            }
         } catch {
             scheduleMessage = "Could not adjust the upcoming days."
         }

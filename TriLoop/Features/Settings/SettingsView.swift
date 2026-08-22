@@ -4,7 +4,6 @@ import UIKit
 
 struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query private var profiles: [AthleteProfile]
     @Query(sort: \WeeklyPlan.startDate) private var plans: [WeeklyPlan]
 
     @State private var healthStatus: HealthAuthorizationStatus = .notDetermined
@@ -51,20 +50,6 @@ struct SettingsView: View {
                     Text("Workouts")
                 } footer: {
                     Text("Automatic import links a session as soon as Apple Health records it, and checks again each time you open TriLoop. Sending keeps the days you have left on your Watch, and clears the ones you have finished.")
-                }
-
-                if let profile = profiles.first {
-                    Section {
-                        NavigationLink {
-                            TrainingProfileView(profile: profile)
-                        } label: {
-                            LabeledContent("Training profile", value: profile.setup?.goal.displayName ?? "Not set")
-                        }
-                    } header: {
-                        Text("Training")
-                    } footer: {
-                        Text("Your goal, what you can do today, the days you train and the pool you use.")
-                    }
                 }
 
                 Section {

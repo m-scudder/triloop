@@ -189,11 +189,11 @@ struct CompletionRatioTests {
         let parameters = TrainingParameters()
         switch discipline {
         case .running:
-            return WorkoutTemplates.runWalk(on: .now, parameters: parameters)
+            return PrescribedSessions.runWalk(on: .now, parameters: parameters)
         case .swimming:
-            return WorkoutTemplates.techniqueSwim(on: .now, parameters: parameters)
+            return PrescribedSessions.techniqueSwim(on: .now, parameters: parameters)
         default:
-            return WorkoutTemplates.easyRide(on: .now, parameters: parameters)
+            return PrescribedSessions.easyRide(on: .now, parameters: parameters)
         }
     }
 

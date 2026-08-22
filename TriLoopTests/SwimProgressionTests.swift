@@ -177,7 +177,7 @@ struct SwimProgressionTests {
         parameters.swimRepeatDistanceMeters = 50
         parameters.swimTotalMeters = 300
 
-        let swim = WorkoutTemplates.techniqueSwim(on: .now, parameters: parameters)
+        let swim = PrescribedSessions.techniqueSwim(on: .now, parameters: parameters)
         let warmUp = swim.orderedSteps.first { $0.kind == .warmUp }
 
         #expect(swim.estimatedDistanceMeters == 300)

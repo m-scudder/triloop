@@ -21,6 +21,16 @@ final class PlannedWorkout {
     var targetDistanceMeters: Double?
     var status: PlannedWorkoutStatus
     var completedAt: Date?
+    /// Optional in storage because a row written before provenance existed has
+    /// no value at all, and SwiftData cannot cast null to an enum. Readers go
+    /// through `origin`, which treats a missing value as generated — which is
+    /// what every one of those rows was.
+    private var storedOrigin: WorkoutOrigin?
+
+    var origin: WorkoutOrigin {
+        get { storedOrigin ?? .generated }
+        set { storedOrigin = newValue }
+    }
 
     var plan: WeeklyPlan?
 
@@ -46,6 +56,7 @@ final class PlannedWorkout {
         prescribedDurationSeconds: TimeInterval? = nil,
         targetDistanceMeters: Double? = nil,
         status: PlannedWorkoutStatus = .planned,
+        origin: WorkoutOrigin = .generated,
         steps: [WorkoutStep] = []
     ) {
         self.id = id
@@ -57,6 +68,7 @@ final class PlannedWorkout {
         self.prescribedDurationSeconds = prescribedDurationSeconds
         self.targetDistanceMeters = targetDistanceMeters
         self.status = status
+        self.storedOrigin = origin
         self.steps = steps
     }
 

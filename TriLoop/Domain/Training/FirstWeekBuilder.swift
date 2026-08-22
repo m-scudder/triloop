@@ -62,7 +62,7 @@ struct FirstWeekBuilder: Sendable {
             // Days already gone by the time setup finished are rest, not a
             // session the athlete silently failed to do.
             let discipline = weekday < firstWeekday ? Discipline.rest : shape.disciplines[weekday.offsetFromMonday]
-            return WorkoutTemplates.session(discipline, on: date, parameters: parameters)
+            return PrescribedSessions.session(discipline, on: date, parameters: parameters)
         }
 
         return WeeklyPlan(
@@ -99,7 +99,7 @@ struct FirstWeekBuilder: Sendable {
         let reference = Date.now
 
         return Sport.allCases.reduce(into: [:]) { totals, sport in
-            let prescribed = WorkoutTemplates
+            let prescribed = PrescribedSessions
                 .session(sport.discipline, on: reference, parameters: parameters)
                 .estimatedDurationSeconds ?? 0
             let stated = preferences.first { $0.sport == sport }?.typicalSeconds ?? 0

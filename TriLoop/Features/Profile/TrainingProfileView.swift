@@ -14,21 +14,38 @@ struct TrainingProfileView: View {
     @State private var message: String?
     @State private var isConfirmingReassessment = false
     @State private var customPool = ""
+    /// The setup as it was when this screen opened, so an edit made here can be
+    /// named as training-impacting while the athlete is still looking at it.
+    @State private var opened: AthleteSetup?
+    @State private var healthStatus: HealthAuthorizationStatus = .notDetermined
+    @State private var watchAuthorization: WorkoutSchedulingAuthorization = .notDetermined
+
+    @Environment(\.healthProvider) private var health
+    private let scheduler = WorkoutKitScheduler()
 
     private var setup: AthleteSetup { profile.setup ?? AthleteSetup() }
 
     var body: some View {
         List {
+            identitySection
+            impactSection
             goalSection
             aboutSection
             baselineSection
             daysSection
             sportsSection
             poolSection
+            connectionsSection
+            preferencesSection
             planSection
         }
         .navigationTitle("Training Profile")
         .navigationBarTitleDisplayMode(.inline)
+        .task {
+            if opened == nil { opened = setup }
+            healthStatus = await health.authorizationStatus
+            watchAuthorization = await scheduler.authorizationState()
+        }
         .alert("Training Profile", isPresented: showingMessage) {
             Button("OK", role: .cancel) { message = nil }
         } message: {
@@ -47,6 +64,109 @@ struct TrainingProfileView: View {
     }
 
     // MARK: - Sections
+
+    /// §10.1.1.3: who TriLoop is training, not a social profile.
+    private var identitySection: some View {
+        Section {
+            TextField("Name (optional)", text: nameBinding)
+                .textInputAutocapitalization(.words)
+
+            if !trainedSports.isEmpty {
+                LabeledContent("Sports", value: trainedSports)
+            }
+            LabeledContent("Goal", value: setup.goal.displayName)
+            LabeledContent("Training days", value: "\(setup.schedule.availableDays.count) / week")
+        } header: {
+            Text("Athlete")
+        }
+    }
+
+    private var trainedSports: String {
+        preferences
+            .filter(\.isTrained)
+            .map { $0.sport.displayName.uppercased() }
+            .joined(separator: " · ")
+    }
+
+    /// §10.1.1.11: the consequence is stated before the athlete leaves.
+    @ViewBuilder
+    private var impactSection: some View {
+        let impact = pendingImpact
+        if impact.isTrainingImpacting {
+            Section {
+                Label("This change may affect your upcoming training.", systemImage: "info.circle")
+                    .font(.subheadline)
+
+                Text(impact.reasons.map(\.displayName).joined(separator: " · "))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } footer: {
+                Text("Days you have already trained or reported on stay exactly as they are. Use Plan below when you are ready to apply this.")
+            }
+        }
+    }
+
+    private var pendingImpact: ProfileEditImpact {
+        guard let opened else { return .safe }
+        return AthleteProfileEditor.impact(from: opened, to: setup)
+    }
+
+    /// §10.1.1.9: shown, not managed. Granting still happens in Settings.
+    private var connectionsSection: some View {
+        Section {
+            LabeledContent("Apple Health", value: healthStatusText)
+            LabeledContent("Apple Watch", value: watchStatusText)
+        } header: {
+            Text("Connections")
+        } footer: {
+            Text("Manage permissions in Settings.")
+        }
+    }
+
+    private var healthStatusText: String {
+        switch healthStatus {
+        case .unavailable: "Not available"
+        case .notDetermined: "Not connected"
+        case .denied: "Denied"
+        case .authorized: "Connected"
+        }
+    }
+
+    private var watchStatusText: String {
+        guard scheduler.isSupported else { return "Unavailable" }
+        return switch watchAuthorization {
+        case .authorized: "Allowed"
+        case .denied: "Not allowed"
+        case .restricted: "Not available"
+        case .notDetermined: "Not set up"
+        }
+    }
+
+    /// §10.1.1.10: training-relevant preferences only.
+    private var preferencesSection: some View {
+        Section {
+            Picker("Units", selection: unitsBinding) {
+                Text("Metric").tag(true)
+                Text("Imperial").tag(false)
+            }
+        } header: {
+            Text("Preferences")
+        }
+    }
+
+    private var nameBinding: Binding<String> {
+        Binding(
+            get: { profile.name },
+            set: { profile.name = $0; save() }
+        )
+    }
+
+    private var unitsBinding: Binding<Bool> {
+        Binding(
+            get: { profile.usesMetricUnits },
+            set: { profile.usesMetricUnits = $0; save() }
+        )
+    }
 
     private var goalSection: some View {
         Section {

@@ -105,7 +105,7 @@ struct RunningGraduationTests {
         parameters.runIsContinuous = true
         parameters.runContinuousSeconds = 900
 
-        let workout = WorkoutTemplates.runWalk(on: .now, parameters: parameters)
+        let workout = PrescribedSessions.runWalk(on: .now, parameters: parameters)
 
         #expect(workout.orderedSteps.contains { $0.kind == .repeatBlock } == false)
         #expect(workout.estimatedDurationSeconds == TimeInterval(900 + 600))

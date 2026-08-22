@@ -51,6 +51,13 @@ struct PlanView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink {
+                        WorkoutLibraryView()
+                    } label: {
+                        Label("Workouts", systemImage: "square.grid.2x2")
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         isPresentingCalendar = true
                     } label: {

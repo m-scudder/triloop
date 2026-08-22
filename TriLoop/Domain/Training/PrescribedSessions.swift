@@ -5,7 +5,7 @@ import Foundation
 /// Single source of workout construction: the week-one seed and the weekly
 /// generator both come through here, so a progression can never drift from the
 /// shape of the workout it is progressing.
-enum WorkoutTemplates {
+enum PrescribedSessions {
 
     /// Builds whichever session a schedule slot calls for.
     static func session(

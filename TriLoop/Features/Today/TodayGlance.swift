@@ -46,7 +46,7 @@ enum TodayGlanceBuilder {
 
         let reported = training.filter(\.hasReport)
 
-        return [
+        var tiles = [
             GlanceTile(
                 slot: .sessions,
                 value: "\(reported.count) / \(training.count)",
@@ -56,10 +56,18 @@ enum TodayGlanceBuilder {
                 slot: .training,
                 value: TrainingFormatter.totalDuration(seconds: trainingSeconds(of: reported)),
                 label: "Training"
-            ),
-            recoveryTile(recovery) ?? intensityTile(sessions) ?? buildingTile,
-            adherenceTile(reported) ?? buildingTile
+            )
         ]
+
+        // Whichever adaptive tiles the evidence supports. Padding the grid with
+        // two identical "Building" tiles would say nothing twice.
+        let adaptive = [
+            recoveryTile(recovery) ?? intensityTile(sessions),
+            adherenceTile(reported)
+        ].compactMap { $0 }
+
+        tiles += adaptive.isEmpty ? [buildingTile] : adaptive
+        return tiles
     }
 
     // MARK: - Tiles

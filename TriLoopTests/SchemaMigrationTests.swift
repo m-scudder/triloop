@@ -29,12 +29,12 @@ struct SchemaMigrationTests {
             previous = version
         }
 
-        #expect(previous == TriLoopSchemaV4.versionIdentifier)
+        #expect(previous == TriLoopSchemaV5.versionIdentifier)
     }
 
     @Test("Every persisted model is part of the versioned schema")
     func versionedSchemaCoversEveryModel() {
-        let names = Set(TriLoopSchemaV4.models.map { String(describing: $0) })
+        let names = Set(TriLoopSchemaV5.models.map { String(describing: $0) })
 
         #expect(names == [
             "AthleteProfile",
@@ -43,17 +43,23 @@ struct SchemaMigrationTests {
             "WorkoutStep",
             "WorkoutFeedback",
             "ImportedWorkoutSummary",
-            "RecoveryCheckIn"
+            "RecoveryCheckIn",
+            "StoredWorkoutTemplate"
         ])
     }
 
-    @Test("The frozen version still describes the same set of models")
-    func frozenVersionCoversEveryModel() {
-        let frozen = Set(TriLoopSchemaV3.models.map { String(describing: $0) })
-        let current = Set(TriLoopSchemaV4.models.map { String(describing: $0) })
+    @Test("A frozen version keeps the entities it was written with")
+    func frozenVersionsAreStable() {
+        let v3 = Set(TriLoopSchemaV3.models.map { String(describing: $0) })
+        let v4 = Set(TriLoopSchemaV4.models.map { String(describing: $0) })
 
-        // A lightweight stage cannot add or drop an entity, only properties.
-        #expect(frozen == current)
+        // V3 to V4 added properties only, so the entities match.
+        #expect(v3 == v4)
+
+        // V4 to V5 adds one entity, which a lightweight stage does allow.
+        let v5 = Set(TriLoopSchemaV5.models.map { String(describing: $0) })
+        #expect(v5.subtracting(v4) == ["StoredWorkoutTemplate"])
+        #expect(v4.subtracting(v5).isEmpty)
     }
 
     @Test("A container opens against the versioned schema")
@@ -61,7 +67,7 @@ struct SchemaMigrationTests {
         let container = try TriLoopModelContainer.make(inMemory: true)
 
         #expect(container.migrationPlan != nil)
-        #expect(container.schema.version == TriLoopSchemaV4.versionIdentifier)
+        #expect(container.schema.version == TriLoopSchemaV5.versionIdentifier)
     }
 
     @Test("Metrics stored by an older build load once new fields are added")

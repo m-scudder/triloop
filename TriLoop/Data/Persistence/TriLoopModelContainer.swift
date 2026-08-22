@@ -3,9 +3,9 @@ import SwiftData
 
 enum TriLoopSchema {
     /// Always the newest version, so callers never have to track which is current.
-    static var models: [any PersistentModel.Type] { TriLoopSchemaV4.models }
+    static var models: [any PersistentModel.Type] { TriLoopSchemaV5.models }
 
-    static var current: Schema { Schema(versionedSchema: TriLoopSchemaV4.self) }
+    static var current: Schema { Schema(versionedSchema: TriLoopSchemaV5.self) }
 }
 
 enum StoreOutcome: Equatable, Sendable {

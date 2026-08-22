@@ -74,8 +74,8 @@ struct WeeklyPlanGenerator: Sendable {
             guard let sport = discipline.sport else {
                 workouts.append(
                     recoveryDays.contains(offset)
-                        ? WorkoutTemplates.recoveryDay(on: date, goal: recoveryGoal(for: recovering))
-                        : WorkoutTemplates.restDay(on: date)
+                        ? PrescribedSessions.recoveryDay(on: date, goal: recoveryGoal(for: recovering))
+                        : PrescribedSessions.restDay(on: date)
                 )
                 continue
             }
@@ -83,15 +83,15 @@ struct WeeklyPlanGenerator: Sendable {
             switch sport {
             case .running:
                 workouts.append(
-                    WorkoutTemplates.runWalk(on: date, parameters: parameters)
+                    PrescribedSessions.runWalk(on: date, parameters: parameters)
                 )
             case .swimming:
                 workouts.append(
-                    WorkoutTemplates.techniqueSwim(on: date, parameters: parameters)
+                    PrescribedSessions.techniqueSwim(on: date, parameters: parameters)
                 )
             case .cycling:
                 workouts.append(
-                    WorkoutTemplates.easyRide(on: date, parameters: parameters)
+                    PrescribedSessions.easyRide(on: date, parameters: parameters)
                 )
             }
         }
@@ -128,7 +128,7 @@ struct WeeklyPlanGenerator: Sendable {
     private func durations(from parameters: TrainingParameters) -> [Sport: TimeInterval] {
         let reference = Date.now
         return Sport.allCases.reduce(into: [:]) { totals, sport in
-            let prescribed = WorkoutTemplates
+            let prescribed = PrescribedSessions
                 .session(sport.discipline, on: reference, parameters: parameters)
                 .estimatedDurationSeconds ?? 0
             let stated = preferences.first { $0.sport == sport }?.typicalSeconds ?? 0

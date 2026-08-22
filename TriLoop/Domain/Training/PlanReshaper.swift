@@ -103,7 +103,7 @@ struct PlanReshaper: Sendable {
         let reference = Date.now
 
         return Sport.allCases.reduce(into: [:]) { totals, sport in
-            let prescribed = WorkoutTemplates
+            let prescribed = PrescribedSessions
                 .session(sport.discipline, on: reference, parameters: parameters)
                 .estimatedDurationSeconds ?? 0
             let stated = preferences.first { $0.sport == sport }?.typicalSeconds ?? 0

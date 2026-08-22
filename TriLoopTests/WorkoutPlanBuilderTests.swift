@@ -12,15 +12,15 @@ struct WorkoutPlanBuilderTests {
         let parameters = TrainingParameters()
         switch discipline {
         case .running:
-            return WorkoutTemplates.runWalk(on: .now, parameters: parameters)
+            return PrescribedSessions.runWalk(on: .now, parameters: parameters)
         case .swimming:
-            return WorkoutTemplates.techniqueSwim(on: .now, parameters: parameters)
+            return PrescribedSessions.techniqueSwim(on: .now, parameters: parameters)
         case .cycling:
-            return WorkoutTemplates.easyRide(on: .now, parameters: parameters)
+            return PrescribedSessions.easyRide(on: .now, parameters: parameters)
         case .recovery:
-            return WorkoutTemplates.recoveryDay(on: .now)
+            return PrescribedSessions.recoveryDay(on: .now)
         case .rest:
-            return WorkoutTemplates.restDay(on: .now)
+            return PrescribedSessions.restDay(on: .now)
         }
     }
 
@@ -114,7 +114,7 @@ struct ScheduleTimingTests {
 
     @Test("A future session is scheduled for the morning")
     func futureSessionUsesTheMorning() {
-        let workout = WorkoutTemplates.runWalk(
+        let workout = PrescribedSessions.runWalk(
             on: date(day: 18, hour: 0), parameters: TrainingParameters()
         )
 
@@ -128,7 +128,7 @@ struct ScheduleTimingTests {
     @Test("A session whose hour has passed is scheduled shortly from now")
     func pastHourMovesForward() {
         let now = date(day: 17, hour: 10)
-        let workout = WorkoutTemplates.runWalk(
+        let workout = PrescribedSessions.runWalk(
             on: date(day: 17, hour: 0), parameters: TrainingParameters()
         )
 
@@ -145,7 +145,7 @@ struct WorkoutSchedulingTests {
     @Test("An authorized scheduler records the session")
     func schedulingSucceeds() async throws {
         let scheduler = StubWorkoutScheduler()
-        let workout = WorkoutTemplates.runWalk(
+        let workout = PrescribedSessions.runWalk(
             on: .now, parameters: TrainingParameters()
         )
 
@@ -158,7 +158,7 @@ struct WorkoutSchedulingTests {
     @Test("A rest day cannot be scheduled")
     func restDayIsRejected() async {
         let scheduler = StubWorkoutScheduler()
-        let rest = WorkoutTemplates.restDay(on: .now)
+        let rest = PrescribedSessions.restDay(on: .now)
 
         await #expect(throws: WorkoutSchedulingError.unsupportedWorkout) {
             try await scheduler.schedule(rest, at: .now)
@@ -168,7 +168,7 @@ struct WorkoutSchedulingTests {
     @Test("Scheduling without a Watch fails clearly")
     func missingWatchIsReported() async {
         let scheduler = StubWorkoutScheduler(isSupported: false)
-        let workout = WorkoutTemplates.easyRide(on: .now, parameters: TrainingParameters())
+        let workout = PrescribedSessions.easyRide(on: .now, parameters: TrainingParameters())
 
         await #expect(throws: WorkoutSchedulingError.unavailable) {
             try await scheduler.schedule(workout, at: .now)

@@ -87,7 +87,7 @@ struct PlanStore {
                 context.delete(existing)
             }
 
-            let replacement = WorkoutTemplates.session(
+            let replacement = PrescribedSessions.session(
                 change.discipline,
                 on: change.date,
                 parameters: plan.parameters
@@ -133,7 +133,7 @@ struct PlanStore {
             let date = workout.date
             context.delete(workout)
 
-            let replacement = WorkoutTemplates.session(discipline, on: date, parameters: parameters)
+            let replacement = PrescribedSessions.session(discipline, on: date, parameters: parameters)
             replacement.plan = plan
             context.insert(replacement)
         }
@@ -200,7 +200,7 @@ struct PlanStore {
             outcome.moved += 1
         }
 
-        let recovery = WorkoutTemplates.recoveryDay(
+        let recovery = PrescribedSessions.recoveryDay(
             on: day,
             goal: "Rescheduled day. The rest of the week has moved on by one."
         )

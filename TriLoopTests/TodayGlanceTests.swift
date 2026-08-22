@@ -94,6 +94,19 @@ struct TodayGlanceTests {
         #expect(tile(tiles, .history)?.value == "Building")
     }
 
+    @Test("Nothing is ever said twice")
+    func tilesAreUnique() throws {
+        let context = ModelContext(try container())
+        let week = plan(sessions: 4, in: context)
+
+        // Nothing reported and nothing measured: the case that used to pad the
+        // grid with two identical tiles.
+        let tiles = TodayGlanceBuilder.tiles(plan: week, sessions: [])
+
+        #expect(Set(tiles.map(\.id)).count == tiles.count)
+        #expect(tiles.filter { $0.slot == .history }.count == 1)
+    }
+
     @Test("Adherence averages how much of each prescription was covered")
     func adherenceAverages() throws {
         let context = ModelContext(try container())
@@ -150,7 +163,9 @@ struct TodayGlanceTests {
         let tiles = TodayGlanceBuilder.tiles(plan: week, sessions: unmeasured)
 
         #expect(tile(tiles, .intensity) == nil)
-        #expect(tile(tiles, .history) != nil)
+        // Adherence still has something to say, so no placeholder is needed.
+        #expect(tile(tiles, .adherence) != nil)
+        #expect(tile(tiles, .history) == nil)
     }
 
     // MARK: - Recovery
@@ -206,14 +221,22 @@ struct TodayGlanceTests {
 
     // MARK: - Shape
 
-    @Test("There are always exactly four tiles once a week has sessions")
+    @Test("The fixed pair is always there, and never duplicated")
     func alwaysFour() throws {
         let context = ModelContext(try container())
         let week = plan(sessions: 5, in: context)
 
-        #expect(TodayGlanceBuilder.tiles(plan: week, sessions: []).count == 4)
+        let empty = TodayGlanceBuilder.tiles(plan: week, sessions: [])
+        #expect(tile(empty, .sessions) != nil)
+        #expect(tile(empty, .training) != nil)
+        #expect(Set(empty.map(\.id)).count == empty.count)
 
         week.orderedWorkouts.forEach(report)
-        #expect(TodayGlanceBuilder.tiles(plan: week, sessions: []).count == 4)
+        let measured = TodayGlanceBuilder.tiles(
+            plan: week,
+            sessions: [LoadedSession(date: monday, sport: .running, durationSeconds: 1_800, intensity: .easy)]
+        )
+        #expect(measured.count == 4)
+        #expect(Set(measured.map(\.id)).count == measured.count)
     }
 }
