@@ -11,13 +11,27 @@ struct PlanView: View {
     @State private var selection: Date = .now
     @State private var isPresentingCalendar = false
     @State private var hasChosenOpeningDay = false
+    /// Which session is shown when a day holds more than one.
+    @State private var focused: UUID?
 
     private var allWorkouts: [PlannedWorkout] {
         plans.flatMap(\.orderedWorkouts).sorted { $0.date < $1.date }
     }
 
+    private var workoutsOnSelectedDay: [PlannedWorkout] {
+        allWorkouts.filter { Calendar.current.isDate($0.date, inSameDayAs: selection) }
+    }
+
     private var selectedWorkout: PlannedWorkout? {
-        allWorkouts.first { Calendar.current.isDate($0.date, inSameDayAs: selection) }
+        let onTheDay = workoutsOnSelectedDay
+        return onTheDay.first { $0.id == focused } ?? onTheDay.first
+    }
+
+    private var sessionBinding: Binding<UUID?> {
+        Binding(
+            get: { selectedWorkout?.id },
+            set: { focused = $0 }
+        )
     }
 
     var body: some View {
@@ -35,8 +49,20 @@ struct PlanView: View {
 
                         Divider()
 
+                        if workoutsOnSelectedDay.count > 1 {
+                            Picker("Session", selection: sessionBinding) {
+                                ForEach(workoutsOnSelectedDay) { workout in
+                                    Text(workout.title).tag(workout.id)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                        }
+
                         if let workout = selectedWorkout {
                             WorkoutDayDetail(workout: workout)
+                                .id(workout.id)
                         } else {
                             ContentUnavailableView(
                                 "Nothing planned",

@@ -6,6 +6,7 @@ import SwiftUI
 /// §10.2: reusable training the athlete can reach for, separate from the week
 /// the engine decided.
 struct WorkoutLibraryView: View {
+    @Environment(\.modelContext) private var modelContext
     @Query(sort: \StoredWorkoutTemplate.updatedAt, order: .reverse) private var stored: [StoredWorkoutTemplate]
     @State private var sport: Sport = .running
 
@@ -25,6 +26,13 @@ struct WorkoutLibraryView: View {
                 Section("My Workouts") {
                     ForEach(mine) { template in
                         row(template)
+                            .swipeActions(edge: .trailing) {
+                                Button("Delete", role: .destructive) { delete(template) }
+                            }
+                            .contextMenu {
+                                Button("Duplicate") { duplicate(template) }
+                                Button("Delete", role: .destructive) { delete(template) }
+                            }
                     }
                 }
             }
@@ -37,10 +45,41 @@ struct WorkoutLibraryView: View {
         }
         .navigationTitle("Workouts")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                NavigationLink {
+                    WorkoutBuilderView(draft: WorkoutDraft(sport: sport))
+                } label: {
+                    Label("Create workout", systemImage: "plus")
+                }
+            }
+        }
     }
 
     private var mine: [WorkoutTemplate] {
         stored.map(\.template).filter { $0.sport == sport }
+    }
+
+    /// §10.3.16: removing a template never touches the training it produced,
+    /// because a planned workout holds its own resolved prescription.
+    private func delete(_ template: WorkoutTemplate) {
+        guard let row = stored.first(where: { $0.id == template.id }) else { return }
+        modelContext.delete(row)
+        try? modelContext.save()
+    }
+
+    /// A new identity, so editing the copy leaves the original alone.
+    private func duplicate(_ template: WorkoutTemplate) {
+        let copy = WorkoutTemplate(
+            sport: template.sport,
+            name: "\(template.name) copy",
+            category: template.category,
+            purpose: template.purpose,
+            structure: template.structure,
+            targetRPE: template.targetRPE
+        )
+        modelContext.insert(StoredWorkoutTemplate(copy))
+        try? modelContext.save()
     }
 
     private func row(_ template: WorkoutTemplate) -> some View {
@@ -123,6 +162,20 @@ struct WorkoutTemplateDetailView: View {
                 Button("Add to Plan") { isAddingToPlan = true }
                     .buttonStyle(PrimaryActionButtonStyle())
                     .disabled(plans.currentPlan() == nil)
+
+                NavigationLink {
+                    // §10.3.14: a built-in is cloned, never edited in place.
+                    WorkoutBuilderView(
+                        draft: template.source.isEditable
+                            ? WorkoutDraft(editing: template)
+                            : WorkoutDraft(customising: template),
+                        isNew: !template.source.isEditable
+                    )
+                } label: {
+                    Text(template.source.isEditable ? "Edit" : "Customise")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(SecondaryActionButtonStyle())
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 32)

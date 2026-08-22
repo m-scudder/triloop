@@ -6,6 +6,50 @@ import WorkoutKit
 ///
 /// `WorkoutKit.WorkoutStep` is qualified throughout: TriLoop has its own
 /// `WorkoutStep` model, and inside this module the local type wins.
+/// Whether a workout can be sent to Apple Watch, and why not when it cannot.
+///
+/// §10.3.18: the builder must not offer to send something the adapter would
+/// quietly drop.
+enum WorkoutKitCompatibility: Equatable, Sendable {
+    case supported
+    case unsupported(reason: String)
+
+    var isSupported: Bool { self == .supported }
+
+    var reason: String? {
+        switch self {
+        case .supported: nil
+        case .unsupported(let reason): reason
+        }
+    }
+}
+
+extension WorkoutPlanBuilder {
+    /// Answered by running the real conversion, so the check cannot disagree
+    /// with what sending would actually do.
+    static func compatibility(for template: WorkoutTemplate) -> WorkoutKitCompatibility {
+        guard CustomWorkout.supportsActivity(template.sport.workoutActivityType) else {
+            return .unsupported(
+                reason: "Apple Watch does not support custom \(template.sport.displayName.lowercased()) workouts."
+            )
+        }
+
+        let workout = PlannedWorkout(
+            date: .now,
+            discipline: template.sport.discipline,
+            title: template.name,
+            steps: template.structure.makeSteps()
+        )
+
+        guard customWorkout(for: workout) != nil else {
+            return .unsupported(
+                reason: "This workout has no step Apple Watch can follow."
+            )
+        }
+        return .supported
+    }
+}
+
 enum WorkoutPlanBuilder {
 
     static func plan(for workout: PlannedWorkout) -> WorkoutPlan? {
