@@ -86,6 +86,72 @@ struct WeekSchedulerTests {
         #expect(stub.scheduled.isEmpty)
     }
 
+    // MARK: - Clearing spent sessions
+
+    @Test("A session reported on is taken back off the Watch")
+    func reportedSessionsAreRemoved() async throws {
+        let stub = StubWorkoutScheduler()
+        let plan = plan()
+        let scheduler = weekScheduler(stub)
+
+        _ = await scheduler.scheduleWeek(plan, now: date(day: 17))
+        #expect(stub.scheduled.count == 6)
+
+        let run = try #require(plan.trainingSessions.first { $0.discipline == .running })
+        run.recordCompletion(with: FeedbackDraft(rpe: 3))
+
+        let outcome = await scheduler.scheduleWeek(plan, now: date(day: 17))
+
+        #expect(outcome.removed == 1)
+        #expect(stub.scheduled.count == 5)
+        #expect(!stub.scheduled.contains { $0.workoutID == run.id })
+    }
+
+    @Test("Days that have gone are cleared rather than left to pile up")
+    func pastSessionsAreRemoved() async {
+        let stub = StubWorkoutScheduler()
+        let plan = plan()
+        let scheduler = weekScheduler(stub)
+
+        _ = await scheduler.scheduleWeek(plan, now: date(day: 17))
+        let friday = await scheduler.scheduleWeek(plan, now: date(day: 21))
+
+        #expect(friday.removed == 4)
+        #expect(friday.alreadyScheduled == 2)
+        #expect(stub.scheduled.count == 2)
+    }
+
+    @Test("A leftover from a regenerated week does not linger")
+    func staleEntriesAreRemoved() async {
+        let stub = StubWorkoutScheduler()
+        let scheduler = weekScheduler(stub)
+
+        _ = await scheduler.scheduleWeek(plan(), now: date(day: 17))
+        // Regenerating produces the same shape with different identifiers.
+        let outcome = await scheduler.scheduleWeek(plan(), now: date(day: 17))
+
+        #expect(outcome.removed == 6)
+        #expect(outcome.added == 6)
+        #expect(stub.scheduled.count == 6)
+    }
+
+    @Test("A skipped session is not left waiting on the Watch")
+    func skippedSessionsAreRemoved() async throws {
+        let stub = StubWorkoutScheduler()
+        let plan = plan()
+        let scheduler = weekScheduler(stub)
+
+        _ = await scheduler.scheduleWeek(plan, now: date(day: 17))
+
+        let swim = try #require(plan.trainingSessions.first { $0.discipline == .swimming })
+        swim.skip()
+
+        let outcome = await scheduler.scheduleWeek(plan, now: date(day: 17))
+
+        #expect(outcome.removed == 1)
+        #expect(!stub.scheduled.contains { $0.workoutID == swim.id })
+    }
+
     @Test("A denied permission is reported as failure, not success")
     func deniedPermissionFails() async {
         let stub = StubWorkoutScheduler(state: .denied)

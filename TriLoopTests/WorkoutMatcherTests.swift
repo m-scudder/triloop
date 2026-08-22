@@ -54,7 +54,8 @@ struct WorkoutMatcherTests {
         let plan = plan()
         let result = matcher().match(
             planned: plan.orderedWorkouts,
-            with: [activity(.running, at: day(0))]
+            with: [activity(.running, at: day(0))],
+            asOf: day(7)
         )
 
         #expect(result.matches.count == 1)
@@ -68,7 +69,8 @@ struct WorkoutMatcherTests {
         let plan = plan()
         let result = matcher().match(
             planned: plan.orderedWorkouts,
-            with: [activity(.cycling, at: day(0))]
+            with: [activity(.cycling, at: day(0))],
+            asOf: day(7)
         )
 
         #expect(result.matches.isEmpty)
@@ -80,7 +82,8 @@ struct WorkoutMatcherTests {
         let plan = plan()
         let result = matcher().match(
             planned: plan.orderedWorkouts,
-            with: [activity(.running, at: day(2))]
+            with: [activity(.running, at: day(2))],
+            asOf: day(7)
         )
 
         #expect(result.matches.allSatisfy { $0.planned.discipline.isTrainingSession })
@@ -95,7 +98,8 @@ struct WorkoutMatcherTests {
             with: [
                 activity(.running, at: day(0, hour: 7)),
                 activity(.running, at: day(0, hour: 18))
-            ]
+            ],
+            asOf: day(7)
         )
 
         #expect(result.matches.count == 1)
@@ -108,7 +112,8 @@ struct WorkoutMatcherTests {
         let plan = plan()
         let result = matcher().match(
             planned: plan.orderedWorkouts,
-            with: [activity(.swimming, at: day(2))]
+            with: [activity(.swimming, at: day(2))],
+            asOf: day(7)
         )
 
         #expect(result.matches.count == 1)
@@ -120,11 +125,39 @@ struct WorkoutMatcherTests {
         let plan = plan()
         let result = matcher(toleranceDays: 0).match(
             planned: plan.orderedWorkouts,
-            with: [activity(.swimming, at: day(2))]
+            with: [activity(.swimming, at: day(2))],
+            asOf: day(7)
         )
 
         #expect(result.matches.isEmpty)
         #expect(result.unmatchedImported.count == 1)
+    }
+
+    @Test("An activity cannot complete a session whose day has not arrived")
+    func futureSessionsAreNotMatched() {
+        let plan = plan()
+        // Cycling is planned for day 5; the athlete rides on day 4.
+        let result = matcher().match(
+            planned: plan.orderedWorkouts,
+            with: [activity(.cycling, at: day(4), duration: 1800)],
+            asOf: day(4, hour: 12)
+        )
+
+        #expect(result.matches.isEmpty)
+        #expect(result.unmatchedImported.count == 1)
+    }
+
+    @Test("The same activity counts once that day has arrived")
+    func yesterdaysActivityMatchesOnTheDay() {
+        let plan = plan()
+        let result = matcher().match(
+            planned: plan.orderedWorkouts,
+            with: [activity(.cycling, at: day(4), duration: 1800)],
+            asOf: day(5, hour: 12)
+        )
+
+        #expect(result.matches.count == 1)
+        #expect(result.matches.first?.dayOffset == -1)
     }
 
     @Test("A full week of training matches every session")
@@ -139,7 +172,8 @@ struct WorkoutMatcherTests {
                 activity(.running, at: day(3)),
                 activity(.swimming, at: day(4), distance: 300),
                 activity(.cycling, at: day(5), duration: 1800)
-            ]
+            ],
+            asOf: day(7)
         )
 
         #expect(result.matches.count == 6)

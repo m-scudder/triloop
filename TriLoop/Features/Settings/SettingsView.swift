@@ -13,7 +13,7 @@ struct SettingsView: View {
     @State private var scheduledWorkouts: [ScheduledWorkoutSummary] = []
     @State private var watchAuthorization: WorkoutSchedulingAuthorization = .notDetermined
     @State private var permissionMessage: String?
-    @AppStorage("automaticallyScheduleWorkouts") private var automaticallySchedule = false
+    @AppStorage("automaticallyScheduleWorkouts") private var automaticallySchedule = true
     @AppStorage("automaticallyImportWorkouts") private var automaticallyImport = true
     @Environment(\.healthProvider) private var health
     private let scheduler = WorkoutKitScheduler()
@@ -50,7 +50,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Workouts")
                 } footer: {
-                    Text("Automatic import links a session as soon as Apple Health records it, and checks again each time you open TriLoop.")
+                    Text("Automatic import links a session as soon as Apple Health records it, and checks again each time you open TriLoop. Sending keeps the days you have left on your Watch, and clears the ones you have finished.")
                 }
 
                 if let profile = profiles.first {

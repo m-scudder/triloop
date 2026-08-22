@@ -57,6 +57,15 @@ struct WorkoutKitScheduler: WorkoutScheduling {
         }
     }
 
+    func removeScheduled(ids: Set<UUID>) async {
+        // Removal needs the original plan and date, so the entries are matched
+        // from the schedule itself rather than rebuilt.
+        for entry in await WorkoutScheduler.shared.scheduledWorkouts
+        where ids.contains(entry.plan.id) {
+            await WorkoutScheduler.shared.remove(entry.plan, at: entry.date)
+        }
+    }
+
     private static func displayName(of plan: WorkoutPlan) -> String? {
         if case .custom(let custom) = plan.workout {
             return custom.displayName

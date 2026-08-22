@@ -33,6 +33,9 @@ protocol WorkoutScheduling: Sendable {
     func requestAuthorization() async -> WorkoutSchedulingAuthorization
     func schedule(_ workout: PlannedWorkout, at date: Date) async throws
     func scheduledWorkouts() async -> [ScheduledWorkoutSummary]
+    /// Takes sessions off the Watch again. Without this the athlete's workout
+    /// list only ever grows.
+    func removeScheduled(ids: Set<UUID>) async
 }
 
 extension WorkoutScheduling {
@@ -77,5 +80,9 @@ final class StubWorkoutScheduler: WorkoutScheduling, @unchecked Sendable {
                 isComplete: false
             )
         }
+    }
+
+    func removeScheduled(ids: Set<UUID>) async {
+        scheduled.removeAll { ids.contains($0.workoutID) }
     }
 }

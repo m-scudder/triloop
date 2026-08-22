@@ -25,8 +25,13 @@ struct WorkoutMatcher: Sendable {
     /// covers the common case of training after midnight or a day slipping.
     var toleranceDays: Int = 1
 
-    func match(planned: [PlannedWorkout], with imported: [ImportedWorkout]) -> MatchResult {
+    func match(
+        planned: [PlannedWorkout],
+        with imported: [ImportedWorkout],
+        asOf now: Date = .now
+    ) -> MatchResult {
         let sessions = planned.filter { $0.discipline.isTrainingSession }
+        let today = calendar.startOfDay(for: now)
 
         struct Candidate {
             let plannedIndex: Int
@@ -40,6 +45,11 @@ struct WorkoutMatcher: Sendable {
         for (plannedIndex, session) in sessions.enumerated() {
             guard let sport = session.discipline.sport else { continue }
             let plannedDay = calendar.startOfDay(for: session.date)
+
+            // A session cannot be done before its day arrives. Without this the
+            // tolerance window reaches forward, and today's ride marks
+            // tomorrow's ride complete before the athlete has done it.
+            guard plannedDay <= today else { continue }
 
             for (importedIndex, activity) in imported.enumerated() where activity.sport == sport {
                 let activityDay = calendar.startOfDay(for: activity.startDate)

@@ -28,6 +28,13 @@ struct ScheduledWorkoutsView: View {
                         Text(entry.date?.formatted(date: .abbreviated, time: .shortened) ?? "No date")
                             .font(.caption)
                             .foregroundStyle(.secondary)
+                        // Drives Today's "finished, waiting to sync" state.
+                        Text(entry.isComplete ? "Marked complete by the Watch" : "Not yet complete")
+                            .font(.caption2)
+                            .foregroundStyle(entry.isComplete ? .green : .secondary)
+                        Text(entry.id.uuidString)
+                            .font(.caption2.monospaced())
+                            .foregroundStyle(.tertiary)
                     }
                 }
             }

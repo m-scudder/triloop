@@ -51,11 +51,17 @@ enum WorkoutPlanBuilder {
         return CustomWorkout(
             activity: activity,
             location: sport.workoutLocation,
-            displayName: workout.title,
+            displayName: displayName(for: workout),
             warmup: warmup,
             blocks: blocks,
             cooldown: cooldown
         )
+    }
+
+    /// Marked so the athlete can pick TriLoop's session out of a Watch list
+    /// that also holds Apple's built-in workouts and any other app's.
+    private static func displayName(for workout: PlannedWorkout) -> String {
+        "TriLoop · \(workout.title)"
     }
 
     private static func convert(_ step: WorkoutStep) -> WorkoutKit.WorkoutStep {

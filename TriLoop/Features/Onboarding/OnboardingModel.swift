@@ -169,12 +169,23 @@ final class OnboardingModel {
 
     private(set) var startChoice: StartChoice = .now
 
-    /// Offered only when starting today leaves enough of the week to be worth
-    /// planning. Late in the week there is nothing meaningful to fit.
+    /// Offered while the athlete still has a day they can train on this week.
+    ///
+    /// Counted from their own availability rather than from the calendar: an
+    /// athlete who rests at weekends has Friday as their last training day, and
+    /// that is exactly the day a weekday-number rule would throw away.
+    static func hasTrainingDayLeft(
+        in schedule: AthleteSchedule,
+        on date: Date,
+        calendar: Calendar = .current
+    ) -> Bool {
+        guard let today = Weekday(date: date, calendar: calendar) else { return false }
+        return schedule.availableDays.contains { $0.weekday >= today }
+    }
+
     var canStartNow: Bool {
         guard latestPlan() == nil else { return false }
-        let weekday = Weekday(date: .now, calendar: calendar) ?? .monday
-        return weekday.offsetFromMonday <= 3
+        return Self.hasTrainingDayLeft(in: setup.schedule, on: .now, calendar: calendar)
     }
 
     func choose(start: StartChoice) {

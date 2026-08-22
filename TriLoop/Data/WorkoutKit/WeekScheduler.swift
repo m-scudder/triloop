@@ -15,25 +15,41 @@ struct WeekScheduler {
         var added: Int = 0
         var alreadyScheduled: Int = 0
         var failed: Int = 0
+        var removed: Int = 0
 
-        var changedAnything: Bool { added > 0 }
+        var changedAnything: Bool { added > 0 || removed > 0 }
     }
 
     func scheduleWeek(_ plan: WeeklyPlan, now: Date = .now) async -> Outcome {
         guard scheduler.isSupported else { return Outcome() }
 
         let today = calendar.startOfDay(for: now)
-        let existing = await scheduler.scheduledWorkoutIDs()
         var outcome = Outcome()
 
-        // WorkoutKit caps how many workouts can be queued at once.
-        var remaining = max(WorkoutScheduler.maxAllowedScheduledWorkoutCount - existing.count, 0)
-
-        for workout in plan.trainingSessions {
+        let wanted = plan.trainingSessions.filter {
             // Nothing is gained by queuing a session whose day has gone, or one
-            // already reported on.
-            guard calendar.startOfDay(for: workout.date) >= today, !workout.isCompleted else { continue }
+            // already dealt with.
+            calendar.startOfDay(for: $0.date) >= today && !$0.isCompleted && !$0.isSkipped
+        }
 
+        // Anything else the Watch is still holding is spent: yesterday's
+        // session, one already reported, or a leftover from a week that has
+        // since been regenerated. Left alone it accumulates until the athlete
+        // cannot find today's workout.
+        let existing = await scheduler.scheduledWorkoutIDs()
+        let stale = existing.subtracting(wanted.map(\.id))
+        if !stale.isEmpty {
+            await scheduler.removeScheduled(ids: stale)
+            outcome.removed = stale.count
+        }
+
+        // WorkoutKit caps how many workouts can be queued at once.
+        var remaining = max(
+            WorkoutScheduler.maxAllowedScheduledWorkoutCount - (existing.count - stale.count),
+            0
+        )
+
+        for workout in wanted {
             if existing.contains(workout.id) {
                 outcome.alreadyScheduled += 1
                 continue

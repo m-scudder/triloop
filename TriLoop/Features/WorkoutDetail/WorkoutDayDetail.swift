@@ -443,7 +443,10 @@ struct WorkoutDayDetail: View {
             do {
                 try await scheduler.schedule(workout, at: when)
                 isScheduled = true
-                scheduleMessage = "Scheduled for \(when.formatted(date: .abbreviated, time: .shortened)). Open the Workout app on your Watch to start it."
+                // The scheduled hour is an artefact of WorkoutKit needing a
+                // wall-clock time; TriLoop prescribes the day, so it is not
+                // shown to the athlete as though it were a commitment.
+                scheduleMessage = "Ready in the Workout app on your Watch. Start it whenever you train today."
             } catch WorkoutSchedulingError.notAuthorized {
                 scheduleMessage = "TriLoop needs permission to add workouts to your Watch."
             } catch WorkoutSchedulingError.unavailable {

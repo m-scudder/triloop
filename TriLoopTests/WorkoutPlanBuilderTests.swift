@@ -29,7 +29,8 @@ struct WorkoutPlanBuilderTests {
         let workout = try #require(WorkoutPlanBuilder.customWorkout(for: session(.running)))
 
         #expect(workout.activity == .running)
-        #expect(workout.displayName == "Running")
+        // Marked so it can be picked out of the Watch's own workout list.
+        #expect(workout.displayName == "TriLoop · Running")
         #expect(workout.warmup?.goal == .time(300, .seconds))
         #expect(workout.cooldown?.goal == .time(300, .seconds))
 
