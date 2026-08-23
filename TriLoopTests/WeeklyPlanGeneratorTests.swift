@@ -264,3 +264,103 @@ struct WeeklyPlanGeneratorTests {
         #expect(plans.currentPlan(on: beforeStart, calendar: calendar)?.weekNumber == 1)
     }
 }
+
+/// A week cut short must not become the athlete's new normal.
+@Suite("Frequency recovery")
+@MainActor
+struct TrainingFrequencyRecoveryTests {
+
+    private var calendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC") ?? .gmt
+        return calendar
+    }
+
+    private func monday() -> Date {
+        calendar.date(from: DateComponents(year: 2026, month: 8, day: 17)) ?? .now
+    }
+
+    private func day(_ offset: Int) -> Date {
+        calendar.date(byAdding: .day, value: offset, to: monday()) ?? monday()
+    }
+
+    private let asked: [SportPreference] = [
+        SportPreference(sport: .running, sessionsPerWeek: 3),
+        SportPreference(sport: .swimming, sessionsPerWeek: 2)
+    ]
+
+    /// A first week that began on the Friday: one run, and the rest of the week
+    /// already gone.
+    private func partialWeek() -> WeeklyPlan {
+        let plan = WeeklyPlan(
+            weekNumber: 1,
+            startDate: monday(),
+            endDate: day(6),
+            parameters: TrainingParameters()
+        )
+
+        for offset in 0..<7 {
+            let discipline: Discipline = offset == 4 ? .running : .rest
+            plan.workouts.append(
+                PrescribedSessions.session(discipline, on: day(offset), parameters: plan.parameters)
+            )
+        }
+        return plan
+    }
+
+    private func generator(days: AthleteSchedule = .everyDay()) -> WeeklyPlanGenerator {
+        WeeklyPlanGenerator(schedule: days, preferences: asked, calendar: calendar)
+    }
+
+    private func sessions(_ plan: WeeklyPlan, _ sport: Sport) -> Int {
+        plan.trainingSessions.count { $0.discipline.sport == sport }
+    }
+
+    @Test("A short first week does not cap the weeks that follow")
+    func frequencyRecovers() {
+        let week1 = partialWeek()
+        for workout in week1.trainingSessions {
+            workout.recordCompletion(with: FeedbackDraft(rpe: 3, painScore: 0))
+        }
+
+        let week2 = generator().generate(after: week1, analysis: WeeklyAnalyser().analyse(week1))
+
+        #expect(sessions(week2, .running) == 3)
+        #expect(sessions(week2, .swimming) == 2)
+    }
+
+    @Test("Availability still caps what can be asked for")
+    func availabilityStillCaps() {
+        let twoDays = AthleteSchedule(
+            days: Weekday.trainingWeek.map {
+                TrainingAvailability(weekday: $0, isAvailable: $0 == .monday || $0 == .thursday)
+            }
+        )
+
+        let week2 = generator(days: twoDays)
+            .generate(after: partialWeek(), analysis: WeeklyAnalyser().analyse(partialWeek()))
+
+        #expect(week2.trainingSessions.count <= 2)
+    }
+
+    @Test("Doing more than asked for is not undone")
+    func extraVolumeIsKept() {
+        let plan = WeeklyPlan(
+            weekNumber: 2,
+            startDate: monday(),
+            endDate: day(6),
+            parameters: TrainingParameters()
+        )
+        // Four runs, one more than the athlete said they wanted.
+        for offset in 0..<7 {
+            let discipline: Discipline = offset < 4 ? .running : .rest
+            plan.workouts.append(
+                PrescribedSessions.session(discipline, on: day(offset), parameters: plan.parameters)
+            )
+        }
+
+        let next = generator().generate(after: plan, analysis: WeeklyAnalyser().analyse(plan))
+
+        #expect(sessions(next, .running) == 4)
+    }
+}

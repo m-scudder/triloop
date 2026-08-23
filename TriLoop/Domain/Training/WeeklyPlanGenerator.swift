@@ -37,16 +37,18 @@ struct WeeklyPlanGenerator: Sendable {
                 .map(\.sport)
         )
 
-        // Frequency carries forward from what the athlete was already doing, so
+        // Frequency follows what the athlete asked for, with what they were
+        // already doing as the floor's companion rather than its ceiling: a week
+        // cut short by a mid-week start, or by sessions that would not fit,
+        // is not evidence they wanted less. Availability still caps it below, so
         // availability changes the placement of sessions and never their number.
         let days = schedule.availableDays.count
         let frequencies = Sport.allCases.compactMap { sport -> SportFrequency? in
             guard !recovering.contains(sport) else { return nil }
 
             let carried = plan.trainingSessions.filter { $0.discipline.sport == sport }.count
-            let intended = carried > 0
-                ? carried
-                : preferences.first { $0.sport == sport }?.sessionsPerWeek ?? 0
+            let preferred = preferences.first { $0.sport == sport }?.sessionsPerWeek ?? 0
+            let intended = max(carried, preferred)
 
             guard intended > 0, days > 0 else { return nil }
             return SportFrequency(sport: sport, sessions: min(intended, days))
