@@ -36,6 +36,9 @@ protocol WorkoutScheduling: Sendable {
     /// Takes sessions off the Watch again. Without this the athlete's workout
     /// list only ever grows.
     func removeScheduled(ids: Set<UUID>) async
+    /// Empties the schedule entirely. Diagnostic: it is the only way to tell a
+    /// stale entry apart from one that was just written.
+    func removeAllScheduled() async
 }
 
 extension WorkoutScheduling {
@@ -84,5 +87,9 @@ final class StubWorkoutScheduler: WorkoutScheduling, @unchecked Sendable {
 
     func removeScheduled(ids: Set<UUID>) async {
         scheduled.removeAll { ids.contains($0.workoutID) }
+    }
+
+    func removeAllScheduled() async {
+        scheduled.removeAll()
     }
 }

@@ -102,10 +102,11 @@ enum WorkoutPlanBuilder {
         )
     }
 
-    /// Marked so the athlete can pick TriLoop's session out of a Watch list
-    /// that also holds Apple's built-in workouts and any other app's.
+    /// Plain, and deliberately so: a decorated name stopped workouts appearing
+    /// in the Watch's Workout app, so this stays as the session's own title
+    /// until that is understood.
     private static func displayName(for workout: PlannedWorkout) -> String {
-        "TriLoop · \(workout.title)"
+        workout.title
     }
 
     private static func convert(_ step: WorkoutStep) -> WorkoutKit.WorkoutStep {

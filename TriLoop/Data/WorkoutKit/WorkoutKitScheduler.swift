@@ -66,6 +66,10 @@ struct WorkoutKitScheduler: WorkoutScheduling {
         }
     }
 
+    func removeAllScheduled() async {
+        await WorkoutScheduler.shared.removeAllWorkouts()
+    }
+
     private static func displayName(of plan: WorkoutPlan) -> String? {
         if case .custom(let custom) = plan.workout {
             return custom.displayName

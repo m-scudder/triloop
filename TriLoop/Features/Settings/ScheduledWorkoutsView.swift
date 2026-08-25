@@ -9,11 +9,14 @@ struct ScheduledWorkoutsView: View {
     let entries: [ScheduledWorkoutSummary]
     let refresh: () async -> Void
 
+    private let scheduler = WorkoutKitScheduler()
+
     var body: some View {
         List {
             Section("Status") {
                 LabeledContent("Scheduling", value: isSupported ? "Supported" : "Unavailable")
                 LabeledContent("Authorization", value: "\(authorization)")
+                LabeledContent("Scheduled", value: "\(entries.count)")
             }
 
             Section("Scheduled") {
@@ -43,6 +46,16 @@ struct ScheduledWorkoutsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .refreshable { await refresh() }
         .task { await refresh() }
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Clear all", role: .destructive) {
+                    Task {
+                        await scheduler.removeAllScheduled()
+                        await refresh()
+                    }
+                }
+                .disabled(entries.isEmpty)
+            }
+        }
     }
-}
-#endif
+}#endif
