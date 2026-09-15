@@ -51,10 +51,20 @@ struct NextWeekPreviewView: View {
                     }
                 }
 
-                if !plan.generationReason.isEmpty {
-                    Text(plan.generationReason)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                ForEach(WeeklyAnalyser().analyse(previousWeek).sports) { sport in
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Text(sport.sport.displayName)
+                            Spacer()
+                            StatusPill(status: sport.status)
+                        }
+                        Text(DecisionExplanation.change(for: sport, parameters: previousWeek.parameters))
+                            .font(.subheadline)
+                        ForEach(Array(sport.reasons.filter(\.isSafetyCritical).enumerated()), id: \.offset) { _, reason in
+                            Text(reason.summary).font(.footnote)
+                        }
+                        WhyButton(explanation: .weekly(sport, parameters: previousWeek.parameters))
+                    }
                 }
 
                 Button {
@@ -65,10 +75,6 @@ struct NextWeekPreviewView: View {
                 .buttonStyle(PrimaryActionButtonStyle())
                 .disabled(generated)
 
-                Text("You can review and regenerate anytime.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .center)
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 24)

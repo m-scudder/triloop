@@ -31,6 +31,162 @@ struct WeeklyAnalysisTests {
         #expect(analysis.sports.map(\.sport) == [.running, .swimming, .cycling])
     }
 
+    @Test("Manual-only positive reports cannot progress prescribed parameters", arguments: [WorkoutOrigin.custom, .library, .imported])
+    func manualPositiveReportsHold(origin: WorkoutOrigin) throws {
+        let plan = seedPlan()
+        for workout in plan.trainingSessions {
+            workout.origin = origin
+        }
+        completeEverything(plan, with: FeedbackDraft(rpe: 3, painScore: 0, recoveryFeeling: .good))
+
+        let analysis = analyser.analyse(plan)
+
+        #expect(analysis.plannedSessions == 0)
+        #expect(analysis.completedSessions == 0)
+        #expect(analysis.isReadyForNextWeek)
+        #expect(analysis.sports.allSatisfy { $0.status == .maintain && $0.adjustment == .hold })
+        #expect(try #require(analysis.analysis(for: .running)).totalDurationSeconds > 0)
+    }
+
+    @Test("Manual safety feedback still constrains its sport", arguments: [WorkoutOrigin.custom, .library, .imported])
+    func manualSafetyOverrides(origin: WorkoutOrigin) throws {
+        let plan = seedPlan()
+        completeEverything(plan, with: FeedbackDraft(rpe: 3, painScore: 0, recoveryFeeling: .good))
+        let manual = PlannedWorkout(
+            date: plan.startDate,
+            discipline: .running,
+            title: "Additional run",
+            prescribedDurationSeconds: 1_800,
+            origin: origin
+        )
+        plan.workouts.append(manual)
+        manual.recordCompletion(with: FeedbackDraft(rpe: 3, painScore: 2))
+
+        let held = analyser.analyse(plan)
+        #expect(held.completedSessions == 6)
+        #expect(held.plannedSessions == 6)
+        #expect(held.analysis(for: .running)?.status == .maintain)
+        #expect(held.analysis(for: .running)?.reasons.contains(.painReported(score: 2)) == true)
+        #expect(held.analysis(for: .cycling)?.status == .progress)
+
+        manual.recordCompletion(with: FeedbackDraft(rpe: 8, painScore: 5))
+        #expect(analyser.analyse(plan).analysis(for: .running)?.status == .reduce)
+
+        manual.recordRecoveryCheckIn(painScore: 8, soreness: .mild, energy: .normal)
+        let recovery = try #require(analyser.analyse(plan).analysis(for: .running))
+        #expect(recovery.status == .recoveryRequired)
+        #expect(recovery.reasons.contains(.nextDayPain(score: 8)))
+    }
+
+    @Test("Three generated reports out of five stay three out of five with manual additions", arguments: [WorkoutOrigin.custom, .library, .imported])
+    func mixedWeekCounts(origin: WorkoutOrigin) throws {
+        let workouts = (0..<7).map { offset in
+            PlannedWorkout(
+                date: Date(timeIntervalSince1970: 1_760_000_000 + Double(offset) * 86_400),
+                discipline: .running,
+                title: "Run",
+                prescribedDurationSeconds: 1_800,
+                origin: offset < 5 ? .generated : origin
+            )
+        }
+        let plan = WeeklyPlan(
+            weekNumber: 1,
+            startDate: workouts[0].date,
+            endDate: workouts[6].date,
+            workouts: workouts
+        )
+        for workout in Array(workouts.prefix(3)) + Array(workouts.suffix(2)) {
+            workout.recordCompletion(with: FeedbackDraft())
+        }
+        workouts[3].skip()
+
+        let analysis = analyser.analyse(plan)
+        let running = try #require(analysis.analysis(for: .running))
+
+        #expect(analysis.plannedSessions == 5)
+        #expect(analysis.completedSessions == 3)
+        #expect(analysis.skippedSessions == 1)
+        #expect(!analysis.isReadyForNextWeek)
+        #expect(running.plannedSessions == 5)
+        #expect(running.completedSessions == 3)
+        #expect(running.reasons.contains(.sessionsMissed(count: 2)))
+        #expect(running.status == .maintain)
+        #expect(running.totalDurationSeconds == 9_000)
+        #expect(running.averageRPE == 3)
+    }
+
+    @Test("Unreported or skipped manual additions do not hold a finished generated week open", arguments: [WorkoutOrigin.custom, .library, .imported])
+    func manualResolutionDoesNotAffectReadiness(origin: WorkoutOrigin) {
+        let plan = seedPlan()
+        completeEverything(plan, with: FeedbackDraft())
+        let manual = PlannedWorkout(
+            date: plan.startDate,
+            discipline: .running,
+            title: "Additional run",
+            origin: origin
+        )
+        plan.workouts.append(manual)
+
+        for shouldSkip in [false, true] {
+            if shouldSkip { manual.skip() }
+            let analysis = analyser.analyse(plan)
+            #expect(analysis.isReadyForNextWeek)
+            #expect(analysis.completedEverySession)
+            #expect(analysis.skippedSessions == 0)
+            #expect(analysis.analysis(for: .running)?.status == .progress)
+        }
+    }
+
+    @Test("Manual additions cannot increase next week's prescribed frequency", arguments: [WorkoutOrigin.custom, .library, .imported])
+    func manualAdditionsDoNotBecomePrescriptions(origin: WorkoutOrigin) {
+        let plan = seedPlan()
+        completeEverything(plan, with: FeedbackDraft())
+        let generator = WeeklyPlanGenerator()
+        let baseline = generator.generate(after: plan, analysis: analyser.analyse(plan))
+        let manual = PlannedWorkout(
+            date: plan.startDate,
+            discipline: .running,
+            title: "Additional run",
+            prescribedDurationSeconds: 1_800,
+            origin: origin
+        )
+        manual.recordCompletion(with: FeedbackDraft())
+        plan.workouts.append(manual)
+
+        let next = generator.generate(after: plan, analysis: analyser.analyse(plan))
+
+        #expect(next.parameters == baseline.parameters)
+        #expect(next.trainingSessions.map(\.discipline) == baseline.trainingSessions.map(\.discipline))
+    }
+
+    @Test("Manual next-day caution and warning symptoms govern even without a generated session in that sport", arguments: [WorkoutOrigin.custom, .library, .imported])
+    func manualOnlySportRetainsSafety(origin: WorkoutOrigin) throws {
+        let plan = seedPlan()
+        let runs = sessions(plan, for: .running)
+        for run in runs {
+            run.origin = origin
+            run.recordCompletion(with: FeedbackDraft())
+        }
+        runs[0].recordRecoveryCheckIn(painScore: 0, soreness: .significant, energy: .low)
+
+        let held = try #require(analyser.analyse(plan).analysis(for: .running))
+        #expect(held.plannedSessions == 0)
+        #expect(held.status == .maintain)
+        #expect(held.reasons.contains(.lingeringSoreness(.significant)))
+        #expect(held.reasons.contains(.lowEnergyNextDay(.low)))
+
+        let symptom = try #require(WarningSymptom.allCases.first)
+        runs[0].recordCompletion(with: FeedbackDraft(symptoms: [symptom]))
+        let analysis = analyser.analyse(plan)
+        let recovery = try #require(analysis.analysis(for: .running))
+        #expect(recovery.status == .recoveryRequired)
+        #expect(recovery.reasons.contains(.warningSymptom(symptom)))
+        #expect(recovery.adjustment == .substituteRecovery)
+
+        let next = WeeklyPlanGenerator().generate(after: plan, analysis: analysis)
+        #expect(next.trainingSessions.allSatisfy { $0.discipline.sport != .running })
+    }
+
     @Test("An easy, fully completed week progresses every sport")
     func easyWeekProgresses() {
         let plan = seedPlan()

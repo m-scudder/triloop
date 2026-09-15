@@ -9,8 +9,7 @@ struct TrainingDaysStepView: View {
     var body: some View {
         OnboardingStep(isPrimaryEnabled: model.canAdvance, primary: model.advance) {
             OnboardingHeader(
-                title: "Which days can you train?",
-                subtitle: "Pick the days that are usually free. The rest become recovery days, and TriLoop will not fill every day you offer."
+                title: "When can you train?"
             )
 
             HStack(spacing: 6) {
@@ -19,14 +18,32 @@ struct TrainingDaysStepView: View {
                 }
             }
 
-            if !model.setup.schedule.restDays.isEmpty {
-                Text(restSummary)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+            LabeledContent("Weekly commitment", value: "About \(TrainingFormatter.totalDuration(seconds: TimeInterval(model.setup.preferences.reduce(0) { $0 + $1.sessionsPerWeek * $1.typicalMinutes } * 60)))")
+            Text("Requested time; your preview shows what fits.")
+                .font(.caption).foregroundStyle(.secondary)
+
+            DisclosureGroup("Adjust commitment") {
+                ForEach(model.setup.preferences, id: \.sport) { preference in
+                    VStack(alignment: .leading, spacing: 8) {
+                        Stepper("\(preference.sport.displayName): \(preference.sessionsPerWeek) / week", value: Binding(
+                            get: { preference.sessionsPerWeek },
+                            set: { model.setSessions($0, for: preference.sport) }
+                        ), in: SportPreference.permittedSessions)
+                        if preference.isTrained {
+                            Picker("Time per session", selection: Binding(
+                                get: { preference.typicalMinutes },
+                                set: { model.setTypicalMinutes($0, for: preference.sport) }
+                            )) {
+                                ForEach(Array(Set([20, 30, 45, 60, 75, 90, preference.typicalMinutes])).sorted(), id: \.self) { minutes in
+                                    Text("\(minutes) min").tag(minutes)
+                                }
+                            }
+                        }
+                    }.padding(.vertical, 8)
+                }
             }
 
-            VStack(alignment: .leading, spacing: 10) {
-                SectionEyebrow(text: "Time on each day")
+            DisclosureGroup("Time available each day") {
 
                 ForEach(model.setup.schedule.availableDays, id: \.weekday) { day in
                     HStack {
@@ -55,13 +72,11 @@ struct TrainingDaysStepView: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
+            if !model.setup.preferences.contains(where: \.isTrained) {
+                Text("Choose at least one sport in Adjust commitment.")
+                    .font(.footnote).foregroundStyle(.orange)
+            }
         }
-    }
-
-    private var restSummary: String {
-        let names = model.setup.schedule.restDays.map(\.displayName)
-        guard names.count < 7 else { return "No training days chosen yet." }
-        return "Rest: \(names.joined(separator: ", "))"
     }
 
     private func dayChip(_ weekday: Weekday) -> some View {

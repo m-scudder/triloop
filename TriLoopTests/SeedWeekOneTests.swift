@@ -119,4 +119,38 @@ struct SeedWeekOneTests {
         #expect(block.orderedChildren.count == 2)
         #expect(block.orderedChildren.map(\.kind) == [.work, .recovery])
     }
+
+    @Test func theSeedStartsOnTheDayItIsInstalled() throws {
+        let today = calendar.date(from: DateComponents(year: 2027, month: 3, day: 4)) ?? .now
+
+        #expect(SeedWeekOne.defaultStartDate(calendar: calendar, now: today) == today)
+    }
+
+    @Test func installedSeedCoversToday() throws {
+        let context = try makeContext()
+        let today = Calendar.current.startOfDay(for: .now)
+
+        SeedDataInstaller.installIfNeeded(in: context)
+        let plan = try #require(try context.fetch(FetchDescriptor<WeeklyPlan>()).first)
+
+        #expect(plan.contains(today))
+        #expect(plan.startDate == today)
+    }
+
+    /// A reset used to reinstall a week fixed to August 2026, which left the
+    /// athlete looking at a week that had already ended.
+    @Test func resetStartsFromToday() throws {
+        let context = try makeContext()
+        context.insert(SeedWeekOne.makePlan(startDate: monday(), calendar: calendar))
+        try context.save()
+
+        SeedDataInstaller.reset(in: context)
+
+        let plans = try context.fetch(FetchDescriptor<WeeklyPlan>())
+        let plan = try #require(plans.first)
+
+        #expect(plans.count == 1)
+        #expect(plan.startDate == Calendar.current.startOfDay(for: .now))
+        #expect(plan.contains(.now))
+    }
 }

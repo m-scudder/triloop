@@ -26,10 +26,6 @@ struct GlanceTile: Equatable, Identifiable {
 /// rather than shown before the evidence supports it.
 enum TodayGlanceBuilder {
 
-    /// Below this, an "adherence" percentage is one session's completion
-    /// wearing a weekly label.
-    static let minimumSessionsForAdherence = 2
-
     /// Share of training time one band needs before the week has a character
     /// rather than a mixture.
     static let dominantIntensityShare = 0.6
@@ -45,17 +41,20 @@ enum TodayGlanceBuilder {
         guard !training.isEmpty else { return [] }
 
         let reported = training.filter(\.hasReport)
+        let prescribed = plan.prescribedTrainingSessions
 
         var tiles = [
             GlanceTile(
                 slot: .sessions,
-                value: "\(reported.count) / \(training.count)",
-                label: "Sessions"
+                value: prescribed.isEmpty
+                    ? "\(training.count(where: \.isCompleted))"
+                    : "\(plan.completedPrescribedTrainingSessions.count) / \(prescribed.count)",
+                label: prescribed.isEmpty ? "Sessions" : "Plan Sessions"
             ),
             GlanceTile(
                 slot: .training,
                 value: TrainingFormatter.totalDuration(seconds: trainingSeconds(of: reported)),
-                label: "Training"
+                label: "Reported Training"
             )
         ]
 
@@ -63,7 +62,7 @@ enum TodayGlanceBuilder {
         // two identical "Building" tiles would say nothing twice.
         let adaptive = [
             recoveryTile(recovery) ?? intensityTile(sessions),
-            adherenceTile(reported)
+            adherenceTile(plan)
         ].compactMap { $0 }
 
         tiles += adaptive.isEmpty ? [buildingTile] : adaptive
@@ -115,11 +114,9 @@ enum TodayGlanceBuilder {
         return GlanceTile(slot: .intensity, value: value, label: "Intensity")
     }
 
-    private static func adherenceTile(_ reported: [PlannedWorkout]) -> GlanceTile? {
-        guard reported.count >= minimumSessionsForAdherence else { return nil }
-
-        let mean = reported.map(\.recordedCompletion).reduce(0, +) / Double(reported.count)
-        let percent = Int((min(mean, 1) * 100).rounded())
+    private static func adherenceTile(_ plan: WeeklyPlan) -> GlanceTile? {
+        guard let share = plan.adherenceShare else { return nil }
+        let percent = Int((share * 100).rounded())
 
         return GlanceTile(slot: .adherence, value: "\(percent)%", label: "Adherence")
     }

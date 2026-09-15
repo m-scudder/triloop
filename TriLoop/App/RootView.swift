@@ -8,6 +8,7 @@ struct RootView: View {
     @State private var hasShownStoreAlert = false
     @AppStorage("automaticallyImportWorkouts") private var automaticallyImport = true
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.modelContext) private var modelContext
 
     /// Setup state is asked of the profile rather than inferred from whether a
     /// plan exists: an athlete migrated from an earlier build has plans but has
@@ -50,7 +51,11 @@ struct RootView: View {
             await autoImporter?.setEnabled(automaticallyImport)
         }
         .task(id: scenePhase) {
-            guard scenePhase == .active, automaticallyImport else { return }
+            guard scenePhase == .active else { return }
+            // A week that has simply ended must not leave the athlete with
+            // nothing to do until they happen to open the Plan tab.
+            try? PlanStore(context: modelContext).advanceToCurrentWeek()
+            guard automaticallyImport else { return }
             await autoImporter?.importRecentWeeks()
         }
     }

@@ -69,7 +69,7 @@ struct TrainingIntelligenceView: View {
             figure(value: "\(sessions.count)", caption: sessions.count == 1 ? "Session" : "Sessions")
 
             if let adherence = adherenceShare {
-                figure(value: "\(Int((adherence * 100).rounded()))%", caption: "Reported")
+                figure(value: "\(Int((adherence * 100).rounded()))%", caption: "Plan Adherence")
             }
         }
     }
@@ -131,13 +131,9 @@ struct TrainingIntelligenceView: View {
         )
     }
 
-    /// Share of completed sessions the athlete actually reported on.
+    /// Share of generated sessions completed, including those awaiting feedback.
     private var adherenceShare: Double? {
-        let workouts = consideredPlans
-            .flatMap(\.orderedWorkouts)
-            .filter { $0.discipline.sport != nil && !$0.isSkipped }
-        guard !workouts.isEmpty else { return nil }
-        return Double(workouts.count(where: \.hasReport)) / Double(workouts.count)
+        builder.adherenceShare(in: consideredPlans)
     }
 
     private func loadRecovery() async {

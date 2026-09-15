@@ -9,7 +9,13 @@ struct TriLoopApp: App {
     private let healthProvider: any HealthDataProviding
 
     init() {
+        #if DEBUG
+        let (container, outcome): (ModelContainer, StoreOutcome) = ContentDensityUITestFixture.isEnabled
+            ? (ContentDensityUITestFixture.makeContainer(), .opened)
+            : TriLoopModelContainer.makeWithFallback()
+        #else
         let (container, outcome) = TriLoopModelContainer.makeWithFallback()
+        #endif
         modelContainer = container
         storeOutcome = outcome
         healthProvider = HealthProviderResolver.current()

@@ -68,8 +68,25 @@ struct TrainingIntelligenceBuilder {
     }
 
     /// Adherence outcomes, for §1's signals.
-    func adherence(from interpreted: [Interpreted]) -> [SessionAdherence] {
-        interpreted.compactMap { $0.interpretation.adherence?.overall }
+    func adherence(from interpreted: [Interpreted], in plans: [WeeklyPlan]) -> [SessionAdherence] {
+        let recorded = interpreted
+            .filter { $0.evidence.origin.isPrescribedByTriLoop && $0.evidence.completion == .recorded }
+            .compactMap { $0.interpretation.adherence?.overall }
+        let unresolved = plans.flatMap(\.prescribedTrainingSessions).compactMap { workout -> SessionAdherence? in
+            switch completion(of: workout) {
+            case .skipped: .skipped
+            case .missed: .missed
+            case .recorded, .notYetDue: nil
+            }
+        }
+        return recorded + unresolved
+    }
+
+    func adherenceShare(in plans: [WeeklyPlan]) -> Double? {
+        let prescribed = plans.flatMap(\.prescribedTrainingSessions)
+        guard !prescribed.isEmpty else { return nil }
+        let completed = plans.flatMap(\.completedPrescribedTrainingSessions)
+        return Double(completed.count) / Double(prescribed.count)
     }
 
     func weeks(from plans: [WeeklyPlan], interpreted: [Interpreted]) -> [PlanWeekSessions] {
@@ -92,7 +109,7 @@ struct TrainingIntelligenceBuilder {
     /// What the plan asked for, used for §39's planned-versus-actual balance.
     func plannedSessions(in plans: [WeeklyPlan]) -> [LoadedSession] {
         plans
-            .flatMap(\.orderedWorkouts)
+            .flatMap(\.prescribedTrainingSessions)
             .compactMap { workout in
                 guard let sport = workout.discipline.sport,
                       let seconds = workout.prescribedDurationSeconds ?? workout.estimatedDurationSeconds
@@ -114,6 +131,7 @@ struct TrainingIntelligenceBuilder {
         return WorkoutEvidence(
             date: workout.date,
             sport: sport,
+            origin: workout.origin,
             durationSeconds: summary?.duration ?? workout.prescribedDurationSeconds,
             distanceMeters: summary?.distanceMeters,
             averageHeartRate: summary?.averageHeartRate,

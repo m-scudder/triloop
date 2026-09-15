@@ -64,12 +64,12 @@ struct WorkoutBuilderView: View {
                 ForEach(WorkoutCategory.allCases, id: \.self) { Text($0.displayName).tag($0) }
             }
 
-            TextField("What is it for? (optional)", text: $draft.purpose, axis: .vertical)
+            TextField("Purpose (optional)", text: $draft.purpose, axis: .vertical)
         } header: {
             Text("Workout")
         } footer: {
             if !draft.blocks.isEmpty {
-                Text("Sport is fixed once the workout has blocks, because it decides what they can be measured in.")
+                Text("Remove all blocks to change sport.")
             }
         }
     }
@@ -82,9 +82,11 @@ struct WorkoutBuilderView: View {
                 }
             }
         } header: {
-            Text("Effort")
-        } footer: {
-            Text("How hard the session should feel overall, on the same 1–10 scale you report with.")
+            HStack {
+                Text("Effort")
+                Spacer()
+                InfoButton(concept: .rpe)
+            }
         }
     }
 
@@ -109,8 +111,6 @@ struct WorkoutBuilderView: View {
             }
         } header: {
             Text("Structure")
-        } footer: {
-            Text("Swipe to remove a block, or drag to reorder.")
         }
     }
 
@@ -285,7 +285,9 @@ struct WorkoutBlockEditor: View {
         } header: {
             Text("Set")
         } footer: {
-            Text("A set needs at least one block inside it.")
+            if block.children.isEmpty {
+                Text("A set needs at least one block inside it.")
+            }
         }
     }
 

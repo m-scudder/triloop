@@ -46,15 +46,17 @@ final class OnboardingModel {
 
         let plans = (try? context.fetchCount(FetchDescriptor<WeeklyPlan>())) ?? 0
         isUpgrade = existing != nil && plans > 0
+        if stage == .days, setup.preferences.isEmpty {
+            setup.preferences = SportPreference.defaults(for: setup.baseline)
+        }
     }
 
-    var stage: AthleteSetup.Stage { setup.stage }
+    var stage: AthleteSetup.Stage { setup.stage.consolidated }
 
     var canAdvance: Bool {
         switch stage {
-        case .days: setup.schedule.isUsable
-        case .commitment: setup.preferences.contains(where: \.isTrained)
-        case .pool: PoolLength.isValid(poolLengthMeters)
+        case .days: setup.canGeneratePlan
+        case .running: PoolLength.isValid(poolLengthMeters)
         default: true
         }
     }
@@ -136,7 +138,7 @@ final class OnboardingModel {
 
         // Seeded from the baselines the moment the athlete reaches the step, so
         // they adjust a sensible starting position rather than three zeroes.
-        if setup.stage == .commitment, setup.preferences.isEmpty {
+        if setup.stage == .days, setup.preferences.isEmpty {
             setup.preferences = SportPreference.defaults(for: setup.baseline)
         }
 
@@ -151,7 +153,10 @@ final class OnboardingModel {
     }
 
     func jump(to stage: AthleteSetup.Stage) {
-        setup.stage = stage
+        setup.stage = stage.consolidated
+        if setup.stage == .days, setup.preferences.isEmpty {
+            setup.preferences = SportPreference.defaults(for: setup.baseline)
+        }
         persist()
     }
 

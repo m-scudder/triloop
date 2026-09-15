@@ -5,54 +5,31 @@ struct WelcomeStepView: View {
     var isUpgrade: Bool
     let start: () -> Void
 
-    private let loop = ["Train", "Measure", "Analyse", "Adapt"]
-
     var body: some View {
-        OnboardingStep(primaryTitle: isUpgrade ? "Finish Setting Up" : "Set Up My Training", primary: start) {
+        OnboardingStep(primaryTitle: "Build My Plan", primary: start) {
             VStack(alignment: .leading, spacing: 28) {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("TriLoop")
-                        .font(.system(size: 44, weight: .bold))
-                    Text("Training that adapts with you.")
+                    Text("TRILOOP")
+                        .font(.largeTitle.weight(.bold))
+                    Text("Training that adapts to you.")
                         .font(.title3)
                         .foregroundStyle(.secondary)
                 }
                 .padding(.top, 40)
 
-                VStack(alignment: .leading, spacing: 0) {
-                    ForEach(Array(loop.enumerated()), id: \.offset) { index, step in
-                        HStack(spacing: 14) {
-                            Circle()
-                                .fill(.tint)
-                                .frame(width: 7, height: 7)
-                            Text(step)
-                                .font(.title3.weight(.medium))
-                        }
-
-                        if index < loop.count - 1 {
-                            Rectangle()
-                                .fill(.tint.opacity(0.35))
-                                .frame(width: 1.5, height: 22)
-                                .padding(.leading, 3)
-                        }
-                    }
-
-                    HStack(spacing: 14) {
-                        Image(systemName: "arrow.trianglehead.counterclockwise")
-                            .font(.footnote)
-                            .foregroundStyle(.tint)
-                            .frame(width: 7)
-                        Text("Repeat")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(.top, 18)
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), alignment: .leading)], alignment: .leading, spacing: 12) {
+                    Label("RUN", systemImage: "figure.run")
+                    Label("SWIM", systemImage: "figure.pool.swim")
+                    Label("BIKE", systemImage: "figure.outdoor.cycle")
                 }
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel("Train, measure, analyse, adapt, repeat")
+                .font(.caption.weight(.semibold))
+
+                Text("We build your week.\nYou train.\nTriLoop adjusts what comes next.")
+                    .font(.title3)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 if isUpgrade {
-                    Text("Your training history stays exactly as it is. A few more details let TriLoop personalise what comes next.")
+                    Text("Your training history stays exactly as it is.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -69,15 +46,13 @@ struct GoalStepView: View {
     var body: some View {
         OnboardingStep(primary: model.advance) {
             OnboardingHeader(
-                title: "What are you training for?",
-                subtitle: "This shapes how cautiously TriLoop starts you off."
+                title: "What are you training for?"
             )
 
             VStack(spacing: 10) {
                 ForEach(TrainingGoal.allCases, id: \.self) { goal in
                     OptionCard(
                         title: goal.displayName,
-                        detail: goal.detail,
                         isSelected: model.setup.goal == goal
                     ) {
                         model.choose(goal: goal)

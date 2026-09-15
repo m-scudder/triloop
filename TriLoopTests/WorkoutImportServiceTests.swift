@@ -107,10 +107,16 @@ struct WorkoutImportServiceTests {
 
         #expect(outcome.matched == 0)
         #expect(outcome.unrecognised == 1)
-        #expect(try context.fetch(FetchDescriptor<ImportedWorkoutSummary>()).isEmpty)
+        #expect(try context.fetch(FetchDescriptor<ImportedWorkoutSummary>()).count == 1)
+        let recorded = try #require(plan.trainingSessions.first { $0.origin == .imported })
+        #expect(recorded.isCompleted)
+        #expect(recorded.awaitingFeedback)
+        let repeatImport = try await service(context, [recorded.importedSummary!.imported]).importWorkouts(for: plan)
+        #expect(repeatImport.alreadyKnown == 1)
+        #expect(plan.trainingSessions.filter { $0.origin == .imported }.count == 1)
     }
 
-    @Test("Imported data supplies real completion to the analysis")
+    @Test("A short unmatched activity does not complete a longer prescription")
     func shortSessionReducesTheLoad() async throws {
         let context = try makeContext()
         let plan = seededPlan(in: context)
@@ -119,13 +125,9 @@ struct WorkoutImportServiceTests {
         try await service(context, [activity(.running, on: 0, duration: 840)]).importWorkouts(for: plan)
 
         let run = try #require(plan.orderedWorkouts.first { $0.discipline == .running })
-        #expect(run.recordedCompletion == 0.5)
-
-        run.recordCompletion(with: FeedbackDraft(rpe: 3, painScore: 0))
-        let running = WeeklyAnalyser().analyse(plan).analysis(for: .running)
-
-        // Comfortable effort, but only half the session was completed.
-        #expect(running?.status == .reduce)
+        #expect(!run.isCompleted)
+        #expect(run.importedSummary == nil)
+        #expect(plan.trainingSessions.filter { $0.origin == .imported }.count == 1)
     }
 
     @Test("A session completed as prescribed still progresses")

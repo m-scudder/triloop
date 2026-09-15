@@ -265,6 +265,108 @@ struct WeeklyPlanGeneratorTests {
     }
 }
 
+/// A week that runs out must not leave Today empty, reported or not.
+@Suite("Week roll-forward")
+@MainActor
+struct WeekRollForwardTests {
+
+    private var calendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC") ?? .gmt
+        return calendar
+    }
+
+    private func monday() -> Date {
+        calendar.date(from: DateComponents(year: 2026, month: 8, day: 17)) ?? .now
+    }
+
+    private func day(_ offset: Int) -> Date {
+        calendar.date(byAdding: .day, value: offset, to: monday()) ?? monday()
+    }
+
+    private func makeStore() throws -> (PlanStore, ModelContext, WeeklyPlan) {
+        let context = ModelContext(try TriLoopModelContainer.make(inMemory: true))
+        let week1 = SeedWeekOne.makePlan(startDate: monday(), calendar: calendar)
+        context.insert(week1)
+        try context.save()
+
+        let store = PlanStore(
+            context: context,
+            generator: WeeklyPlanGenerator(schedule: .everyDay(), calendar: calendar)
+        )
+        return (store, context, week1)
+    }
+
+    @Test("A week still in progress is left alone")
+    func currentWeekIsNotAdvanced() throws {
+        let (store, context, week1) = try makeStore()
+
+        #expect(try store.advanceToCurrentWeek(asOf: day(3), calendar: calendar) == nil)
+        #expect(try context.fetchCount(FetchDescriptor<WeeklyPlan>()) == 1)
+        #expect(week1.status == .active)
+    }
+
+    @Test("The last day of the week is still part of it")
+    func finalDayIsNotAnEndedWeek() throws {
+        let (store, _, week1) = try makeStore()
+
+        #expect(try store.advanceToCurrentWeek(asOf: week1.endDate, calendar: calendar) == nil)
+        #expect(week1.status == .active)
+    }
+
+    @Test("A week that has ended generates the next one without any report")
+    func endedWeekAdvancesUnreported() throws {
+        let (store, _, week1) = try makeStore()
+
+        let week2 = try #require(try store.advanceToCurrentWeek(asOf: day(7), calendar: calendar))
+
+        #expect(week2.weekNumber == 2)
+        #expect(week2.startDate == day(7))
+        #expect(week1.status == .completed)
+        #expect(week2.status == .active)
+        #expect(week2.trainingSessions.isEmpty == false)
+    }
+
+    @Test("A break of several weeks catches up to the week containing today")
+    func missedWeeksAreCaughtUp() throws {
+        let (store, _, _) = try makeStore()
+
+        let week4 = try #require(try store.advanceToCurrentWeek(asOf: day(23), calendar: calendar))
+
+        #expect(week4.weekNumber == 4)
+        #expect(week4.contains(day(23), calendar: calendar))
+    }
+
+    @Test("Catch-up stops at the limit rather than rebuilding a lost year")
+    func catchUpIsBounded() throws {
+        let (store, context, _) = try makeStore()
+
+        let latest = try #require(
+            try store.advanceToCurrentWeek(asOf: day(700), calendar: calendar, limit: 3)
+        )
+
+        #expect(latest.weekNumber == 4)
+        #expect(try context.fetchCount(FetchDescriptor<WeeklyPlan>()) == 4)
+    }
+
+    @Test("Advancing twice on the same day does not stack up weeks")
+    func advancingIsIdempotent() throws {
+        let (store, context, _) = try makeStore()
+
+        #expect(try store.advanceToCurrentWeek(asOf: day(7), calendar: calendar) != nil)
+        #expect(try store.advanceToCurrentWeek(asOf: day(7), calendar: calendar) == nil)
+        #expect(try context.fetchCount(FetchDescriptor<WeeklyPlan>()) == 2)
+    }
+
+    @Test("An empty store has nothing to advance")
+    func emptyStoreIsUntouched() throws {
+        let context = ModelContext(try TriLoopModelContainer.make(inMemory: true))
+        let store = PlanStore(context: context)
+
+        #expect(try store.advanceToCurrentWeek(asOf: monday(), calendar: calendar) == nil)
+    }
+}
+
 /// A week cut short must not become the athlete's new normal.
 @Suite("Frequency recovery")
 @MainActor

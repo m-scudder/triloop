@@ -8,7 +8,11 @@ struct TrainingLoadSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            SectionEyebrow(text: "Training load")
+            HStack {
+                SectionEyebrow(text: "Training load")
+                Spacer()
+                InfoButton(concept: .trainingLoad)
+            }
 
             if weeks.isEmpty {
                 UnavailableNote(text: "No sessions with enough detail to measure load yet.")
@@ -25,7 +29,7 @@ struct TrainingLoadSection: View {
                     case .available(let value):
                         figure(value: "\(Int(value.rounded()))", caption: "4-week average")
                     case .insufficientHistory(let found, let required):
-                        figure(value: "—", caption: "\(found) of \(required) weeks")
+                        figure(value: "Building history", caption: "\(found) of \(required) weeks")
                     case .unavailable, .queryFailure:
                         EmptyView()
                     }
@@ -89,7 +93,11 @@ struct IntensityDistributionSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            SectionEyebrow(text: "Intensity")
+            HStack {
+                SectionEyebrow(text: "Intensity")
+                Spacer()
+                InfoButton(concept: .intensity)
+            }
 
             if sports.count > 1 {
                 Picker("Sport", selection: $selectedSport) {

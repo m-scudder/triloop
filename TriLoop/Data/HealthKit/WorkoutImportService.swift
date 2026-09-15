@@ -18,7 +18,7 @@ struct WorkoutImportService {
         var alreadyKnown: Int = 0
         var unrecognised: Int = 0
 
-        var foundSomething: Bool { matched > 0 }
+        var foundSomething: Bool { matched > 0 || unrecognised > 0 }
     }
 
     @discardableResult
@@ -27,10 +27,8 @@ struct WorkoutImportService {
         let end = calendar.date(byAdding: .day, value: 1, to: plan.endDate) ?? plan.endDate
         let activities = try await provider.workouts(from: plan.startDate, to: end)
 
-        let known = Set(
-            (try? context.fetch(FetchDescriptor<ImportedWorkoutSummary>()))?.map(\.healthKitUUID) ?? []
-        )
-        let fresh = activities.filter { !known.contains($0.healthKitUUID) }
+        var known = Set(try context.fetch(FetchDescriptor<ImportedWorkoutSummary>()).map(\.healthKitUUID))
+        let fresh = activities.filter { known.insert($0.healthKitUUID).inserted }
 
         let result = matcher.match(planned: plan.orderedWorkouts, with: fresh)
 
@@ -40,7 +38,21 @@ struct WorkoutImportService {
             match.planned.attach(summary)
         }
 
-        if !result.matches.isEmpty {
+        for activity in result.unmatchedImported {
+            let recorded = PlannedWorkout(
+                date: calendar.startOfDay(for: activity.startDate),
+                discipline: activity.sport.discipline,
+                title: "Recorded \(activity.sport.displayName)",
+                origin: .imported
+            )
+            let summary = ImportedWorkoutSummary(activity)
+            context.insert(recorded)
+            context.insert(summary)
+            recorded.attach(summary)
+            plan.workouts.append(recorded)
+        }
+
+        if !fresh.isEmpty {
             try context.save()
         }
 

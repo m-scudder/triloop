@@ -120,7 +120,7 @@ struct ShadowEvaluationView: View {
         )
         return TrainingSignalsBuilder.build(
             weeks: builder.weeks(from: plans, interpreted: interpreted),
-            adherence: builder.adherence(from: interpreted),
+            adherence: builder.adherence(from: interpreted, in: plans),
             recovery: recovery,
             asOf: .now
         )

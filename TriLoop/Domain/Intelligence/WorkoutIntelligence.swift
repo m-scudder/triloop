@@ -9,6 +9,7 @@ import Foundation
 struct WorkoutEvidence: Equatable, Sendable {
     let date: Date
     let sport: Sport
+    let origin: WorkoutOrigin
     let durationSeconds: TimeInterval?
     let distanceMeters: Double?
     let averageHeartRate: Double?
@@ -26,6 +27,7 @@ struct WorkoutEvidence: Equatable, Sendable {
     init(
         date: Date,
         sport: Sport,
+        origin: WorkoutOrigin = .generated,
         durationSeconds: TimeInterval? = nil,
         distanceMeters: Double? = nil,
         averageHeartRate: Double? = nil,
@@ -39,6 +41,7 @@ struct WorkoutEvidence: Equatable, Sendable {
     ) {
         self.date = date
         self.sport = sport
+        self.origin = origin
         self.durationSeconds = durationSeconds
         self.distanceMeters = distanceMeters
         self.averageHeartRate = averageHeartRate
@@ -94,13 +97,13 @@ enum WorkoutIntelligence {
             intensity: intensity.value?.intensity
         )
 
-        let adherence = ExecutionComparison.compare(
+        let adherence = evidence.origin.isPrescribedByTriLoop ? ExecutionComparison.compare(
             plannedSeconds: evidence.plannedDurationSeconds,
             actualSeconds: evidence.durationSeconds,
             targetRPE: evidence.targetRPE,
             reportedRPE: evidence.effort.reportedRPE,
             completion: evidence.completion
-        )
+        ) : nil
 
         return WorkoutInterpretation(
             zones: zones,

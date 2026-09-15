@@ -10,13 +10,19 @@ struct WorkoutDayDetail: View {
     @State private var isScheduling = false
     @State private var isScheduled = false
     @State private var scheduleMessage: String?
-    @State private var isConfirmingShift = false
+    @State private var isMoving = false
+    @State private var moveDate = Date.now
+    @State private var moveFailure: String?
+    @State private var isConfirmingSkip = false
+    @State private var isChoosingTodayAction = false
+    @State private var isConfirmingUnavailable = false
     @State private var samples: WorkoutSamples?
     @State private var samplesFailure: String?
     @State private var isImporting = false
     @State private var importMessage: String?
     @AppStorage("automaticallyImportWorkouts") private var automaticallyImport = true
     @Environment(\.healthProvider) private var health
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Query private var profiles: [AthleteProfile]
     @Query private var recordedSummaries: [ImportedWorkoutSummary]
 
@@ -75,16 +81,16 @@ struct WorkoutDayDetail: View {
                         symbol: "slash.circle.fill",
                         tint: .secondary
                     ) {
-                        Button("Un-skip") { workout.clearCompletion() }
+                        EmptyView()
                     }
                 } else if workout.isMissed() {
                     stateBanner(
                         "Missed",
-                        detail: "This day has passed with nothing recorded. Report it if you trained, or skip it.",
+                        detail: "This day has passed with nothing recorded. Report it if you trained.",
                         symbol: "exclamationmark.circle.fill",
                         tint: .orange
                     ) {
-                        Button("Skip this session") { workout.skip() }
+                        EmptyView()
                     }
                 }
 
@@ -101,8 +107,6 @@ struct WorkoutDayDetail: View {
 
                 if !workout.goal.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("Purpose")
-                            .font(.subheadline.weight(.semibold))
                         Text(workout.goal)
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
@@ -119,25 +123,44 @@ struct WorkoutDayDetail: View {
 
                 if let rpe = workout.targetRPE {
                     VStack(alignment: .leading, spacing: 8) {
-                        SectionEyebrow(text: "Target effort")
+                        HStack {
+                            SectionEyebrow(text: "Target effort")
+                            Spacer()
+                            InfoButton(concept: .rpe)
+                        }
                         Text("RPE \(TrainingFormatter.rpe(rpe))")
                             .font(.body.weight(.medium))
                         EffortBar(range: rpe)
                     }
                 }
 
-                if canShift {
-                    Button("Missed this? Move the week on a day") {
-                        isConfirmingShift = true
+                if canSkip {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Button { presentMove() } label: {
+                            Label("Move Workout", systemImage: "calendar")
+                        }
+                        Button(role: .destructive) { isConfirmingSkip = true } label: {
+                            Label("Skip Workout", systemImage: "forward.end")
+                        }
+                        if Calendar.current.isDateInToday(workout.date) {
+                            Button { isChoosingTodayAction = true } label: {
+                                Label("Can't Train Today", systemImage: "calendar.badge.exclamationmark")
+                            }
+                        }
                     }
                     .font(.subheadline)
                 }
 
-                if canSkip {
-                    Button("Skip this session", role: .destructive) {
-                        workout.skip()
+                if canChangeAvailability, let weekday {
+                    Button { isConfirmingUnavailable = true } label: {
+                        Label("Mark \(weekday.displayName) Unavailable (Every Week)", systemImage: "calendar.badge.minus")
                     }
                     .font(.subheadline)
+                }
+                if let scheduleMessage {
+                    Text(scheduleMessage)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
             }
             .padding(20)
@@ -154,34 +177,85 @@ struct WorkoutDayDetail: View {
             await loadSamples()
         }
         .confirmationDialog(
-            "Move the rest of the week forward by one day?",
-            isPresented: $isConfirmingShift,
+            "Skip this workout?",
+            isPresented: $isConfirmingSkip,
             titleVisibility: .visible
         ) {
-            Button("Move the week on") { shiftWeek() }
+            Button("Skip Workout", role: .destructive) { skipWorkout() }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Today becomes recovery and every remaining session moves on a day. Anything past Sunday is dropped.")
+            Text("Only this workout will be skipped. The original session stays in your plan history.")
         }
+        .confirmationDialog("Can't Train Today", isPresented: $isChoosingTodayAction, titleVisibility: .visible) {
+            Button("Move This Workout") { presentMove() }
+            Button("Skip This Workout Today", role: .destructive) { isConfirmingSkip = true }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Today only. Your recurring availability will not change.")
+        }
+        .confirmationDialog("Mark \(weekday?.displayName ?? "Day") unavailable every week?",
+                            isPresented: $isConfirmingUnavailable, titleVisibility: .visible) {
+            Button("Mark Unavailable Every Week", role: .destructive) { markUnavailable() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This changes your recurring training schedule. Remaining sessions will be reshaped; those that cannot fit will stay in the plan as skipped. Completed and past sessions stay unchanged.")
+        }
+        .sheet(isPresented: $isMoving) { moveSheet }
         .sheet(isPresented: $isPresentingFeedback) {
             FeedbackSheet(workout: workout)
         }
     }
 
-    /// Only offered for a training session that has not been reported on and is
-    /// not in the future: shifting a day that has not arrived makes no sense.
-    private var canShift: Bool {
-        guard workout.discipline.isTrainingSession, !workout.hasReport else { return false }
-        return Calendar.current.startOfDay(for: workout.date) <= Calendar.current.startOfDay(for: .now)
+    private var canSkip: Bool {
+        guard let plan = workout.plan else { return false }
+        return workout.discipline.isTrainingSession && PlanReshaper().canEdit(workout, in: plan)
     }
 
-    /// Skipping is a decision about work not done, so it is offered right up
-    /// until a report exists. A missed day gets the action in its banner instead.
-    private var canSkip: Bool {
-        workout.discipline.isTrainingSession
-            && !workout.hasReport
-            && !workout.isSkipped
-            && !workout.isMissed()
+    private var weekday: Weekday? { Weekday(date: workout.date) }
+
+    private var canChangeAvailability: Bool {
+        guard let plan = workout.plan, let weekday, let setup = profiles.first?.setup else { return false }
+        return (try? PlanReshaper().validateWeek(plan, on: workout.date)) != nil
+            && setup.schedule.isAvailable(on: weekday)
+    }
+
+    private func presentMove() {
+        moveDate = workout.date
+        moveFailure = nil
+        isMoving = true
+    }
+
+    @ViewBuilder
+    private var moveSheet: some View {
+        if let plan = workout.plan {
+            NavigationStack {
+                Form {
+                    if max(plan.startDate, Calendar.current.startOfDay(for: .now)) <= plan.endDate {
+                        DatePicker("Move to", selection: $moveDate,
+                                   in: max(plan.startDate, Calendar.current.startOfDay(for: .now))...plan.endDate,
+                                   displayedComponents: .date)
+                            .datePickerStyle(.graphical)
+                    }
+                    if let moveFailure { Text(moveFailure).foregroundStyle(.red) }
+                    Button("Move Workout") {
+                        do {
+                            try PlanStore(context: modelContext).moveWorkout(workout, to: moveDate)
+                            scheduleMessage = "Workout moved to \(workout.date.formatted(date: .abbreviated, time: .omitted))."
+                            isMoving = false
+                            Task { await WatchScheduleSync.sync(plan) }
+                        } catch { moveFailure = error.localizedDescription }
+                    }
+                    .disabled(Calendar.current.isDate(moveDate, inSameDayAs: workout.date))
+                }
+                .navigationTitle("Move Workout")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") { isMoving = false }
+                    }
+                }
+            }
+        }
     }
 
     @ViewBuilder
@@ -207,18 +281,21 @@ struct WorkoutDayDetail: View {
         .background(tint.opacity(0.12), in: .rect(cornerRadius: 14))
     }
 
-    private func shiftWeek() {
-        guard let plan = workout.plan else { return }
-
+    private func skipWorkout() {
         do {
-            let outcome = try PlanStore(context: modelContext).shiftWeekForward(plan, from: workout.date)
+            try PlanStore(context: modelContext).skipWorkout(workout)
+            scheduleMessage = "Workout skipped. Recurring availability is unchanged."
+            if let plan = workout.plan { Task { await WatchScheduleSync.sync(plan) } }
+        } catch { scheduleMessage = error.localizedDescription }
+    }
 
-            scheduleMessage = outcome.dropped.map {
-                "Week moved on. \($0.displayName) dropped off the end."
-            } ?? "Week moved on by a day."
-        } catch {
-            scheduleMessage = "Could not move the week: \(error.localizedDescription)"
-        }
+    private func markUnavailable() {
+        guard let weekday else { return }
+        do {
+            let skipped = try PlanStore(context: modelContext).markDayUnavailable(weekday)
+            scheduleMessage = "\(weekday.displayName) is now unavailable every week. \(skipped) workouts could not fit and were kept as skipped."
+            if let plan = workout.plan { Task { await WatchScheduleSync.sync(plan) } }
+        } catch { scheduleMessage = error.localizedDescription }
     }
 
     /// Pinned to the bottom so the primary action is reachable without scrolling
@@ -226,13 +303,6 @@ struct WorkoutDayDetail: View {
     @ViewBuilder
     private var actionBar: some View {
         VStack(spacing: 8) {
-            if let scheduleMessage {
-                Text(scheduleMessage)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-
             HStack(spacing: 10) {
                 if workout.acceptsFeedback {
                     Button {
@@ -335,26 +405,36 @@ struct WorkoutDayDetail: View {
             let load = interpretation.load.value
 
             if reading != nil || load != nil {
-                HStack(alignment: .top, spacing: 24) {
+                let layout = dynamicTypeSize.isAccessibilitySize
+                    ? AnyLayout(VStackLayout(alignment: .leading, spacing: 16))
+                    : AnyLayout(HStackLayout(alignment: .top, spacing: 24))
+                layout {
                     if let reading {
                         VStack(alignment: .leading, spacing: 4) {
                             SectionEyebrow(text: "Intensity")
                             Text(reading.intensity.displayName)
                                 .font(.title3.weight(.semibold))
-                            Text(reading.evidence.explanation)
+                            Text(WorkoutEvidencePresentation.source(reading.evidence))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
+                            WhyButton(explanation: WorkoutEvidencePresentation.intensity(reading))
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
 
                     if let load {
                         VStack(alignment: .leading, spacing: 4) {
-                            SectionEyebrow(text: "Load")
+                            HStack {
+                                SectionEyebrow(text: "Load")
+                                Spacer()
+                                InfoButton(concept: .trainingLoad, evidence: [
+                                    .init(label: "Source", value: WorkoutEvidencePresentation.source(load.provenance))
+                                ])
+                            }
                             Text("\(Int(load.value.rounded()))")
                                 .font(.title3.weight(.semibold))
                                 .monospacedDigit()
-                            Text(load.provenance.explanation)
+                            Text(WorkoutEvidencePresentation.source(load.provenance))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -372,7 +452,7 @@ struct WorkoutDayDetail: View {
         VStack(alignment: .leading, spacing: 10) {
             SectionEyebrow(text: "Recorded data")
 
-            Text("No Apple Health workout is linked to this session, so there is no heart rate or pace detail.")
+            Text("No linked Apple Health workout. Heart rate and pace unavailable.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
 
@@ -500,6 +580,11 @@ struct WorkoutDayDetail: View {
                     if let summary = WorkoutSummaryText.make(for: workout) {
                         Text(summary)
                             .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    if let provenance = WorkoutEvidencePresentation.provenance(workout.origin) {
+                        Text(provenance)
+                            .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                 }

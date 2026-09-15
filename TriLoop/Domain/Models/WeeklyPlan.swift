@@ -62,6 +62,20 @@ final class WeeklyPlan {
         orderedWorkouts.filter { $0.discipline.isTrainingSession }
     }
 
+    var prescribedTrainingSessions: [PlannedWorkout] {
+        trainingSessions.filter { $0.origin.isPrescribedByTriLoop }
+    }
+
+    var completedPrescribedTrainingSessions: [PlannedWorkout] {
+        prescribedTrainingSessions.filter(\.isCompleted)
+    }
+
+    var adherenceShare: Double? {
+        let prescribed = prescribedTrainingSessions
+        guard !prescribed.isEmpty else { return nil }
+        return Double(completedPrescribedTrainingSessions.count) / Double(prescribed.count)
+    }
+
     func contains(_ date: Date, calendar: Calendar = .current) -> Bool {
         let day = calendar.startOfDay(for: date)
         return day >= startDate && day <= endDate

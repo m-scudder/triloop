@@ -110,18 +110,19 @@ struct StatTile: View {
     let value: String
     let label: String
     var alignment: HorizontalAlignment = .leading
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         VStack(alignment: alignment, spacing: 2) {
             Text(value)
                 .font(.title3.weight(.semibold))
                 .monospacedDigit()
-                .lineLimit(1)
+                .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
                 .minimumScaleFactor(0.7)
             Text(label)
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                .lineLimit(1)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: Alignment(horizontal: alignment, vertical: .center))
         .accessibilityElement(children: .combine)

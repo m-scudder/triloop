@@ -28,6 +28,7 @@ enum WorkoutTemplateScheduler {
         case dateOutsidePlan
         /// Replacing was asked for, but the day holds work already done.
         case cannotReplaceCompletedSession
+        case ambiguousReplacement
     }
 
     static func conflict(
@@ -40,10 +41,12 @@ enum WorkoutTemplateScheduler {
             calendar.isDate($0.date, inSameDayAs: day)
         }
 
-        if let completed = sessions.first(where: { $0.isCompleted || $0.hasReport }) {
+        if let completed = sessions.first(where: {
+            $0.isCompleted || $0.feedback != nil || $0.importedSummary != nil || $0.completedAt != nil
+        }) {
             return .completedSession(workoutID: completed.id, title: completed.title)
         }
-        if let session = sessions.first {
+        if let session = sessions.first(where: { !$0.isSkipped }) {
             return .session(workoutID: session.id, title: session.title)
         }
         return .none
@@ -77,23 +80,41 @@ enum WorkoutTemplateScheduler {
         to plan: WeeklyPlan,
         on date: Date,
         resolving resolution: Resolution = .alongside,
-        calendar: Calendar = .current
+        calendar: Calendar = .current,
+        asOf now: Date = .now,
+        schedule: AthleteSchedule? = nil
     ) throws -> PlannedWorkout {
         let day = calendar.startOfDay(for: date)
         guard day >= calendar.startOfDay(for: plan.startDate),
               day <= calendar.startOfDay(for: plan.endDate)
         else { throw Failure.dateOutsidePlan }
 
+        let reshaper = PlanReshaper(calendar: calendar)
+        try reshaper.validateWeek(plan, on: day, asOf: now)
         let existing = conflict(on: day, in: plan, calendar: calendar)
-
+        var replaced: PlannedWorkout?
         if resolution == .replace {
             guard case .session(let workoutID, _) = existing else {
                 throw Failure.cannotReplaceCompletedSession
             }
-            remove(workoutID, from: plan)
+            let sessions = plan.trainingSessions.filter {
+                !$0.isSkipped && calendar.isDate($0.date, inSameDayAs: day)
+            }
+            guard sessions.count == 1 else { throw Failure.ambiguousReplacement }
+            guard let original = sessions.first, original.id == workoutID,
+                  reshaper.canEdit(original, in: plan, asOf: now)
+            else { throw Failure.cannotReplaceCompletedSession }
+            replaced = original
         }
 
         let workout = workout(from: template, on: day, calendar: calendar)
+        let storedSchedule = try plan.modelContext?.fetch(FetchDescriptor<AthleteProfile>()).first?.setup?.schedule
+        try reshaper.validatePlacement(
+            workout, on: day, in: plan, schedule: schedule ?? storedSchedule ?? .everyDay(),
+            excluding: Set(replaced.map { [$0.id] } ?? []),
+            allowingAlongside: resolution == .alongside, asOf: now
+        )
+        replaced?.skip()
         plan.modelContext?.insert(workout)
         plan.workouts.append(workout)
 
@@ -119,7 +140,8 @@ enum WorkoutTemplateScheduler {
 
     private static func removeRestDay(on day: Date, from plan: WeeklyPlan, calendar: Calendar) {
         let rest = plan.workouts.filter {
-            $0.discipline == .rest && calendar.isDate($0.date, inSameDayAs: day)
+            $0.discipline == .rest && PlanReshaper(calendar: calendar).isUnrecorded($0)
+                && calendar.isDate($0.date, inSameDayAs: day)
         }
         for workout in rest { remove(workout.id, from: plan) }
     }

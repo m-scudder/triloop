@@ -13,7 +13,11 @@ struct SessionExecutionView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            SectionEyebrow(text: "Session execution")
+            HStack {
+                SectionEyebrow(text: "Session execution")
+                Spacer()
+                InfoButton(concept: .plannedVsActual)
+            }
 
             VStack(spacing: 8) {
                 headerRow

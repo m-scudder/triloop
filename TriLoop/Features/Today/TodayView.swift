@@ -227,7 +227,7 @@ struct TodayView: View {
             TodayStatementView(
                 heading: "Rest day",
                 message: "No structured training today.",
-                detail: "Recovery is part of the plan."
+                detail: nil
             )
 
         case .weekComplete:
@@ -254,10 +254,6 @@ struct TodayView: View {
 
             Text("How did it feel?")
                 .font(.title3.weight(.semibold))
-
-            Text("Your report is what decides next week's training.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
 
             Button("Add your report") { feedbackWorkout = workout }
                 .buttonStyle(PrimaryActionButtonStyle())
@@ -395,9 +391,7 @@ struct TodayView: View {
             : "Based on your own report."
 
         return switch outcome.overall {
-        case .withinTarget: "You completed the planned session within target. \(basis)"
-        case .aboveTarget: "Effort was higher than planned today. \(basis)"
-        case .belowTarget: "This came in easier than planned. \(basis)"
+        case .withinTarget, .aboveTarget, .belowTarget: basis
         case .incomplete: "The session stopped short of the plan."
         case .skipped, .missed: nil
         }

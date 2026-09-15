@@ -98,9 +98,6 @@ struct TodayAwaitingImportView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Text("TriLoop will ask how it felt as soon as they arrive.")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
         }
     }
 }
@@ -255,11 +252,11 @@ struct TodayNextView: View {
 /// the screen.
 struct TodayGlanceView: View {
     let tiles: [GlanceTile]
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    private let columns = [
-        GridItem(.flexible(), alignment: .leading),
-        GridItem(.flexible(), alignment: .leading)
-    ]
+    private var columns: [GridItem] {
+        Array(repeating: GridItem(.flexible(), alignment: .leading), count: dynamicTypeSize.isAccessibilitySize ? 1 : 2)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -270,15 +267,19 @@ struct TodayGlanceView: View {
                     VStack(alignment: .leading, spacing: 1) {
                         Text(tile.value)
                             .font(.title3.weight(.semibold))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.7)
+                            .fixedSize(horizontal: false, vertical: true)
 
-                        Text(tile.label)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        HStack {
+                            Text(tile.label)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            if tile.slot == .adherence {
+                                InfoButton(concept: .adherence)
+                            }
+                        }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .accessibilityElement(children: .combine)
+                    .accessibilityElement(children: .contain)
                 }
             }
         }

@@ -27,19 +27,32 @@ struct AthleteSetup: Codable, Equatable, Sendable {
         case watch
         case preview
         case complete
+        case safety
+
+        static let onboardingFlow: [Stage] = [.welcome, .goal, .running, .days, .safety, .health, .preview]
+
+        var consolidated: Stage {
+            switch self {
+            case .about: .goal
+            case .swimming, .cycling, .pool: .running
+            case .commitment: .days
+            case .watch: .health
+            default: self
+            }
+        }
 
         /// Ordered as the flow runs, so resuming can pick the furthest reached.
         var order: Int {
-            Self.allCases.firstIndex(of: self) ?? 0
+            Self.onboardingFlow.firstIndex(of: consolidated) ?? Self.onboardingFlow.count
         }
 
         var next: Stage {
-            let index = min(order + 1, Self.allCases.count - 1)
-            return Self.allCases[index]
+            guard order + 1 < Self.onboardingFlow.count else { return .complete }
+            return Self.onboardingFlow[order + 1]
         }
 
         var previous: Stage {
-            Self.allCases[max(order - 1, 0)]
+            Self.onboardingFlow[max(min(order - 1, Self.onboardingFlow.count - 1), 0)]
         }
     }
 

@@ -16,14 +16,11 @@ struct MatchResult {
 
 /// Pairs planned sessions with what actually happened.
 ///
-/// Sport and date do the work: a planned workout carries no time of day, so
-/// there is nothing more precise to match on until WorkoutKit gives us our own
-/// identifiers in Phase 6.
+/// Requires same-day metric agreement and a unique candidate on both sides.
+/// Adjacent days need a plan identifier, which normalized recordings do not carry.
 struct WorkoutMatcher: Sendable {
     var calendar: Calendar = .current
-    /// How many days late (or early) an activity may be and still count. One day
-    /// covers the common case of training after midnight or a day slipping.
-    var toleranceDays: Int = 1
+    var toleranceDays: Int = 0
 
     func match(
         planned: [PlannedWorkout],
@@ -37,13 +34,14 @@ struct WorkoutMatcher: Sendable {
             let plannedIndex: Int
             let importedIndex: Int
             let dayOffset: Int
-            let secondsFromPlannedDay: TimeInterval
+            let score: Double
         }
 
         var candidates: [Candidate] = []
 
         for (plannedIndex, session) in sessions.enumerated() {
-            guard let sport = session.discipline.sport else { continue }
+            guard let sport = session.discipline.sport,
+                  !session.isSkipped, session.importedSummary == nil else { continue }
             let plannedDay = calendar.startOfDay(for: session.date)
 
             // A session cannot be done before its day arrives. Without this the
@@ -54,24 +52,32 @@ struct WorkoutMatcher: Sendable {
             for (importedIndex, activity) in imported.enumerated() where activity.sport == sport {
                 let activityDay = calendar.startOfDay(for: activity.startDate)
                 let offset = calendar.dateComponents([.day], from: plannedDay, to: activityDay).day ?? 0
-                guard abs(offset) <= toleranceDays else { continue }
+                guard offset == 0, activity.startDate <= now,
+                      activity.duration.isFinite, activity.duration > 0 else { continue }
+
+                var similarities: [Double] = []
+                if let target = session.estimatedDurationSeconds, target > 0 {
+                    let ratio = activity.duration / target
+                    guard ratio >= 0.65, ratio <= 1.5 else { continue }
+                    similarities.append(min(ratio, 1 / ratio))
+                }
+                if let target = session.estimatedDistanceMeters, target > 0,
+                   let actual = activity.distanceMeters {
+                    let ratio = actual / target
+                    guard ratio.isFinite, ratio >= 0.65, ratio <= 1.5 else { continue }
+                    similarities.append(min(ratio, 1 / ratio))
+                }
+                guard !similarities.isEmpty else { continue }
 
                 candidates.append(
                     Candidate(
                         plannedIndex: plannedIndex,
                         importedIndex: importedIndex,
                         dayOffset: offset,
-                        secondsFromPlannedDay: abs(activity.startDate.timeIntervalSince(plannedDay))
+                        score: similarities.reduce(0, +) / Double(similarities.count)
                     )
                 )
             }
-        }
-
-        // Closest match wins, and each side is used at most once, so two runs in
-        // one day cannot both claim the same planned session.
-        candidates.sort {
-            ($0.dayOffset.magnitude, $0.secondsFromPlannedDay)
-                < ($1.dayOffset.magnitude, $1.secondsFromPlannedDay)
         }
 
         var usedPlanned: Set<Int> = []
@@ -79,6 +85,11 @@ struct WorkoutMatcher: Sendable {
         var matches: [WorkoutMatch] = []
 
         for candidate in candidates {
+            let alternatives = candidates.filter {
+                ($0.plannedIndex == candidate.plannedIndex || $0.importedIndex == candidate.importedIndex)
+                    && !($0.plannedIndex == candidate.plannedIndex && $0.importedIndex == candidate.importedIndex)
+            }
+            guard alternatives.allSatisfy({ candidate.score - $0.score > 0.15 }) else { continue }
             guard !usedPlanned.contains(candidate.plannedIndex),
                   !usedImported.contains(candidate.importedIndex) else { continue }
 

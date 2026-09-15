@@ -136,9 +136,19 @@ struct WorkoutTemplateDetailView: View {
                         .font(.largeTitle.weight(.semibold))
 
                     if !template.purpose.isEmpty {
-                        Text(template.purpose)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                        if template.source == .triLoop {
+                            HStack {
+                                Text(template.category.displayName)
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                InfoButton(title: template.name, explanation: template.purpose)
+                            }
+                        } else {
+                            Text(template.purpose)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
 

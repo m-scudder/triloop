@@ -63,6 +63,7 @@ struct TodayGlanceTests {
 
         #expect(tile(tiles, .sessions)?.value == "3 / 5")
         #expect(tile(tiles, .training)?.value == "1 hr 30 min")
+        #expect(tile(tiles, .adherence)?.value == "60%")
     }
 
     @Test("A week with no training sessions has nothing to show")
@@ -82,16 +83,49 @@ struct TodayGlanceTests {
 
     // MARK: - Adherence
 
-    @Test("Adherence is withheld until more than one session has been reported")
-    func adherenceNeedsMoreThanOneSession() throws {
+    @Test("Manual additions retain training time without changing generated adherence", arguments: [WorkoutOrigin.custom, .library, .imported])
+    func manualAdditionsDoNotCount(origin: WorkoutOrigin) throws {
+        let context = ModelContext(try container())
+        let week = plan(sessions: 7, in: context)
+        let workouts = week.orderedWorkouts
+        workouts.prefix(3).forEach(report)
+        for workout in workouts.suffix(2) {
+            workout.origin = origin
+            report(workout)
+        }
+
+        let tiles = TodayGlanceBuilder.tiles(plan: week, sessions: [])
+
+        #expect(tile(tiles, .sessions)?.value == "3 / 5")
+        #expect(tile(tiles, .training)?.value == "2 hr 30 min")
+        #expect(tile(tiles, .adherence)?.value == "60%")
+    }
+
+    @Test("A single generated prescription has adherence independent of manual reports")
+    func singlePrescription() throws {
+        let context = ModelContext(try container())
+        let week = plan(sessions: 3, in: context)
+        let workouts = week.orderedWorkouts
+        workouts[1].origin = .custom
+        workouts[2].origin = .library
+        workouts.forEach(report)
+
+        let tiles = TodayGlanceBuilder.tiles(plan: week, sessions: [])
+
+        #expect(tile(tiles, .sessions)?.value == "1 / 1")
+        #expect(tile(tiles, .adherence)?.value == "100%")
+    }
+
+    @Test("Adherence includes all prescriptions before they are reported")
+    func adherenceIncludesFullWeek() throws {
         let context = ModelContext(try container())
         let week = plan(sessions: 4, in: context)
         report(try #require(week.orderedWorkouts.first))
 
         let tiles = TodayGlanceBuilder.tiles(plan: week, sessions: [])
 
-        #expect(tile(tiles, .adherence) == nil)
-        #expect(tile(tiles, .history)?.value == "Building")
+        #expect(tile(tiles, .adherence)?.value == "25%")
+        #expect(tile(tiles, .history) == nil)
     }
 
     @Test("Nothing is ever said twice")
@@ -104,11 +138,12 @@ struct TodayGlanceTests {
         let tiles = TodayGlanceBuilder.tiles(plan: week, sessions: [])
 
         #expect(Set(tiles.map(\.id)).count == tiles.count)
-        #expect(tiles.filter { $0.slot == .history }.count == 1)
+        #expect(tile(tiles, .adherence)?.value == "0%")
+        #expect(tile(tiles, .history) == nil)
     }
 
-    @Test("Adherence averages how much of each prescription was covered")
-    func adherenceAverages() throws {
+    @Test("Adherence counts completed sessions rather than averaging recorded duration")
+    func adherenceCountsCompletedStatus() throws {
         let context = ModelContext(try container())
         let week = plan(sessions: 4, in: context)
         let workouts = week.orderedWorkouts
@@ -125,10 +160,45 @@ struct TodayGlanceTests {
         )
         context.insert(summary)
         short.attach(summary)
-        report(short)
         report(workouts[1])
 
-        #expect(tile(TodayGlanceBuilder.tiles(plan: week, sessions: []), .adherence)?.value == "75%")
+        let tiles = TodayGlanceBuilder.tiles(plan: week, sessions: [])
+        #expect(short.awaitingFeedback)
+        #expect(tile(tiles, .sessions)?.value == "2 / 4")
+        #expect(tile(tiles, .adherence)?.value == "50%")
+    }
+
+    @Test("Three completed generated sessions out of five is 60 percent with missed and skipped prescriptions")
+    func threeOfFiveWithMissedAndSkipped() throws {
+        let context = ModelContext(try container())
+        let week = plan(sessions: 5, in: context)
+        let workouts = week.orderedWorkouts
+        workouts.prefix(3).forEach(report)
+        workouts[3].skip()
+        #expect(workouts[4].isMissed(asOf: week.endDate.addingTimeInterval(86_400)))
+
+        let tiles = TodayGlanceBuilder.tiles(plan: week, sessions: [])
+        #expect(week.adherenceShare == 0.6)
+        #expect(tile(tiles, .sessions)?.value == "3 / 5")
+        #expect(tile(tiles, .adherence)?.value == "60%")
+    }
+
+    @Test("Manual-only weeks show activity without a zero-over-zero plan count", arguments: [WorkoutOrigin.custom, .library, .imported])
+    func manualOnly(origin: WorkoutOrigin) throws {
+        let context = ModelContext(try container())
+        let week = plan(sessions: 2, in: context)
+        for workout in week.trainingSessions {
+            workout.origin = origin
+            report(workout)
+        }
+
+        let tiles = TodayGlanceBuilder.tiles(plan: week, sessions: [])
+        #expect(week.adherenceShare == nil)
+        #expect(tile(tiles, .sessions)?.value == "2")
+        #expect(tile(tiles, .sessions)?.label == "Sessions")
+        #expect(tile(tiles, .training)?.value == "1 hr")
+        #expect(tile(tiles, .training)?.label == "Reported Training")
+        #expect(tile(tiles, .adherence) == nil)
     }
 
     // MARK: - Intensity

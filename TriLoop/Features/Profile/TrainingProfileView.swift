@@ -176,9 +176,11 @@ struct TrainingProfileView: View {
                 }
             }
         } header: {
-            Text("Goal")
-        } footer: {
-            Text(setup.goal.detail)
+            HStack {
+                Text("Goal")
+                Spacer()
+                InfoButton(title: setup.goal.displayName, explanation: setup.goal.detail)
+            }
         }
     }
 
@@ -212,9 +214,9 @@ struct TrainingProfileView: View {
         } header: {
             Text("Training days")
         } footer: {
-            Text(setup.schedule.isUsable
-                 ? "Days you do not pick become recovery days."
-                 : "Pick at least two days.")
+            if !setup.schedule.isUsable {
+                Text("Pick at least two days.")
+            }
         }
     }
 
@@ -231,7 +233,7 @@ struct TrainingProfileView: View {
         } header: {
             Text("How often")
         } footer: {
-            Text("A starting point, not a promise. TriLoop schedules fewer sessions when a week cannot hold them.")
+            Text("Sessions are limited by your available days.")
         }
     }
 
@@ -244,8 +246,6 @@ struct TrainingProfileView: View {
             }
         } header: {
             Text("Swimming")
-        } footer: {
-            Text("Sets are built in whole lengths, so this decides how your swims are written.")
         }
     }
 

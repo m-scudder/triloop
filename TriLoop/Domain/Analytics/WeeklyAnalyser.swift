@@ -9,7 +9,8 @@ struct WeeklyAnalyser: Sendable {
 
     func analyse(_ plan: WeeklyPlan) -> WeeklyAnalysis {
         let sessions = plan.trainingSessions
-        let completed = sessions.filter(\.hasReport)
+        let prescribed = plan.prescribedTrainingSessions
+        let completed = prescribed.filter(\.hasReport)
 
         let sports: [SportAnalysis] = Sport.allCases.compactMap { sport in
             let planned = sessions.filter { $0.discipline.sport == sport }
@@ -21,9 +22,9 @@ struct WeeklyAnalyser: Sendable {
             weekNumber: plan.weekNumber,
             startDate: plan.startDate,
             endDate: plan.endDate,
-            plannedSessions: sessions.count,
+            plannedSessions: prescribed.count,
             completedSessions: completed.count,
-            skippedSessions: sessions.filter(\.isSkipped).count,
+            skippedSessions: prescribed.filter(\.isSkipped).count,
             sports: sports
         )
     }
@@ -34,6 +35,8 @@ struct WeeklyAnalyser: Sendable {
         parameters: TrainingParameters
     ) -> SportAnalysis {
         let completed = planned.filter(\.hasReport)
+        let prescribed = planned.filter { $0.origin.isPrescribedByTriLoop }
+        let prescribedCompleted = prescribed.filter(\.hasReport)
         let reports = completed.compactMap(\.feedback)
 
         // The pool the week was built for decides how far a repeat can step up.
@@ -42,7 +45,9 @@ struct WeeklyAnalyser: Sendable {
 
         let assessments: [WorkoutAssessment] = completed.compactMap { workout in
             guard let report = workout.feedback else { return nil }
-            return engine.evaluate(
+            let feedback = FeedbackSummary(report)
+            let recovery = workout.recoveryCheckIn.map(RecoverySummary.init)
+            let assessment = engine.evaluate(
                 result: WorkoutResult(
                     sport: sport,
                     completion: workout.recordedCompletion,
@@ -57,9 +62,13 @@ struct WeeklyAnalyser: Sendable {
                         ? parameters.swimRepeatDistanceMeters
                         : nil
                 ),
-                feedback: FeedbackSummary(report),
-                recovery: workout.recoveryCheckIn.map(RecoverySummary.init)
+                feedback: feedback,
+                recovery: recovery
             )
+            guard workout.origin.isPrescribedByTriLoop
+                || assessment.status != .progress
+            else { return nil }
+            return assessment
         }
 
         // The most cautious session governs the week: a single painful run is
@@ -69,7 +78,7 @@ struct WeeklyAnalyser: Sendable {
         var adjustment = governing?.adjustment ?? .hold
         var reasons = governing?.reasons ?? []
 
-        let missed = planned.count - completed.count
+        let missed = prescribed.count - prescribedCompleted.count
         if missed > 0 {
             reasons.append(.sessionsMissed(count: missed))
             // Progressing off a week that was not finished would compound the gap.
@@ -84,8 +93,8 @@ struct WeeklyAnalyser: Sendable {
         return SportAnalysis(
             sport: sport,
             status: status,
-            plannedSessions: planned.count,
-            completedSessions: completed.count,
+            plannedSessions: prescribed.count,
+            completedSessions: prescribedCompleted.count,
             averageRPE: rpeScores.isEmpty ? nil : Double(rpeScores.reduce(0, +)) / Double(rpeScores.count),
             highestPain: reports.map(\.painScore).max() ?? 0,
             totalDurationSeconds: completed

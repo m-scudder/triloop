@@ -10,9 +10,9 @@ enum SeedDataInstaller {
 
     /// Installs the seed on an empty store. Previews and tests only.
     @discardableResult
-    static func installIfNeeded(in context: ModelContext) -> Bool {
+    static func installIfNeeded(in context: ModelContext, on date: Date = .now) -> Bool {
         guard isStoreEmpty(context) else { return false }
-        let startDate = SeedWeekOne.defaultStartDate()
+        let startDate = SeedWeekOne.defaultStartDate(now: date)
         context.insert(SeedWeekOne.makeProfile(startDate: startDate))
         context.insert(SeedWeekOne.makePlan(startDate: startDate))
         try? context.save()
@@ -20,10 +20,11 @@ enum SeedDataInstaller {
     }
 
     /// Replaces training history with the fixed seed week, leaving the athlete
-    /// and their setup answers alone.
-    static func reset(in context: ModelContext) {
+    /// and their setup answers alone. The week starts today, so a reset always
+    /// lands the athlete in a week they are actually in.
+    static func reset(in context: ModelContext, on date: Date = .now) {
         eraseTraining(in: context)
-        context.insert(SeedWeekOne.makePlan(startDate: SeedWeekOne.defaultStartDate()))
+        context.insert(SeedWeekOne.makePlan(startDate: SeedWeekOne.defaultStartDate(now: date)))
         try? context.save()
     }
 

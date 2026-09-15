@@ -55,6 +55,44 @@ struct PlanStore {
         return try generateNextWeek(after: plan)
     }
 
+    /// Rolls the athlete onto the week that contains today.
+    ///
+    /// Generation is otherwise only reachable through a full set of reports or
+    /// the Plan tab's button, so a week that simply runs out leaves Today
+    /// empty. A week whose last day has passed is closed and its successor
+    /// built from whatever was reported, repeatedly, so a short break still
+    /// ends on a current week rather than a stale one.
+    ///
+    /// `limit` bounds the catch-up: a long absence is better left short of
+    /// today than turned into months of untouched weeks.
+    @discardableResult
+    func advanceToCurrentWeek(
+        asOf now: Date = .now,
+        calendar: Calendar = .current,
+        limit: Int = 6
+    ) throws -> WeeklyPlan? {
+        let today = calendar.startOfDay(for: now)
+        var generated: WeeklyPlan?
+
+        for _ in 0..<limit {
+            guard let latest = latestPlan(), latest.endDate < today else { break }
+            guard let next = try generateNextWeek(after: latest) else { break }
+            generated = next
+        }
+
+        return generated
+    }
+
+    /// The furthest week the athlete has, which is the only one a successor can
+    /// be built from.
+    private func latestPlan() -> WeeklyPlan? {
+        var descriptor = FetchDescriptor<WeeklyPlan>(
+            sortBy: [SortDescriptor(\.weekNumber, order: .reverse)]
+        )
+        descriptor.fetchLimit = 1
+        return (try? context.fetch(descriptor))?.first
+    }
+
     struct ShiftOutcome: Equatable, Sendable {
         var moved: Int = 0
         /// The session pushed off the end of the week, if it was a real one.
@@ -80,22 +118,13 @@ struct PlanStore {
 
         guard !outcome.isUnchanged else { return outcome }
 
-        let calendar = reshaper.calendar
-
         for change in outcome.changes {
-            if let existing = plan.workout(on: change.date, calendar: calendar) {
-                context.delete(existing)
-            }
-
-            let replacement = PrescribedSessions.session(
-                change.discipline,
-                on: change.date,
-                parameters: plan.parameters
-            )
-            replacement.plan = plan
-            context.insert(replacement)
+            guard let existing = plan.workouts.first(where: { $0.id == change.workoutID }) else { continue }
+            if change.skipped { existing.skip() }
+            else { existing.date = change.date }
         }
 
+        removeOccupiedRestDays(in: plan, asOf: now)
         plan.generationReasonCode = .availabilityChanged
         try context.save()
         return outcome
@@ -119,23 +148,28 @@ struct PlanStore {
         calendar: Calendar = .current
     ) throws -> Int {
         let boundary = calendar.startOfDay(for: now)
+        guard plan.status != .completed,
+              calendar.startOfDay(for: plan.endDate) >= boundary else { return 0 }
 
         let rebuildable = plan.orderedWorkouts.filter { workout in
             calendar.startOfDay(for: workout.date) >= boundary
-                && !workout.hasReport
-                && !workout.isSkipped
+                && reshaper.isUnrecorded(workout)
+                && workout.origin == .generated
         }
 
         guard !rebuildable.isEmpty else { return 0 }
 
         for workout in rebuildable {
-            let discipline = workout.discipline
-            let date = workout.date
-            context.delete(workout)
-
-            let replacement = PrescribedSessions.session(discipline, on: date, parameters: parameters)
-            replacement.plan = plan
-            context.insert(replacement)
+            let replacement = PrescribedSessions.session(workout.discipline, on: workout.date, parameters: parameters)
+            let oldSteps = workout.steps
+            workout.title = replacement.title
+            workout.goal = replacement.goal
+            workout.targetRPE = replacement.targetRPE
+            workout.prescribedDurationSeconds = replacement.prescribedDurationSeconds
+            workout.targetDistanceMeters = replacement.targetDistanceMeters
+            workout.steps = replacement.steps
+            replacement.steps = []
+            for step in oldSteps { context.delete(step) }
         }
 
         plan.parameters = parameters
@@ -165,49 +199,64 @@ struct PlanStore {
         return try reapplyParameters(parameters, to: plan, asOf: now)
     }
 
-    /// Pushes everything from `date` onward forward by a day, turning the missed
-    /// day into recovery.
-    ///
-    /// The sequence rotates rather than each session being rescheduled
-    /// individually, so the spacing between sports is preserved. Whatever falls
-    /// past Sunday is dropped: extending the week would shift every following
-    /// week with it.
+    func moveWorkout(_ workout: PlannedWorkout, to date: Date, asOf now: Date = .now) throws {
+        guard let plan = workout.plan else { throw PlanReshaper.Failure.workoutIsImmutable }
+        try reshaper.validateWeek(plan, on: date, asOf: now)
+        guard workout.discipline.isTrainingSession, reshaper.canEdit(workout, in: plan, asOf: now)
+        else { throw PlanReshaper.Failure.workoutIsImmutable }
+        guard let setup = athleteSetup() else { throw PlanReshaper.Failure.missingSchedule }
+        try reshaper.validatePlacement(workout, on: date, in: plan, schedule: setup.schedule, asOf: now)
+        workout.date = reshaper.calendar.startOfDay(for: date)
+        removeOccupiedRestDays(in: plan, asOf: now)
+        try context.save()
+    }
+
+    func skipWorkout(_ workout: PlannedWorkout, asOf now: Date = .now) throws {
+        guard let plan = workout.plan else { throw PlanReshaper.Failure.workoutIsImmutable }
+        try reshaper.validateWeek(plan, on: workout.date, asOf: now)
+        guard workout.discipline.isTrainingSession, reshaper.canEdit(workout, in: plan, asOf: now)
+        else { throw PlanReshaper.Failure.workoutIsImmutable }
+        workout.skip()
+        try context.save()
+    }
+
+    @discardableResult
+    func markDayUnavailable(_ weekday: Weekday, asOf now: Date = .now) throws -> Int {
+        guard let profile = try context.fetch(FetchDescriptor<AthleteProfile>()).first,
+              var setup = profile.setup else { throw PlanReshaper.Failure.missingSchedule }
+        setup.schedule = AthleteSchedule(days: Weekday.trainingWeek.map { day in
+            var availability = setup.schedule.availability(on: day)
+            if day == weekday { availability.isAvailable = false }
+            return availability
+        })
+        profile.setup = setup
+        var skipped = 0
+        for plan in try context.fetch(FetchDescriptor<WeeklyPlan>()) {
+            skipped += try reshapeWeek(plan, asOf: now).dropped
+        }
+        try context.save()
+        return skipped
+    }
+
+    private func removeOccupiedRestDays(in plan: WeeklyPlan, asOf now: Date) {
+        let placeholders = plan.workouts.filter { rest in
+            rest.discipline == .rest && reshaper.canEdit(rest, in: plan, asOf: now)
+                && plan.trainingSessions.contains {
+                    !$0.isSkipped && reshaper.calendar.isDate($0.date, inSameDayAs: rest.date)
+                }
+        }
+        for rest in placeholders {
+            plan.workouts.removeAll { $0.id == rest.id }
+            context.delete(rest)
+        }
+    }
+
     @discardableResult
     func shiftWeekForward(
         _ plan: WeeklyPlan,
         from date: Date,
         calendar: Calendar = .current
     ) throws -> ShiftOutcome {
-        let day = calendar.startOfDay(for: date)
-        guard plan.contains(day, calendar: calendar) else { return ShiftOutcome() }
-
-        let affected = plan.orderedWorkouts.filter { calendar.startOfDay(for: $0.date) >= day }
-        guard let missed = affected.first, !missed.hasReport, !missed.isSkipped else { return ShiftOutcome() }
-
-        var outcome = ShiftOutcome()
-
-        // The last day has nowhere to move to.
-        if let last = affected.last, calendar.isDate(last.date, inSameDayAs: plan.endDate) {
-            if last.discipline.isTrainingSession {
-                outcome.dropped = last.discipline
-            }
-            context.delete(last)
-        }
-
-        for workout in affected.dropLast().reversed() {
-            guard let next = calendar.date(byAdding: .day, value: 1, to: workout.date) else { continue }
-            workout.date = next
-            outcome.moved += 1
-        }
-
-        let recovery = PrescribedSessions.recoveryDay(
-            on: day,
-            goal: "Rescheduled day. The rest of the week has moved on by one."
-        )
-        recovery.plan = plan
-        context.insert(recovery)
-
-        try context.save()
-        return outcome
+        throw PlanReshaper.Failure.useSingleWorkoutMove
     }
 }

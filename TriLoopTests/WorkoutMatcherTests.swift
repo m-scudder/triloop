@@ -102,12 +102,11 @@ struct WorkoutMatcherTests {
             asOf: day(7)
         )
 
-        #expect(result.matches.count == 1)
-        #expect(result.unmatchedImported.count == 1)
-        #expect(result.matches.first?.imported.startDate == day(0, hour: 7))
+        #expect(result.matches.isEmpty)
+        #expect(result.unmatchedImported.count == 2)
     }
 
-    @Test("A session done the next day still counts")
+    @Test("An adjacent-day session without a plan identifier stays unmatched")
     func toleranceAllowsSlippage() {
         let plan = plan()
         let result = matcher().match(
@@ -116,8 +115,8 @@ struct WorkoutMatcherTests {
             asOf: day(7)
         )
 
-        #expect(result.matches.count == 1)
-        #expect(result.matches.first?.dayOffset == 1)
+        #expect(result.matches.isEmpty)
+        #expect(result.unmatchedImported.count == 1)
     }
 
     @Test("Nothing matches outside the tolerance window")
@@ -147,7 +146,7 @@ struct WorkoutMatcherTests {
         #expect(result.unmatchedImported.count == 1)
     }
 
-    @Test("The same activity counts once that day has arrived")
+    @Test("Yesterday's unrelated activity cannot complete today's session")
     func yesterdaysActivityMatchesOnTheDay() {
         let plan = plan()
         let result = matcher().match(
@@ -156,8 +155,8 @@ struct WorkoutMatcherTests {
             asOf: day(5, hour: 12)
         )
 
-        #expect(result.matches.count == 1)
-        #expect(result.matches.first?.dayOffset == -1)
+        #expect(result.matches.isEmpty)
+        #expect(result.unmatchedImported.count == 1)
     }
 
     @Test("A full week of training matches every session")
@@ -179,6 +178,36 @@ struct WorkoutMatcherTests {
         #expect(result.matches.count == 6)
         #expect(result.unmatchedPlanned.isEmpty)
         #expect(result.unmatchedImported.isEmpty)
+    }
+
+    @Test func consecutiveDaysPreferActualRecordingDayEvenWhenImportIsDelayed() {
+        let yesterday = PlannedWorkout(date: day(0), discipline: .running, title: "Run", prescribedDurationSeconds: 1800)
+        let today = PlannedWorkout(date: day(1), discipline: .running, title: "Run", prescribedDurationSeconds: 1800)
+        let result = matcher().match(planned: [today, yesterday], with: [activity(.running, at: day(0), duration: 1800)], asOf: day(7))
+        #expect(result.matches.first?.planned.id == yesterday.id)
+        #expect(result.unmatchedPlanned.map(\.id) == [today.id])
+    }
+
+    @Test func manualAndGeneratedWithSimilarTargetsRemainAmbiguous() {
+        let prescribed = PlannedWorkout(date: day(0), discipline: .running, title: "Run", prescribedDurationSeconds: 1800)
+        let manual = PlannedWorkout(date: day(0), discipline: .running, title: "My run", prescribedDurationSeconds: 1740, origin: .custom)
+        let result = matcher().match(planned: [prescribed, manual], with: [activity(.running, at: day(0), duration: 1800)], asOf: day(7))
+        #expect(result.matches.isEmpty)
+    }
+
+    @Test func distinctDurationsIdentifyManualWorkoutWithoutFavoringGenerated() {
+        let prescribed = PlannedWorkout(date: day(0), discipline: .running, title: "Run", prescribedDurationSeconds: 3600)
+        let manual = PlannedWorkout(date: day(0), discipline: .running, title: "My run", prescribedDurationSeconds: 1200, origin: .custom)
+        let result = matcher().match(planned: [prescribed, manual], with: [activity(.running, at: day(0), duration: 1200)], asOf: day(7))
+        #expect(result.matches.first?.planned.id == manual.id)
+    }
+
+    @Test func alreadyLinkedOrSkippedSessionsCannotClaimAnotherActivity() {
+        let prescribed = PlannedWorkout(date: day(0), discipline: .running, title: "Run", prescribedDurationSeconds: 1800)
+        prescribed.attach(ImportedWorkoutSummary(activity(.running, at: day(0), duration: 1800)))
+        let skipped = PlannedWorkout(date: day(0), discipline: .running, title: "Skip", prescribedDurationSeconds: 1800, status: .skipped)
+        let result = matcher().match(planned: [prescribed, skipped], with: [activity(.running, at: day(0, hour: 18), duration: 1800)], asOf: day(7))
+        #expect(result.matches.isEmpty)
     }
 }
 

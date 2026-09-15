@@ -91,26 +91,28 @@ struct WeekReviewView: View {
                     StatusPill(status: sport.status)
                 }
 
-                HStack(alignment: .top, spacing: 8) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 120), alignment: .leading)], alignment: .leading, spacing: 12) {
                     StatTile(value: "\(sport.completedSessions) / \(sport.plannedSessions)", label: "Sessions")
                     StatTile(value: volume(for: sport), label: sport.sport == .swimming ? "Distance" : "Duration")
                     StatTile(
-                        value: sport.averageRPE.map { $0.formatted(.number.precision(.fractionLength(0...1))) } ?? "—",
+                        value: sport.averageRPE.map { $0.formatted(.number.precision(.fractionLength(0...1))) } ?? "Not reported",
                         label: "Avg RPE"
                     )
-                    StatTile(value: "\(sport.highestPain)", label: "Pain")
+                    StatTile(value: DecisionExplanation.painValue(for: sport), label: "Pain")
                 }
 
                 Divider()
 
-                Text(sport.adjustment.summary)
+                Text(DecisionExplanation.change(for: sport, parameters: plan.parameters))
                     .font(.subheadline)
 
-                if !sport.reasons.isEmpty {
-                    Text(sport.reasons.map(\.summary).joined(separator: ". ") + ".")
+                ForEach(Array(sport.reasons.filter(\.isSafetyCritical).enumerated()), id: \.offset) { _, reason in
+                    Text(reason.summary)
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
+
+                WhyButton(explanation: .weekly(sport, parameters: plan.parameters))
             }
         }
     }

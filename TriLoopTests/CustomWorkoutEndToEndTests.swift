@@ -130,9 +130,9 @@ struct CustomWorkoutEndToEndTests {
             zoneSource: .ageBasedMaximum
         )
 
-        #expect(interpretation.intensity != nil)
-        #expect(interpretation.adherence != nil)
-        #expect(interpretation.load != nil)
+        #expect(interpretation.intensity.value != nil)
+        #expect(interpretation.adherence == nil)
+        #expect(interpretation.load.value != nil)
 
         // 9. Provenance survives everything that just happened.
         #expect(workout.origin == .custom)

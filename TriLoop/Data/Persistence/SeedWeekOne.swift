@@ -6,13 +6,12 @@ import Foundation
 /// Phase 4 generator and tests can build weeks anywhere on the calendar.
 enum SeedWeekOne {
 
-    /// Monday 17 August 2026, in the current calendar's time zone.
-    static func defaultStartDate(calendar: Calendar = .current) -> Date {
-        var components = DateComponents()
-        components.year = 2026
-        components.month = 8
-        components.day = 17
-        return calendar.date(from: components) ?? calendar.startOfDay(for: .now)
+    /// The day the seed is installed.
+    ///
+    /// A fixed calendar date would put a freshly reset athlete in a week that
+    /// ended long ago, with nothing on Today.
+    static func defaultStartDate(calendar: Calendar = .current, now: Date = .now) -> Date {
+        calendar.startOfDay(for: now)
     }
 
     static func makeProfile(startDate: Date) -> AthleteProfile {

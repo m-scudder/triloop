@@ -38,28 +38,22 @@ struct OnboardingView: View {
         switch model.stage {
         case .welcome:
             WelcomeStepView(isUpgrade: model.isUpgrade, start: model.advance)
-        case .about:
-            AboutYouStepView(model: model)
-        case .goal:
+        case .about, .goal:
             GoalStepView(model: model)
-        case .running:
-            RunningStepView(model: model)
-        case .swimming:
-            SwimmingStepView(model: model)
-        case .cycling:
-            CyclingStepView(model: model)
-        case .days:
+        case .running, .swimming, .cycling, .pool:
+            StartingPointStepView(model: model)
+        case .days, .commitment:
             TrainingDaysStepView(model: model)
-        case .commitment:
-            CommitmentStepView(model: model)
-        case .pool:
-            PoolStepView(model: model)
-        case .health:
-            HealthStepView(model: model)
-        case .watch:
-            WatchStepView(model: model)
+        case .health, .watch:
+            ConnectionsStepView(model: model)
         case .preview, .complete:
             PlanPreviewStepView(model: model)
+        case .safety:
+            OnboardingStep(primary: model.advance) {
+                OnboardingHeader(title: "Anything we should consider?", subtitle: "Keep training comfortable.")
+                Text("Do not train through pain or warning symptoms. Stop if you feel unwell; seek medical advice for severe or persistent symptoms.")
+                Text("Report effort, pain and recovery after each session so TriLoop can adjust what comes next.")
+            }
         }
     }
 
@@ -85,7 +79,7 @@ struct OnboardingView: View {
     /// Welcome and complete are not steps the athlete answers, so progress is
     /// measured across the questions between them.
     private func progress(_ stage: AthleteSetup.Stage) -> Double {
-        let total = Double(AthleteSetup.Stage.allCases.count - 1)
+        let total = Double(AthleteSetup.Stage.onboardingFlow.count - 1)
         return min(Double(stage.order) / total, 1)
     }
 

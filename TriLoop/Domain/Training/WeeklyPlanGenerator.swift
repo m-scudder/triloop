@@ -46,7 +46,7 @@ struct WeeklyPlanGenerator: Sendable {
         let frequencies = Sport.allCases.compactMap { sport -> SportFrequency? in
             guard !recovering.contains(sport) else { return nil }
 
-            let carried = plan.trainingSessions.filter { $0.discipline.sport == sport }.count
+            let carried = plan.prescribedTrainingSessions.filter { $0.discipline.sport == sport }.count
             let preferred = preferences.first { $0.sport == sport }?.sessionsPerWeek ?? 0
             let intended = max(carried, preferred)
 
@@ -64,7 +64,7 @@ struct WeeklyPlanGenerator: Sendable {
         // day into recovery would bury the week in it, and a week with nothing
         // to report cannot be closed.
         let pulled = recovering.reduce(0) { total, sport in
-            total + plan.trainingSessions.filter { $0.discipline.sport == sport }.count
+            total + plan.prescribedTrainingSessions.filter { $0.discipline.sport == sport }.count
         }
         let recoveryDays = freeDays(in: shape, limit: pulled)
 

@@ -9,7 +9,7 @@ struct PlanPreviewStepView: View {
 
     var body: some View {
         OnboardingStep(
-            primaryTitle: model.isUpgrade ? "Start This Week" : "Start This Plan",
+            primaryTitle: "Start My Plan",
             isPrimaryEnabled: model.preview != nil && !model.isWorking,
             secondary: OnboardingSecondaryAction("Adjust Days") {
                 model.jump(to: .days)
@@ -34,11 +34,13 @@ struct PlanPreviewStepView: View {
 
                 week(plan)
 
-                Text(plan.generationReason)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                HStack {
+                    Text("Starting conservatively").font(.subheadline)
+                    Spacer()
+                    InfoButton(title: "Starting conservatively", explanation: "TriLoop uses your starting point to choose a manageable first week, then adjusts from completion, effort, pain and recovery. \(plan.generationReason)")
+                }
 
-                Text("Your first week starts conservatively so TriLoop can understand how you respond to each discipline. Future weeks adapt based on completion, effort, pain and recovery.")
+                Text("TriLoop will adjust future weeks based on how these sessions go.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             } else {
@@ -47,6 +49,7 @@ struct PlanPreviewStepView: View {
                     .padding(.top, 60)
             }
         }
+        .task { if model.preview == nil { model.buildPreview() } }
     }
 
     /// Starting today gives a short week rather than backdating sessions the

@@ -17,10 +17,14 @@ struct RecoverySection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            SectionEyebrow(text: "Recovery")
+            HStack {
+                SectionEyebrow(text: "Recovery")
+                Spacer()
+                InfoButton(concept: .recovery)
+            }
 
             if Self.shown.allSatisfy({ (readings[$0] ?? []).isEmpty }) {
-                UnavailableNote(text: "No recovery data from Apple Health yet. Wearing a watch overnight records resting heart rate, HRV and sleep.")
+                UnavailableNote(text: "No recovery data from Apple Health yet.")
             } else {
                 VStack(spacing: 10) {
                     ForEach(Self.shown, id: \.self) { metric in
@@ -28,7 +32,7 @@ struct RecoverySection: View {
                     }
                 }
 
-                Text("These are observations, not a verdict on how you are training.")
+                Text("Observations, not a training verdict.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
