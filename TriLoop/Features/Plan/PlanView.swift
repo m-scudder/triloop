@@ -3,15 +3,14 @@ import SwiftUI
 
 /// Date-led view of the plan: pick a day, see the session that matters.
 ///
-/// The plan is for orientation, so it shows a concise session summary. The full
-/// prescription, analysis and management actions remain one tap away.
+/// Plan is for orientation. Execution actions live on Home; this screen keeps
+/// the selected session concise and links into prescription or analysis detail.
 struct PlanView: View {
     @Query(sort: \WeeklyPlan.startDate) private var plans: [WeeklyPlan]
 
     @State private var selection: Date = .now
     @State private var isPresentingCalendar = false
     @State private var hasChosenOpeningDay = false
-    /// Which session is shown when a day holds more than one.
     @State private var focused: UUID?
 
     private var allWorkouts: [PlannedWorkout] {
@@ -116,8 +115,6 @@ struct PlanView: View {
         .presentationDetents([.medium])
     }
 
-    /// Bounded by the plan itself: there is nothing to show on a date TriLoop
-    /// has never prescribed.
     private var dateRange: ClosedRange<Date> {
         let dates = allWorkouts.map(\.date)
         guard let first = dates.min(), let last = dates.max() else {
@@ -126,9 +123,6 @@ struct PlanView: View {
         return first...max(last, first)
     }
 
-    /// Opens on today when it is part of a plan, and on the nearest planned day
-    /// otherwise, so the screen never starts empty. Runs once: `onAppear` fires
-    /// again when a pushed screen is popped, which would discard the chosen day.
     private func selectSensibleDay() {
         guard !hasChosenOpeningDay, !allWorkouts.isEmpty else { return }
         hasChosenOpeningDay = true
@@ -156,9 +150,18 @@ private struct PlanSessionSummary: View {
                     DisciplineBadge(discipline: workout.discipline, size: 46)
 
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(workout.title)
-                            .font(.title2.weight(.semibold))
-                            .lineLimit(2)
+                        HStack(alignment: .firstTextBaseline, spacing: 7) {
+                            Text(workout.title)
+                                .font(.title2.weight(.semibold))
+                                .lineLimit(2)
+
+                            if workout.status == .completed {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.body)
+                                    .foregroundStyle(.green)
+                                    .accessibilityLabel("Completed")
+                            }
+                        }
 
                         if let summary = WorkoutSummaryText.make(for: workout) {
                             Text(summary)
@@ -228,21 +231,17 @@ private struct PlanSessionSummary: View {
         }
     }
 
+    /// Completed is represented beside the title. Only states that still need
+    /// explanation take a dedicated row.
     private var status: (title: String, symbol: String, tint: Color)? {
         if workout.awaitingFeedback {
             return ("Add your report", "exclamationmark.circle.fill", .orange)
-        }
-        if workout.status == .completed {
-            return ("Completed", "checkmark.circle.fill", .green)
         }
         if workout.isSkipped {
             return ("Skipped", "slash.circle.fill", .secondary)
         }
         if workout.isMissed() {
             return ("Not completed", "exclamationmark.circle.fill", .orange)
-        }
-        if Calendar.current.isDateInToday(workout.date) {
-            return ("Today", "circle.fill", workout.discipline.tint)
         }
         return nil
     }
