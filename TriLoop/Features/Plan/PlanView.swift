@@ -1,10 +1,10 @@
 import SwiftData
 import SwiftUI
 
-/// Date-led view of the plan: pick a day, see the session that matters.
+/// Date-led view of the plan: pick a day and work with that session in place.
 ///
-/// Plan is for orientation. Execution actions live on Home; this screen keeps
-/// the selected session concise and links into prescription or analysis detail.
+/// Home owns workout execution. Plan owns prescription, completed analysis and
+/// schedule management, so there is no extra workout-detail navigation step.
 struct PlanView: View {
     @Query(sort: \WeeklyPlan.startDate) private var plans: [WeeklyPlan]
 
@@ -60,8 +60,11 @@ struct PlanView: View {
                         }
 
                         if let workout = selectedWorkout {
-                            PlanSessionSummary(workout: workout)
-                                .id(workout.id)
+                            WorkoutDayDetail(
+                                workout: workout,
+                                showsManagementMenu: true
+                            )
+                            .id(workout.id)
                         } else {
                             ContentUnavailableView(
                                 "Nothing planned",
@@ -137,113 +140,6 @@ struct PlanView: View {
             abs($0.date.timeIntervalSince(now)) < abs($1.date.timeIntervalSince(now))
         }
         if let nearest { selection = nearest.date }
-    }
-}
-
-private struct PlanSessionSummary: View {
-    let workout: PlannedWorkout
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                HStack(alignment: .top, spacing: 14) {
-                    DisciplineBadge(discipline: workout.discipline, size: 46)
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack(alignment: .firstTextBaseline, spacing: 7) {
-                            Text(workout.title)
-                                .font(.title2.weight(.semibold))
-                                .lineLimit(2)
-
-                            if workout.status == .completed {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .font(.body)
-                                    .foregroundStyle(.green)
-                                    .accessibilityLabel("Completed")
-                            }
-                        }
-
-                        if let summary = WorkoutSummaryText.make(for: workout) {
-                            Text(summary)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-
-                    Spacer(minLength: 0)
-                }
-
-                if let status {
-                    Label(status.title, systemImage: status.symbol)
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(status.tint)
-                }
-
-                if workout.isCompleted {
-                    completedSummary
-                }
-
-                if let structure = WorkoutStructureSummary.text(for: workout) {
-                    Text(structure)
-                        .font(.body)
-                        .foregroundStyle(.secondary)
-                } else if workout.orderedSteps.isEmpty {
-                    Text("Nothing is scheduled. Rest is part of the plan.")
-                        .font(.body)
-                        .foregroundStyle(.secondary)
-                }
-
-                NavigationLink {
-                    WorkoutDetailView(workout: workout)
-                } label: {
-                    HStack {
-                        Text(workout.discipline.isTrainingSession ? "View workout" : "View details")
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.caption.weight(.semibold))
-                    }
-                }
-                .buttonStyle(SecondaryActionButtonStyle())
-            }
-            .padding(20)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-
-    @ViewBuilder
-    private var completedSummary: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            if let actual = workout.importedSummary?.duration,
-               let planned = workout.estimatedDurationSeconds {
-                Text("Planned \(TrainingFormatter.totalDuration(seconds: planned)) · Actual \(TrainingFormatter.totalDuration(seconds: actual))")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            } else if let actual = workout.importedSummary?.duration {
-                Text("Actual \(TrainingFormatter.totalDuration(seconds: actual))")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-
-            if let effort = workout.feedback?.rpe {
-                Text("Effort \(effort)/10")
-                    .font(.subheadline.weight(.medium))
-            }
-        }
-    }
-
-    /// Completed is represented beside the title. Only states that still need
-    /// explanation take a dedicated row.
-    private var status: (title: String, symbol: String, tint: Color)? {
-        if workout.awaitingFeedback {
-            return ("Add your report", "exclamationmark.circle.fill", .orange)
-        }
-        if workout.isSkipped {
-            return ("Skipped", "slash.circle.fill", .secondary)
-        }
-        if workout.isMissed() {
-            return ("Not completed", "exclamationmark.circle.fill", .orange)
-        }
-        return nil
     }
 }
 
