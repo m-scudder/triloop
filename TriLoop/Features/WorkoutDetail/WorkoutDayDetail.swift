@@ -3,32 +3,30 @@ import SwiftUI
 
 struct WorkoutDayDetail: View {
     let workout: PlannedWorkout
+    // Kept for source compatibility with previews/tests that inject a scheduler.
+    // Workout execution itself now belongs to Home.
     var scheduler: any WorkoutScheduling = WorkoutKitScheduler()
 
     @Environment(\.modelContext) private var modelContext
-    @State private var isPresentingFeedback = false
-    @State private var isScheduling = false
-    @State private var isScheduled = false
-    @State private var scheduleMessage: String?
-    @State private var isMoving = false
-    @State private var moveDate = Date.now
-    @State private var moveFailure: String?
-    @State private var isConfirmingSkip = false
-    @State private var isChoosingTodayAction = false
-    @State private var isConfirmingUnavailable = false
-    @State private var samples: WorkoutSamples?
-    @State private var samplesFailure: String?
-    @State private var isImporting = false
-    @State private var importMessage: String?
-    @AppStorage("automaticallyImportWorkouts") private var automaticallyImport = true
     @Environment(\.healthProvider) private var health
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Query private var profiles: [AthleteProfile]
     @Query private var recordedSummaries: [ImportedWorkoutSummary]
 
+    @State private var isMoving = false
+    @State private var moveDate = Date.now
+    @State private var moveFailure: String?
+    @State private var isConfirmingSkip = false
+    @State private var isConfirmingUnavailable = false
+    @State private var actionMessage: String?
+    @State private var samples: WorkoutSamples?
+    @State private var samplesFailure: String?
+    @State private var isImporting = false
+    @State private var importMessage: String?
+
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 24) {
                 header
 
                 if workout.isSkipped {
@@ -37,57 +35,42 @@ struct WorkoutDayDetail: View {
                         detail: "This session was deliberately skipped. It still counts against progression.",
                         symbol: "slash.circle.fill",
                         tint: .secondary
-                    ) {
-                        EmptyView()
-                    }
+                    )
                 } else if workout.isMissed() {
                     stateBanner(
                         "Missed",
-                        detail: "This day has passed with nothing recorded. Report it if you trained.",
+                        detail: "This day has passed with nothing recorded.",
                         symbol: "exclamationmark.circle.fill",
                         tint: .orange
-                    ) {
-                        EmptyView()
-                    }
-                }
-
-                // A finished session leads with the result. Everything that
-                // explains that result remains available below, collapsed.
-                if let summary = workout.importedSummary {
-                    RecordedWorkoutView(workout: workout, summary: summary)
+                    )
                 }
 
                 if hasAnalysis {
                     analysisSection
-                }
 
-                if let feedback = workout.feedback {
-                    reportSection(feedback)
+                    if let feedback = workout.feedback {
+                        reportSection(feedback)
+                    }
                 }
 
                 plannedWorkoutSection
 
-                if canSkip || canChangeAvailability {
-                    workoutOptions
-                }
-
-                if let scheduleMessage {
-                    Text(scheduleMessage)
+                if let actionMessage {
+                    Text(actionMessage)
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
             }
             .padding(20)
         }
-        .safeAreaInset(edge: .bottom) {
-            if workout.acceptsFeedback || workout.discipline.isTrainingSession {
-                actionBar
+        .toolbar {
+            if canSkip || canChangeAvailability {
+                ToolbarItem(placement: .topBarTrailing) {
+                    managementMenu
+                }
             }
         }
-
-
         .task {
-            await refreshScheduledState()
             await loadSamples()
         }
         .confirmationDialog(
@@ -100,76 +83,70 @@ struct WorkoutDayDetail: View {
         } message: {
             Text("Only this workout will be skipped. The original session stays in your plan history.")
         }
-        .confirmationDialog("Can't Train Today", isPresented: $isChoosingTodayAction, titleVisibility: .visible) {
-            Button("Move This Workout") { presentMove() }
-            Button("Skip This Workout Today", role: .destructive) { isConfirmingSkip = true }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Today only. Your recurring availability will not change.")
-        }
-        .confirmationDialog("Mark \(weekday?.displayName ?? "Day") unavailable every week?",
-                            isPresented: $isConfirmingUnavailable, titleVisibility: .visible) {
+        .confirmationDialog(
+            "Mark \(weekday?.displayName ?? "Day") unavailable every week?",
+            isPresented: $isConfirmingUnavailable,
+            titleVisibility: .visible
+        ) {
             Button("Mark Unavailable Every Week", role: .destructive) { markUnavailable() }
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("This changes your recurring training schedule. Remaining sessions will be reshaped; those that cannot fit will stay in the plan as skipped. Completed and past sessions stay unchanged.")
         }
         .sheet(isPresented: $isMoving) { moveSheet }
-        .sheet(isPresented: $isPresentingFeedback) {
-            FeedbackSheet(workout: workout)
-        }
     }
 
     private var hasAnalysis: Bool {
-        execution != nil
+        workout.isCompleted
+            || execution != nil
             || workout.importedSummary != nil
             || workout.hasReport
     }
 
-    private var analysisSubtitle: String {
-        execution?.overall.displayName ?? "Charts, heart rate and training load"
-    }
-
-    /// Completed-workout depth is kept intact, but no longer overwhelms the
-    /// result the athlete needs first.
+    /// Completed sessions lead directly with analysis. There is no extra
+    /// "complete" metrics card between the title and the useful evidence.
     private var analysisSection: some View {
-        DisclosureCard(
-            "Workout analysis",
-            subtitle: analysisSubtitle,
-            systemImage: "chart.xyaxis.line"
-        ) {
-            VStack(alignment: .leading, spacing: 24) {
+        VStack(alignment: .leading, spacing: 24) {
+            HStack {
+                SectionEyebrow(text: "Workout analysis")
+                Spacer()
                 if let execution {
-                    SessionExecutionView(
-                        outcome: execution,
-                        plannedSeconds: workout.prescribedDurationSeconds,
-                        actualSeconds: workout.importedSummary?.duration,
-                        targetRPE: workout.targetRPE,
-                        reportedRPE: workout.feedback?.rpe
-                    )
-                }
-
-                if let samples, !samples.isEmpty {
-                    WorkoutChartsView(
-                        discipline: workout.discipline,
-                        samples: samples,
-                        summary: workout.importedSummary
-                    )
-
-                    zones(for: samples)
-                } else if workout.importedSummary != nil, let samplesFailure {
-                    Text(samplesFailure)
-                        .font(.footnote)
+                    Text(execution.overall.displayName)
+                        .font(.caption.weight(.medium))
                         .foregroundStyle(.secondary)
-                } else if workout.importedSummary == nil, workout.hasReport {
-                    unlinkedSession
                 }
+            }
 
-                intensity(with: zoneBreakdown)
+            if let execution {
+                SessionExecutionView(
+                    outcome: execution,
+                    plannedSeconds: workout.prescribedDurationSeconds,
+                    actualSeconds: workout.importedSummary?.duration,
+                    targetRPE: workout.targetRPE,
+                    reportedRPE: workout.feedback?.rpe
+                )
+            }
 
-                if let metrics = workout.importedSummary?.metrics {
-                    AdvancedMetricsView(metrics: metrics, sport: workout.discipline.sport)
-                }
+            if let samples, !samples.isEmpty {
+                WorkoutChartsView(
+                    discipline: workout.discipline,
+                    samples: samples,
+                    summary: workout.importedSummary
+                )
+
+                zones(for: samples)
+            } else if workout.importedSummary != nil, let samplesFailure {
+                Text(samplesFailure)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            } else if workout.importedSummary == nil, workout.hasReport {
+                manualSessionNotice
+            }
+
+            intensity(with: zoneBreakdown)
+
+            if let metrics = workout.importedSummary?.metrics {
+                AdvancedMetricsView(metrics: metrics, sport: workout.discipline.sport)
             }
         }
     }
@@ -177,11 +154,33 @@ struct WorkoutDayDetail: View {
     private func reportSection(_ feedback: WorkoutFeedback) -> some View {
         DisclosureCard(
             "Your report",
-            subtitle: "RPE \(feedback.rpe)",
+            subtitle: "Effort \(feedback.rpe)/10",
             systemImage: "checkmark.bubble"
         ) {
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 16) {
                 FeedbackSummaryView(feedback: feedback)
+
+                if let target = workout.targetRPE {
+                    Divider()
+                    VStack(alignment: .leading, spacing: 8) {
+                        SectionEyebrow(text: "Effort comparison")
+                        HStack(spacing: 24) {
+                            StatTile(
+                                value: TrainingFormatter.rpe(target),
+                                label: "Planned"
+                            )
+                            StatTile(
+                                value: "\(feedback.rpe)/10",
+                                label: "Reported"
+                            )
+                            Spacer(minLength: 0)
+                        }
+                        Text("Planned effort is calculated from the workout TriLoop prescribed. Reported effort comes from how you said the workout actually felt.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
                 Button("Clear report", role: .destructive) {
                     workout.clearCompletion()
                 }
@@ -190,6 +189,8 @@ struct WorkoutDayDetail: View {
         }
     }
 
+    /// Planned sessions show only the prescription. Target effort remains an
+    /// internal training input until there is an athlete report to compare it to.
     private var plannedWorkoutSection: some View {
         DisclosureCard(
             workout.orderedSteps.isEmpty ? "Rest day" : "Planned workout",
@@ -217,54 +218,33 @@ struct WorkoutDayDetail: View {
                 } else {
                     WorkoutPrescriptionView(workout: workout)
                 }
-
-                if let rpe = workout.targetRPE {
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            SectionEyebrow(text: "Target effort")
-                            Spacer()
-                            InfoButton(concept: .rpe)
-                        }
-                        Text("RPE \(TrainingFormatter.rpe(rpe))")
-                            .font(.body.weight(.medium))
-                        EffortBar(range: rpe)
-                    }
-                }
             }
         }
     }
 
-    private var workoutOptions: some View {
-        DisclosureCard(
-            "Workout options",
-            subtitle: "Move, skip or update your availability",
-            systemImage: "ellipsis"
-        ) {
-            VStack(alignment: .leading, spacing: 16) {
-                if canSkip {
-                    Button { presentMove() } label: {
-                        Label("Move Workout", systemImage: "calendar")
-                    }
-                    Button(role: .destructive) { isConfirmingSkip = true } label: {
-                        Label("Skip Workout", systemImage: "forward.end")
-                    }
-                    if Calendar.current.isDateInToday(workout.date) {
-                        Button { isChoosingTodayAction = true } label: {
-                            Label("Can't Train Today", systemImage: "calendar.badge.exclamationmark")
-                        }
-                    }
+    /// Execution happens on Home. Plan detail keeps only plan-management
+    /// actions out of the content flow in a compact native menu.
+    private var managementMenu: some View {
+        Menu {
+            if canSkip {
+                Button { presentMove() } label: {
+                    Label("Move Workout", systemImage: "calendar")
                 }
-
-                if canChangeAvailability, let weekday {
-                    Button { isConfirmingUnavailable = true } label: {
-                        Label(
-                            "Mark \(weekday.displayName) Unavailable Every Week",
-                            systemImage: "calendar.badge.minus"
-                        )
-                    }
+                Button(role: .destructive) { isConfirmingSkip = true } label: {
+                    Label("Skip Workout", systemImage: "forward.end")
                 }
             }
-            .font(.subheadline)
+
+            if canChangeAvailability, let weekday {
+                Button { isConfirmingUnavailable = true } label: {
+                    Label(
+                        "Mark \(weekday.displayName) Unavailable",
+                        systemImage: "calendar.badge.minus"
+                    )
+                }
+            }
+        } label: {
+            Label("Workout options", systemImage: "ellipsis.circle")
         }
     }
 
@@ -293,19 +273,28 @@ struct WorkoutDayDetail: View {
             NavigationStack {
                 Form {
                     if max(plan.startDate, Calendar.current.startOfDay(for: .now)) <= plan.endDate {
-                        DatePicker("Move to", selection: $moveDate,
-                                   in: max(plan.startDate, Calendar.current.startOfDay(for: .now))...plan.endDate,
-                                   displayedComponents: .date)
-                            .datePickerStyle(.graphical)
+                        DatePicker(
+                            "Move to",
+                            selection: $moveDate,
+                            in: max(plan.startDate, Calendar.current.startOfDay(for: .now))...plan.endDate,
+                            displayedComponents: .date
+                        )
+                        .datePickerStyle(.graphical)
                     }
-                    if let moveFailure { Text(moveFailure).foregroundStyle(.red) }
+
+                    if let moveFailure {
+                        Text(moveFailure).foregroundStyle(.red)
+                    }
+
                     Button("Move Workout") {
                         do {
                             try PlanStore(context: modelContext).moveWorkout(workout, to: moveDate)
-                            scheduleMessage = "Workout moved to \(workout.date.formatted(date: .abbreviated, time: .omitted))."
+                            actionMessage = "Workout moved to \(workout.date.formatted(date: .abbreviated, time: .omitted))."
                             isMoving = false
                             Task { await WatchScheduleSync.sync(plan) }
-                        } catch { moveFailure = error.localizedDescription }
+                        } catch {
+                            moveFailure = error.localizedDescription
+                        }
                     }
                     .disabled(Calendar.current.isDate(moveDate, inSameDayAs: workout.date))
                 }
@@ -320,13 +309,11 @@ struct WorkoutDayDetail: View {
         }
     }
 
-    @ViewBuilder
     private func stateBanner(
         _ title: String,
         detail: String,
         symbol: String,
-        tint: Color,
-        @ViewBuilder action: () -> some View
+        tint: Color
     ) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Label(title, systemImage: symbol)
@@ -335,8 +322,6 @@ struct WorkoutDayDetail: View {
             Text(detail)
                 .font(.footnote)
                 .foregroundStyle(.secondary)
-            action()
-                .font(.subheadline)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
@@ -346,58 +331,24 @@ struct WorkoutDayDetail: View {
     private func skipWorkout() {
         do {
             try PlanStore(context: modelContext).skipWorkout(workout)
-            scheduleMessage = "Workout skipped. Recurring availability is unchanged."
+            actionMessage = "Workout skipped. Recurring availability is unchanged."
             if let plan = workout.plan { Task { await WatchScheduleSync.sync(plan) } }
-        } catch { scheduleMessage = error.localizedDescription }
+        } catch {
+            actionMessage = error.localizedDescription
+        }
     }
 
     private func markUnavailable() {
         guard let weekday else { return }
         do {
             let skipped = try PlanStore(context: modelContext).markDayUnavailable(weekday)
-            scheduleMessage = "\(weekday.displayName) is now unavailable every week. \(skipped) workouts could not fit and were kept as skipped."
+            actionMessage = "\(weekday.displayName) is now unavailable every week. \(skipped) workouts could not fit and were kept as skipped."
             if let plan = workout.plan { Task { await WatchScheduleSync.sync(plan) } }
-        } catch { scheduleMessage = error.localizedDescription }
-    }
-
-    /// Pinned to the bottom so the primary action is reachable without scrolling
-    /// past the whole prescription.
-    @ViewBuilder
-    private var actionBar: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 10) {
-                if workout.acceptsFeedback {
-                    Button {
-                        isPresentingFeedback = true
-                    } label: {
-                        Text(workout.hasReport ? "Update Report" : "Mark as Done")
-                    }
-                    .buttonStyle(PrimaryActionButtonStyle())
-                }
-
-                if workout.discipline.isTrainingSession {
-                    Button {
-                        sendToWatch()
-                    } label: {
-                        Label(
-                            isScheduled ? "On Watch" : "Send to Watch",
-                            systemImage: isScheduled ? "checkmark.circle.fill" : "applewatch"
-                        )
-                        .labelStyle(.titleAndIcon)
-                        .foregroundStyle(isScheduled ? Color.green : .primary)
-                    }
-                    .buttonStyle(SecondaryActionButtonStyle())
-                    .disabled(isScheduling || isScheduled)
-                }
-            }
+        } catch {
+            actionMessage = error.localizedDescription
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 12)
-        .background(.bar)
     }
 
-    /// The hardest effort the athlete has actually recorded, which can raise a
-    /// ceiling the age formula underestimates.
     private var observedMaximumHeartRate: Double? {
         recordedSummaries.compactMap(\.maximumHeartRate).max()
     }
@@ -409,7 +360,6 @@ struct WorkoutDayDetail: View {
         )
     }
 
-    /// §3: one interpretation, shared with Progress and the history browser.
     private var interpretation: WorkoutInterpretation? {
         let readings = (samples?.heartRate ?? []).map {
             HeartRateReading(date: $0.date, beatsPerMinute: $0.value)
@@ -428,14 +378,10 @@ struct WorkoutDayDetail: View {
         interpretation?.adherence
     }
 
-    /// Nil when there is no heart rate to derive zones from, which is normal
-    /// for a manually reported session.
     private var zoneBreakdown: HeartRateZoneBreakdown? {
         interpretation?.zones
     }
 
-    /// A missing ceiling is worth saying out loud, since the athlete can fix it.
-    /// Missing heart rate is not: the charts above already show there is none.
     @ViewBuilder
     private func zones(for samples: WorkoutSamples) -> some View {
         let result = HeartRateZoneResolver.breakdown(
@@ -447,19 +393,15 @@ struct WorkoutDayDetail: View {
         switch result {
         case .success(let breakdown):
             HeartRateZoneView(breakdown: breakdown)
-
         case .failure(.noCeiling):
             Text(HeartRateZoneResolver.Unavailable.noCeiling.message)
                 .font(.footnote)
                 .foregroundStyle(.secondary)
-
         case .failure(.noHeartRateSamples):
             EmptyView()
         }
     }
 
-    /// Only shown when something was actually measured. §33: silence is more
-    /// honest than labelling an unmeasured session easy.
     @ViewBuilder
     private func intensity(with breakdown: HeartRateZoneBreakdown?) -> some View {
         if let interpretation {
@@ -507,14 +449,12 @@ struct WorkoutDayDetail: View {
         }
     }
 
-    /// A session reported by hand has no sensor data behind it. Import only ever
-    /// ran for the current week from Settings, so an older week could sit here
-    /// forever with nothing explaining the empty space.
-    private var unlinkedSession: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            SectionEyebrow(text: "Recorded data")
-
-            Text("No linked Apple Health workout. Heart rate and pace unavailable.")
+    /// Manual completion is a valid result, not an error state. Sensor-only
+    /// sections are simply omitted and the user gets one concise explanation.
+    private var manualSessionNotice: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionEyebrow(text: "Recorded manually")
+            Text("Sensor-based charts, heart rate and pace detail aren't available for this workout.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
 
@@ -524,7 +464,7 @@ struct WorkoutDayDetail: View {
                     .foregroundStyle(.secondary)
             }
 
-            Button(isImporting ? "Looking…" : "Look in Apple Health") {
+            Button(isImporting ? "Looking…" : "Check Apple Health") {
                 importThisSession()
             }
             .font(.subheadline)
@@ -551,13 +491,11 @@ struct WorkoutDayDetail: View {
         }
     }
 
-    /// Fetched rather than stored: HealthKit already holds every sample, and a
-    /// copy would be a lot of data for a screen opened occasionally.
     private func loadSamples() async {
         guard let id = workout.importedSummary?.healthKitUUID else { return }
 
         guard await health.authorizationStatus == .authorized else {
-            samplesFailure = "Connect Apple Health to see heart rate and pace detail."
+            samplesFailure = "Connect Apple Health to see sensor-based detail."
             return
         }
 
@@ -565,85 +503,38 @@ struct WorkoutDayDetail: View {
             let loaded = try await health.samples(forWorkout: id)
             samples = loaded
             samplesFailure = loaded.isEmpty
-                ? "Apple Health has no heart rate or pace samples for this session."
+                ? "No sensor-based heart rate or pace samples were recorded for this session."
                 : nil
         } catch {
-            samplesFailure = "Could not read the detail for this session."
-        }
-    }
-
-    private func refreshScheduledState() async {
-        isScheduled = await scheduler.scheduledWorkoutIDs().contains(workout.id)
-    }
-
-    private func sendToWatch() {
-        isScheduling = true
-        let when = workout.suggestedScheduleDate()
-
-        Task {
-            defer { isScheduling = false }
-            do {
-                try await scheduler.schedule(workout, at: when)
-                isScheduled = true
-                // The scheduled hour is an artefact of WorkoutKit needing a
-                // wall-clock time; TriLoop prescribes the day, so it is not
-                // shown to the athlete as though it were a commitment.
-                scheduleMessage = "Ready in the Workout app on your Watch. Start it whenever you train today."
-            } catch WorkoutSchedulingError.notAuthorized {
-                scheduleMessage = "TriLoop needs permission to add workouts to your Watch."
-            } catch WorkoutSchedulingError.unavailable {
-                scheduleMessage = "No paired Apple Watch found."
-            } catch WorkoutSchedulingError.notAccepted {
-                scheduleMessage = "The Watch did not accept the workout. Check that it is paired and nearby."
-            } catch {
-                scheduleMessage = "This session cannot be sent to the Watch."
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var completionSection: some View {
-        if let feedback = workout.feedback {
-            LabeledSection(title: "Your report") {
-                VStack(alignment: .leading, spacing: 12) {
-                    FeedbackSummaryView(feedback: feedback)
-
-                    Button("Clear report", role: .destructive) {
-                        workout.clearCompletion()
-                    }
-                    .font(.subheadline)
-                }
-            }
-        } else {
-            Button {
-                isPresentingFeedback = true
-            } label: {
-                Label("Mark complete", systemImage: "checkmark.circle.fill")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
+            samplesFailure = "Could not read the sensor-based detail for this session."
         }
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 14) {
-                Image(systemName: workout.discipline.symbolName)
-                    .font(.title3)
-                    .foregroundStyle(.primary)
-                    .frame(width: 52, height: 52)
-                    .background(.fill.tertiary, in: .circle)
+        HStack(spacing: 14) {
+            Image(systemName: workout.discipline.symbolName)
+                .font(.title3)
+                .foregroundStyle(.primary)
+                .frame(width: 52, height: 52)
+                .background(.fill.tertiary, in: .circle)
 
-                VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(alignment: .firstTextBaseline, spacing: 7) {
                     Text(workout.title)
                         .font(.title2.weight(.semibold))
                         .lineLimit(2)
-                    if let summary = WorkoutSummaryText.make(for: workout) {
-                        Text(summary)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+
+                    if workout.status == .completed {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                            .accessibilityLabel("Completed")
                     }
+                }
+
+                if let summary = WorkoutSummaryText.make(for: workout) {
+                    Text(summary)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                 }
             }
         }
