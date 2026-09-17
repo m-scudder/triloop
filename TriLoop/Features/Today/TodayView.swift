@@ -1,11 +1,11 @@
 import SwiftData
 import SwiftUI
 
-/// Today answers one question: what does TriLoop want from me right now?
+/// Home answers two questions: how is my week going, and what does TriLoop want
+/// from me right now?
 ///
-/// The screen is driven by `TodayPresentationState` rather than a stack of
-/// conditionals, so exactly one thing leads and the priority is testable.
-/// Analysis lives in Progress and Workout Detail; the week lives in Plan.
+/// The weekly overview provides orientation while `TodayPresentationState`
+/// still guarantees exactly one primary action for the current day.
 struct TodayView: View {
     @Query(sort: \WeeklyPlan.startDate, order: .reverse) private var plans: [WeeklyPlan]
     @Query private var profiles: [AthleteProfile]
@@ -19,10 +19,8 @@ struct TodayView: View {
     @State private var feedbackWorkout: PlannedWorkout?
     @State private var checkInWorkout: PlannedWorkout?
     @State private var isResolved = false
-    @State private var recovery = RecoverySignals()
 
     @Environment(\.scenePhase) private var scenePhase
-    @Environment(\.healthProvider) private var health
 
     private let scheduler = WorkoutKitScheduler()
 
@@ -30,6 +28,10 @@ struct TodayView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
+                    if let plan = plans.currentPlan() {
+                        WeeklyPlanOverviewView(plan: plan)
+                    }
+
                     if let pending = pendingCheckIn {
                         if checkInLeads {
                             checkInCard(pending)
@@ -43,8 +45,6 @@ struct TodayView: View {
                         primary
                         nextFooter
                     }
-
-                    glance
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 12)
@@ -60,18 +60,18 @@ struct TodayView: View {
             .animation(.default, value: scheduleMessage)
             .sheet(item: $feedbackWorkout) { FeedbackSheet(workout: $0) }
             .sheet(item: $checkInWorkout) { RecoveryCheckInSheet(workout: $0) }
-            // §30: an import while the app is open must move Today on without
+            // §30: an import while the app is open must move Home on without
             // the athlete pulling to refresh.
             .task(id: scenePhase) { await refresh() }
             // WorkoutKit drops a scheduled workout once its time has passed, so
-            // a snapshot taken on launch goes out of date while Today is open.
+            // a snapshot taken on launch goes out of date while Home is open.
             .onAppear { Task { await syncWatchState() } }
         }
     }
 
     // MARK: - Sections
 
-    /// §10.1.1.2: the profile reached from Today rather than a fifth tab.
+    /// The profile is reached from Home rather than a fifth tab.
     @ViewBuilder
     private var profileButton: some View {
         if let profile = profiles.first {
@@ -100,27 +100,6 @@ struct TodayView: View {
     private func monogram(of name: String) -> String? {
         guard let first = name.trimmingCharacters(in: .whitespacesAndNewlines).first else { return nil }
         return String(first).uppercased()
-    }
-
-    /// The week is useful context, but today's action earns the first screenful.
-    /// It stays available behind a native disclosure instead of competing with
-    /// the workout the athlete came here to do.
-    @ViewBuilder
-    private var glance: some View {
-        let tiles = TodayGlanceBuilder.tiles(
-            plan: plans.currentPlan(),
-            sessions: loadedSessions,
-            recovery: recovery
-        )
-        if !tiles.isEmpty {
-            DisclosureCard(
-                "This week",
-                subtitle: "Progress, training time and recovery",
-                systemImage: "calendar"
-            ) {
-                TodayGlanceView(tiles: tiles, showsHeader: false)
-            }
-        }
     }
 
     /// A banner, for days where today's own session is the headline.
@@ -350,26 +329,6 @@ struct TodayView: View {
         )
     }
 
-    /// This week's sessions through the shared Phase 9.1 path. Heart-rate
-    /// samples are left out on purpose: Today should not wait on HealthKit to
-    /// draw four tiles, and effort alone classifies a session.
-    private var loadedSessions: [LoadedSession] {
-        guard let plan = plans.currentPlan() else { return [] }
-
-        let builder = intelligence
-        let ceiling = builder.ceiling
-
-        return plan.trainingSessions.compactMap { workout in
-            guard let evidence = builder.evidence(from: workout, samples: []) else { return nil }
-            let interpretation = WorkoutIntelligence.interpret(
-                evidence,
-                maximumHeartRate: ceiling?.maximum,
-                zoneSource: ceiling?.source ?? .ageBasedMaximum
-            )
-            return WorkoutIntelligence.session(from: evidence, interpretation: interpretation)
-        }
-    }
-
     private func disciplineName(_ id: UUID) -> String {
         workout(id)?.discipline.displayName ?? "Session"
     }
@@ -418,33 +377,12 @@ struct TodayView: View {
             await syncWatchState()
         }
         isResolved = true
-        await loadRecovery()
     }
 
     private func syncWatchState() async {
         let scheduled = await scheduler.scheduledWorkouts()
         scheduledWorkoutIDs = Set(scheduled.map(\.id))
         finishedOnWatch = Set(scheduled.filter(\.isComplete).map(\.id))
-    }
-
-    /// Runs after `isResolved` so the screen is never held back by HealthKit;
-    /// the recovery tile appears when it can.
-    private func loadRecovery() async {
-        let end = Date.now
-        guard let start = Calendar.current.date(byAdding: .day, value: -28, to: end) else { return }
-
-        var collected: [RecoveryMetricKey: [RecoveryReading]] = [:]
-        for metric in RecoveryMetric.allCases {
-            guard let key = RecoveryMetricKey(rawValue: metric.rawValue) else { continue }
-            let points = (try? await health.recoverySeries(metric, from: start, to: end)) ?? []
-            collected[key] = points.map { RecoveryReading(date: $0.date, value: $0.value) }
-        }
-
-        recovery = TrainingSignalsBuilder.build(
-            weeks: [],
-            recovery: collected,
-            asOf: end
-        ).recovery
     }
 
     private func send(_ workout: PlannedWorkout) {
