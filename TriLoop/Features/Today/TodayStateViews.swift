@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import UIKit
 
 /// The upcoming-workout state (§4): the default training day.
 ///
@@ -15,7 +16,9 @@ struct TodayWorkoutView: View {
     let start: () -> Void
 
     @Environment(\.modelContext) private var modelContext
+    @StateObject private var locationPermission = WorkoutLocationPermissionRequester()
     @State private var showsPlayer = false
+    @State private var showsLocationIssue = false
     @State private var pendingResult: WorkoutExecutionResult?
 
     var body: some View {
@@ -46,7 +49,7 @@ struct TodayWorkoutView: View {
             }
 
             HStack(spacing: 10) {
-                Button("Start Workout") { showsPlayer = true }
+                Button("Start Workout", action: beginPhoneWorkout)
                     .buttonStyle(PrimaryActionButtonStyle())
 
                 Button(action: start) {
@@ -88,6 +91,36 @@ struct TodayWorkoutView: View {
                 },
                 onCancel: { showsPlayer = false }
             )
+        }
+        .alert("GPS access is off", isPresented: $showsLocationIssue) {
+            Button("Continue Without GPS") { showsPlayer = true }
+            Button("Open Settings") {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("TriLoop needs location access to record distance, pace and route for this workout. You can still run the workout timer without GPS.")
+        }
+    }
+
+    /// Ask before presenting the player. Requesting from inside a newly
+    /// presented full-screen cover can race the cover animation and leave the
+    /// system permission sheet unseen. Swimming never requests GPS.
+    private func beginPhoneWorkout() {
+        guard workout.discipline == .running || workout.discipline == .cycling else {
+            showsPlayer = true
+            return
+        }
+
+        locationPermission.request { result in
+            switch result {
+            case .allowed:
+                showsPlayer = true
+            case .denied, .unavailable:
+                showsLocationIssue = true
+            }
         }
     }
 
