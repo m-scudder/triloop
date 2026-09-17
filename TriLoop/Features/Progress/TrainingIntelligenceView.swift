@@ -56,6 +56,9 @@ struct TrainingIntelligenceView: View {
             }
         }
         .task { await loadTraining() }
+        .onChange(of: range) { _, _ in
+            selectedSport = nil
+        }
         .onChange(of: plans.count) { _, _ in
             Task { await loadTraining() }
         }
