@@ -1,11 +1,8 @@
 import SwiftData
 import SwiftUI
 
-/// The §47 training-intelligence view of Progress.
-///
-/// Beginner-first by §48: time, sessions and adherence lead, with load,
-/// intensity and recovery below. Advanced readings appear only when the data
-/// supports them, so the screen shortens rather than filling with zeros.
+/// The analytical side of Progress: how much training load the athlete carried,
+/// how hard it was, and how it was distributed across sports.
 struct TrainingIntelligenceView: View {
     @Query(sort: \WeeklyPlan.startDate) private var plans: [WeeklyPlan]
     @Query private var profiles: [AthleteProfile]
@@ -14,7 +11,6 @@ struct TrainingIntelligenceView: View {
 
     @State private var range: TrendRange = .fourWeeks
     @State private var selectedSport: Sport?
-    @State private var recovery: [RecoveryMetric: [RecoveryReading]] = [:]
     @State private var interpreted: [TrainingIntelligenceBuilder.Interpreted] = []
 
     enum TrendRange: String, CaseIterable, Identifiable {
@@ -41,61 +37,30 @@ struct TrainingIntelligenceView: View {
             .pickerStyle(.segmented)
 
             if sessions.isEmpty {
-                UnavailableNote(text: "Once you complete and report a few sessions, your training will be summarised here.")
+                UnavailableNote(text: "Complete a few workouts to build your training trends.")
+                    .padding(.top, 16)
             } else {
-                overview
-                DisclosureCard(
-                    "Training detail",
-                    subtitle: "Load, intensity and sport balance",
-                    systemImage: "waveform.path.ecg"
-                ) {
-                    VStack(alignment: .leading, spacing: 24) {
-                        TrainingLoadSection(weeks: weeklyLoads, average: rollingAverage)
-                        IntensityDistributionSection(
-                            distribution: distribution,
-                            sports: IntensityDistributionPolicy.sportsPresent(in: sessions),
-                            selectedSport: $selectedSport
-                        )
-                        SportBalanceSection(balance: balance, comparisons: comparisons)
-                    }
-                }
-            }
+                TrainingLoadSection(weeks: weeklyLoads, average: rollingAverage)
 
-            DisclosureCard(
-                "Recovery signals",
-                subtitle: "Sleep, heart rate and fitness trends",
-                systemImage: "heart.text.clipboard"
-            ) {
-                RecoverySection(readings: recovery, asOf: .now)
+                Divider()
+
+                IntensityDistributionSection(
+                    distribution: distribution,
+                    sports: IntensityDistributionPolicy.sportsPresent(in: sessions),
+                    selectedSport: $selectedSport
+                )
+
+                Divider()
+
+                SportBalanceSection(balance: balance, comparisons: comparisons)
             }
         }
-        .task(id: range) { await loadRecovery() }
-    }
-
-    // MARK: - Overview
-
-    private var overview: some View {
-        HStack(alignment: .top, spacing: 20) {
-            figure(
-                value: TrainingFormatter.totalDuration(seconds: sessions.compactMap(\.durationSeconds).reduce(0, +)),
-                caption: "Training"
-            )
-            figure(value: "\(sessions.count)", caption: sessions.count == 1 ? "Session" : "Sessions")
-
-            if let adherence = adherenceShare {
-                figure(value: "\(Int((adherence * 100).rounded()))%", caption: "Plan Adherence")
-            }
+        .task { await loadTraining() }
+        .onChange(of: range) { _, _ in
+            selectedSport = nil
         }
-    }
-
-    private func figure(value: String, caption: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(value)
-                .font(.title3.weight(.semibold))
-                .monospacedDigit()
-            Text(caption)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+        .onChange(of: plans.count) { _, _ in
+            Task { await loadTraining() }
         }
     }
 
@@ -113,17 +78,25 @@ struct TrainingIntelligenceView: View {
         Array(plans.sorted { $0.startDate < $1.startDate }.suffix(range.weeks))
     }
 
+    private var consideredInterpreted: [TrainingIntelligenceBuilder.Interpreted] {
+        guard let start = consideredPlans.first?.startDate,
+              let end = consideredPlans.last?.endDate else { return [] }
+        return interpreted.filter {
+            $0.evidence.date >= start && $0.evidence.date <= end
+        }
+    }
+
     private var sessions: [LoadedSession] {
-        interpreted.map(\.session)
+        consideredInterpreted.map(\.session)
     }
 
     private var weeklyLoads: [WeeklyLoad] {
-        builder.weeks(from: consideredPlans, interpreted: interpreted)
+        builder.weeks(from: consideredPlans, interpreted: consideredInterpreted)
             .compactMap { WeeklyTrainingLoad.load(for: $0).value }
     }
 
-    /// Always computed over the full history rather than the selected range, so
-    /// a four-week average does not become a one-week average on This Week.
+    /// The rolling average still uses full history so changing the visible range
+    /// never changes what "4-week average" means.
     private var rollingAverage: IntelligenceValue<Double> {
         let all = builder.weeks(from: plans, interpreted: interpreted)
             .compactMap { WeeklyTrainingLoad.load(for: $0).value }
@@ -145,22 +118,7 @@ struct TrainingIntelligenceView: View {
         )
     }
 
-    /// Share of generated sessions completed, including those awaiting feedback.
-    private var adherenceShare: Double? {
-        builder.adherenceShare(in: consideredPlans)
-    }
-
-    private func loadRecovery() async {
+    private func loadTraining() async {
         interpreted = builder.interpret(await builder.evidence(in: plans, provider: health))
-
-        let end = Date.now
-        guard let start = Calendar.current.date(byAdding: .day, value: -28, to: end) else { return }
-
-        var collected: [RecoveryMetric: [RecoveryReading]] = [:]
-        for metric in RecoveryMetric.allCases {
-            let points = (try? await health.recoverySeries(metric, from: start, to: end)) ?? []
-            collected[metric] = points.map { RecoveryReading(date: $0.date, value: $0.value) }
-        }
-        recovery = collected
     }
 }
