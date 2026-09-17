@@ -24,16 +24,9 @@ struct TodayWorkoutView: View {
                 Text(workout.title)
                     .font(.largeTitle.weight(.semibold))
 
-                HStack(spacing: 12) {
-                    if let seconds = workout.prescribedDurationSeconds ?? workout.estimatedDurationSeconds {
-                        Text(TrainingFormatter.totalDuration(seconds: seconds))
-                            .font(.title3.weight(.medium))
-                    }
-                    if let effort = TodayEffort.text(for: workout.targetRPE) {
-                        Text(effort)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
+                if let seconds = workout.prescribedDurationSeconds ?? workout.estimatedDurationSeconds {
+                    Text(TrainingFormatter.totalDuration(seconds: seconds))
+                        .font(.title3.weight(.medium))
                 }
             }
 
@@ -126,7 +119,7 @@ struct TodayCompletedView: View {
             }
 
             if let rpe = workout.feedback?.rpe {
-                Text("RPE \(rpe)")
+                Text("Effort \(rpe)/10")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
