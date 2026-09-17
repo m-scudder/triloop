@@ -17,11 +17,11 @@ final class TriLoopUITests: XCTestCase {
         let app = onboardingApp()
         app.launch()
 
-        let todayTab = app.tabBars.buttons["Today"]
+        let homeTab = app.tabBars.buttons["Home"]
         let setUpButton = app.buttons["Build My Plan"]
 
         XCTAssertTrue(
-            todayTab.waitForExistence(timeout: 10) || setUpButton.waitForExistence(timeout: 10),
+            homeTab.waitForExistence(timeout: 10) || setUpButton.waitForExistence(timeout: 10),
             "Launch showed neither the training tabs nor onboarding."
         )
     }
@@ -62,7 +62,7 @@ final class TriLoopUITests: XCTestCase {
         XCTAssertTrue(start.isEnabled)
         attachScreenshot(app, name: "Onboarding first week")
         start.tap()
-        XCTAssertTrue(app.tabBars.buttons["Today"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.tabBars.buttons["Home"].waitForExistence(timeout: 10))
     }
 
     @MainActor
