@@ -2,8 +2,9 @@ import SwiftUI
 
 /// The §32 planned-versus-actual table.
 ///
-/// Shows the two figures side by side and one named result, so the athlete can
-/// see the evidence rather than being handed a verdict.
+/// Shows objective planned-versus-actual execution side by side. Subjective
+/// effort is shown only when the athlete has actually reported it after the
+/// workout; the planned RPE target remains an internal training input.
 struct SessionExecutionView: View {
     let outcome: ExecutionComparison.Outcome
     let plannedSeconds: TimeInterval?
@@ -29,14 +30,12 @@ struct SessionExecutionView: View {
                         actual: actualSeconds.map { TrainingFormatter.totalDuration(seconds: $0) }
                     )
                 }
+            }
 
-                if outcome.effort != nil {
-                    row(
-                        "Effort",
-                        planned: targetRPE.map { $0.lower == $0.upper ? "\($0.lower)/10" : "\($0.lower)–\($0.upper)/10" },
-                        actual: reportedRPE.map { "\($0)/10" }
-                    )
-                }
+            if let reportedRPE {
+                Text("Effort \(reportedRPE)/10")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
 
             HStack {
