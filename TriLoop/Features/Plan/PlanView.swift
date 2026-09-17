@@ -13,8 +13,14 @@ struct PlanView: View {
     @State private var hasChosenOpeningDay = false
     @State private var focused: UUID?
 
+    /// Plan contains prescribed sessions only. Health activities that could not
+    /// be matched to a prescription remain available in workout history and
+    /// analytics, but must not appear as a second "Recorded <sport>" Plan tab.
     private var allWorkouts: [PlannedWorkout] {
-        plans.flatMap(\.orderedWorkouts).sorted { $0.date < $1.date }
+        plans
+            .flatMap(\.orderedWorkouts)
+            .filter { $0.origin != .imported }
+            .sorted { $0.date < $1.date }
     }
 
     private var workoutsOnSelectedDay: [PlannedWorkout] {
