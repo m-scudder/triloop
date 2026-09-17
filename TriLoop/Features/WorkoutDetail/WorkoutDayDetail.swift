@@ -3,9 +3,10 @@ import SwiftUI
 
 struct WorkoutDayDetail: View {
     let workout: PlannedWorkout
-    // Kept for source compatibility with previews/tests that inject a scheduler.
-    // Workout execution itself now belongs to Home.
+    // Home can still open this view for reference, but plan-management actions
+    // belong to the Plan tab and are enabled there explicitly.
     var scheduler: any WorkoutScheduling = WorkoutKitScheduler()
+    var showsManagementMenu = false
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.healthProvider) private var health
@@ -63,13 +64,6 @@ struct WorkoutDayDetail: View {
             }
             .padding(20)
         }
-        .toolbar {
-            if canSkip || canChangeAvailability {
-                ToolbarItem(placement: .topBarTrailing) {
-                    managementMenu
-                }
-            }
-        }
         .task {
             await loadSamples()
         }
@@ -103,8 +97,8 @@ struct WorkoutDayDetail: View {
             || workout.hasReport
     }
 
-    /// Completed sessions lead directly with analysis. There is no extra
-    /// "complete" metrics card between the title and the useful evidence.
+    /// Completed sessions lead directly with the evidence that exists. Missing
+    /// device evidence removes sensor-only sections rather than leaving holes.
     private var analysisSection: some View {
         VStack(alignment: .leading, spacing: 24) {
             HStack {
@@ -125,6 +119,11 @@ struct WorkoutDayDetail: View {
                     targetRPE: workout.targetRPE,
                     reportedRPE: workout.feedback?.rpe
                 )
+            }
+
+            if let feedback = workout.feedback,
+               let target = workout.targetRPE {
+                effortComparison(target: target, feedback: feedback)
             }
 
             if let samples, !samples.isEmpty {
@@ -151,6 +150,32 @@ struct WorkoutDayDetail: View {
         }
     }
 
+    /// Effort only becomes user-facing after the athlete has submitted a report.
+    /// The two numbers stay visible in analysis instead of being hidden inside a
+    /// disclosure, so the target-versus-actual comparison is immediately clear.
+    private func effortComparison(target: RPERange, feedback: WorkoutFeedback) -> some View {
+        Card {
+            VStack(alignment: .leading, spacing: 12) {
+                SectionEyebrow(text: "Effort")
+
+                HStack(spacing: 24) {
+                    StatTile(
+                        value: TrainingFormatter.rpe(target),
+                        label: "Target"
+                    )
+                    StatTile(
+                        value: "\(feedback.rpe)/10",
+                        label: "Actual"
+                    )
+                }
+
+                Text("Target effort is calculated from the workout TriLoop planned. Actual effort comes from the report you shared after the workout.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
     private func reportSection(_ feedback: WorkoutFeedback) -> some View {
         DisclosureCard(
             "Your report",
@@ -160,27 +185,6 @@ struct WorkoutDayDetail: View {
             VStack(alignment: .leading, spacing: 16) {
                 FeedbackSummaryView(feedback: feedback)
 
-                if let target = workout.targetRPE {
-                    Divider()
-                    VStack(alignment: .leading, spacing: 8) {
-                        SectionEyebrow(text: "Effort comparison")
-                        HStack(spacing: 24) {
-                            StatTile(
-                                value: TrainingFormatter.rpe(target),
-                                label: "Planned"
-                            )
-                            StatTile(
-                                value: "\(feedback.rpe)/10",
-                                label: "Reported"
-                            )
-                            Spacer(minLength: 0)
-                        }
-                        Text("Planned effort is calculated from the workout TriLoop prescribed. Reported effort comes from how you said the workout actually felt.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
                 Button("Clear report", role: .destructive) {
                     workout.clearCompletion()
                 }
@@ -189,41 +193,54 @@ struct WorkoutDayDetail: View {
         }
     }
 
-    /// Planned sessions show only the prescription. Target effort remains an
-    /// internal training input until there is an athlete report to compare it to.
+    /// Planned sessions expose their prescription directly on Plan. After a
+    /// workout is complete, the historical prescription becomes secondary to
+    /// analysis and is available as a collapsed reference.
+    @ViewBuilder
     private var plannedWorkoutSection: some View {
-        DisclosureCard(
-            workout.orderedSteps.isEmpty ? "Rest day" : "Planned workout",
-            subtitle: WorkoutStructureSummary.text(for: workout) ?? WorkoutSummaryText.make(for: workout),
-            systemImage: workout.orderedSteps.isEmpty ? "moon.zzz" : "list.bullet",
-            initiallyExpanded: !workout.isCompleted
-        ) {
-            VStack(alignment: .leading, spacing: 20) {
-                if let provenance = WorkoutEvidencePresentation.provenance(workout.origin) {
-                    Text(provenance)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                if !workout.goal.isEmpty {
-                    Text(workout.goal)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-
-                if workout.orderedSteps.isEmpty {
-                    Text("No session today. Rest is part of the plan.")
-                        .font(.body)
-                        .foregroundStyle(.secondary)
-                } else {
-                    WorkoutPrescriptionView(workout: workout)
-                }
+        if workout.isCompleted {
+            DisclosureCard(
+                workout.orderedSteps.isEmpty ? "Rest day" : "Planned workout",
+                subtitle: WorkoutStructureSummary.text(for: workout) ?? WorkoutSummaryText.make(for: workout),
+                systemImage: workout.orderedSteps.isEmpty ? "moon.zzz" : "list.bullet"
+            ) {
+                prescriptionContent
+            }
+        } else {
+            VStack(alignment: .leading, spacing: 16) {
+                SectionEyebrow(text: workout.orderedSteps.isEmpty ? "Rest day" : "Planned workout")
+                prescriptionContent
             }
         }
     }
 
-    /// Execution happens on Home. Plan detail keeps only plan-management
-    /// actions out of the content flow in a compact native menu.
+    @ViewBuilder
+    private var prescriptionContent: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            if let provenance = WorkoutEvidencePresentation.provenance(workout.origin) {
+                Text(provenance)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if !workout.goal.isEmpty {
+                Text(workout.goal)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+
+            if workout.orderedSteps.isEmpty {
+                Text("No session today. Rest is part of the plan.")
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+            } else {
+                WorkoutPrescriptionView(workout: workout)
+            }
+        }
+    }
+
+    /// Only schedule-management actions live here. Mark-as-done and Watch
+    /// actions belong exclusively to Home.
     private var managementMenu: some View {
         Menu {
             if canSkip {
@@ -244,8 +261,12 @@ struct WorkoutDayDetail: View {
                 }
             }
         } label: {
-            Label("Workout options", systemImage: "ellipsis.circle")
+            Image(systemName: "ellipsis")
+                .font(.body.weight(.semibold))
+                .frame(width: 32, height: 32)
+                .contentShape(.rect)
         }
+        .accessibilityLabel("Workout options")
     }
 
     private var canSkip: Bool {
@@ -449,8 +470,6 @@ struct WorkoutDayDetail: View {
         }
     }
 
-    /// Manual completion is a valid result, not an error state. Sensor-only
-    /// sections are simply omitted and the user gets one concise explanation.
     private var manualSessionNotice: some View {
         VStack(alignment: .leading, spacing: 8) {
             SectionEyebrow(text: "Recorded manually")
@@ -511,7 +530,7 @@ struct WorkoutDayDetail: View {
     }
 
     private var header: some View {
-        HStack(spacing: 14) {
+        HStack(alignment: .top, spacing: 14) {
             Image(systemName: workout.discipline.symbolName)
                 .font(.title3)
                 .foregroundStyle(.primary)
@@ -536,6 +555,12 @@ struct WorkoutDayDetail: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
+            }
+
+            Spacer(minLength: 0)
+
+            if showsManagementMenu && (canSkip || canChangeAvailability) {
+                managementMenu
             }
         }
     }
