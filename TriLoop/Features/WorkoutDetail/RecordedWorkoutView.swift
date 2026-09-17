@@ -18,10 +18,6 @@ struct RecordedWorkoutView: View {
                         .foregroundStyle(.green)
                     Text("Completed")
                         .font(.subheadline.weight(.semibold))
-                    Spacer(minLength: 0)
-                    Text(summary.startDate.formatted(date: .abbreviated, time: .shortened))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -102,7 +98,8 @@ struct RecordedWorkoutView: View {
             stats.append(("Cadence", "\(Int(cadence.rounded()))"))
         }
 
-        // Four tiles is as many as fit before the numbers start shrinking.
-        return Array(stats.prefix(4))
+        // The result card stays scannable. The complete sensor set remains in
+        // Workout analysis immediately below it.
+        return Array(stats.prefix(2))
     }
 }

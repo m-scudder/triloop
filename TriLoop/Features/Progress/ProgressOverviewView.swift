@@ -73,12 +73,23 @@ struct ProgressOverviewView: View {
             currentTraining(current)
         }
         TrainingIntelligenceView()
-        overview
-        if stats.hasData {
-            bySport
-            keyStats
+
+        if stats.hasData || !plans.isEmpty {
+            DisclosureCard(
+                "History and totals",
+                subtitle: "All-time volume, bests and weekly reviews",
+                systemImage: "chart.bar.xaxis"
+            ) {
+                VStack(alignment: .leading, spacing: 22) {
+                    if stats.hasData {
+                        overview
+                        bySport
+                        keyStats
+                    }
+                    weeks
+                }
+            }
         }
-        weeks
     }
 
     @ViewBuilder
@@ -103,44 +114,41 @@ struct ProgressOverviewView: View {
         VStack(alignment: .leading, spacing: 10) {
             SectionEyebrow(text: "Where you are now")
 
-            VStack(spacing: 10) {
-                ForEach(current.states) { state in
-                    HStack(spacing: 14) {
-                        Image(systemName: state.sport.discipline.symbolName)
-                            .font(.headline)
-                            .foregroundStyle(.white)
-                            .frame(width: 42, height: 42)
-                            .background(state.sport.discipline.gradient, in: .rect(cornerRadius: 12))
+            Card(padding: 0) {
+                VStack(spacing: 0) {
+                    ForEach(current.states) { state in
+                        HStack(spacing: 14) {
+                            Image(systemName: state.sport.discipline.symbolName)
+                                .font(.headline)
+                                .foregroundStyle(state.sport.discipline.tint)
+                                .frame(width: 38, height: 38)
+                                .background(state.sport.discipline.tint.opacity(0.12), in: .circle)
 
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(state.sport.displayName)
-                                .font(.subheadline.weight(.semibold))
-                            Text(state.prescription)
-                                .font(.subheadline)
-                                .monospacedDigit()
-                                .foregroundStyle(.secondary)
-                        }
-
-                        Spacer(minLength: 8)
-
-                        if let status = state.status {
-                            HStack(spacing: 4) {
-                                Image(systemName: status.directionSymbol)
-                                Text(status.directionLabel)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(state.sport.displayName)
+                                    .font(.subheadline.weight(.semibold))
+                                Text(state.prescription)
+                                    .font(.subheadline)
+                                    .monospacedDigit()
+                                    .foregroundStyle(.secondary)
                             }
-                            .font(.caption.weight(.medium))
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 5)
-                            .background(status.tint.opacity(0.16), in: .capsule)
-                            .foregroundStyle(status.tint)
+
+                            Spacer(minLength: 8)
+
+                            if let status = state.status {
+                                Label(status.directionLabel, systemImage: status.directionSymbol)
+                                    .labelStyle(.titleAndIcon)
+                                    .font(.caption.weight(.medium))
+                                    .foregroundStyle(status.tint)
+                            }
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+
+                        if state.id != current.states.last?.id {
+                            Divider().padding(.leading, 66)
                         }
                     }
-                    .padding(12)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .fill(state.sport.discipline.tint.opacity(0.14))
-                    )
                 }
             }
         }

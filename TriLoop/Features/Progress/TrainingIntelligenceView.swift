@@ -44,16 +44,30 @@ struct TrainingIntelligenceView: View {
                 UnavailableNote(text: "Once you complete and report a few sessions, your training will be summarised here.")
             } else {
                 overview
-                TrainingLoadSection(weeks: weeklyLoads, average: rollingAverage)
-                IntensityDistributionSection(
-                    distribution: distribution,
-                    sports: IntensityDistributionPolicy.sportsPresent(in: sessions),
-                    selectedSport: $selectedSport
-                )
-                SportBalanceSection(balance: balance, comparisons: comparisons)
+                DisclosureCard(
+                    "Training detail",
+                    subtitle: "Load, intensity and sport balance",
+                    systemImage: "waveform.path.ecg"
+                ) {
+                    VStack(alignment: .leading, spacing: 24) {
+                        TrainingLoadSection(weeks: weeklyLoads, average: rollingAverage)
+                        IntensityDistributionSection(
+                            distribution: distribution,
+                            sports: IntensityDistributionPolicy.sportsPresent(in: sessions),
+                            selectedSport: $selectedSport
+                        )
+                        SportBalanceSection(balance: balance, comparisons: comparisons)
+                    }
+                }
             }
 
-            RecoverySection(readings: recovery, asOf: .now)
+            DisclosureCard(
+                "Recovery signals",
+                subtitle: "Sleep, heart rate and fitness trends",
+                systemImage: "heart.text.clipboard"
+            ) {
+                RecoverySection(readings: recovery, asOf: .now)
+            }
         }
         .task(id: range) { await loadRecovery() }
     }
