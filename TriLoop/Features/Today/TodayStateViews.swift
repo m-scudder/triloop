@@ -1,3 +1,4 @@
+import SwiftData
 import SwiftUI
 
 /// The upcoming-workout state (§4): the default training day.
@@ -9,7 +10,13 @@ struct TodayWorkoutView: View {
     let isScheduledOnWatch: Bool
     let isScheduling: Bool
     let markDone: () -> Void
+    /// Existing Watch scheduling action. In-app execution is owned locally so
+    /// it works regardless of Watch availability.
     let start: () -> Void
+
+    @Environment(\.modelContext) private var modelContext
+    @State private var showsPlayer = false
+    @State private var pendingResult: WorkoutExecutionResult?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -42,7 +49,7 @@ struct TodayWorkoutView: View {
             }
 
             HStack(spacing: 10) {
-                Button("Mark as Done", action: markDone)
+                Button("Start Workout") { showsPlayer = true }
                     .buttonStyle(PrimaryActionButtonStyle())
 
                 Button(action: start) {
@@ -55,6 +62,12 @@ struct TodayWorkoutView: View {
                 .buttonStyle(SecondaryActionButtonStyle())
                 .disabled(isScheduling || isScheduledOnWatch)
             }
+
+            // Manual completion remains available for an untracked workout, but
+            // it no longer competes with the two execution choices above.
+            Button("Mark as Done without tracking", action: markDone)
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.secondary)
 
             NavigationLink {
                 WorkoutDayDetail(workout: workout)
@@ -71,6 +84,38 @@ struct TodayWorkoutView: View {
                 .padding(.vertical, 4)
             }
         }
+        .fullScreenCover(isPresented: $showsPlayer, onDismiss: savePendingResult) {
+            WorkoutPlayerView(
+                workout: workout,
+                onFinish: { result in
+                    pendingResult = result
+                    showsPlayer = false
+                },
+                onCancel: { showsPlayer = false }
+            )
+        }
+    }
+
+    /// Store the phone execution in the same normalized summary used by the
+    /// existing analysis pipeline. GPS will enrich this record with distance
+    /// and route-derived metrics in the next slice of the feature.
+    private func savePendingResult() {
+        guard let result = pendingResult,
+              result.workoutID == workout.id,
+              let sport = workout.discipline.sport else { return }
+        pendingResult = nil
+
+        let summary = ImportedWorkoutSummary(
+            healthKitUUID: UUID(),
+            sport: sport,
+            startDate: result.startedAt,
+            endDate: result.endedAt,
+            duration: result.elapsedSeconds,
+            source: "TriLoop iPhone"
+        )
+        modelContext.insert(summary)
+        workout.attach(summary)
+        markDone()
     }
 }
 

@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 
-enum WorkoutStepKind: String, Codable, CaseIterable, Sendable {
+enum WorkoutStepKind: String, Codable, CaseIterable, Equatable, Sendable {
     case warmUp
     case work
     case recovery
@@ -10,7 +10,7 @@ enum WorkoutStepKind: String, Codable, CaseIterable, Sendable {
     case repeatBlock
 }
 
-enum TargetIntensity: String, Codable, CaseIterable, Sendable {
+enum TargetIntensity: String, Codable, CaseIterable, Equatable, Sendable {
     case veryEasy
     case easy
     case steady
