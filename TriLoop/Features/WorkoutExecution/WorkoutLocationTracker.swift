@@ -42,8 +42,11 @@ final class WorkoutLocationTracker: NSObject, ObservableObject, CLLocationManage
         manager.desiredAccuracy = kCLLocationAccuracyBest
         manager.distanceFilter = 3
         manager.pausesLocationUpdatesAutomatically = false
-        manager.showsBackgroundLocationIndicator = true
-        refreshPermission(manager.authorizationStatus)
+        // Background-mode-dependent flags are configured in `beginUpdates()`
+        // once we actually have authorization. Setting them here would crash if
+        // the app were ever built without the `location` UIBackgroundMode.
+        // `locationManagerDidChangeAuthorization` fires right after the
+        // delegate is set, so we don't need to seed `permission` here.
     }
 
     var isSupported: Bool {
@@ -57,11 +60,7 @@ final class WorkoutLocationTracker: NSObject, ObservableObject, CLLocationManage
         snapshot = WorkoutLocationSnapshot()
         lastAccepted = nil
 
-        guard CLLocationManager.locationServicesEnabled() else {
-            permission = .unavailable
-            return
-        }
-
+        // See requester: skip `CLLocationManager.locationServicesEnabled()`.
         switch manager.authorizationStatus {
         case .notDetermined:
             permission = .requesting
@@ -132,8 +131,18 @@ final class WorkoutLocationTracker: NSObject, ObservableObject, CLLocationManage
         // With the location background mode enabled on the app target, this lets
         // an active workout continue collecting fixes when the screen locks or
         // TriLoop moves to the background.
-        manager.allowsBackgroundLocationUpdates = true
+        if hasLocationBackgroundMode {
+            manager.allowsBackgroundLocationUpdates = true
+            manager.showsBackgroundLocationIndicator = true
+        }
         manager.startUpdatingLocation()
+    }
+
+    private var hasLocationBackgroundMode: Bool {
+        guard let modes = Bundle.main.object(forInfoDictionaryKey: "UIBackgroundModes") as? [String] else {
+            return false
+        }
+        return modes.contains("location")
     }
 
     private func refreshPermission(_ status: CLAuthorizationStatus) {

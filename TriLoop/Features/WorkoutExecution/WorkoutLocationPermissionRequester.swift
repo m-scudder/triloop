@@ -22,11 +22,9 @@ final class WorkoutLocationPermissionRequester: NSObject, ObservableObject, CLLo
     }
 
     func request(_ completion: @escaping (Result) -> Void) {
-        guard CLLocationManager.locationServicesEnabled() else {
-            completion(.unavailable)
-            return
-        }
-
+        // Skip the class-level `locationServicesEnabled()` gate: Apple flags it
+        // as main-thread-blocking. If services are off, iOS reports `.denied`
+        // through `authorizationStatus`/the delegate callback anyway.
         switch manager.authorizationStatus {
         case .authorizedAlways, .authorizedWhenInUse:
             completion(.allowed)
