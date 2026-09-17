@@ -6,12 +6,6 @@ final class TriLoopUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    /// A launch lands somewhere usable.
-    ///
-    /// Since onboarding was added, the destination depends on stored state: a
-    /// fresh install opens setup, an onboarded one opens the tabs. The test
-    /// accepts either rather than assuming a tab bar that a first launch will
-    /// never show.
     @MainActor
     func testLaunchShowsSetupOrTabs() throws {
         let app = onboardingApp()
@@ -127,30 +121,27 @@ final class TriLoopUITests: XCTestCase {
         app.buttons["explanation.done"].tap()
     }
 
-    /// Plan starts with the information needed to choose a session. The edit
-    /// controls are still present in the full detail, behind one disclosure.
+    /// Plan renders the selected workout in place; management actions stay on
+    /// that workout rather than behind a second detail screen.
     @MainActor
-    func testPlanSummaryKeepsWorkoutOptionsAvailable() throws {
+    func testPlanShowsInlineWorkoutOptions() throws {
         let app = densityApp()
         app.launch()
 
         XCTAssertTrue(app.tabBars.buttons["Plan"].waitForExistence(timeout: 10))
         app.tabBars.buttons["Plan"].tap()
 
-        let viewWorkout = app.buttons["View workout"]
-        XCTAssertTrue(viewWorkout.waitForExistence(timeout: 5))
-        XCTAssertFalse(app.buttons["Move Workout"].exists)
-        attachScreenshot(app, name: "Plan session summary")
+        XCTAssertFalse(app.buttons["View workout"].exists)
 
-        viewWorkout.tap()
-        let options = app.buttons.matching(
-            NSPredicate(format: "label BEGINSWITH %@", "Workout options")
-        ).firstMatch
+        let options = app.buttons["Workout options"]
         reveal(options, in: app)
+        XCTAssertTrue(options.waitForExistence(timeout: 5))
+        attachScreenshot(app, name: "Plan inline workout")
+
         options.tap()
         let moveWorkout = app.buttons["Move Workout"]
-        reveal(moveWorkout, in: app)
-        attachScreenshot(app, name: "Workout options disclosed")
+        XCTAssertTrue(moveWorkout.waitForExistence(timeout: 5))
+        attachScreenshot(app, name: "Plan workout options")
     }
 
     @MainActor
