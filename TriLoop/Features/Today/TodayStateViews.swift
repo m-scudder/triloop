@@ -9,7 +9,8 @@ struct TodayWorkoutView: View {
     let isScheduledOnWatch: Bool
     let isScheduling: Bool
     let markDone: () -> Void
-    let start: () -> Void
+    let startInApp: () -> Void
+    let sendToWatch: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -42,10 +43,10 @@ struct TodayWorkoutView: View {
             }
 
             HStack(spacing: 10) {
-                Button("Mark as Done", action: markDone)
+                Button("Start Workout", action: startInApp)
                     .buttonStyle(PrimaryActionButtonStyle())
 
-                Button(action: start) {
+                Button(action: sendToWatch) {
                     Label(
                         isScheduledOnWatch ? "On Watch" : (isScheduling ? "Sending…" : "Send to Watch"),
                         systemImage: isScheduledOnWatch ? "checkmark.circle.fill" : "applewatch"
@@ -55,6 +56,12 @@ struct TodayWorkoutView: View {
                 .buttonStyle(SecondaryActionButtonStyle())
                 .disabled(isScheduling || isScheduledOnWatch)
             }
+
+            // Manual completion remains available for an untracked workout, but
+            // it no longer competes with the two execution choices above.
+            Button("Mark as Done without tracking", action: markDone)
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.secondary)
 
             NavigationLink {
                 WorkoutDayDetail(workout: workout)
