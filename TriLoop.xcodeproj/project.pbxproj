@@ -1,8 +1,7 @@
 // !$*UTF8*$!
 {
 	archiveVersion = 1;
-	classes = {
-	};
+	classes = {};
 	objectVersion = 77;
 	objects = {
 
@@ -11,41 +10,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		AC000000000000000000000B /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = AA0000000000000000000001 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = AB0000000000000000000001;
-			remoteInfo = TriLoop;
-		};
-		AD000000000000000000000B /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = AA0000000000000000000001 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = AB0000000000000000000001;
-			remoteInfo = TriLoop;
-		};
-		AE000000000000000000000B /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = AA0000000000000000000001 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = AE0000000000000000000001;
-			remoteInfo = TriLoopLiveActivity;
-		};
+		AC000000000000000000000B = {isa = PBXContainerItemProxy; containerPortal = AA0000000000000000000001 /* Project object */; proxyType = 1; remoteGlobalIDString = AB0000000000000000000001; remoteInfo = TriLoop; };
+		AD000000000000000000000B = {isa = PBXContainerItemProxy; containerPortal = AA0000000000000000000001 /* Project object */; proxyType = 1; remoteGlobalIDString = AB0000000000000000000001; remoteInfo = TriLoop; };
+		AE000000000000000000000B = {isa = PBXContainerItemProxy; containerPortal = AA0000000000000000000001 /* Project object */; proxyType = 1; remoteGlobalIDString = AE0000000000000000000001; remoteInfo = TriLoopLiveActivity; };
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		AB000000000000000000000B /* Embed Foundation Extensions */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 13;
-			files = (
-				AE000000000000000000000C /* TriLoopLiveActivity.appex in Embed Foundation Extensions */,
-			);
-			name = "Embed Foundation Extensions";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
+		AB000000000000000000000B /* Embed Foundation Extensions */ = {isa = PBXCopyFilesBuildPhase; buildActionMask = 2147483647; dstPath = ""; dstSubfolderSpec = 13; files = (AE000000000000000000000C /* TriLoopLiveActivity.appex in Embed Foundation Extensions */, ); name = "Embed Foundation Extensions"; runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -55,388 +26,79 @@
 		AE0000000000000000000008 /* TriLoopLiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = TriLoopLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		AE000000000000000000000D /* Exceptions for TriLoopLiveActivity */ = {isa = PBXFileSystemSynchronizedBuildFileExceptionSet; membershipExceptions = (Info.plist, ); target = AE0000000000000000000001 /* TriLoopLiveActivity */; };
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		AB0000000000000000000009 /* TriLoop */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = TriLoop;
-			sourceTree = "<group>";
-		};
-		AC0000000000000000000009 /* TriLoopTests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = TriLoopTests;
-			sourceTree = "<group>";
-		};
-		AD0000000000000000000009 /* TriLoopUITests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = TriLoopUITests;
-			sourceTree = "<group>";
-		};
-		AE0000000000000000000009 /* TriLoopLiveActivity */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = TriLoopLiveActivity;
-			sourceTree = "<group>";
-		};
+		AB0000000000000000000009 /* TriLoop */ = {isa = PBXFileSystemSynchronizedRootGroup; path = TriLoop; sourceTree = "<group>"; };
+		AC0000000000000000000009 /* TriLoopTests */ = {isa = PBXFileSystemSynchronizedRootGroup; path = TriLoopTests; sourceTree = "<group>"; };
+		AD0000000000000000000009 /* TriLoopUITests */ = {isa = PBXFileSystemSynchronizedRootGroup; path = TriLoopUITests; sourceTree = "<group>"; };
+		AE0000000000000000000009 /* TriLoopLiveActivity */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (AE000000000000000000000D /* Exceptions for TriLoopLiveActivity */, ); path = TriLoopLiveActivity; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		AB0000000000000000000003 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
-		AC0000000000000000000003 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
-		AD0000000000000000000003 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
-		AE0000000000000000000003 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		AB0000000000000000000003 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		AC0000000000000000000003 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		AD0000000000000000000003 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		AE0000000000000000000003 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		AA0000000000000000000002 = {
-			isa = PBXGroup;
-			children = (
-				AB0000000000000000000009 /* TriLoop */,
-				AE0000000000000000000009 /* TriLoopLiveActivity */,
-				AC0000000000000000000009 /* TriLoopTests */,
-				AD0000000000000000000009 /* TriLoopUITests */,
-				AA0000000000000000000003 /* Products */,
-			);
-			sourceTree = "<group>";
-		};
-		AA0000000000000000000003 /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				AB0000000000000000000008 /* TriLoop.app */,
-				AE0000000000000000000008 /* TriLoopLiveActivity.appex */,
-				AC0000000000000000000008 /* TriLoopTests.xctest */,
-				AD0000000000000000000008 /* TriLoopUITests.xctest */,
-			);
-			name = Products;
-			sourceTree = "<group>";
-		};
+		AA0000000000000000000002 = {isa = PBXGroup; children = (AB0000000000000000000009 /* TriLoop */, AE0000000000000000000009 /* TriLoopLiveActivity */, AC0000000000000000000009 /* TriLoopTests */, AD0000000000000000000009 /* TriLoopUITests */, AA0000000000000000000003 /* Products */, ); sourceTree = "<group>"; };
+		AA0000000000000000000003 /* Products */ = {isa = PBXGroup; children = (AB0000000000000000000008 /* TriLoop.app */, AE0000000000000000000008 /* TriLoopLiveActivity.appex */, AC0000000000000000000008 /* TriLoopTests.xctest */, AD0000000000000000000008 /* TriLoopUITests.xctest */, ); name = Products; sourceTree = "<group>"; };
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		AB0000000000000000000001 /* TriLoop */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = AB0000000000000000000005 /* Build configuration list for PBXNativeTarget "TriLoop" */;
-			buildPhases = (
-				AB0000000000000000000002 /* Sources */,
-				AB0000000000000000000003 /* Frameworks */,
-				AB0000000000000000000004 /* Resources */,
-				AB000000000000000000000B /* Embed Foundation Extensions */,
-			);
-			buildRules = ();
-			dependencies = (
-				AB000000000000000000000A /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				AB0000000000000000000009 /* TriLoop */,
-			);
-			name = TriLoop;
-			packageProductDependencies = ();
-			productName = TriLoop;
-			productReference = AB0000000000000000000008 /* TriLoop.app */;
-			productType = "com.apple.product-type.application";
-		};
-		AC0000000000000000000001 /* TriLoopTests */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = AC0000000000000000000005 /* Build configuration list for PBXNativeTarget "TriLoopTests" */;
-			buildPhases = (AC0000000000000000000002 /* Sources */, AC0000000000000000000003 /* Frameworks */, AC0000000000000000000004 /* Resources */, );
-			buildRules = ();
-			dependencies = (AC000000000000000000000A /* PBXTargetDependency */, );
-			fileSystemSynchronizedGroups = (AC0000000000000000000009 /* TriLoopTests */, );
-			name = TriLoopTests;
-			packageProductDependencies = ();
-			productName = TriLoopTests;
-			productReference = AC0000000000000000000008 /* TriLoopTests.xctest */;
-			productType = "com.apple.product-type.bundle.unit-test";
-		};
-		AD0000000000000000000001 /* TriLoopUITests */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = AD0000000000000000000005 /* Build configuration list for PBXNativeTarget "TriLoopUITests" */;
-			buildPhases = (AD0000000000000000000002 /* Sources */, AD0000000000000000000003 /* Frameworks */, AD0000000000000000000004 /* Resources */, );
-			buildRules = ();
-			dependencies = (AD000000000000000000000A /* PBXTargetDependency */, );
-			fileSystemSynchronizedGroups = (AD0000000000000000000009 /* TriLoopUITests */, );
-			name = TriLoopUITests;
-			packageProductDependencies = ();
-			productName = TriLoopUITests;
-			productReference = AD0000000000000000000008 /* TriLoopUITests.xctest */;
-			productType = "com.apple.product-type.bundle.ui-testing";
-		};
-		AE0000000000000000000001 /* TriLoopLiveActivity */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = AE0000000000000000000005 /* Build configuration list for PBXNativeTarget "TriLoopLiveActivity" */;
-			buildPhases = (AE0000000000000000000002 /* Sources */, AE0000000000000000000003 /* Frameworks */, AE0000000000000000000004 /* Resources */, );
-			buildRules = ();
-			dependencies = ();
-			fileSystemSynchronizedGroups = (AE0000000000000000000009 /* TriLoopLiveActivity */, );
-			name = TriLoopLiveActivity;
-			packageProductDependencies = ();
-			productName = TriLoopLiveActivity;
-			productReference = AE0000000000000000000008 /* TriLoopLiveActivity.appex */;
-			productType = "com.apple.product-type.app-extension";
-		};
+		AB0000000000000000000001 /* TriLoop */ = {isa = PBXNativeTarget; buildConfigurationList = AB0000000000000000000005; buildPhases = (AB0000000000000000000002, AB0000000000000000000003, AB0000000000000000000004, AB000000000000000000000B, ); buildRules = (); dependencies = (AB000000000000000000000A, ); fileSystemSynchronizedGroups = (AB0000000000000000000009, ); name = TriLoop; packageProductDependencies = (); productName = TriLoop; productReference = AB0000000000000000000008; productType = "com.apple.product-type.application"; };
+		AC0000000000000000000001 /* TriLoopTests */ = {isa = PBXNativeTarget; buildConfigurationList = AC0000000000000000000005; buildPhases = (AC0000000000000000000002, AC0000000000000000000003, AC0000000000000000000004, ); buildRules = (); dependencies = (AC000000000000000000000A, ); fileSystemSynchronizedGroups = (AC0000000000000000000009, ); name = TriLoopTests; packageProductDependencies = (); productName = TriLoopTests; productReference = AC0000000000000000000008; productType = "com.apple.product-type.bundle.unit-test"; };
+		AD0000000000000000000001 /* TriLoopUITests */ = {isa = PBXNativeTarget; buildConfigurationList = AD0000000000000000000005; buildPhases = (AD0000000000000000000002, AD0000000000000000000003, AD0000000000000000000004, ); buildRules = (); dependencies = (AD000000000000000000000A, ); fileSystemSynchronizedGroups = (AD0000000000000000000009, ); name = TriLoopUITests; packageProductDependencies = (); productName = TriLoopUITests; productReference = AD0000000000000000000008; productType = "com.apple.product-type.bundle.ui-testing"; };
+		AE0000000000000000000001 /* TriLoopLiveActivity */ = {isa = PBXNativeTarget; buildConfigurationList = AE0000000000000000000005; buildPhases = (AE0000000000000000000002, AE0000000000000000000003, AE0000000000000000000004, ); buildRules = (); dependencies = (); fileSystemSynchronizedGroups = (AE0000000000000000000009, ); name = TriLoopLiveActivity; packageProductDependencies = (); productName = TriLoopLiveActivity; productReference = AE0000000000000000000008; productType = "com.apple.product-type.app-extension"; };
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		AA0000000000000000000001 /* Project object */ = {
-			isa = PBXProject;
-			attributes = {
-				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 2650;
-				LastUpgradeCheck = 2650;
-				TargetAttributes = {
-					AC0000000000000000000001 = { TestTargetID = AB0000000000000000000001; };
-					AD0000000000000000000001 = { TestTargetID = AB0000000000000000000001; };
-					AE0000000000000000000001 = { CreatedOnToolsVersion = 26.0; };
-				};
-			};
-			buildConfigurationList = AA0000000000000000000004 /* Build configuration list for PBXProject "TriLoop" */;
-			developmentRegion = en;
-			hasScannedForEncodings = 0;
-			knownRegions = (en, Base, );
-			mainGroup = AA0000000000000000000002;
-			minimizedProjectReferenceProxies = 1;
-			preferredProjectObjectVersion = 77;
-			productRefGroup = AA0000000000000000000003 /* Products */;
-			projectDirPath = "";
-			projectRoot = "";
-			targets = (
-				AB0000000000000000000001 /* TriLoop */,
-				AE0000000000000000000001 /* TriLoopLiveActivity */,
-				AC0000000000000000000001 /* TriLoopTests */,
-				AD0000000000000000000001 /* TriLoopUITests */,
-			);
-		};
+		AA0000000000000000000001 /* Project object */ = {isa = PBXProject; attributes = {BuildIndependentTargetsInParallel = 1; LastSwiftUpdateCheck = 2650; LastUpgradeCheck = 2650; TargetAttributes = {AC0000000000000000000001 = {TestTargetID = AB0000000000000000000001; }; AD0000000000000000000001 = {TestTargetID = AB0000000000000000000001; }; AE0000000000000000000001 = {CreatedOnToolsVersion = 26.0; }; }; }; buildConfigurationList = AA0000000000000000000004; developmentRegion = en; hasScannedForEncodings = 0; knownRegions = (en, Base, ); mainGroup = AA0000000000000000000002; minimizedProjectReferenceProxies = 1; preferredProjectObjectVersion = 77; productRefGroup = AA0000000000000000000003; projectDirPath = ""; projectRoot = ""; targets = (AB0000000000000000000001, AE0000000000000000000001, AC0000000000000000000001, AD0000000000000000000001, ); };
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		AB0000000000000000000004 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
-		AC0000000000000000000004 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
-		AD0000000000000000000004 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
-		AE0000000000000000000004 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		AB0000000000000000000004 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		AC0000000000000000000004 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		AD0000000000000000000004 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		AE0000000000000000000004 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		AB0000000000000000000002 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
-		AC0000000000000000000002 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
-		AD0000000000000000000002 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
-		AE0000000000000000000002 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		AB0000000000000000000002 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		AC0000000000000000000002 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		AD0000000000000000000002 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		AE0000000000000000000002 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		AB000000000000000000000A /* PBXTargetDependency */ = {isa = PBXTargetDependency; target = AE0000000000000000000001 /* TriLoopLiveActivity */; targetProxy = AE000000000000000000000B /* PBXContainerItemProxy */; };
-		AC000000000000000000000A /* PBXTargetDependency */ = {isa = PBXTargetDependency; target = AB0000000000000000000001 /* TriLoop */; targetProxy = AC000000000000000000000B /* PBXContainerItemProxy */; };
-		AD000000000000000000000A /* PBXTargetDependency */ = {isa = PBXTargetDependency; target = AB0000000000000000000001 /* TriLoop */; targetProxy = AD000000000000000000000B /* PBXContainerItemProxy */; };
+		AB000000000000000000000A = {isa = PBXTargetDependency; target = AE0000000000000000000001; targetProxy = AE000000000000000000000B; };
+		AC000000000000000000000A = {isa = PBXTargetDependency; target = AB0000000000000000000001; targetProxy = AC000000000000000000000B; };
+		AD000000000000000000000A = {isa = PBXTargetDependency; target = AB0000000000000000000001; targetProxy = AD000000000000000000000B; };
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		AA0000000000000000000005 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
-				CLANG_WARN_BOOL_CONVERSION = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_EMPTY_BODY = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = dwarf;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_TESTABILITY = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu17;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_NO_COMMON_BLOCKS = NO;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = ("DEBUG=1", "$(inherited)", );
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				GCC_WARN_UNUSED_FUNCTION = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
-				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
-				MTL_FAST_MATH = YES;
-				ONLY_ACTIVE_ARCH = YES;
-				SDKROOT = iphoneos;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TRILOOP_BUNDLE_PREFIX = com.example;
-			};
-			name = Debug;
-		};
-		AA0000000000000000000006 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
-				CLANG_WARN_BOOL_CONVERSION = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_EMPTY_BODY = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				ENABLE_NS_ASSERTIONS = NO;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu17;
-				GCC_NO_COMMON_BLOCKS = NO;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				GCC_WARN_UNUSED_FUNCTION = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
-				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MTL_ENABLE_DEBUG_INFO = NO;
-				MTL_FAST_MATH = YES;
-				SDKROOT = iphoneos;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_COMPILATION_MODE = wholemodule;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TRILOOP_BUNDLE_PREFIX = com.example;
-				VALIDATE_PRODUCT = YES;
-			};
-			name = Release;
-		};
-		AB0000000000000000000006 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = TriLoop.entitlements;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 69LB9UDYJD;
-				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "TriLoop reads your completed running, swimming and cycling workouts so it can analyse each week and adapt the next one.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "TriLoop uses your location during in-app runs and rides to record distance, pace, and your route.";
-				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UIBackgroundModes = (location, );
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", );
-				MARKETING_VERSION = 0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = "$(TRILOOP_BUNDLE_PREFIX).TriLoop";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Debug;
-		};
-		AB0000000000000000000007 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = TriLoop.entitlements;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 69LB9UDYJD;
-				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "TriLoop reads your completed running, swimming and cycling workouts so it can analyse each week and adapt the next one.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "TriLoop uses your location during in-app runs and rides to record distance, pace, and your route.";
-				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UIBackgroundModes = (location, );
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", );
-				MARKETING_VERSION = 0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = "$(TRILOOP_BUNDLE_PREFIX).TriLoop";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Release;
-		};
-		AC0000000000000000000006 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {BUNDLE_LOADER = "$(TEST_HOST)"; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; DEVELOPMENT_TEAM = 69LB9UDYJD; GENERATE_INFOPLIST_FILE = YES; MARKETING_VERSION = 0.1; PRODUCT_BUNDLE_IDENTIFIER = "$(TRILOOP_BUNDLE_PREFIX).TriLoopTests"; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_EMIT_LOC_STRINGS = NO; TARGETED_DEVICE_FAMILY = "1,2"; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TriLoop.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/TriLoop"; };
-			name = Debug;
-		};
-		AC0000000000000000000007 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {BUNDLE_LOADER = "$(TEST_HOST)"; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; DEVELOPMENT_TEAM = 69LB9UDYJD; GENERATE_INFOPLIST_FILE = YES; MARKETING_VERSION = 0.1; PRODUCT_BUNDLE_IDENTIFIER = "$(TRILOOP_BUNDLE_PREFIX).TriLoopTests"; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_EMIT_LOC_STRINGS = NO; TARGETED_DEVICE_FAMILY = "1,2"; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TriLoop.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/TriLoop"; };
-			name = Release;
-		};
-		AD0000000000000000000006 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; DEVELOPMENT_TEAM = 69LB9UDYJD; GENERATE_INFOPLIST_FILE = YES; MARKETING_VERSION = 0.1; PRODUCT_BUNDLE_IDENTIFIER = "$(TRILOOP_BUNDLE_PREFIX).TriLoopUITests"; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_EMIT_LOC_STRINGS = NO; TARGETED_DEVICE_FAMILY = "1,2"; TEST_TARGET_NAME = TriLoop; };
-			name = Debug;
-		};
-		AD0000000000000000000007 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; DEVELOPMENT_TEAM = 69LB9UDYJD; GENERATE_INFOPLIST_FILE = YES; MARKETING_VERSION = 0.1; PRODUCT_BUNDLE_IDENTIFIER = "$(TRILOOP_BUNDLE_PREFIX).TriLoopUITests"; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_EMIT_LOC_STRINGS = NO; TARGETED_DEVICE_FAMILY = "1,2"; TEST_TARGET_NAME = TriLoop; };
-			name = Release;
-		};
-		AE0000000000000000000006 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				APPLICATION_EXTENSION_API_ONLY = YES;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 69LB9UDYJD;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = TriLoopLiveActivity/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
-				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks", );
-				MARKETING_VERSION = 0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = "$(TRILOOP_BUNDLE_PREFIX).TriLoop.LiveActivity";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SKIP_INSTALL = YES;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Debug;
-		};
-		AE0000000000000000000007 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				APPLICATION_EXTENSION_API_ONLY = YES;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 69LB9UDYJD;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = TriLoopLiveActivity/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
-				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks", );
-				MARKETING_VERSION = 0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = "$(TRILOOP_BUNDLE_PREFIX).TriLoop.LiveActivity";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SKIP_INSTALL = YES;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Release;
-		};
+		AA0000000000000000000005 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {ALWAYS_SEARCH_USER_PATHS = NO; ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES; CLANG_ANALYZER_NONNULL = YES; CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE; CLANG_ENABLE_MODULES = YES; CLANG_ENABLE_OBJC_ARC = YES; CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES; CLANG_WARN_BOOL_CONVERSION = YES; CLANG_WARN_DOCUMENTATION_COMMENTS = YES; CLANG_WARN_EMPTY_BODY = YES; CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR; CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE; COPY_PHASE_STRIP = NO; DEBUG_INFORMATION_FORMAT = dwarf; ENABLE_STRICT_OBJC_MSGSEND = YES; ENABLE_TESTABILITY = YES; ENABLE_USER_SCRIPT_SANDBOXING = YES; GCC_C_LANGUAGE_STANDARD = gnu17; GCC_DYNAMIC_NO_PIC = NO; GCC_NO_COMMON_BLOCKS = YES; GCC_OPTIMIZATION_LEVEL = 0; GCC_PREPROCESSOR_DEFINITIONS = ("DEBUG=1", "$(inherited)", ); GCC_WARN_UNDECLARED_SELECTOR = YES; GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE; GCC_WARN_UNUSED_FUNCTION = YES; GCC_WARN_UNUSED_VARIABLE = YES; IPHONEOS_DEPLOYMENT_TARGET = 18.0; LOCALIZATION_PREFERS_STRING_CATALOGS = YES; MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE; MTL_FAST_MATH = YES; ONLY_ACTIVE_ARCH = YES; SDKROOT = iphoneos; SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)"; SWIFT_APPROACHABLE_CONCURRENCY = YES; SWIFT_OPTIMIZATION_LEVEL = "-Onone"; SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES; SWIFT_VERSION = 5.0; TRILOOP_BUNDLE_PREFIX = com.example; }; name = Debug; };
+		AA0000000000000000000006 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {ALWAYS_SEARCH_USER_PATHS = NO; ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES; CLANG_ANALYZER_NONNULL = YES; CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE; CLANG_ENABLE_MODULES = YES; CLANG_ENABLE_OBJC_ARC = YES; CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES; CLANG_WARN_BOOL_CONVERSION = YES; CLANG_WARN_DOCUMENTATION_COMMENTS = YES; CLANG_WARN_EMPTY_BODY = YES; CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR; CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE; COPY_PHASE_STRIP = NO; DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym"; ENABLE_NS_ASSERTIONS = NO; ENABLE_STRICT_OBJC_MSGSEND = YES; ENABLE_USER_SCRIPT_SANDBOXING = YES; GCC_C_LANGUAGE_STANDARD = gnu17; GCC_NO_COMMON_BLOCKS = YES; GCC_WARN_UNDECLARED_SELECTOR = YES; GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE; GCC_WARN_UNUSED_FUNCTION = YES; GCC_WARN_UNUSED_VARIABLE = YES; IPHONEOS_DEPLOYMENT_TARGET = 18.0; LOCALIZATION_PREFERS_STRING_CATALOGS = YES; MTL_ENABLE_DEBUG_INFO = NO; MTL_FAST_MATH = YES; SDKROOT = iphoneos; SWIFT_APPROACHABLE_CONCURRENCY = YES; SWIFT_COMPILATION_MODE = wholemodule; SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES; SWIFT_VERSION = 5.0; TRILOOP_BUNDLE_PREFIX = com.example; VALIDATE_PRODUCT = YES; }; name = Release; };
+		AB0000000000000000000006 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor; CODE_SIGN_ENTITLEMENTS = TriLoop.entitlements; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; DEVELOPMENT_TEAM = 69LB9UDYJD; ENABLE_PREVIEWS = YES; GENERATE_INFOPLIST_FILE = YES; INFOPLIST_KEY_NSHealthShareUsageDescription = "TriLoop reads your completed running, swimming and cycling workouts so it can analyse each week and adapt the next one."; INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "TriLoop uses your location during in-app runs and rides to record distance, pace, and your route."; INFOPLIST_KEY_NSSupportsLiveActivities = YES; INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES; INFOPLIST_KEY_UIBackgroundModes = (location, ); INFOPLIST_KEY_UILaunchScreen_Generation = YES; INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"; INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"; LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", ); MARKETING_VERSION = 0.1; PRODUCT_BUNDLE_IDENTIFIER = "$(TRILOOP_BUNDLE_PREFIX).TriLoop"; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_EMIT_LOC_STRINGS = YES; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Debug; };
+		AB0000000000000000000007 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor; CODE_SIGN_ENTITLEMENTS = TriLoop.entitlements; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; DEVELOPMENT_TEAM = 69LB9UDYJD; ENABLE_PREVIEWS = YES; GENERATE_INFOPLIST_FILE = YES; INFOPLIST_KEY_NSHealthShareUsageDescription = "TriLoop reads your completed running, swimming and cycling workouts so it can analyse each week and adapt the next one."; INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "TriLoop uses your location during in-app runs and rides to record distance, pace, and your route."; INFOPLIST_KEY_NSSupportsLiveActivities = YES; INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES; INFOPLIST_KEY_UIBackgroundModes = (location, ); INFOPLIST_KEY_UILaunchScreen_Generation = YES; INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"; INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"; LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", ); MARKETING_VERSION = 0.1; PRODUCT_BUNDLE_IDENTIFIER = "$(TRILOOP_BUNDLE_PREFIX).TriLoop"; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_EMIT_LOC_STRINGS = YES; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Release; };
+		AC0000000000000000000006 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {BUNDLE_LOADER = "$(TEST_HOST)"; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; DEVELOPMENT_TEAM = 69LB9UDYJD; GENERATE_INFOPLIST_FILE = YES; MARKETING_VERSION = 0.1; PRODUCT_BUNDLE_IDENTIFIER = "$(TRILOOP_BUNDLE_PREFIX).TriLoopTests"; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_EMIT_LOC_STRINGS = NO; TARGETED_DEVICE_FAMILY = "1,2"; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TriLoop.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/TriLoop"; }; name = Debug; };
+		AC0000000000000000000007 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {BUNDLE_LOADER = "$(TEST_HOST)"; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; DEVELOPMENT_TEAM = 69LB9UDYJD; GENERATE_INFOPLIST_FILE = YES; MARKETING_VERSION = 0.1; PRODUCT_BUNDLE_IDENTIFIER = "$(TRILOOP_BUNDLE_PREFIX).TriLoopTests"; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_EMIT_LOC_STRINGS = NO; TARGETED_DEVICE_FAMILY = "1,2"; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TriLoop.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/TriLoop"; }; name = Release; };
+		AD0000000000000000000006 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; DEVELOPMENT_TEAM = 69LB9UDYJD; GENERATE_INFOPLIST_FILE = YES; MARKETING_VERSION = 0.1; PRODUCT_BUNDLE_IDENTIFIER = "$(TRILOOP_BUNDLE_PREFIX).TriLoopUITests"; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_EMIT_LOC_STRINGS = NO; TARGETED_DEVICE_FAMILY = "1,2"; TEST_TARGET_NAME = TriLoop; }; name = Debug; };
+		AD0000000000000000000007 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; DEVELOPMENT_TEAM = 69LB9UDYJD; GENERATE_INFOPLIST_FILE = YES; MARKETING_VERSION = 0.1; PRODUCT_BUNDLE_IDENTIFIER = "$(TRILOOP_BUNDLE_PREFIX).TriLoopUITests"; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_EMIT_LOC_STRINGS = NO; TARGETED_DEVICE_FAMILY = "1,2"; TEST_TARGET_NAME = TriLoop; }; name = Release; };
+		AE0000000000000000000006 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {APPLICATION_EXTENSION_API_ONLY = YES; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; DEVELOPMENT_TEAM = 69LB9UDYJD; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = TriLoopLiveActivity/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 18.0; LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks", ); MARKETING_VERSION = 0.1; PRODUCT_BUNDLE_IDENTIFIER = "$(TRILOOP_BUNDLE_PREFIX).TriLoop.LiveActivity"; PRODUCT_NAME = "$(TARGET_NAME)"; SKIP_INSTALL = YES; SWIFT_EMIT_LOC_STRINGS = YES; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Debug; };
+		AE0000000000000000000007 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {APPLICATION_EXTENSION_API_ONLY = YES; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; DEVELOPMENT_TEAM = 69LB9UDYJD; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = TriLoopLiveActivity/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 18.0; LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks", ); MARKETING_VERSION = 0.1; PRODUCT_BUNDLE_IDENTIFIER = "$(TRILOOP_BUNDLE_PREFIX).TriLoop.LiveActivity"; PRODUCT_NAME = "$(TARGET_NAME)"; SKIP_INSTALL = YES; SWIFT_EMIT_LOC_STRINGS = YES; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Release; };
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		AA0000000000000000000004 /* Build configuration list for PBXProject "TriLoop" */ = {isa = XCConfigurationList; buildConfigurations = (AA0000000000000000000005 /* Debug */, AA0000000000000000000006 /* Release */, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
-		AB0000000000000000000005 /* Build configuration list for PBXNativeTarget "TriLoop" */ = {isa = XCConfigurationList; buildConfigurations = (AB0000000000000000000006 /* Debug */, AB0000000000000000000007 /* Release */, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
-		AC0000000000000000000005 /* Build configuration list for PBXNativeTarget "TriLoopTests" */ = {isa = XCConfigurationList; buildConfigurations = (AC0000000000000000000006 /* Debug */, AC0000000000000000000007 /* Release */, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
-		AD0000000000000000000005 /* Build configuration list for PBXNativeTarget "TriLoopUITests" */ = {isa = XCConfigurationList; buildConfigurations = (AD0000000000000000000006 /* Debug */, AD0000000000000000000007 /* Release */, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
-		AE0000000000000000000005 /* Build configuration list for PBXNativeTarget "TriLoopLiveActivity" */ = {isa = XCConfigurationList; buildConfigurations = (AE0000000000000000000006 /* Debug */, AE0000000000000000000007 /* Release */, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		AA0000000000000000000004 = {isa = XCConfigurationList; buildConfigurations = (AA0000000000000000000005, AA0000000000000000000006, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		AB0000000000000000000005 = {isa = XCConfigurationList; buildConfigurations = (AB0000000000000000000006, AB0000000000000000000007, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		AC0000000000000000000005 = {isa = XCConfigurationList; buildConfigurations = (AC0000000000000000000006, AC0000000000000000000007, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		AD0000000000000000000005 = {isa = XCConfigurationList; buildConfigurations = (AD0000000000000000000006, AD0000000000000000000007, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		AE0000000000000000000005 = {isa = XCConfigurationList; buildConfigurations = (AE0000000000000000000006, AE0000000000000000000007, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 /* End XCConfigurationList section */
 	};
 	rootObject = AA0000000000000000000001 /* Project object */;
