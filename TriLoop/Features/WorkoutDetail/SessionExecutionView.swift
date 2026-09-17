@@ -6,22 +6,24 @@ struct SessionExecutionView: View {
     let outcome: ExecutionComparison.Outcome
     let plannedSeconds: TimeInterval?
     let actualSeconds: TimeInterval?
-    // Retained for call-site compatibility; effort is presented in Your report.
+    // Retained for call-site compatibility; effort is presented separately.
     let targetRPE: RPERange?
     let reportedRPE: Int?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                SectionEyebrow(text: "Session execution")
-                Spacer()
-                InfoButton(concept: .plannedVsActual)
-            }
+        // Do not render a comparison shell unless there is an objective value
+        // on both sides. This avoids orphaned "Planned / Actual" headings for
+        // sessions whose overall result came only from reported effort.
+        if hasDurationComparison {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    SectionEyebrow(text: "Session execution")
+                    Spacer()
+                    InfoButton(concept: .plannedVsActual)
+                }
 
-            VStack(spacing: 8) {
-                headerRow
-
-                if outcome.duration != nil {
+                VStack(spacing: 8) {
+                    headerRow
                     row(
                         "Duration",
                         planned: plannedSeconds.map { TrainingFormatter.totalDuration(seconds: $0) },
@@ -29,14 +31,11 @@ struct SessionExecutionView: View {
                     )
                 }
             }
-
-            HStack {
-                Text(outcome.overall.displayName)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(tint)
-                Spacer()
-            }
         }
+    }
+
+    private var hasDurationComparison: Bool {
+        outcome.duration != nil && plannedSeconds != nil && actualSeconds != nil
     }
 
     private var headerRow: some View {
@@ -63,13 +62,5 @@ struct SessionExecutionView: View {
         }
         .font(.subheadline)
         .monospacedDigit()
-    }
-
-    private var tint: Color {
-        switch outcome.overall {
-        case .withinTarget: .green
-        case .aboveTarget, .incomplete: .orange
-        case .belowTarget, .skipped, .missed: .secondary
-        }
     }
 }
