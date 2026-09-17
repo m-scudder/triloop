@@ -21,12 +21,9 @@ struct TodayWorkoutView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 6) {
-                Label(
-                    workout.discipline.displayName,
-                    systemImage: workout.discipline.symbolName
-                )
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(workout.discipline.tint)
+                Label(workout.discipline.displayName, systemImage: workout.discipline.symbolName)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(workout.discipline.tint)
 
                 Text(workout.title)
                     .font(.largeTitle.weight(.semibold))
@@ -63,8 +60,6 @@ struct TodayWorkoutView: View {
                 .disabled(isScheduling || isScheduledOnWatch)
             }
 
-            // Manual completion remains available for an untracked workout, but
-            // it no longer competes with the two execution choices above.
             Button("Mark as Done without tracking", action: markDone)
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(.secondary)
@@ -96,14 +91,27 @@ struct TodayWorkoutView: View {
         }
     }
 
-    /// Store the phone execution in the same normalized summary used by the
-    /// existing analysis pipeline. GPS will enrich this record with distance
-    /// and route-derived metrics in the next slice of the feature.
+    /// Store phone execution in the same normalized summary used by HealthKit
+    /// imports. That lets the existing analysis pipeline consume duration,
+    /// distance and speed regardless of whether a Watch was present.
     private func savePendingResult() {
         guard let result = pendingResult,
               result.workoutID == workout.id,
               let sport = workout.discipline.sport else { return }
         pendingResult = nil
+
+        let averageSpeed: Double? = {
+            guard let distance = result.distanceMeters,
+                  distance > 0,
+                  result.elapsedSeconds > 0 else { return nil }
+            return distance / result.elapsedSeconds
+        }()
+
+        let metrics = RecordedMetrics(
+            averageRunningSpeed: sport == .running ? averageSpeed : nil,
+            averageCyclingSpeed: sport == .cycling ? averageSpeed : nil,
+            route: result.route
+        )
 
         let summary = ImportedWorkoutSummary(
             healthKitUUID: UUID(),
@@ -111,6 +119,8 @@ struct TodayWorkoutView: View {
             startDate: result.startedAt,
             endDate: result.endedAt,
             duration: result.elapsedSeconds,
+            distanceMeters: result.distanceMeters,
+            metrics: metrics.isEmpty ? nil : metrics,
             source: "TriLoop iPhone"
         )
         modelContext.insert(summary)
@@ -125,19 +135,15 @@ struct TodayAwaitingImportView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Label(
-                "\(workout.discipline.displayName.uppercased()) FINISHED",
-                systemImage: "checkmark.circle"
-            )
-            .font(.headline)
-            .foregroundStyle(.green)
+            Label("\(workout.discipline.displayName.uppercased()) FINISHED", systemImage: "checkmark.circle")
+                .font(.headline)
+                .foregroundStyle(.green)
 
             Text(workout.title)
                 .font(.title2.weight(.semibold))
 
             HStack(spacing: 8) {
-                ProgressView()
-                    .controlSize(.small)
+                ProgressView().controlSize(.small)
                 Text("Waiting for Health to sync the details")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
