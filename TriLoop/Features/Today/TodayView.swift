@@ -60,18 +60,11 @@ struct TodayView: View {
             .animation(.default, value: scheduleMessage)
             .sheet(item: $feedbackWorkout) { FeedbackSheet(workout: $0) }
             .sheet(item: $checkInWorkout) { RecoveryCheckInSheet(workout: $0) }
-            // §30: an import while the app is open must move Home on without
-            // the athlete pulling to refresh.
             .task(id: scenePhase) { await refresh() }
-            // WorkoutKit drops a scheduled workout once its time has passed, so
-            // a snapshot taken on launch goes out of date while Home is open.
             .onAppear { Task { await syncWatchState() } }
         }
     }
 
-    // MARK: - Sections
-
-    /// The profile is reached from Home rather than a fifth tab.
     @ViewBuilder
     private var profileButton: some View {
         if let profile = profiles.first {
@@ -79,8 +72,6 @@ struct TodayView: View {
                 TrainingProfileView(profile: profile)
             } label: {
                 Group {
-                    // The display name is optional, so there is not always a
-                    // letter to show.
                     if let monogram = monogram(of: profile.name) {
                         Text(monogram)
                             .font(.footnote.weight(.semibold))
@@ -102,7 +93,6 @@ struct TodayView: View {
         return String(first).uppercased()
     }
 
-    /// A banner, for days where today's own session is the headline.
     private func checkInPrompt(_ pending: PlannedWorkout) -> some View {
         Button {
             checkInWorkout = pending
@@ -122,8 +112,6 @@ struct TodayView: View {
         .buttonStyle(.plain)
     }
 
-    /// On a day with no session the check-in is the only thing TriLoop wants,
-    /// so it leads rather than sitting above the content as a banner.
     private func checkInCard(_ pending: PlannedWorkout) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             SectionEyebrow(text: "Yesterday")
@@ -173,6 +161,7 @@ struct TodayView: View {
                     workout: workout,
                     isScheduledOnWatch: scheduledWorkoutIDs.contains(workout.id),
                     isScheduling: isScheduling,
+                    markDone: { feedbackWorkout = workout },
                     start: { send(workout) }
                 )
                 completedSummaries
@@ -248,7 +237,6 @@ struct TodayView: View {
         }
     }
 
-    /// §28: finished sessions collapse while something else is outstanding.
     @ViewBuilder
     private var completedSummaries: some View {
         let finished = presentation.alsoCompletedToday.compactMap(workout)
@@ -288,11 +276,7 @@ struct TodayView: View {
         }
     }
 
-    // MARK: - State
-
     private var presentation: TodayPresentation {
-        // §29: nothing is claimed until the first resolve has run, so
-        // "no workout today" cannot flash before the plan loads.
         guard isResolved else { return .loading }
         return TodayPresentationBuilder.build(
             plan: plans.currentPlan(),
@@ -333,7 +317,6 @@ struct TodayView: View {
         workout(id)?.discipline.displayName ?? "Session"
     }
 
-    /// §15: reuses the shared Phase 9.1 path rather than recomputing.
     private func interpretation(for workout: PlannedWorkout) -> WorkoutInterpretation? {
         let builder = intelligence
         guard let evidence = builder.evidence(from: workout, samples: []) else { return nil }
@@ -346,11 +329,6 @@ struct TodayView: View {
         )
     }
 
-    /// §16: the wording must match the evidence that produced the verdict.
-    ///
-    /// The verdict compares planned against actual duration and distance, so
-    /// its provenance is whether anything was imported — not whether an RPE
-    /// exists, which by this point it always does.
     private func explanation(for workout: PlannedWorkout) -> String? {
         guard let outcome = interpretation(for: workout)?.adherence else { return nil }
 
@@ -364,8 +342,6 @@ struct TodayView: View {
         case .skipped, .missed: nil
         }
     }
-
-    // MARK: - Actions
 
     private func refresh() async {
         guard scenePhase == .active else { return }
@@ -399,8 +375,6 @@ struct TodayView: View {
         }
     }
 
-    /// Never prompts. Automatic scheduling stays silent until the athlete has
-    /// already granted permission through the explicit action.
     private func reshape() {
         guard let plan = plans.currentPlan(), let context = plan.modelContext else { return }
         do {
