@@ -34,7 +34,7 @@ struct RootView: View {
 
     private var tabs: some View {
         TabView {
-            Tab("Today", systemImage: "sun.max") {
+            Tab("Home", systemImage: "house") {
                 TodayView()
             }
             Tab("Plan", systemImage: "calendar") {
