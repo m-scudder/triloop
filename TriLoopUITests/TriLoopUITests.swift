@@ -89,6 +89,11 @@ final class TriLoopUITests: XCTestCase {
         app.launch()
         XCTAssertTrue(app.tabBars.buttons["Progress"].waitForExistence(timeout: 10))
         app.tabBars.buttons["Progress"].tap()
+        let history = app.buttons.matching(
+            NSPredicate(format: "label BEGINSWITH %@", "History and totals")
+        ).firstMatch
+        reveal(history, in: app)
+        history.tap()
         let week = app.staticTexts["Week 1"]
         reveal(week, in: app)
         week.tap()
@@ -120,6 +125,32 @@ final class TriLoopUITests: XCTestCase {
         XCTAssertTrue(app.buttons["explanation.done"].isHittable)
         try app.performAccessibilityAudit(for: [.textClipped, .dynamicType])
         app.buttons["explanation.done"].tap()
+    }
+
+    /// Plan starts with the information needed to choose a session. The edit
+    /// controls are still present in the full detail, behind one disclosure.
+    @MainActor
+    func testPlanSummaryKeepsWorkoutOptionsAvailable() throws {
+        let app = densityApp()
+        app.launch()
+
+        XCTAssertTrue(app.tabBars.buttons["Plan"].waitForExistence(timeout: 10))
+        app.tabBars.buttons["Plan"].tap()
+
+        let viewWorkout = app.buttons["View workout"]
+        XCTAssertTrue(viewWorkout.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["Move Workout"].exists)
+        attachScreenshot(app, name: "Plan session summary")
+
+        viewWorkout.tap()
+        let options = app.buttons.matching(
+            NSPredicate(format: "label BEGINSWITH %@", "Workout options")
+        ).firstMatch
+        reveal(options, in: app)
+        options.tap()
+        let moveWorkout = app.buttons["Move Workout"]
+        reveal(moveWorkout, in: app)
+        attachScreenshot(app, name: "Workout options disclosed")
     }
 
     @MainActor

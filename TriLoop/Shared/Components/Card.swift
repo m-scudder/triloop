@@ -105,6 +105,70 @@ struct Card<Content: View>: View {
     }
 }
 
+/// A native disclosure row inside the same quiet surface used by `Card`.
+///
+/// Secondary information stays one tap away without competing with the
+/// screen's primary task. The summary remains visible when the content is
+/// collapsed, which is important on workout screens where the athlete should
+/// know what is available without seeing every chart and control at once.
+struct DisclosureCard<Content: View>: View {
+    let title: String
+    var subtitle: String?
+    let systemImage: String
+    @ViewBuilder var content: Content
+
+    @State private var isExpanded: Bool
+
+    init(
+        _ title: String,
+        subtitle: String? = nil,
+        systemImage: String,
+        initiallyExpanded: Bool = false,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.title = title
+        self.subtitle = subtitle
+        self.systemImage = systemImage
+        self.content = content()
+        _isExpanded = State(initialValue: initiallyExpanded)
+    }
+
+    var body: some View {
+        DisclosureGroup(isExpanded: $isExpanded) {
+            content
+                .padding(.top, 16)
+        } label: {
+            Label {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.body.weight(.medium))
+                        .foregroundStyle(.primary)
+                    if let subtitle {
+                        Text(subtitle)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
+                }
+            } icon: {
+                Image(systemName: systemImage)
+                    .foregroundStyle(.secondary)
+                    .frame(width: 24)
+            }
+        }
+        .tint(.secondary)
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(.background.secondary)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(.separator.opacity(0.45), lineWidth: 0.5)
+        )
+    }
+}
+
 /// A single headline figure with its caption, e.g. "12 / Workouts".
 struct StatTile: View {
     let value: String

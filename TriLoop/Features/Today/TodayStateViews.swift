@@ -12,12 +12,14 @@ struct TodayWorkoutView: View {
     let start: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 6) {
-                Text(workout.discipline.displayName.uppercased())
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .tracking(0.8)
+                Label(
+                    workout.discipline.displayName,
+                    systemImage: workout.discipline.symbolName
+                )
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(workout.discipline.tint)
 
                 Text(workout.title)
                     .font(.largeTitle.weight(.semibold))
@@ -38,9 +40,6 @@ struct TodayWorkoutView: View {
             if let structure = WorkoutStructureSummary.text(for: workout) {
                 Text(structure)
                     .font(.body.weight(.medium))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(14)
-                    .background(.fill.tertiary, in: .rect(cornerRadius: 12))
             }
 
             if let cue = TodayCoachingCue.text(for: workout) {
@@ -49,21 +48,29 @@ struct TodayWorkoutView: View {
                     .foregroundStyle(.secondary)
             }
 
-            VStack(spacing: 10) {
-                Button(isScheduling ? "Sending…" : "Send to Apple Watch", action: start)
-                    .buttonStyle(PrimaryActionButtonStyle())
-                    .disabled(isScheduling)
+            Button(isScheduling ? "Sending…" : "Send to Apple Watch", action: start)
+                .buttonStyle(PrimaryActionButtonStyle())
+                .disabled(isScheduling)
 
-                NavigationLink("View workout") {
-                    WorkoutDayDetail(workout: workout)
+            NavigationLink {
+                WorkoutDayDetail(workout: workout)
+            } label: {
+                HStack {
+                    Text("Workout details")
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.tertiary)
                 }
-                .buttonStyle(SecondaryActionButtonStyle())
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.primary)
+                .padding(.vertical, 4)
             }
 
             if isScheduledOnWatch {
-                Label("Ready on Apple Watch", systemImage: "checkmark")
+                Label("Ready on Apple Watch", systemImage: "checkmark.circle.fill")
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.green)
             }
         }
     }
@@ -163,10 +170,6 @@ struct TodayMetricsRow: View {
                 StatTile(value: pace, label: sport == .swimming ? "Per 100m" : "Pace")
             }
 
-            if let heartRate = summary.averageHeartRate {
-                StatTile(value: "\(Int(heartRate.rounded()))", label: "Avg bpm")
-            }
-
             Spacer(minLength: 0)
         }
     }
@@ -252,6 +255,7 @@ struct TodayNextView: View {
 /// the screen.
 struct TodayGlanceView: View {
     let tiles: [GlanceTile]
+    var showsHeader = true
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var columns: [GridItem] {
@@ -260,7 +264,9 @@ struct TodayGlanceView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            SectionEyebrow(text: "At a glance")
+            if showsHeader {
+                SectionEyebrow(text: "At a glance")
+            }
 
             LazyVGrid(columns: columns, alignment: .leading, spacing: 14) {
                 ForEach(tiles) { tile in

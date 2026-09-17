@@ -28,51 +28,8 @@ struct WorkoutDayDetail: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: 20) {
                 header
-
-                // A finished session leads with what happened; an upcoming one
-                // leads with what to do.
-                if let summary = workout.importedSummary {
-                    RecordedWorkoutView(workout: workout, summary: summary)
-                }
-
-                if let execution {
-                    SessionExecutionView(
-                        outcome: execution,
-                        plannedSeconds: workout.prescribedDurationSeconds,
-                        actualSeconds: workout.importedSummary?.duration,
-                        targetRPE: workout.targetRPE,
-                        reportedRPE: workout.feedback?.rpe
-                    )
-                }
-
-                // §49's order: what happened, how it compared, the heart-rate
-                // detail, then the derived readings, then sensor specifics.
-                if let samples, !samples.isEmpty {
-                    WorkoutChartsView(
-                        discipline: workout.discipline,
-                        samples: samples,
-                        summary: workout.importedSummary
-                    )
-
-                    zones(for: samples)
-                } else if workout.importedSummary != nil, let samplesFailure {
-                    Text(samplesFailure)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                } else if workout.importedSummary == nil, workout.hasReport {
-                    unlinkedSession
-                }
-
-                // Effort alone is enough to read intensity and load, so these
-                // sit outside the samples branch: a session reported by hand
-                // still has something to say about how hard it was.
-                intensity(with: zoneBreakdown)
-
-                if let metrics = workout.importedSummary?.metrics {
-                    AdvancedMetricsView(metrics: metrics, sport: workout.discipline.sport)
-                }
 
                 if workout.isSkipped {
                     stateBanner(
@@ -94,69 +51,26 @@ struct WorkoutDayDetail: View {
                     }
                 }
 
+                // A finished session leads with the result. Everything that
+                // explains that result remains available below, collapsed.
+                if let summary = workout.importedSummary {
+                    RecordedWorkoutView(workout: workout, summary: summary)
+                }
+
+                if hasAnalysis {
+                    analysisSection
+                }
+
                 if let feedback = workout.feedback {
-                    VStack(alignment: .leading, spacing: 10) {
-                        SectionEyebrow(text: "Your report")
-                        FeedbackSummaryView(feedback: feedback)
-                        Button("Clear report", role: .destructive) {
-                            workout.clearCompletion()
-                        }
-                        .font(.subheadline)
-                    }
+                    reportSection(feedback)
                 }
 
-                if !workout.goal.isEmpty {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(workout.goal)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
+                plannedWorkoutSection
+
+                if canSkip || canChangeAvailability {
+                    workoutOptions
                 }
 
-                if workout.orderedSteps.isEmpty {
-                    Text("No session today. Rest is part of the plan.")
-                        .font(.body)
-                        .foregroundStyle(.secondary)
-                } else {
-                    WorkoutPrescriptionView(workout: workout)
-                }
-
-                if let rpe = workout.targetRPE {
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            SectionEyebrow(text: "Target effort")
-                            Spacer()
-                            InfoButton(concept: .rpe)
-                        }
-                        Text("RPE \(TrainingFormatter.rpe(rpe))")
-                            .font(.body.weight(.medium))
-                        EffortBar(range: rpe)
-                    }
-                }
-
-                if canSkip {
-                    VStack(alignment: .leading, spacing: 16) {
-                        Button { presentMove() } label: {
-                            Label("Move Workout", systemImage: "calendar")
-                        }
-                        Button(role: .destructive) { isConfirmingSkip = true } label: {
-                            Label("Skip Workout", systemImage: "forward.end")
-                        }
-                        if Calendar.current.isDateInToday(workout.date) {
-                            Button { isChoosingTodayAction = true } label: {
-                                Label("Can't Train Today", systemImage: "calendar.badge.exclamationmark")
-                            }
-                        }
-                    }
-                    .font(.subheadline)
-                }
-
-                if canChangeAvailability, let weekday {
-                    Button { isConfirmingUnavailable = true } label: {
-                        Label("Mark \(weekday.displayName) Unavailable (Every Week)", systemImage: "calendar.badge.minus")
-                    }
-                    .font(.subheadline)
-                }
                 if let scheduleMessage {
                     Text(scheduleMessage)
                         .font(.footnote)
@@ -203,6 +117,154 @@ struct WorkoutDayDetail: View {
         .sheet(isPresented: $isMoving) { moveSheet }
         .sheet(isPresented: $isPresentingFeedback) {
             FeedbackSheet(workout: workout)
+        }
+    }
+
+    private var hasAnalysis: Bool {
+        execution != nil
+            || workout.importedSummary != nil
+            || workout.hasReport
+    }
+
+    private var analysisSubtitle: String {
+        execution?.overall.displayName ?? "Charts, heart rate and training load"
+    }
+
+    /// Completed-workout depth is kept intact, but no longer overwhelms the
+    /// result the athlete needs first.
+    private var analysisSection: some View {
+        DisclosureCard(
+            "Workout analysis",
+            subtitle: analysisSubtitle,
+            systemImage: "chart.xyaxis.line"
+        ) {
+            VStack(alignment: .leading, spacing: 24) {
+                if let execution {
+                    SessionExecutionView(
+                        outcome: execution,
+                        plannedSeconds: workout.prescribedDurationSeconds,
+                        actualSeconds: workout.importedSummary?.duration,
+                        targetRPE: workout.targetRPE,
+                        reportedRPE: workout.feedback?.rpe
+                    )
+                }
+
+                if let samples, !samples.isEmpty {
+                    WorkoutChartsView(
+                        discipline: workout.discipline,
+                        samples: samples,
+                        summary: workout.importedSummary
+                    )
+
+                    zones(for: samples)
+                } else if workout.importedSummary != nil, let samplesFailure {
+                    Text(samplesFailure)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                } else if workout.importedSummary == nil, workout.hasReport {
+                    unlinkedSession
+                }
+
+                intensity(with: zoneBreakdown)
+
+                if let metrics = workout.importedSummary?.metrics {
+                    AdvancedMetricsView(metrics: metrics, sport: workout.discipline.sport)
+                }
+            }
+        }
+    }
+
+    private func reportSection(_ feedback: WorkoutFeedback) -> some View {
+        DisclosureCard(
+            "Your report",
+            subtitle: "RPE \(feedback.rpe)",
+            systemImage: "checkmark.bubble"
+        ) {
+            VStack(alignment: .leading, spacing: 14) {
+                FeedbackSummaryView(feedback: feedback)
+                Button("Clear report", role: .destructive) {
+                    workout.clearCompletion()
+                }
+                .font(.subheadline)
+            }
+        }
+    }
+
+    private var plannedWorkoutSection: some View {
+        DisclosureCard(
+            workout.orderedSteps.isEmpty ? "Rest day" : "Planned workout",
+            subtitle: WorkoutStructureSummary.text(for: workout) ?? WorkoutSummaryText.make(for: workout),
+            systemImage: workout.orderedSteps.isEmpty ? "moon.zzz" : "list.bullet",
+            initiallyExpanded: !workout.isCompleted
+        ) {
+            VStack(alignment: .leading, spacing: 20) {
+                if let provenance = WorkoutEvidencePresentation.provenance(workout.origin) {
+                    Text(provenance)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                if !workout.goal.isEmpty {
+                    Text(workout.goal)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+
+                if workout.orderedSteps.isEmpty {
+                    Text("No session today. Rest is part of the plan.")
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                } else {
+                    WorkoutPrescriptionView(workout: workout)
+                }
+
+                if let rpe = workout.targetRPE {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            SectionEyebrow(text: "Target effort")
+                            Spacer()
+                            InfoButton(concept: .rpe)
+                        }
+                        Text("RPE \(TrainingFormatter.rpe(rpe))")
+                            .font(.body.weight(.medium))
+                        EffortBar(range: rpe)
+                    }
+                }
+            }
+        }
+    }
+
+    private var workoutOptions: some View {
+        DisclosureCard(
+            "Workout options",
+            subtitle: "Move, skip or update your availability",
+            systemImage: "ellipsis"
+        ) {
+            VStack(alignment: .leading, spacing: 16) {
+                if canSkip {
+                    Button { presentMove() } label: {
+                        Label("Move Workout", systemImage: "calendar")
+                    }
+                    Button(role: .destructive) { isConfirmingSkip = true } label: {
+                        Label("Skip Workout", systemImage: "forward.end")
+                    }
+                    if Calendar.current.isDateInToday(workout.date) {
+                        Button { isChoosingTodayAction = true } label: {
+                            Label("Can't Train Today", systemImage: "calendar.badge.exclamationmark")
+                        }
+                    }
+                }
+
+                if canChangeAvailability, let weekday {
+                    Button { isConfirmingUnavailable = true } label: {
+                        Label(
+                            "Mark \(weekday.displayName) Unavailable Every Week",
+                            systemImage: "calendar.badge.minus"
+                        )
+                    }
+                }
+            }
+            .font(.subheadline)
         }
     }
 
@@ -582,14 +644,8 @@ struct WorkoutDayDetail: View {
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
-                    if let provenance = WorkoutEvidencePresentation.provenance(workout.origin) {
-                        Text(provenance)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
                 }
             }
         }
     }
 }
-

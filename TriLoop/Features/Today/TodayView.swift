@@ -29,7 +29,7 @@ struct TodayView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 26) {
+                VStack(alignment: .leading, spacing: 24) {
                     if let pending = pendingCheckIn {
                         if checkInLeads {
                             checkInCard(pending)
@@ -37,13 +37,14 @@ struct TodayView: View {
                             checkInPrompt(pending)
                         }
                     }
-                    glance
 
                     VStack(alignment: .leading, spacing: 16) {
                         SectionEyebrow(text: eyebrow)
                         primary
                         nextFooter
                     }
+
+                    glance
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 12)
@@ -101,7 +102,9 @@ struct TodayView: View {
         return String(first).uppercased()
     }
 
-    /// §2: the week's shape, sized as context rather than as the subject.
+    /// The week is useful context, but today's action earns the first screenful.
+    /// It stays available behind a native disclosure instead of competing with
+    /// the workout the athlete came here to do.
     @ViewBuilder
     private var glance: some View {
         let tiles = TodayGlanceBuilder.tiles(
@@ -110,7 +113,13 @@ struct TodayView: View {
             recovery: recovery
         )
         if !tiles.isEmpty {
-            TodayGlanceView(tiles: tiles)
+            DisclosureCard(
+                "This week",
+                subtitle: "Progress, training time and recovery",
+                systemImage: "calendar"
+            ) {
+                TodayGlanceView(tiles: tiles, showsHeader: false)
+            }
         }
     }
 

@@ -1,10 +1,10 @@
 import SwiftData
 import SwiftUI
 
-/// Date-led view of the plan: pick a day, see that day's session in full.
+/// Date-led view of the plan: pick a day, see the session that matters.
 ///
-/// Replaces the week-list-plus-hidden-picker arrangement, where choosing a week
-/// meant finding it behind an overflow menu.
+/// The plan is for orientation, so it shows a concise session summary. The full
+/// prescription, analysis and management actions remain one tap away.
 struct PlanView: View {
     @Query(sort: \WeeklyPlan.startDate) private var plans: [WeeklyPlan]
 
@@ -61,7 +61,7 @@ struct PlanView: View {
                         }
 
                         if let workout = selectedWorkout {
-                            WorkoutDayDetail(workout: workout)
+                            PlanSessionSummary(workout: workout)
                                 .id(workout.id)
                         } else {
                             ContentUnavailableView(
@@ -143,6 +143,83 @@ struct PlanView: View {
             abs($0.date.timeIntervalSince(now)) < abs($1.date.timeIntervalSince(now))
         }
         if let nearest { selection = nearest.date }
+    }
+}
+
+private struct PlanSessionSummary: View {
+    let workout: PlannedWorkout
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                HStack(alignment: .top, spacing: 14) {
+                    DisciplineBadge(discipline: workout.discipline, size: 46)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(workout.title)
+                            .font(.title2.weight(.semibold))
+                            .lineLimit(2)
+
+                        if let summary = WorkoutSummaryText.make(for: workout) {
+                            Text(summary)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    Spacer(minLength: 0)
+                }
+
+                if let status {
+                    Label(status.title, systemImage: status.symbol)
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(status.tint)
+                }
+
+                if let structure = WorkoutStructureSummary.text(for: workout) {
+                    Text(structure)
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                } else if workout.orderedSteps.isEmpty {
+                    Text("Nothing is scheduled. Rest is part of the plan.")
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                }
+
+                NavigationLink {
+                    WorkoutDetailView(workout: workout)
+                } label: {
+                    HStack {
+                        Text(workout.discipline.isTrainingSession ? "View workout" : "View details")
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.semibold))
+                    }
+                }
+                .buttonStyle(SecondaryActionButtonStyle())
+            }
+            .padding(20)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var status: (title: String, symbol: String, tint: Color)? {
+        if workout.awaitingFeedback {
+            return ("Add your report", "exclamationmark.circle.fill", .orange)
+        }
+        if workout.status == .completed {
+            return ("Completed", "checkmark.circle.fill", .green)
+        }
+        if workout.isSkipped {
+            return ("Skipped", "slash.circle.fill", .secondary)
+        }
+        if workout.isMissed() {
+            return ("Not completed", "exclamationmark.circle.fill", .orange)
+        }
+        if Calendar.current.isDateInToday(workout.date) {
+            return ("Today", "circle.fill", workout.discipline.tint)
+        }
+        return nil
     }
 }
 
