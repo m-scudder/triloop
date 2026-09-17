@@ -46,7 +46,7 @@ struct RootView: View {
     private var tabs: some View {
         TabView(selection: $selectedTab) {
             Tab("Home", systemImage: "house", value: RootTab.home) {
-                TodayView()
+                NotificationPromptHomeView()
             }
             Tab("Plan", systemImage: "calendar", value: RootTab.plan) {
                 PlanView()
