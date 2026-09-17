@@ -1,10 +1,9 @@
 import SwiftUI
 
-/// Sport-specific sensor readings from a completed session (§49).
+/// Sport-specific sensor readings from a completed session.
 ///
-/// Every row is optional and the whole section disappears when nothing was
-/// recorded, so an athlete without a power meter sees a shorter screen rather
-/// than a row of dashes.
+/// Every row is optional and the whole section shortens when evidence is absent.
+/// Phone-recorded routes are shown here alongside the speed derived from GPS.
 struct AdvancedMetricsView: View {
     let metrics: RecordedMetrics
     let sport: Sport?
@@ -31,8 +30,6 @@ struct AdvancedMetricsView: View {
             break
         }
 
-        // Apple's effort is a rating of the whole session, so it applies to any
-        // sport and is kept distinct from TriLoop's own RPE.
         append(&result, "Apple effort", metrics.workoutEffort) { "\(Int($0.rounded()))/10" }
         if metrics.workoutEffort == nil {
             append(&result, "Estimated effort", metrics.estimatedWorkoutEffort) { "\(Int($0.rounded()))/10" }
@@ -42,21 +39,25 @@ struct AdvancedMetricsView: View {
     }
 
     var body: some View {
-        if !rows.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
-                SectionEyebrow(text: "Recorded detail")
+        VStack(alignment: .leading, spacing: 22) {
+            if !rows.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    SectionEyebrow(text: "Recorded detail")
 
-                ForEach(rows, id: \.name) { row in
-                    HStack {
-                        Text(row.name)
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        Text(row.value)
-                            .monospacedDigit()
+                    ForEach(rows, id: \.name) { row in
+                        HStack {
+                            Text(row.name)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Text(row.value)
+                                .monospacedDigit()
+                        }
+                        .font(.subheadline)
                     }
-                    .font(.subheadline)
                 }
             }
+
+            WorkoutRouteView(points: metrics.route)
         }
     }
 
