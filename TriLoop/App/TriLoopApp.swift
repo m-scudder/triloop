@@ -21,6 +21,10 @@ struct TriLoopApp: App {
         healthProvider = HealthProviderResolver.current()
         autoImporter = WorkoutAutoImporter(container: container, provider: healthProvider)
 
+        // Install the local-notification delegate before a scene appears so a
+        // notification that launches TriLoop can route to Home or Plan.
+        _ = TrainingNotificationManager.shared
+
         // Nothing is seeded at launch. A week comes from onboarding, in every
         // build — otherwise a debug install can never see the first-run flow,
         // and a seeded week collides with the one setup generates.
