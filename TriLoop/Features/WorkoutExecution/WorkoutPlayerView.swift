@@ -4,15 +4,15 @@ import SwiftUI
 /// Executes the exact prescription already stored on the workout.
 ///
 /// Duration steps are countdown timers. Distance-only/manual steps are
-/// stopwatches and wait for the athlete to confirm completion. The engine uses
-/// wall-clock deltas, so returning from the background catches a running timer
-/// up instead of silently losing elapsed time.
+/// stopwatches and wait for the athlete to confirm completion. Outdoor runs and
+/// rides also record iPhone GPS while the workout is active.
 struct WorkoutPlayerView: View {
     let workout: PlannedWorkout
     let onFinish: (WorkoutExecutionResult) -> Void
     let onCancel: () -> Void
 
     @State private var engine: WorkoutExecutionEngine
+    @StateObject private var locationTracker: WorkoutLocationTracker
     @State private var lastPulse: Date?
     @State private var showingEndConfirmation = false
     @State private var showingExitConfirmation = false
@@ -29,6 +29,13 @@ struct WorkoutPlayerView: View {
         self.onFinish = onFinish
         self.onCancel = onCancel
         _engine = State(initialValue: WorkoutExecutionEngine(plan: WorkoutExecutionPlan(workout: workout)))
+        _locationTracker = StateObject(
+            wrappedValue: WorkoutLocationTracker(sport: workout.discipline.sport ?? .running)
+        )
+    }
+
+    private var recordsGPS: Bool {
+        workout.discipline == .running || workout.discipline == .cycling
     }
 
     var body: some View {
@@ -52,16 +59,13 @@ struct WorkoutPlayerView: View {
             .onReceive(pulse, perform: handlePulse)
             .sensoryFeedback(.success, trigger: engine.currentIndex)
             .alert("End workout?", isPresented: $showingEndConfirmation) {
-                Button("End Workout", role: .destructive) {
-                    engine.finish(now: .now)
-                    lastPulse = nil
-                }
+                Button("End Workout", role: .destructive) { finishWorkout() }
                 Button("Keep Going", role: .cancel) {}
             } message: {
-                Text("Your active time up to this point will be saved.")
+                Text("Your active time and recorded GPS up to this point will be saved.")
             }
             .alert("Leave workout?", isPresented: $showingExitConfirmation) {
-                Button("Leave", role: .destructive, action: onCancel)
+                Button("Leave", role: .destructive, action: cancelWorkout)
                 Button("Keep Workout", role: .cancel) {}
             } message: {
                 Text("This workout is still in progress and will not be saved.")
@@ -89,6 +93,20 @@ struct WorkoutPlayerView: View {
                     }
                 }
 
+                if recordsGPS {
+                    HStack(spacing: 12) {
+                        Image(systemName: "location.fill")
+                            .foregroundStyle(workout.discipline.tint)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("iPhone GPS")
+                                .font(.subheadline.weight(.medium))
+                            Text("Distance, pace and your route will be recorded during this workout.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+
                 VStack(alignment: .leading, spacing: 12) {
                     SectionEyebrow(text: "Workout")
 
@@ -112,12 +130,8 @@ struct WorkoutPlayerView: View {
                     }
                 }
 
-                Button("Start Workout") {
-                    let now = Date.now
-                    engine.start(now: now)
-                    lastPulse = now
-                }
-                .buttonStyle(PrimaryActionButtonStyle())
+                Button("Start Workout") { startWorkout() }
+                    .buttonStyle(PrimaryActionButtonStyle())
             }
             .padding(.top, 12)
         }
@@ -154,6 +168,11 @@ struct WorkoutPlayerView: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
 
+                    if recordsGPS {
+                        liveGPSMetrics
+                            .padding(.top, 8)
+                    }
+
                     if let instructions = step.instructions, !instructions.isEmpty {
                         Text(instructions)
                             .font(.body)
@@ -180,9 +199,7 @@ struct WorkoutPlayerView: View {
                 }
 
                 HStack(spacing: 12) {
-                    Button {
-                        togglePause()
-                    } label: {
+                    Button { togglePause() } label: {
                         Label(
                             engine.phase == .paused ? "Resume" : "Pause",
                             systemImage: engine.phase == .paused ? "play.fill" : "pause.fill"
@@ -190,15 +207,47 @@ struct WorkoutPlayerView: View {
                     }
                     .buttonStyle(SecondaryActionButtonStyle())
 
-                    Button {
-                        engine.completeCurrentStep(now: .now)
-                        lastPulse = engine.phase == .running ? .now : nil
-                    } label: {
+                    Button { completeCurrentStep() } label: {
                         Label(step.usesCountdown ? "Skip" : "Complete Step", systemImage: "forward.fill")
                     }
                     .buttonStyle(PrimaryActionButtonStyle())
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private var liveGPSMetrics: some View {
+        switch locationTracker.permission {
+        case .denied, .restricted:
+            Label("GPS unavailable — workout timing continues", systemImage: "location.slash")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        case .unavailable:
+            Label("Location services unavailable", systemImage: "location.slash")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        default:
+            HStack(spacing: 28) {
+                metric(
+                    TrainingFormatter.distance(meters: locationTracker.snapshot.distanceMeters),
+                    label: "Distance"
+                )
+                if let value = livePaceOrSpeed {
+                    metric(value, label: workout.discipline == .cycling ? "Avg speed" : "Avg pace")
+                }
+            }
+        }
+    }
+
+    private func metric(_ value: String, label: String) -> some View {
+        VStack(spacing: 2) {
+            Text(value)
+                .font(.headline)
+                .monospacedDigit()
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -221,13 +270,22 @@ struct WorkoutPlayerView: View {
                     .foregroundStyle(.secondary)
             }
 
+            if recordsGPS, locationTracker.snapshot.distanceMeters > 0 {
+                HStack(spacing: 32) {
+                    metric(
+                        TrainingFormatter.distance(meters: locationTracker.snapshot.distanceMeters),
+                        label: "Distance"
+                    )
+                    if let value = livePaceOrSpeed {
+                        metric(value, label: workout.discipline == .cycling ? "Avg speed" : "Avg pace")
+                    }
+                }
+            }
+
             Spacer()
 
-            Button("Save & Add Report") {
-                guard let result = engine.result else { return }
-                onFinish(result)
-            }
-            .buttonStyle(PrimaryActionButtonStyle())
+            Button("Save & Add Report") { saveWorkout() }
+                .buttonStyle(PrimaryActionButtonStyle())
         }
     }
 
@@ -250,10 +308,23 @@ struct WorkoutPlayerView: View {
     }
 
     private var primaryClock: String {
-        if let remaining = engine.remainingSeconds {
-            return clock(remaining)
-        }
+        if let remaining = engine.remainingSeconds { return clock(remaining) }
         return clock(engine.stepElapsedSeconds)
+    }
+
+    private var livePaceOrSpeed: String? {
+        let distance = locationTracker.snapshot.distanceMeters
+        guard distance >= 20, engine.elapsedSeconds > 0 else { return nil }
+        let metersPerSecond = distance / engine.elapsedSeconds
+        guard metersPerSecond > 0 else { return nil }
+
+        if workout.discipline == .cycling {
+            return String(format: "%.1f km/h", metersPerSecond * 3.6)
+        }
+
+        let secondsPerKm = Int((1_000 / metersPerSecond).rounded())
+        guard secondsPerKm > 0, secondsPerKm < 3_600 else { return nil }
+        return String(format: "%d:%02d /km", secondsPerKm / 60, secondsPerKm % 60)
     }
 
     private func clockCaption(for step: ExecutableWorkoutStep) -> String {
@@ -280,20 +351,59 @@ struct WorkoutPlayerView: View {
         let hours = total / 3_600
         let minutes = (total % 3_600) / 60
         let remaining = total % 60
-        if hours > 0 {
-            return String(format: "%d:%02d:%02d", hours, minutes, remaining)
-        }
+        if hours > 0 { return String(format: "%d:%02d:%02d", hours, minutes, remaining) }
         return String(format: "%02d:%02d", minutes, remaining)
+    }
+
+    private func startWorkout() {
+        let now = Date.now
+        engine.start(now: now)
+        if recordsGPS { locationTracker.start() }
+        lastPulse = now
+        if engine.phase == .finished { locationTracker.stop() }
     }
 
     private func togglePause() {
         if engine.phase == .paused {
             engine.resume()
+            if recordsGPS { locationTracker.resume() }
             lastPulse = .now
         } else {
             engine.pause()
+            if recordsGPS { locationTracker.pause() }
             lastPulse = nil
         }
+    }
+
+    private func completeCurrentStep() {
+        engine.completeCurrentStep(now: .now)
+        if engine.phase == .finished { locationTracker.stop() }
+        lastPulse = engine.phase == .running ? .now : nil
+    }
+
+    private func finishWorkout() {
+        engine.finish(now: .now)
+        locationTracker.stop()
+        lastPulse = nil
+    }
+
+    private func cancelWorkout() {
+        locationTracker.discard()
+        onCancel()
+    }
+
+    private func saveWorkout() {
+        guard let base = engine.result else { return }
+        let gps = locationTracker.snapshot
+        let result = WorkoutExecutionResult(
+            workoutID: base.workoutID,
+            startedAt: base.startedAt,
+            endedAt: base.endedAt,
+            elapsedSeconds: base.elapsedSeconds,
+            distanceMeters: gps.distanceMeters > 0 ? gps.distanceMeters : nil,
+            route: gps.route
+        )
+        onFinish(result)
     }
 
     private func handlePulse(_ now: Date) {
@@ -304,6 +414,7 @@ struct WorkoutPlayerView: View {
 
         let previous = lastPulse ?? now
         engine.advance(by: now.timeIntervalSince(previous), now: now)
+        if engine.phase == .finished { locationTracker.stop() }
         lastPulse = engine.phase == .running ? now : nil
     }
 }
