@@ -1,118 +1,154 @@
+import Charts
 import SwiftData
 import SwiftUI
 
-/// Overview, per-sport volume and a few durable bests, with the full session
-/// history behind its own segment so neither list buries the other.
+/// Progress answers three questions without duplicating Plan:
+/// Am I progressing? What has my training looked like? How is recovery trending?
 struct ProgressOverviewView: View {
     @Query(sort: \WeeklyPlan.startDate) private var plans: [WeeklyPlan]
 
     private enum Segment: String, CaseIterable, Identifiable {
-        case progress = "Progress"
-        case sessions = "Sessions"
+        case overview = "Overview"
+        case training = "Training"
+        case recovery = "Recovery"
 
         var id: Self { self }
     }
 
-    @State private var segment: Segment = .progress
-
-    private var stats: TrainingStatistics {
-        TrainingStatistics(plans: plans)
-    }
+    @State private var segment: Segment = .overview
 
     private var current: CurrentTraining? {
         CurrentTraining(plans: plans)
     }
 
-    /// Newest first, across every week, so an older session is one tap away
-    /// rather than several weeks of navigation.
-    private var recentSessions: [PlannedWorkout] {
-        plans
-            .flatMap(\.trainingSessions)
-            .filter { $0.isCompleted }
-            .sorted { $0.date > $1.date }
+    private var recentPlans: [WeeklyPlan] {
+        Array(plans.sorted { $0.startDate < $1.startDate }.suffix(4))
     }
 
-    private var sessionMonths: [SessionMonth] {
-        let calendar = Calendar.current
-        return Dictionary(grouping: recentSessions) { session in
-            calendar.dateInterval(of: .month, for: session.date)?.start ?? session.date
+    private var recentSessions: [PlannedWorkout] {
+        recentPlans.flatMap(\.prescribedTrainingSessions)
+    }
+
+    private var completedRecentSessions: [PlannedWorkout] {
+        recentSessions.filter(\.isCompleted)
+    }
+
+    private var recentTrainingSeconds: TimeInterval {
+        completedRecentSessions.reduce(0) { total, session in
+            total + (session.importedSummary?.duration ?? session.estimatedDurationSeconds ?? 0)
         }
-        .map { SessionMonth(start: $0.key, sessions: $0.value) }
-        .sorted { $0.start > $1.start }
+    }
+
+    /// Adherence only counts sessions whose scheduled day has arrived. Future
+    /// sessions in the current week should not make today's progress look worse.
+    private var recentAdherence: Double? {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: .now)
+        let due = recentSessions.filter { calendar.startOfDay(for: $0.date) <= today }
+        guard !due.isEmpty else { return nil }
+        return Double(due.filter(\.isCompleted).count) / Double(due.count)
+    }
+
+    private var weeklyTrend: [ProgressWeekSummary] {
+        recentPlans.map { plan in
+            let seconds = plan.completedPrescribedTrainingSessions.reduce(0) { total, session in
+                total + (session.importedSummary?.duration ?? session.estimatedDurationSeconds ?? 0)
+            }
+            return ProgressWeekSummary(
+                id: plan.id,
+                weekNumber: plan.weekNumber,
+                startDate: plan.startDate,
+                seconds: seconds
+            )
+        }
     }
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
-                    switch segment {
-                    case .progress: progressContent
-                    case .sessions: sessionsContent
+            VStack(spacing: 0) {
+                Picker("Progress view", selection: $segment) {
+                    ForEach(Segment.allCases) { segment in
+                        Text(segment.rawValue).tag(segment)
                     }
                 }
+                .pickerStyle(.segmented)
                 .padding(.horizontal, 20)
-                .padding(.bottom, 24)
+                .padding(.top, 8)
+                .padding(.bottom, 14)
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 22) {
+                        switch segment {
+                        case .overview:
+                            overviewContent
+                        case .training:
+                            TrainingIntelligenceView()
+                        case .recovery:
+                            ProgressRecoveryView()
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 24)
+                }
             }
             .navigationTitle("Progress")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Picker("View", selection: $segment) {
-                        ForEach(Segment.allCases) { Text($0.rawValue).tag($0) }
-                    }
-                    .pickerStyle(.segmented)
-                    .frame(width: 220)
-                }
-            }
         }
     }
 
     @ViewBuilder
-    private var progressContent: some View {
-        if let current, current.hasData {
-            currentTraining(current)
-        }
-        TrainingIntelligenceView()
-
-        if stats.hasData || !plans.isEmpty {
-            DisclosureCard(
-                "History and totals",
-                subtitle: "All-time volume, bests and weekly reviews",
-                systemImage: "chart.bar.xaxis"
-            ) {
-                VStack(alignment: .leading, spacing: 22) {
-                    if stats.hasData {
-                        overview
-                        bySport
-                        keyStats
-                    }
-                    weeks
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var sessionsContent: some View {
-        if recentSessions.isEmpty {
+    private var overviewContent: some View {
+        if plans.isEmpty {
             ContentUnavailableView(
-                "No sessions yet",
-                systemImage: "figure.run",
-                description: Text("Completed workouts appear here once you report them.")
+                "No progress yet",
+                systemImage: "chart.line.uptrend.xyaxis",
+                description: Text("Your progress will appear here as you complete training.")
             )
             .padding(.top, 60)
         } else {
-            ForEach(sessionMonths) { month in
-                history(month)
+            fourWeekSummary
+
+            if let current, current.hasData {
+                currentTraining(current)
+            }
+
+            if weeklyTrend.contains(where: { $0.seconds > 0 }) {
+                trainingTrend
             }
         }
     }
 
-    /// The headline TriLoop can give that a workout log cannot: what you are on
-    /// now, and which way it is going.
+    /// One glance at recent consistency before the athlete reads any deeper
+    /// training metrics.
+    private var fourWeekSummary: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SectionEyebrow(text: "Last 4 weeks")
+
+            Card {
+                HStack(alignment: .top, spacing: 8) {
+                    summaryFigure(
+                        TrainingFormatter.totalDuration(seconds: recentTrainingSeconds),
+                        caption: "Training"
+                    )
+                    summaryFigure(
+                        "\(completedRecentSessions.count)",
+                        caption: completedRecentSessions.count == 1 ? "Workout" : "Workouts"
+                    )
+                    summaryFigure(
+                        recentAdherence.map { "\(Int(($0 * 100).rounded()))%" } ?? "—",
+                        caption: "Adherence"
+                    )
+                }
+            }
+        }
+    }
+
+    /// Current capability/prescription plus the most recent training direction.
+    /// It says where each sport is heading without asking the athlete to open a
+    /// week review or inspect individual sessions.
     private func currentTraining(_ current: CurrentTraining) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            SectionEyebrow(text: "Where you are now")
+            SectionEyebrow(text: "Your progress")
 
             Card(padding: 0) {
                 VStack(spacing: 0) {
@@ -154,245 +190,60 @@ struct ProgressOverviewView: View {
         }
     }
 
-    private var overview: some View {
+    /// Keep Overview to one visual trend. Detailed load/intensity/balance live
+    /// in Training rather than competing for attention here.
+    private var trainingTrend: some View {
         VStack(alignment: .leading, spacing: 10) {
-            SectionEyebrow(text: "Overview")
-            Card {
-                HStack(alignment: .top, spacing: 8) {
-                    StatTile(value: "\(stats.sessions)", label: "Workouts")
-                    StatTile(
-                        value: TrainingFormatter.totalDuration(seconds: stats.totalDuration),
-                        label: "Total time"
-                    )
-                    StatTile(
-                        value: TrainingFormatter.distance(meters: stats.totalDistance),
-                        label: "Total distance"
-                    )
-                }
-            }
-        }
-    }
+            SectionEyebrow(text: "Training trend")
 
-    private var bySport: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            SectionEyebrow(text: "By sport")
             Card {
-                VStack(spacing: 16) {
-                    ForEach(stats.bySport) { totals in
-                        VStack(alignment: .leading, spacing: 6) {
-                            HStack {
-                                Image(systemName: totals.sport.discipline.symbolName)
-                                    .font(.footnote)
-                                    .foregroundStyle(totals.sport.discipline.tint)
-                                Text(totals.sport.displayName)
-                                    .font(.subheadline.weight(.medium))
-                                Spacer()
-                                Text(volume(for: totals))
-                                    .font(.subheadline.monospacedDigit())
-                                    .foregroundStyle(.secondary)
-                            }
-                            Text("\(totals.sessions) workout\(totals.sessions == 1 ? "" : "s")")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            ProportionBar(
-                                fraction: share(of: totals),
-                                tint: totals.sport.discipline.tint
-                            )
-                        }
+                Chart(weeklyTrend) { week in
+                    BarMark(
+                        x: .value("Week", week.startDate, unit: .weekOfYear),
+                        y: .value("Training minutes", week.seconds / 60)
+                    )
+                    .cornerRadius(3)
+                }
+                .frame(height: 130)
+                .chartYAxis {
+                    AxisMarks(position: .leading, values: .automatic(desiredCount: 3)) {
+                        AxisGridLine()
+                        AxisValueLabel()
                     }
                 }
-            }
-        }
-    }
-
-    private var keyStats: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            SectionEyebrow(text: "Key stats")
-            Card(padding: 0) {
-                VStack(spacing: 0) {
-                    statRow("Longest run", TrainingFormatter.distance(meters: stats.longestRunMeters))
-                    Divider().padding(.leading, 14)
-                    statRow("Longest swim", TrainingFormatter.distance(meters: stats.longestSwimMeters))
-                    Divider().padding(.leading, 14)
-                    statRow("Longest ride", TrainingFormatter.totalDuration(seconds: stats.longestRideSeconds))
-                    Divider().padding(.leading, 14)
-                    statRow("Current streak", "\(stats.currentStreakDays) day\(stats.currentStreakDays == 1 ? "" : "s")")
+                .chartXAxis {
+                    AxisMarks(values: .automatic(desiredCount: min(4, weeklyTrend.count))) {
+                        AxisValueLabel(format: .dateTime.day().month(.abbreviated))
+                    }
                 }
+
+                Text("Completed training time by week")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
     }
 
-    private func statRow(_ title: String, _ value: String) -> some View {
-        HStack {
-            Text(title)
-                .font(.subheadline)
-            Spacer()
+    private func summaryFigure(_ value: String, caption: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
             Text(value)
-                .font(.subheadline.weight(.medium))
+                .font(.title3.weight(.semibold))
                 .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+            Text(caption)
+                .font(.caption)
                 .foregroundStyle(.secondary)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-    }
-
-    private func history(_ month: SessionMonth) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            SectionEyebrow(text: month.title)
-
-            Card(padding: 0) {
-                VStack(spacing: 0) {
-                    ForEach(month.sessions, id: \.id) { session in
-                        NavigationLink {
-                            WorkoutDetailView(workout: session)
-                        } label: {
-                            sessionRow(session)
-                        }
-                        .buttonStyle(.plain)
-
-                        if session.id != month.sessions.last?.id {
-                            Divider().padding(.leading, 62)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private func sessionRow(_ session: PlannedWorkout) -> some View {
-        HStack(spacing: 12) {
-            DisciplineBadge(discipline: session.discipline, size: 38)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(session.date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)))
-                    .font(.subheadline.weight(.medium))
-                Text(sessionDetail(session))
-                    .font(.caption)
-                    .monospacedDigit()
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer(minLength: 8)
-
-            if session.awaitingFeedback {
-                Image(systemName: "exclamationmark.circle.fill")
-                    .font(.footnote)
-                    .foregroundStyle(.orange)
-            }
-
-            Image(systemName: "chevron.right")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-    }
-
-    private func sessionDetail(_ session: PlannedWorkout) -> String {
-        var parts: [String] = []
-
-        if let summary = session.importedSummary {
-            if session.discipline == .swimming, let distance = summary.distanceMeters, distance > 0 {
-                parts.append(TrainingFormatter.distance(meters: distance))
-            } else {
-                parts.append(TrainingFormatter.totalDuration(seconds: summary.duration))
-            }
-            if let heartRate = summary.averageHeartRate {
-                parts.append("\(Int(heartRate.rounded())) bpm")
-            }
-        } else if let summary = WorkoutSummaryText.make(for: session) {
-            parts.append(summary)
-        }
-
-        if let rpe = session.feedback?.rpe {
-            parts.append("RPE \(rpe)")
-        }
-
-        return parts.isEmpty ? session.title : parts.joined(separator: " · ")
-    }
-
-    private var weeks: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            SectionEyebrow(text: "Training weeks")
-
-            if plans.isEmpty {
-                Text("No weeks yet.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-
-            Card(padding: 0) {
-                VStack(spacing: 0) {
-                    ForEach(plans, id: \.id) { plan in
-                        NavigationLink {
-                            WeekReviewView(plan: plan)
-                        } label: {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("Week \(plan.weekNumber)")
-                                        .font(.subheadline.weight(.medium))
-                                    Text(summary(for: plan))
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                Image(systemName: "chevron.right")
-                                    .font(.caption)
-                                    .foregroundStyle(.tertiary)
-                            }
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 12)
-                        }
-                        .buttonStyle(.plain)
-
-                        if plan.id != plans.last?.id {
-                            Divider().padding(.leading, 14)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private func volume(for totals: TrainingStatistics.SportTotals) -> String {
-        totals.sport == .swimming
-            ? TrainingFormatter.distance(meters: totals.distance)
-            : TrainingFormatter.totalDuration(seconds: totals.duration)
-    }
-
-    /// Swimming is compared on distance and the others on time, so each bar is
-    /// scaled against the largest value in its own unit.
-    private func share(of totals: TrainingStatistics.SportTotals) -> Double {
-        if totals.sport == .swimming {
-            let peak = stats.bySport.filter { $0.sport == .swimming }.map(\.distance).max() ?? 0
-            return peak > 0 ? totals.distance / peak : 0
-        }
-        let peak = stats.bySport.filter { $0.sport != .swimming }.map(\.duration).max() ?? 0
-        return peak > 0 ? totals.duration / peak : 0
-    }
-
-    private func summary(for plan: WeeklyPlan) -> String {
-        let sessions = plan.trainingSessions
-        let completed = sessions.filter(\.hasReport).count
-        let minutes = sessions
-            .compactMap(\.estimatedDurationSeconds)
-            .reduce(0, +) / 60
-        return "\(completed)/\(sessions.count) completed · \(Int(minutes.rounded())) min planned"
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
-private struct SessionMonth: Identifiable {
-    let start: Date
-    let sessions: [PlannedWorkout]
-
-    var id: Date { start }
-
-    var title: String {
-        let format: Date.FormatStyle = Calendar.current.isDate(start, equalTo: .now, toGranularity: .year)
-            ? .dateTime.month(.wide)
-            : .dateTime.month(.wide).year()
-        return start.formatted(format)
-    }
+private struct ProgressWeekSummary: Identifiable {
+    let id: UUID
+    let weekNumber: Int
+    let startDate: Date
+    let seconds: TimeInterval
 }
 
 #if DEBUG
