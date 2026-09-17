@@ -1,5 +1,17 @@
 import Foundation
 
+/// A compact GPS point recorded by TriLoop's iPhone workout player.
+///
+/// Route data lives inside `RecordedMetrics`, so adding phone GPS does not move
+/// the SwiftData schema. Timestamp is retained so later analysis can derive
+/// segment pace without inventing samples that were never recorded.
+struct RecordedRoutePoint: Codable, Equatable, Sendable {
+    var latitude: Double
+    var longitude: Double
+    var altitudeMeters: Double?
+    var timestamp: Date
+}
+
 /// Sensor-derived values from a completed workout that the plan does not need
 /// to reason about structurally.
 ///
@@ -8,9 +20,6 @@ import Foundation
 /// shape, so the schema version does not move and no migration stage is needed —
 /// which matters because the interesting metrics differ by sport and by watch,
 /// and the list will keep growing.
-///
-/// Every field is optional: HealthKit records what the device happened to
-/// capture, and absence is normal rather than an error.
 struct RecordedMetrics: Codable, Equatable, Sendable {
     /// Steps per minute. A proxy for running cadence, taken from `stepCount`.
     var averageCadence: Double?
@@ -29,12 +38,14 @@ struct RecordedMetrics: Codable, Equatable, Sendable {
     var functionalThresholdPower: Double?
 
     /// Apple's effort score, rated by the athlete in the Workout app.
-    ///
-    /// Kept apart from TriLoop's RPE on purpose: they are different questions,
-    /// asked at different moments, and §27 requires them not to be conflated.
+    /// Kept apart from TriLoop's RPE on purpose: they are different questions.
     var workoutEffort: Double?
     /// Apple's own estimate, when the athlete rated nothing.
     var estimatedWorkoutEffort: Double?
+
+    /// GPS points captured by TriLoop itself. HealthKit imports normally leave
+    /// this empty because their sample stream remains in HealthKit.
+    var route: [RecordedRoutePoint]
 
     init(
         averageCadence: Double? = nil,
@@ -48,7 +59,8 @@ struct RecordedMetrics: Codable, Equatable, Sendable {
         averageCyclingPower: Double? = nil,
         functionalThresholdPower: Double? = nil,
         workoutEffort: Double? = nil,
-        estimatedWorkoutEffort: Double? = nil
+        estimatedWorkoutEffort: Double? = nil,
+        route: [RecordedRoutePoint] = []
     ) {
         self.averageCadence = averageCadence
         self.averageRunningSpeed = averageRunningSpeed
@@ -62,6 +74,7 @@ struct RecordedMetrics: Codable, Equatable, Sendable {
         self.functionalThresholdPower = functionalThresholdPower
         self.workoutEffort = workoutEffort
         self.estimatedWorkoutEffort = estimatedWorkoutEffort
+        self.route = route
     }
 
     /// Decoded key by key so a record written by an older build, which had fewer
@@ -86,10 +99,11 @@ struct RecordedMetrics: Codable, Equatable, Sendable {
         functionalThresholdPower = value(.functionalThresholdPower)
         workoutEffort = value(.workoutEffort)
         estimatedWorkoutEffort = value(.estimatedWorkoutEffort)
+        route = value(.route) ?? []
     }
 
     var isEmpty: Bool {
-        [
+        let scalarMetrics = [
             averageCadence,
             averageRunningSpeed,
             averageRunningPower,
@@ -102,7 +116,8 @@ struct RecordedMetrics: Codable, Equatable, Sendable {
             functionalThresholdPower,
             workoutEffort,
             estimatedWorkoutEffort
-        ].allSatisfy { $0 == nil }
+        ]
+        return scalarMetrics.allSatisfy { $0 == nil } && route.isEmpty
     }
 
     /// The effort Apple holds, preferring what the athlete rated over what the
