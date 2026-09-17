@@ -18,9 +18,7 @@ struct ExecutableWorkoutStep: Equatable, Identifiable, Sendable {
 
     /// Time prescriptions count down. Distance/manual prescriptions use a
     /// stopwatch and advance only when the athlete confirms the step is done.
-    var usesCountdown: Bool {
-        durationSeconds != nil
-    }
+    var usesCountdown: Bool { durationSeconds != nil }
 
     var repetitionLabel: String? {
         guard let repetition, let repetitionCount else { return nil }
@@ -74,8 +72,6 @@ struct WorkoutExecutionPlan: Equatable, Sendable {
         path: String,
         to result: inout [ExecutableWorkoutStep]
     ) {
-        // Support nested repeat blocks even though today's prescriptions are
-        // shallow. It keeps custom-workout execution deterministic later.
         if step.kind == .repeatBlock {
             let count = max(step.repeatCount ?? 1, 1)
             for nestedRepetition in 1...count {
@@ -115,6 +111,26 @@ struct WorkoutExecutionResult: Equatable, Sendable {
     let endedAt: Date
     /// Active workout time. Paused time is deliberately excluded.
     let elapsedSeconds: TimeInterval
+    /// Phone GPS evidence. Nil/empty for swims, indoor sessions or denied
+    /// location permission; workout execution never depends on GPS succeeding.
+    let distanceMeters: Double?
+    let route: [RecordedRoutePoint]
+
+    init(
+        workoutID: UUID,
+        startedAt: Date,
+        endedAt: Date,
+        elapsedSeconds: TimeInterval,
+        distanceMeters: Double? = nil,
+        route: [RecordedRoutePoint] = []
+    ) {
+        self.workoutID = workoutID
+        self.startedAt = startedAt
+        self.endedAt = endedAt
+        self.elapsedSeconds = elapsedSeconds
+        self.distanceMeters = distanceMeters
+        self.route = route
+    }
 }
 
 /// Pure state machine for the phone workout player.
