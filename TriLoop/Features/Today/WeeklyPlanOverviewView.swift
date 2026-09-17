@@ -109,12 +109,3 @@ struct WeeklyPlanOverviewView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
-
-#if DEBUG
-#Preview {
-    if let plan = try? PreviewData.container.mainContext.fetch(FetchDescriptor<WeeklyPlan>()).first {
-        WeeklyPlanOverviewView(plan: plan)
-            .padding()
-    }
-}
-#endif
