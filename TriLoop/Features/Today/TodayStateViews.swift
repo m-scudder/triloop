@@ -2,13 +2,13 @@ import SwiftUI
 
 /// The upcoming-workout state (§4): the default training day.
 ///
-/// Everything here answers "what am I doing, and how hard". Analysis belongs in
-/// Workout Detail, and the athlete should not have to read past anything to
-/// find the action.
+/// Home owns workout execution. Plan and Workout Detail explain the plan and
+/// result without repeating these primary actions.
 struct TodayWorkoutView: View {
     let workout: PlannedWorkout
     let isScheduledOnWatch: Bool
     let isScheduling: Bool
+    let markDone: () -> Void
     let start: () -> Void
 
     var body: some View {
@@ -41,9 +41,20 @@ struct TodayWorkoutView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Button(isScheduling ? "Sending…" : "Send to Apple Watch", action: start)
-                .buttonStyle(PrimaryActionButtonStyle())
-                .disabled(isScheduling)
+            HStack(spacing: 10) {
+                Button("Mark as Done", action: markDone)
+                    .buttonStyle(PrimaryActionButtonStyle())
+
+                Button(action: start) {
+                    Label(
+                        isScheduledOnWatch ? "On Watch" : (isScheduling ? "Sending…" : "Send to Watch"),
+                        systemImage: isScheduledOnWatch ? "checkmark.circle.fill" : "applewatch"
+                    )
+                    .foregroundStyle(isScheduledOnWatch ? Color.green : .primary)
+                }
+                .buttonStyle(SecondaryActionButtonStyle())
+                .disabled(isScheduling || isScheduledOnWatch)
+            }
 
             NavigationLink {
                 WorkoutDayDetail(workout: workout)
@@ -59,22 +70,11 @@ struct TodayWorkoutView: View {
                 .foregroundStyle(.primary)
                 .padding(.vertical, 4)
             }
-
-            if isScheduledOnWatch {
-                Label("Ready on Apple Watch", systemImage: "checkmark.circle.fill")
-                    .font(.footnote)
-                    .foregroundStyle(.green)
-            }
         }
     }
 }
 
 /// The gap between finishing on the Watch and Health delivering the workout.
-///
-/// TriLoop cannot see a session while it runs — a workout reaches HealthKit
-/// only once it ends — so this claims the one thing WorkoutKit does report:
-/// the scheduled workout is marked complete. No elapsed time is shown, because
-/// none is known.
 struct TodayAwaitingImportView: View {
     let workout: PlannedWorkout
 
@@ -97,12 +97,10 @@ struct TodayAwaitingImportView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
-
         }
     }
 }
 
-/// The completed-and-reviewed state (§14): closure, then what's next.
 struct TodayCompletedView: View {
     let workout: PlannedWorkout
     let outcome: ExecutionComparison.Outcome?
@@ -143,10 +141,6 @@ struct TodayCompletedView: View {
     }
 }
 
-/// The few metrics worth seeing immediately (§12).
-///
-/// Absent values are omitted rather than shown as zero, so a swim without a
-/// heart-rate strap simply reads shorter.
 struct TodayMetricsRow: View {
     let summary: ImportedWorkoutSummary
     let sport: Sport?
@@ -178,10 +172,6 @@ struct TodayMetricsRow: View {
     }
 }
 
-/// Rest, recovery, missed, skipped and week-complete (§17–20).
-///
-/// One shape for all of them: a heading, a neutral explanation, and at most one
-/// action. Nothing here uses guilt or fills the day with analytics.
 struct TodayStatementView: View {
     let heading: String
     let message: String
@@ -213,11 +203,8 @@ struct TodayStatementView: View {
     }
 }
 
-/// Lightweight future context (§10), as one line rather than a section of its
-/// own. The week itself belongs to Plan.
 struct TodayNextView: View {
     let next: NextSession
-    /// Rest days have nothing above this line, so the label earns its place.
     var isLabelled = false
 
     var body: some View {
@@ -242,10 +229,6 @@ struct TodayNextView: View {
     }
 }
 
-/// How the week is going, without becoming a second Plan or Progress.
-///
-/// Deliberately small: it is context for today's session, not the subject of
-/// the screen.
 struct TodayGlanceView: View {
     let tiles: [GlanceTile]
     var showsHeader = true
