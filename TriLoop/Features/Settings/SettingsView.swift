@@ -7,6 +7,7 @@ struct SettingsView: View {
     @Query(sort: \WeeklyPlan.startDate) private var plans: [WeeklyPlan]
 
     @State private var healthStatus: HealthAuthorizationStatus = .notDetermined
+    @State private var notificationStatus: TrainingNotificationAuthorization = .notDetermined
     @State private var importMessage: String?
     @State private var isWorking = false
     @State private var scheduledWorkouts: [ScheduledWorkoutSummary] = []
@@ -14,6 +15,7 @@ struct SettingsView: View {
     @State private var permissionMessage: String?
     @AppStorage("automaticallyScheduleWorkouts") private var automaticallySchedule = true
     @AppStorage("automaticallyImportWorkouts") private var automaticallyImport = true
+    @AppStorage(TrainingNotificationPreferences.enabledKey) private var notificationsEnabled = false
     @Environment(\.healthProvider) private var health
     private let scheduler = WorkoutKitScheduler()
 
@@ -37,6 +39,16 @@ struct SettingsView: View {
                     Text("Connections")
                 } footer: {
                     Text("Tap a row to grant or re-check.")
+                }
+
+                Section {
+                    NavigationLink {
+                        NotificationSettingsView()
+                    } label: {
+                        LabeledContent("Notifications", value: notificationStatusText)
+                    }
+                } header: {
+                    Text("Reminders")
                 }
 
                 Section {
@@ -105,6 +117,7 @@ struct SettingsView: View {
         healthStatus = await health.authorizationStatus
         watchAuthorization = await scheduler.authorizationState()
         scheduledWorkouts = await scheduler.scheduledWorkouts()
+        notificationStatus = await TrainingNotificationManager.shared.authorizationStatus()
     }
 
     private func refreshSchedule() async {
@@ -142,6 +155,14 @@ struct SettingsView: View {
         case .denied: return "Not allowed"
         case .restricted: return "Not available"
         case .notDetermined: return "Not set up"
+        }
+    }
+
+    private var notificationStatusText: String {
+        switch notificationStatus {
+        case .notDetermined: "Not set up"
+        case .denied: "Off in iOS"
+        case .authorized: notificationsEnabled ? "On" : "Paused"
         }
     }
 
