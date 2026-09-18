@@ -85,7 +85,6 @@ struct AccountAccessView: View {
             failureContent(accountError)
         } else {
             ProgressView()
-                .task { await resolveAfterSignIn(session) }
         }
     }
 
