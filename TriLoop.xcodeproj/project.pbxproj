@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		AF0000000000000000000001 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = AF0000000000000000000003 /* Supabase */; };
 		AE000000000000000000000C /* TriLoopLiveActivity.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AE0000000000000000000008 /* TriLoopLiveActivity.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
@@ -106,6 +107,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AF0000000000000000000001 /* Supabase in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -177,6 +179,7 @@
 			);
 			name = TriLoop;
 			packageProductDependencies = (
+				AF0000000000000000000003 /* Supabase */,
 			);
 			productName = TriLoop;
 			productReference = AB0000000000000000000008 /* TriLoop.app */;
@@ -282,6 +285,9 @@
 			minimizedProjectReferenceProxies = 1;
 			preferredProjectObjectVersion = 77;
 			productRefGroup = AA0000000000000000000003 /* Products */;
+			packageReferences = (
+				AF0000000000000000000002 /* XCRemoteSwiftPackageReference "supabase-swift" */,
+			);
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -690,6 +696,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		AF0000000000000000000002 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase/supabase-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.55.2;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		AF0000000000000000000003 /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AF0000000000000000000002 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = AA0000000000000000000001 /* Project object */;
 }
