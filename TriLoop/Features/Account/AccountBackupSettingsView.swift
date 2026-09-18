@@ -44,7 +44,7 @@ struct AccountBackupSettingsView: View {
             }
 
             if case .signedIn(let session) = authentication.state {
-                Section("Cloud Backup") {
+                Section {
                     LabeledContent("Status", value: backupStatus)
                     LabeledContent("Last Backup", value: lastBackupText)
 
@@ -52,6 +52,8 @@ struct AccountBackupSettingsView: View {
                         backUpNow(session)
                     }
                     .disabled(isWorking)
+                } header: {
+                    Text("Cloud Backup")
                 } footer: {
                     Text("TriLoop keeps training on this iPhone first. Cloud backup runs separately, so losing connectivity does not stop a workout from being recorded.")
                 }
