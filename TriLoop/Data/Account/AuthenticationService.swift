@@ -34,8 +34,12 @@ protocol AuthenticationService: Sendable {
     func signOut() async throws
 }
 
-enum AuthenticationServiceError: Error, Equatable {
+enum AuthenticationServiceError: LocalizedError, Equatable {
     case notConfigured
+
+    var errorDescription: String? {
+        "Account sign-in is not configured yet."
+    }
 }
 
 /// Used until the Supabase client is configured. Keeping an explicit adapter

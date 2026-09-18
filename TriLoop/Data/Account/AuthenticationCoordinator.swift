@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 
 enum AuthenticationCoordinatorState: Equatable {
     case checking
@@ -10,9 +11,11 @@ enum AuthenticationCoordinatorState: Equatable {
 
 /// App-facing authentication state machine.
 ///
-/// Native Sign in with Apple will create the credential; the Supabase adapter
-/// will implement `AuthenticationService`. Neither concern leaks into views.
+/// Native Sign in with Apple creates the credential; the future Supabase
+/// adapter implements `AuthenticationService`. Neither concern leaks into the
+/// training domain.
 @MainActor
+@Observable
 final class AuthenticationCoordinator {
     private let service: any AuthenticationService
 

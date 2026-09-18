@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 import SwiftData
 
 /// One atomically committed cloud revision.
@@ -29,8 +30,12 @@ protocol BackupRepository: Sendable {
     func latest(for accountID: String) async throws -> BackupEnvelope?
 }
 
-enum BackupRepositoryError: Error, Equatable {
+enum BackupRepositoryError: LocalizedError, Equatable {
     case notConfigured
+
+    var errorDescription: String? {
+        "Cloud backup is not configured yet."
+    }
 }
 
 actor UnconfiguredBackupRepository: BackupRepository {
@@ -54,10 +59,10 @@ enum BackupCoordinatorState: Equatable {
 /// Coordinates local capture and remote persistence without making SwiftData
 /// depend on a network connection.
 ///
-/// The app will later mark this coordinator dirty after important local saves.
 /// Supabase is only the repository implementation; it is never on the critical
 /// path for completing a workout.
 @MainActor
+@Observable
 final class BackupCoordinator {
     private let repository: any BackupRepository
     private let restoreService: BackupRestoreService
@@ -70,6 +75,12 @@ final class BackupCoordinator {
     ) {
         self.repository = repository
         self.restoreService = restoreService
+    }
+
+    /// Reads backup metadata/content without mutating the local store. The
+    /// account entry flow uses this to decide whether restore should be offered.
+    func latestBackup(accountID: String) async throws -> BackupEnvelope? {
+        try await repository.latest(for: accountID)
     }
 
     @discardableResult

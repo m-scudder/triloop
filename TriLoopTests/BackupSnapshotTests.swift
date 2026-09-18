@@ -175,8 +175,13 @@ struct BackupSnapshotTests {
         destination.insert(AthleteProfile(name: "Local", trainingStartDate: .now))
         try destination.save()
 
-        #expect(throws: BackupRestoreError.localStoreNotEmpty) {
+        do {
             try BackupRestoreService().restore(snapshot, into: destination)
+            Issue.record("Expected restore to reject a non-empty store")
+        } catch let error as BackupRestoreError {
+            #expect(error == .localStoreNotEmpty)
+        } catch {
+            Issue.record("Unexpected error: \(error)")
         }
     }
 }

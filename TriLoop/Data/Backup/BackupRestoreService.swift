@@ -1,9 +1,18 @@
 import Foundation
 import SwiftData
 
-enum BackupRestoreError: Error, Equatable {
+enum BackupRestoreError: LocalizedError, Equatable {
     case unsupportedSchema(Int)
     case localStoreNotEmpty
+
+    var errorDescription: String? {
+        switch self {
+        case .unsupportedSchema(let version):
+            "This backup uses unsupported schema version \(version)."
+        case .localStoreNotEmpty:
+            "This iPhone already contains TriLoop training data. Cloud data was not applied."
+        }
+    }
 }
 
 /// Restores only into an empty TriLoop store.
