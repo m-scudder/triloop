@@ -38,6 +38,9 @@ struct RootView: View {
                 tabs
             }
         }
+        .task {
+            await authentication?.refresh()
+        }
         .alert("Training data was reset", isPresented: showStoreAlert) {
             Button("OK", role: .cancel) { hasShownStoreAlert = true }
         } message: {

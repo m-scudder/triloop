@@ -61,6 +61,9 @@ struct AccountBackupSettingsView: View {
         }
         .navigationTitle("Account & Backup")
         .task {
+            if case .checking = authentication.state {
+                await authentication.refresh()
+            }
             if case .signedIn = authentication.state {
                 await refreshBackup()
             }
