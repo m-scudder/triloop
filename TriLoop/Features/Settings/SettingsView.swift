@@ -3,6 +3,9 @@ import SwiftUI
 import UIKit
 
 struct SettingsView: View {
+    var authentication: AuthenticationCoordinator?
+    var backup: BackupCoordinator?
+
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \WeeklyPlan.startDate) private var plans: [WeeklyPlan]
 
@@ -22,6 +25,21 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             List {
+                if let authentication, let backup {
+                    Section {
+                        NavigationLink {
+                            AccountBackupSettingsView(
+                                authentication: authentication,
+                                backup: backup
+                            )
+                        } label: {
+                            LabeledContent("Account & Backup", value: accountStatusText(authentication))
+                        }
+                    } header: {
+                        Text("Account")
+                    }
+                }
+
                 Section {
                     // Each row is the status and the action. Requesting again
                     // when already granted is harmless, so there is always a
@@ -123,6 +141,19 @@ struct SettingsView: View {
     private func refreshSchedule() async {
         watchAuthorization = await scheduler.authorizationState()
         scheduledWorkouts = await scheduler.scheduledWorkouts()
+    }
+
+    private func accountStatusText(_ authentication: AuthenticationCoordinator) -> String {
+        switch authentication.state {
+        case .signedIn:
+            "Signed in"
+        case .checking, .signingIn:
+            "Checking…"
+        case .signedOut:
+            "Not signed in"
+        case .failed:
+            "Needs attention"
+        }
     }
 
     private var appVersion: String {

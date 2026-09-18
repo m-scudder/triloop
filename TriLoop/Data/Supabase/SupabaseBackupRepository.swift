@@ -21,7 +21,7 @@ actor SupabaseBackupRepository: BackupRepository {
     }
 
     func upload(_ envelope: BackupEnvelope) async throws {
-        let row = try BackupRevisionRow(envelope, encoder: encoder)
+        let row = try SupabaseBackupRevisionRow(envelope, encoder: encoder)
         try await client
             .from("backup_revisions")
             .insert(row)
@@ -33,7 +33,7 @@ actor SupabaseBackupRepository: BackupRepository {
             throw SupabaseBackupRepositoryError.invalidAccountID
         }
 
-        let rows: [BackupRevisionRow] = try await client
+        let rows: [SupabaseBackupRevisionRow] = try await client
             .from("backup_revisions")
             .select()
             .eq("user_id", value: userID)
@@ -60,7 +60,7 @@ enum SupabaseBackupRepositoryError: LocalizedError, Equatable {
     }
 }
 
-private struct BackupRevisionRow: Codable, Sendable {
+struct SupabaseBackupRevisionRow: Codable, Sendable {
     let id: UUID
     let userID: UUID
     let schemaVersion: Int

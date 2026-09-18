@@ -11,6 +11,8 @@ private enum RootTab: Hashable {
 struct RootView: View {
     var storeOutcome: StoreOutcome = .opened
     var autoImporter: WorkoutAutoImporter?
+    var authentication: AuthenticationCoordinator?
+    var backup: BackupCoordinator?
 
     @Query private var profiles: [AthleteProfile]
     @Query(sort: \WeeklyPlan.startDate) private var plans: [WeeklyPlan]
@@ -55,7 +57,7 @@ struct RootView: View {
                 ProgressOverviewView()
             }
             Tab("Settings", systemImage: "gearshape", value: RootTab.settings) {
-                SettingsView()
+                SettingsView(authentication: authentication, backup: backup)
             }
         }
         .task(id: automaticallyImport) {
