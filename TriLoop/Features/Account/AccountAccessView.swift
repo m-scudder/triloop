@@ -9,7 +9,7 @@ import SwiftUI
 struct AccountAccessView: View {
     let authentication: AuthenticationCoordinator
     let backup: BackupCoordinator
-    let onReady: (AccountSession) -> Void
+    let onReady: (AccountSession, Bool) -> Void
     let onContinueOffline: () -> Void
 
     @Environment(\.modelContext) private var modelContext
@@ -46,7 +46,7 @@ struct AccountAccessView: View {
             hasLocalTraining = (try? LocalTrainingStoreState.hasUserData(modelContext)) == true
             await authentication.refresh()
             if case .signedIn(let session) = authentication.state {
-                await resolveAfterSignIn(session)
+                await resolveAfterSignIn(session, seedLocalBackup: false)
             }
         }
     }
@@ -70,7 +70,7 @@ struct AccountAccessView: View {
 
             AppleSignInButtonView { credential in
                 let session = try await authentication.signInWithApple(credential)
-                await resolveAfterSignIn(session)
+                await resolveAfterSignIn(session, seedLocalBackup: true)
             }
 
             if hasLocalTraining {
@@ -139,7 +139,7 @@ struct AccountAccessView: View {
                     accountError = nil
                     await authentication.refresh()
                     if case .signedIn(let session) = authentication.state {
-                        await resolveAfterSignIn(session)
+                        await resolveAfterSignIn(session, seedLocalBackup: false)
                     }
                 }
             }
@@ -153,7 +153,10 @@ struct AccountAccessView: View {
     }
 
     @MainActor
-    private func resolveAfterSignIn(_ session: AccountSession) async {
+    private func resolveAfterSignIn(
+        _ session: AccountSession,
+        seedLocalBackup: Bool
+    ) async {
         accountError = nil
 
         do {
@@ -161,7 +164,7 @@ struct AccountAccessView: View {
                 // Existing install: never replace its local store. The automatic
                 // backup scheduler will attach this local history to the account.
                 restoreCandidate = nil
-                onReady(session)
+                onReady(session, seedLocalBackup)
                 return
             }
 
@@ -171,7 +174,7 @@ struct AccountAccessView: View {
             if let cloud = try await backup.latestBackup(accountID: session.userID) {
                 restoreCandidate = cloud
             } else {
-                onReady(session)
+                onReady(session, false)
             }
         } catch {
             accountError = error.localizedDescription
@@ -191,7 +194,7 @@ struct AccountAccessView: View {
                     return
                 }
                 restoreCandidate = nil
-                onReady(session)
+                onReady(session, false)
             } catch {
                 accountError = error.localizedDescription
             }

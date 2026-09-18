@@ -39,7 +39,12 @@ struct RootView: View {
                 AccountAccessView(
                     authentication: authentication,
                     backup: backup,
-                    onReady: { _ in accountReady = true },
+                    onReady: { session, seedLocalBackup in
+                        accountReady = true
+                        if seedLocalBackup {
+                            seedAutomaticBackup(for: session)
+                        }
+                    },
                     onContinueOffline: { accountReady = true }
                 )
             } else {
@@ -138,6 +143,18 @@ struct RootView: View {
         guard let authentication else { return nil }
         guard case .signedIn(let session) = authentication.state else { return nil }
         return session.userID
+    }
+
+    @MainActor
+    private func seedAutomaticBackup(for session: AccountSession) {
+        guard let automaticBackup,
+              (try? LocalTrainingStoreState.hasUserData(modelContext)) == true else { return }
+
+        automaticBackup.markDirty(
+            accountID: session.userID,
+            context: modelContext,
+            reason: .foreground
+        )
     }
 
     @MainActor
