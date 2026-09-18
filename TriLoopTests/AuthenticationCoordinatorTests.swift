@@ -29,10 +29,11 @@ struct AuthenticationCoordinatorTests {
         )
 
         let session = try await coordinator.signInWithApple(credential)
+        let receivedCredential = await service.lastCredential
 
         #expect(session == expected)
         #expect(coordinator.state == .signedIn(expected))
-        #expect(await service.lastCredential == credential)
+        #expect(receivedCredential == credential)
     }
 
     @Test("Sign out clears the account state")
