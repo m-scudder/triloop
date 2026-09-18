@@ -7,21 +7,13 @@ import Supabase
 /// authenticated user's UUID, and PostgreSQL rejects cross-user access.
 actor SupabaseBackupRepository: BackupRepository {
     private let client: SupabaseClient
-    private let encoder: JSONEncoder
-    private let decoder: JSONDecoder
 
     init(client: SupabaseClient = SupabaseConfiguration.client) {
         self.client = client
-
-        encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-
-        decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
     }
 
     func upload(_ envelope: BackupEnvelope) async throws {
-        let row = try SupabaseBackupRevisionRow(envelope, encoder: encoder)
+        let row = try SupabaseBackupRevisionRow(envelope)
         try await client
             .from("backup_revisions")
             .insert(row)
@@ -42,29 +34,28 @@ actor SupabaseBackupRepository: BackupRepository {
             .execute()
             .value
 
-        return try rows.first?.envelope(decoder: decoder)
+        return rows.first?.envelope
     }
 }
 
 enum SupabaseBackupRepositoryError: LocalizedError, Equatable {
     case invalidAccountID
-    case invalidSnapshot
 
     var errorDescription: String? {
-        switch self {
-        case .invalidAccountID:
-            "The signed-in account identifier is invalid."
-        case .invalidSnapshot:
-            "The cloud backup could not be decoded."
-        }
+        "The signed-in account identifier is invalid."
     }
 }
 
+/// Wire representation of one immutable cloud backup.
+///
+/// Keeping `snapshot` as a Codable value makes PostgreSQL store a real JSONB
+/// object rather than an opaque JSON string, so the data remains inspectable
+/// and can evolve toward normalized tables without changing the local domain.
 struct SupabaseBackupRevisionRow: Codable, Sendable {
     let id: UUID
     let userID: UUID
     let schemaVersion: Int
-    let snapshot: String
+    let snapshot: BackupSnapshot
     let createdAt: Date
 
     enum CodingKeys: String, CodingKey {
@@ -75,33 +66,24 @@ struct SupabaseBackupRevisionRow: Codable, Sendable {
         case createdAt = "created_at"
     }
 
-    init(_ envelope: BackupEnvelope, encoder: JSONEncoder) throws {
+    init(_ envelope: BackupEnvelope) throws {
         guard let userID = UUID(uuidString: envelope.accountID) else {
             throw SupabaseBackupRepositoryError.invalidAccountID
-        }
-
-        let data = try encoder.encode(envelope.snapshot)
-        guard let json = String(data: data, encoding: .utf8) else {
-            throw SupabaseBackupRepositoryError.invalidSnapshot
         }
 
         id = envelope.revisionID
         self.userID = userID
         schemaVersion = envelope.snapshot.schemaVersion
-        snapshot = json
+        snapshot = envelope.snapshot
         createdAt = envelope.createdAt
     }
 
-    func envelope(decoder: JSONDecoder) throws -> BackupEnvelope {
-        guard let data = snapshot.data(using: .utf8) else {
-            throw SupabaseBackupRepositoryError.invalidSnapshot
-        }
-        let decoded = try decoder.decode(BackupSnapshot.self, from: data)
-        return BackupEnvelope(
+    var envelope: BackupEnvelope {
+        BackupEnvelope(
             revisionID: id,
             accountID: userID.uuidString,
             createdAt: createdAt,
-            snapshot: decoded
+            snapshot: snapshot
         )
     }
 }
