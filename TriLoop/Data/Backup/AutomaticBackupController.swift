@@ -10,6 +10,7 @@ enum BackupTriggerReason: String, Sendable {
     case recoverySaved
     case recordedWorkoutSaved
     case foreground
+    case dataChanged
     case manual
 }
 

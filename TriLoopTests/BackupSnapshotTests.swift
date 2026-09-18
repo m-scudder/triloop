@@ -184,4 +184,39 @@ struct BackupSnapshotTests {
             Issue.record("Unexpected error: \(error)")
         }
     }
+
+    @Test("Backup fingerprint is stable until backup-owned content changes")
+    func backupFingerprintTracksContent() throws {
+        let context = try makeContext()
+        let profile = AthleteProfile(
+            name: "Athlete",
+            trainingStartDate: Date(timeIntervalSince1970: 1_780_000_000)
+        )
+        context.insert(profile)
+        try context.save()
+
+        let first = BackupSnapshot.fingerprint(
+            profile: profile,
+            plans: [],
+            templates: []
+        )
+        let repeated = BackupSnapshot.fingerprint(
+            profile: profile,
+            plans: [],
+            templates: []
+        )
+
+        profile.name = "Updated Athlete"
+
+        let changed = BackupSnapshot.fingerprint(
+            profile: profile,
+            plans: [],
+            templates: []
+        )
+
+        #expect(first != nil)
+        #expect(first == repeated)
+        #expect(first != changed)
+    }
+
 }

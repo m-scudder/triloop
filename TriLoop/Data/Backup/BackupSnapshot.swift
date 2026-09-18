@@ -46,6 +46,31 @@ struct BackupSnapshot: Codable, Sendable {
             templates: templates.map(StoredWorkoutTemplateBackup.init)
         )
     }
+
+    /// Stable representation of the backup-owned local data used to detect
+    /// meaningful mutations without coupling every feature to cloud backup.
+    ///
+    /// The timestamp is fixed so merely re-rendering the app never schedules a
+    /// new revision. Reading the model properties here also lets SwiftUI track
+    /// nested workout/report changes through the queried root models.
+    @MainActor
+    static func fingerprint(
+        profile: AthleteProfile?,
+        plans: [WeeklyPlan],
+        templates: [StoredWorkoutTemplate]
+    ) -> String? {
+        let snapshot = BackupSnapshot(
+            createdAt: Date(timeIntervalSince1970: 0),
+            profile: profile.map(AthleteProfileBackup.init),
+            plans: plans.sorted { $0.startDate < $1.startDate }.map(WeeklyPlanBackup.init),
+            templates: templates.sorted { $0.updatedAt < $1.updatedAt }.map(StoredWorkoutTemplateBackup.init)
+        )
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        encoder.dateEncodingStrategy = .millisecondsSince1970
+        return try? encoder.encode(snapshot).base64EncodedString()
+    }
 }
 
 struct AthleteProfileBackup: Codable, Sendable {

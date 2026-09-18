@@ -13,12 +13,15 @@ struct RootView: View {
     var autoImporter: WorkoutAutoImporter?
     var authentication: AuthenticationCoordinator?
     var backup: BackupCoordinator?
+    var automaticBackup: AutomaticBackupController?
 
     @Query private var profiles: [AthleteProfile]
     @Query(sort: \WeeklyPlan.startDate) private var plans: [WeeklyPlan]
+    @Query(sort: \StoredWorkoutTemplate.updatedAt) private var templates: [StoredWorkoutTemplate]
     @State private var hasShownStoreAlert = false
     @State private var selectedTab: RootTab = .home
     @State private var lastKnownHighestWeek: Int?
+    @State private var accountReady = false
     @AppStorage("automaticallyImportWorkouts") private var automaticallyImport = true
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.modelContext) private var modelContext
@@ -32,19 +35,42 @@ struct RootView: View {
 
     var body: some View {
         Group {
-            if needsSetup {
-                OnboardingView()
+            if let authentication, let backup, !accountReady {
+                AccountAccessView(
+                    authentication: authentication,
+                    backup: backup,
+                    onReady: { _ in accountReady = true },
+                    onContinueOffline: { accountReady = true }
+                )
             } else {
-                tabs
+                localApp
             }
         }
-        .task {
-            await authentication?.refresh()
+        .onChange(of: backupFingerprint) { _, _ in
+            scheduleAutomaticBackupIfNeeded()
+        }
+        .onChange(of: signedInAccountID) { _, newAccountID in
+            if newAccountID == nil {
+                automaticBackup?.cancelPending()
+            }
+        }
+        .task(id: scenePhase) {
+            guard scenePhase != .active else { return }
+            await flushAutomaticBackupIfNeeded()
         }
         .alert("Training data was reset", isPresented: showStoreAlert) {
             Button("OK", role: .cancel) { hasShownStoreAlert = true }
         } message: {
             Text(storeMessage)
+        }
+    }
+
+    @ViewBuilder
+    private var localApp: some View {
+        if needsSetup {
+            OnboardingView()
+        } else {
+            tabs
         }
     }
 
@@ -98,6 +124,43 @@ struct RootView: View {
             case .plan: selectedTab = .plan
             }
         }
+    }
+
+    private var backupFingerprint: String {
+        BackupSnapshot.fingerprint(
+            profile: profiles.first,
+            plans: plans,
+            templates: templates
+        ) ?? "unavailable"
+    }
+
+    private var signedInAccountID: String? {
+        guard let authentication else { return nil }
+        guard case .signedIn(let session) = authentication.state else { return nil }
+        return session.userID
+    }
+
+    @MainActor
+    private func scheduleAutomaticBackupIfNeeded() {
+        guard accountReady,
+              let automaticBackup,
+              let accountID = signedInAccountID,
+              (try? LocalTrainingStoreState.hasUserData(modelContext)) == true else { return }
+
+        automaticBackup.markDirty(
+            accountID: accountID,
+            context: modelContext,
+            reason: .dataChanged
+        )
+    }
+
+    @MainActor
+    private func flushAutomaticBackupIfNeeded() async {
+        guard accountReady,
+              let automaticBackup,
+              let accountID = signedInAccountID else { return }
+
+        await automaticBackup.flush(accountID: accountID, context: modelContext)
     }
 
     private var notificationFingerprint: String {

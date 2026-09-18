@@ -1,21 +1,22 @@
 import SwiftData
 import SwiftUI
 
-/// The account entry point that will replace the direct onboarding launch once
-/// Supabase is configured.
+/// Account entry for launch.
 ///
-/// Existing installations are handled safely: local training wins and is
-/// attached to the signed-in account. A clean install with a cloud backup is
-/// offered restore before onboarding can create competing local data.
+/// Existing installations are handled safely: local training is never replaced
+/// by cloud data. A clean install with a cloud backup is offered restore before
+/// onboarding can create competing local data.
 struct AccountAccessView: View {
     let authentication: AuthenticationCoordinator
     let backup: BackupCoordinator
     let onReady: (AccountSession) -> Void
+    let onContinueOffline: () -> Void
 
     @Environment(\.modelContext) private var modelContext
     @State private var restoreCandidate: BackupEnvelope?
     @State private var accountError: String?
     @State private var isCheckingBackup = false
+    @State private var hasLocalTraining = false
 
     var body: some View {
         NavigationStack {
@@ -42,6 +43,7 @@ struct AccountAccessView: View {
             .navigationBarTitleDisplayMode(.inline)
         }
         .task {
+            hasLocalTraining = (try? LocalTrainingStoreState.hasUserData(modelContext)) == true
             await authentication.refresh()
             if case .signedIn(let session) = authentication.state {
                 await resolveAfterSignIn(session)
@@ -69,6 +71,14 @@ struct AccountAccessView: View {
             AppleSignInButtonView { credential in
                 let session = try await authentication.signInWithApple(credential)
                 await resolveAfterSignIn(session)
+            }
+
+            if hasLocalTraining {
+                Button("Continue on this iPhone") {
+                    onContinueOffline()
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
             }
 
             Spacer()
@@ -133,6 +143,12 @@ struct AccountAccessView: View {
                     }
                 }
             }
+
+            if hasLocalTraining {
+                Button("Continue on this iPhone") {
+                    onContinueOffline()
+                }
+            }
         }
     }
 
@@ -142,9 +158,8 @@ struct AccountAccessView: View {
 
         do {
             if try LocalTrainingStoreState.hasUserData(modelContext) {
-                // Existing install: never replace its local store. Once the
-                // remote adapter is configured the normal backup scheduler will
-                // make this account's first cloud revision.
+                // Existing install: never replace its local store. The automatic
+                // backup scheduler will attach this local history to the account.
                 restoreCandidate = nil
                 onReady(session)
                 return

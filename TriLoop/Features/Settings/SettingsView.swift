@@ -83,12 +83,12 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    LabeledContent("Storage", value: "On this device")
+                    LabeledContent("Storage", value: storageStatusText)
                     LabeledContent("Version", value: appVersion)
                 } header: {
                     Text("About")
                 } footer: {
-                    Text("TriLoop keeps your training data on your device. There is no account and no cloud sync.")
+                    Text("Training stays on this iPhone. When you are signed in, TriLoop also keeps automatic cloud backups without putting the network in the workout path.")
                 }
 
                 #if DEBUG
@@ -154,6 +154,14 @@ struct SettingsView: View {
         case .failed:
             "Needs attention"
         }
+    }
+
+    private var storageStatusText: String {
+        guard let authentication else { return "On this device" }
+        if case .signedIn = authentication.state {
+            return "Device + backup"
+        }
+        return "On this device"
     }
 
     private var appVersion: String {

@@ -9,6 +9,7 @@ struct TriLoopApp: App {
     private let healthProvider: any HealthDataProviding
     private let authentication: AuthenticationCoordinator
     private let backup: BackupCoordinator
+    private let automaticBackup: AutomaticBackupController
 
     init() {
         #if DEBUG
@@ -23,7 +24,9 @@ struct TriLoopApp: App {
         healthProvider = HealthProviderResolver.current()
         autoImporter = WorkoutAutoImporter(container: container, provider: healthProvider)
         authentication = AuthenticationCoordinator(service: SupabaseAuthenticationService())
-        backup = BackupCoordinator(repository: SupabaseBackupRepository())
+        let backupCoordinator = BackupCoordinator(repository: SupabaseBackupRepository())
+        backup = backupCoordinator
+        automaticBackup = AutomaticBackupController(coordinator: backupCoordinator)
 
         // Install the local-notification delegate before a scene appears so a
         // notification that launches TriLoop can route to Home or Plan.
@@ -48,7 +51,8 @@ struct TriLoopApp: App {
                 storeOutcome: storeOutcome,
                 autoImporter: autoImporter,
                 authentication: authentication,
-                backup: backup
+                backup: backup,
+                automaticBackup: automaticBackup
             )
                 .environment(\.healthProvider, healthProvider)
         }
