@@ -7,8 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		AF0000000000000000000001 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = AF0000000000000000000003 /* Supabase */; };
 		AE000000000000000000000C /* TriLoopLiveActivity.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AE0000000000000000000008 /* TriLoopLiveActivity.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		AF0000000000000000000001 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = AF0000000000000000000003 /* Supabase */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -135,6 +135,13 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		712410B4305DC9D200365CC3 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		AA0000000000000000000002 = {
 			isa = PBXGroup;
 			children = (
@@ -142,6 +149,7 @@
 				AE0000000000000000000009 /* TriLoopLiveActivity */,
 				AC0000000000000000000009 /* TriLoopTests */,
 				AD0000000000000000000009 /* TriLoopUITests */,
+				712410B4305DC9D200365CC3 /* Frameworks */,
 				AA0000000000000000000003 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -283,11 +291,11 @@
 			);
 			mainGroup = AA0000000000000000000002;
 			minimizedProjectReferenceProxies = 1;
-			preferredProjectObjectVersion = 77;
-			productRefGroup = AA0000000000000000000003 /* Products */;
 			packageReferences = (
 				AF0000000000000000000002 /* XCRemoteSwiftPackageReference "supabase-swift" */,
 			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = AA0000000000000000000003 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (

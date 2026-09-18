@@ -71,10 +71,10 @@ final class BackupCoordinator {
 
     init(
         repository: any BackupRepository,
-        restoreService: BackupRestoreService = BackupRestoreService()
+        restoreService: BackupRestoreService? = nil
     ) {
         self.repository = repository
-        self.restoreService = restoreService
+        self.restoreService = restoreService ?? BackupRestoreService()
     }
 
     /// Reads backup metadata/content without mutating the local store. The
