@@ -228,9 +228,9 @@ struct RootView: View {
         case .opened:
             ""
         case .rebuilt:
-            "TriLoop's database format changed, so your previous plans and reports could not be opened and have been replaced with a fresh week."
+            "Athevia's database format changed, so your previous plans and reports could not be opened and have been replaced with a fresh week."
         case .inMemory:
-            "TriLoop could not write to storage. Anything you record now will be lost when the app closes."
+            "Athevia could not write to storage. Anything you record now will be lost when the app closes."
         }
     }
 }
