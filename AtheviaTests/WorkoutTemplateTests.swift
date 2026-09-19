@@ -136,7 +136,7 @@ struct WorkoutTemplateTests {
 
     @Test("A built-in template is not editable and an athlete's is")
     func sourceDecidesEditability() {
-        #expect(!WorkoutTemplateSource.Athevia.isEditable)
+        #expect(!WorkoutTemplateSource.athevia.isEditable)
         #expect(WorkoutTemplateSource.athlete.isEditable)
     }
 
