@@ -160,7 +160,14 @@ struct WorkoutDayDetail: View {
     private func effortComparison(target: RPERange, feedback: WorkoutFeedback) -> some View {
         Card {
             VStack(alignment: .leading, spacing: 12) {
-                SectionEyebrow(text: "Effort")
+                HStack {
+                    SectionEyebrow(text: "Effort")
+                    Spacer()
+                    InfoButton(
+                        title: "Effort",
+                        explanation: "Target effort is calculated from the workout TriLoop planned. Actual effort comes from the report you shared after the workout."
+                    )
+                }
 
                 HStack(spacing: 24) {
                     StatTile(
@@ -172,10 +179,6 @@ struct WorkoutDayDetail: View {
                         label: "Actual"
                     )
                 }
-
-                Text("Target effort is calculated from the workout TriLoop planned. Actual effort comes from the report you shared after the workout.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
             }
         }
     }
