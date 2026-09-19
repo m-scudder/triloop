@@ -248,7 +248,14 @@ struct WorkoutExecutionEngine: Equatable, Sendable {
     /// player for a timed step when the athlete intentionally moves on early.
     mutating func completeCurrentStep(now: Date = .now) {
         guard phase == .running || phase == .paused, currentStep != nil else { return }
+        let shouldStartNextStep = phase == .paused
         moveToNextStep(now: now)
+
+        // Completing a set is an explicit transition, not a request to keep the
+        // following set paused. If there is another set, start it immediately.
+        if shouldStartNextStep, phase == .paused {
+            phase = .running
+        }
     }
 
     mutating func finish(now: Date = .now) {
