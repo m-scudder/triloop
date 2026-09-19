@@ -37,10 +37,10 @@ struct PlanPreviewStepView: View {
                 HStack {
                     Text("Starting conservatively").font(.subheadline)
                     Spacer()
-                    InfoButton(title: "Starting conservatively", explanation: "TriLoop uses your starting point to choose a manageable first week, then adjusts from completion, effort, pain and recovery. \(plan.generationReason)")
+                    InfoButton(title: "Starting conservatively", explanation: "Athevia uses your starting point to choose a manageable first week, then adjusts from completion, effort, pain and recovery. \(plan.generationReason)")
                 }
 
-                Text("TriLoop will adjust future weeks based on how these sessions go.")
+                Text("Athevia will adjust future weeks based on how these sessions go.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             } else {
