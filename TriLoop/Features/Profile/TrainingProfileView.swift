@@ -11,6 +11,7 @@ struct TrainingProfileView: View {
     @Environment(\.modelContext) private var modelContext
     @Bindable var profile: AthleteProfile
     @Query(sort: \WeeklyPlan.startDate) private var plans: [WeeklyPlan]
+    @Query(sort: \PlannedWorkout.date, order: .reverse) private var workouts: [PlannedWorkout]
 
     @State private var message: String?
     @State private var isConfirmingReassessment = false
@@ -24,6 +25,7 @@ struct TrainingProfileView: View {
     var body: some View {
         List {
             identitySection
+            historySection
             impactSection
             trainingSection
             preferencesSection
@@ -83,6 +85,48 @@ struct TrainingProfileView: View {
             }
             .accessibilityLabel("Athlete details, \(profileDisplayName)")
         }
+    }
+
+    private var historySection: some View {
+        Section("Workout History") {
+            if completedWorkouts.isEmpty {
+                HStack(spacing: 10) {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .foregroundStyle(.secondary)
+                    Text("No completed workouts yet")
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                ForEach(Array(completedWorkouts.prefix(3))) { workout in
+                    NavigationLink {
+                        WorkoutDayDetail(workout: workout)
+                    } label: {
+                        WorkoutHistoryRow(workout: workout)
+                    }
+                }
+
+                if completedWorkouts.count > 3 {
+                    NavigationLink {
+                        WorkoutHistoryView(workouts: completedWorkouts)
+                    } label: {
+                        HStack {
+                            Label("View all workouts", systemImage: "clock.arrow.circlepath")
+                                .foregroundStyle(.primary)
+
+                            Spacer()
+
+                            Text("\(completedWorkouts.count)")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var completedWorkouts: [PlannedWorkout] {
+        workouts.filter { $0.isCompleted && $0.discipline.isTrainingSession }
     }
 
     @ViewBuilder
@@ -593,6 +637,71 @@ struct TrainingProfileView: View {
             get: { message != nil },
             set: { if !$0 { message = nil } }
         )
+    }
+}
+
+private struct WorkoutHistoryView: View {
+    let workouts: [PlannedWorkout]
+
+    var body: some View {
+        List(workouts) { workout in
+            NavigationLink {
+                WorkoutDayDetail(workout: workout)
+            } label: {
+                WorkoutHistoryRow(workout: workout)
+            }
+        }
+        .navigationTitle("Workout History")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct WorkoutHistoryRow: View {
+    let workout: PlannedWorkout
+
+    private var trailingMetric: (label: String, value: String) {
+        if let duration = workout.importedSummary?.duration {
+            return ("Duration", TrainingFormatter.totalDuration(seconds: duration))
+        }
+        if let feedback = workout.feedback {
+            return ("Effort", "\(feedback.rpe) / 10")
+        }
+        return ("Status", "Completed")
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: workout.discipline.symbolName)
+                .font(.subheadline.weight(.semibold))
+                .frame(width: 34, height: 34)
+                .background(.fill.tertiary, in: .circle)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(workout.title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+
+                Text(workout.date.formatted(.dateTime.day().month(.abbreviated).year()))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer(minLength: 8)
+
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(trailingMetric.label)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+
+                Text(trailingMetric.value)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .monospacedDigit()
+            }
+        }
+        .padding(.vertical, 2)
+        .accessibilityElement(children: .combine)
     }
 }
 
