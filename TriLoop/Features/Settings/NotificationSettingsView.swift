@@ -30,7 +30,7 @@ struct NotificationSettingsView: View {
                     Toggle("Training notifications", isOn: $enabled)
                 }
             } footer: {
-                Text("TriLoop asks only after you choose to enable reminders.")
+                Text("Athevia asks only after you choose to enable reminders.")
             }
 
             if authorization == .authorized && enabled {
