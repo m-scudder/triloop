@@ -603,10 +603,9 @@ private struct ProfileNavigationRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Label(title, systemImage: systemImage)
+            Text(title)
                 .foregroundStyle(.primary)
                 .lineLimit(1)
-                .fixedSize(horizontal: true, vertical: false)
                 .layoutPriority(1)
 
             Spacer(minLength: 8)
@@ -626,10 +625,9 @@ private struct TrainingDaysSummaryRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Label("Training days", systemImage: "calendar")
+            Text("Training days")
                 .foregroundStyle(.primary)
                 .lineLimit(1)
-                .fixedSize(horizontal: true, vertical: false)
                 .layoutPriority(1)
 
             Spacer(minLength: 6)
