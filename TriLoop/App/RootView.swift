@@ -108,12 +108,21 @@ struct RootView: View {
         }
         .task(id: scenePhase) {
             guard scenePhase == .active else { return }
+
+            // Notification responses can arrive before the tab hierarchy exists.
+            // Consume the persisted destination only once the tabs are mounted
+            // and the scene is active.
+            applyPendingNotificationRoute()
+
             // A week that has simply ended must not leave the athlete with
             // nothing to do until they happen to open the Plan tab.
             try? PlanStore(context: modelContext).advanceToCurrentWeek()
             if automaticallyImport {
                 await autoImporter?.importRecentWeeks()
             }
+        }
+        .onAppear {
+            applyPendingNotificationRoute()
         }
         .task(id: notificationFingerprint) {
             // This reacts to moves, skips, completions, feedback and new weeks.
@@ -130,13 +139,16 @@ struct RootView: View {
             }
             lastKnownHighestWeek = highest
         }
-        .onReceive(NotificationCenter.default.publisher(for: .triLoopNotificationRoute)) { note in
-            guard let raw = note.object as? String,
-                  let route = TrainingNotificationRoute(rawValue: raw) else { return }
-            switch route {
-            case .home: selectedTab = .home
-            case .plan: selectedTab = .plan
-            }
+    }
+
+    private func applyPendingNotificationRoute() {
+        guard let route = TrainingNotificationRouteStore.consume() else { return }
+
+        switch route {
+        case .home:
+            selectedTab = .home
+        case .plan:
+            selectedTab = .plan
         }
     }
 
