@@ -63,7 +63,7 @@ struct WorkoutShareCard: View {
                 Spacer()
                 Text(snapshot.sport)
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.70))
             }
 
             VStack(alignment: .leading, spacing: 5) {
@@ -72,7 +72,7 @@ struct WorkoutShareCard: View {
                     .lineLimit(2)
                 Text(snapshot.date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated).year()))
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.70))
             }
 
             HStack(alignment: .top, spacing: 12) {
@@ -91,14 +91,14 @@ struct WorkoutShareCard: View {
                 ShareRouteShape(points: snapshot.route)
                     .frame(height: 210)
                     .padding(14)
-                    .background(.fill.tertiary, in: .rect(cornerRadius: 18))
+                    .background(.white.opacity(0.08), in: .rect(cornerRadius: 18))
             }
 
 
             HStack {
                 Text("Train · Progress · Repeat")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.55))
                 Spacer()
                 Text("TriLoop")
                     .font(.headline.weight(.bold))
@@ -106,21 +106,8 @@ struct WorkoutShareCard: View {
         }
         .padding(30)
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .background(
-            LinearGradient(
-                colors: [
-                    Color.accentColor.opacity(0.20),
-                    Color(uiColor: .secondarySystemBackground),
-                    Color(uiColor: .systemBackground)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: 22)
-                .stroke(Color.primary.opacity(0.08), lineWidth: 1)
-        }
+        .foregroundStyle(.white)
+        .background(Color.black)
     }
 
     private func shareStat(_ value: String, _ label: String) -> some View {
@@ -132,7 +119,7 @@ struct WorkoutShareCard: View {
                 .lineLimit(1)
             Text(label)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.white.opacity(0.65))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -165,7 +152,7 @@ private struct ShareRouteShape: View {
             var path = Path()
             path.move(to: point(points[0]))
             for routePoint in points.dropFirst() { path.addLine(to: point(routePoint)) }
-            context.stroke(path, with: .color(.accentColor), style: StrokeStyle(lineWidth: 7, lineCap: .round, lineJoin: .round))
+            context.stroke(path, with: .color(.white), style: StrokeStyle(lineWidth: 7, lineCap: .round, lineJoin: .round))
         }
         .accessibilityHidden(true)
     }
