@@ -210,16 +210,14 @@ struct WorkoutExecutionEngine: Equatable, Sendable {
     /// Advance active time. Countdown steps transition automatically. A
     /// stopwatch/distance step keeps accumulating until `completeCurrentStep`.
     ///
-    /// A normal foreground pulse can carry a small amount of overflow into the
-    /// following step. After a suspension, the caller can disable cascading so
-    /// only the set that was actually active may end. `allowsFinishing` can
-    /// additionally hold the final timed set at zero until the athlete returns
-    /// to the player and explicitly completes the workout.
+    /// A normal pulse can carry elapsed time across timed steps. This is also
+    /// used when the app returns from the background: time-based prescriptions
+    /// keep progressing while the phone is locked. Manual/distance steps still
+    /// require the athlete to complete them explicitly.
     mutating func advance(
         by seconds: TimeInterval,
         now: Date = .now,
-        allowsCascading: Bool = true,
-        allowsFinishing: Bool = true
+        allowsCascading: Bool = true
     ) {
         guard phase == .running, seconds > 0, currentStep != nil else { return }
 
@@ -238,11 +236,6 @@ struct WorkoutExecutionEngine: Equatable, Sendable {
             remainingDelta -= consumed
 
             if stepElapsedSeconds >= duration {
-                let isFinalStep = currentIndex == plan.steps.index(before: plan.steps.endIndex)
-                if isFinalStep && !allowsFinishing {
-                    return
-                }
-
                 moveToNextStep(now: now)
                 if !allowsCascading { return }
             } else {
