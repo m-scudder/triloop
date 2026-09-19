@@ -24,6 +24,7 @@ struct WorkoutDayDetail: View {
     @State private var samplesFailure: String?
     @State private var isImporting = false
     @State private var importMessage: String?
+    @State private var isSharingWorkout = false
 
     var body: some View {
         ScrollView {
@@ -88,6 +89,9 @@ struct WorkoutDayDetail: View {
             Text("This changes your recurring training schedule. Remaining sessions will be reshaped; those that cannot fit will stay in the plan as skipped. Completed and past sessions stay unchanged.")
         }
         .sheet(isPresented: $isMoving) { moveSheet }
+        .sheet(isPresented: $isSharingWorkout) {
+            WorkoutShareView(workout: workout)
+        }
     }
 
     private var hasAnalysis: Bool {
@@ -558,6 +562,17 @@ struct WorkoutDayDetail: View {
             }
 
             Spacer(minLength: 0)
+
+            if workout.isCompleted {
+                Button {
+                    isSharingWorkout = true
+                } label: {
+                    Image(systemName: "square.and.arrow.up")
+                        .frame(width: 32, height: 32)
+                        .contentShape(.rect)
+                }
+                .accessibilityLabel("Share workout")
+            }
 
             if showsManagementMenu && (canSkip || canChangeAvailability) {
                 managementMenu
