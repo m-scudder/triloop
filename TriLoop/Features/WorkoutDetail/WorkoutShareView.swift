@@ -117,7 +117,21 @@ struct WorkoutShareCard: View {
         }
         .padding(30)
         .frame(maxWidth: .infinity, minHeight: 450, alignment: .topLeading)
-        .background(Color(uiColor: .systemBackground))
+        .background(
+            LinearGradient(
+                colors: [
+                    Color.accentColor.opacity(0.20),
+                    Color(uiColor: .secondarySystemBackground),
+                    Color(uiColor: .systemBackground)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 22)
+                .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+        }
     }
 
     private func shareStat(_ value: String, _ label: String) -> some View {
