@@ -79,6 +79,30 @@ struct WorkoutExecutionTests {
         #expect(engine.phase == .running)
     }
 
+    @Test("A final timed set can wait for foreground confirmation")
+    func finalTimedStepCanWaitForConfirmation() {
+        let start = Date(timeIntervalSince1970: 1_000)
+        var engine = WorkoutExecutionEngine(plan: plan(
+            WorkoutStep(order: 0, kind: .work, title: "Final effort", durationSeconds: 10)
+        ))
+
+        engine.start(now: start)
+        engine.advance(
+            by: 30,
+            now: start.addingTimeInterval(30),
+            allowsCascading: false,
+            allowsFinishing: false
+        )
+
+        #expect(engine.phase == .running)
+        #expect(engine.currentIndex == 0)
+        #expect(engine.remainingSeconds == 0)
+        #expect(engine.elapsedSeconds == 10)
+
+        engine.completeCurrentStep(now: start.addingTimeInterval(30))
+        #expect(engine.phase == .finished)
+    }
+
     @Test("Completing a paused set starts the next set")
     func pausedCompletionStartsNextSet() {
         var engine = WorkoutExecutionEngine(plan: plan(
