@@ -211,14 +211,15 @@ struct WorkoutExecutionEngine: Equatable, Sendable {
     /// stopwatch/distance step keeps accumulating until `completeCurrentStep`.
     ///
     /// A normal foreground pulse can carry a small amount of overflow into the
-    /// following step. After a long suspension, however, the player must not
-    /// infer that every later set was performed just because wall-clock time
-    /// passed. Set `allowsCascading` to false to finish at most the current
-    /// timed step and begin the next one from zero.
+    /// following step. After a suspension, the caller can disable cascading so
+    /// only the set that was actually active may end. `allowsFinishing` can
+    /// additionally hold the final timed set at zero until the athlete returns
+    /// to the player and explicitly completes the workout.
     mutating func advance(
         by seconds: TimeInterval,
         now: Date = .now,
-        allowsCascading: Bool = true
+        allowsCascading: Bool = true,
+        allowsFinishing: Bool = true
     ) {
         guard phase == .running, seconds > 0, currentStep != nil else { return }
 
@@ -237,6 +238,11 @@ struct WorkoutExecutionEngine: Equatable, Sendable {
             remainingDelta -= consumed
 
             if stepElapsedSeconds >= duration {
+                let isFinalStep = currentIndex == plan.steps.index(before: plan.steps.endIndex)
+                if isFinalStep && !allowsFinishing {
+                    return
+                }
+
                 moveToNextStep(now: now)
                 if !allowsCascading { return }
             } else {
