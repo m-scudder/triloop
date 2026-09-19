@@ -5,15 +5,10 @@ import UIKit
 struct WorkoutShareSnapshot {
     let title: String
     let sport: String
-    let symbol: String
     let date: Date
     let duration: TimeInterval?
     let distanceMeters: Double?
-    let averageHeartRate: Double?
-    let elevationMeters: Double?
-    let cadence: Double?
     let speedMetersPerSecond: Double?
-    let actualRPE: Int?
     let route: [RecordedRoutePoint]
 
     @MainActor
@@ -21,17 +16,12 @@ struct WorkoutShareSnapshot {
         let summary = workout.importedSummary
         title = workout.title
         sport = workout.discipline.displayName
-        symbol = workout.discipline.symbolName
         date = summary?.startDate ?? workout.completedAt ?? workout.date
         duration = summary?.duration ?? workout.prescribedDurationSeconds
         distanceMeters = summary?.distanceMeters
-        averageHeartRate = summary?.averageHeartRate
-        elevationMeters = summary?.elevationAscendedMeters
-        cadence = summary?.metrics?.averageCadence ?? summary?.metrics?.averageCyclingCadence
         speedMetersPerSecond = workout.discipline == .cycling
             ? summary?.metrics?.averageCyclingSpeed
             : summary?.metrics?.averageRunningSpeed
-        actualRPE = workout.feedback?.rpe
         route = summary?.metrics?.route ?? []
     }
 
@@ -51,75 +41,177 @@ struct WorkoutShareSnapshot {
     }
 }
 
+private enum WorkoutShareFormat: String, CaseIterable, Identifiable {
+    case story
+    case square
+
+    var id: String { rawValue }
+    var title: String { self == .story ? "Story" : "Post" }
+    var icon: String { self == .story ? "rectangle.portrait" : "square" }
+    var exportSize: CGSize { self == .story ? CGSize(width: 1080, height: 1920) : CGSize(width: 1080, height: 1080) }
+}
+
+private enum WorkoutShareBackground: String, CaseIterable, Identifiable {
+    case black
+    case transparent
+
+    var id: String { rawValue }
+    var title: String { self == .black ? "Black" : "Transparent" }
+}
+
 struct WorkoutShareCard: View {
     let snapshot: WorkoutShareSnapshot
+    let format: WorkoutShareFormat
+    let background: WorkoutShareBackground
     let showsRoute: Bool
 
+    private var isStory: Bool { format == .story }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            HStack {
-                Label("TriLoop", systemImage: "point.3.connected.trianglepath.dotted")
-                    .font(.headline.weight(.semibold))
-                Spacer()
-                Text(snapshot.sport)
-                    .font(.subheadline)
-                    .foregroundStyle(.white.opacity(0.70))
+        ZStack {
+            if background == .black {
+                Color.black
             }
 
-            VStack(alignment: .leading, spacing: 5) {
-                Text(snapshot.title)
-                    .font(.system(size: 34, weight: .bold))
-                    .lineLimit(2)
-                Text(snapshot.date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated).year()))
-                    .font(.subheadline)
-                    .foregroundStyle(.white.opacity(0.70))
-            }
-
-            HStack(alignment: .top, spacing: 12) {
-                if let distance = snapshot.distanceMeters {
-                    shareStat(TrainingFormatter.distance(meters: distance), "Distance")
-                }
-                if let duration = snapshot.duration {
-                    shareStat(TrainingFormatter.totalDuration(seconds: duration), "Duration")
-                }
-                if let pace = snapshot.paceOrSpeed {
-                    shareStat(pace, snapshot.sport.lowercased().contains("cycl") ? "Avg speed" : "Avg pace")
-                }
-            }
-
-            if showsRoute, snapshot.route.count >= 2 {
-                ShareRouteShape(points: snapshot.route)
-                    .frame(height: 210)
-                    .padding(14)
-                    .background(.white.opacity(0.08), in: .rect(cornerRadius: 18))
-            }
-
-
-            HStack {
-                Text("Train · Progress · Repeat")
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.55))
-                Spacer()
-                Text("TriLoop")
-                    .font(.headline.weight(.bold))
+            if isStory {
+                storyContent
+            } else {
+                squareContent
             }
         }
-        .padding(30)
-        .frame(maxWidth: .infinity, alignment: .topLeading)
         .foregroundStyle(.white)
-        .background(Color.black)
     }
 
-    private func shareStat(_ value: String, _ label: String) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
+    private var storyContent: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            brand
+            titleBlock
+                .padding(.top, 54)
+
+            VStack(alignment: .leading, spacing: 46) {
+                metricRow(icon: "ruler", value: distanceText, label: "Distance")
+                metricRow(icon: "clock", value: durationText, label: "Duration")
+                metricRow(icon: "speedometer", value: snapshot.paceOrSpeed ?? "—", label: paceLabel)
+            }
+            .padding(.top, 72)
+
+            Spacer(minLength: 40)
+
+            if showsRoute, snapshot.route.count >= 2 {
+                route
+                    .frame(height: 560)
+                    .padding(.bottom, 54)
+            }
+
+            Text("Train · Progress · Repeat")
+                .font(.system(size: 26))
+                .foregroundStyle(.white.opacity(0.60))
+        }
+        .padding(72)
+    }
+
+    private var squareContent: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            brand
+            titleBlock
+                .padding(.top, 36)
+
+            if showsRoute, snapshot.route.count >= 2 {
+                HStack(alignment: .center, spacing: 50) {
+                    VStack(alignment: .leading, spacing: 34) {
+                        metricRow(icon: "ruler", value: distanceText, label: "Distance")
+                        metricRow(icon: "clock", value: durationText, label: "Duration")
+                        metricRow(icon: "speedometer", value: snapshot.paceOrSpeed ?? "—", label: paceLabel)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    route
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 470)
+                }
+                .padding(.top, 48)
+            } else {
+                HStack(alignment: .top, spacing: 36) {
+                    compactMetric("ruler", distanceText, "Distance")
+                    compactMetric("clock", durationText, "Duration")
+                    compactMetric("speedometer", snapshot.paceOrSpeed ?? "—", paceLabel)
+                }
+                .padding(.top, 70)
+
+                Spacer()
+            }
+
+            Spacer(minLength: 28)
+            Text("Train · Progress · Repeat")
+                .font(.system(size: 24))
+                .foregroundStyle(.white.opacity(0.60))
+        }
+        .padding(64)
+    }
+
+    private var brand: some View {
+        Label("TriLoop", systemImage: "point.3.connected.trianglepath.dotted")
+            .font(.system(size: isStory ? 34 : 30, weight: .bold))
+    }
+
+    private var titleBlock: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(snapshot.title)
+                .font(.system(size: isStory ? 62 : 52, weight: .bold))
+                .lineLimit(2)
+                .minimumScaleFactor(0.75)
+            Text(snapshot.date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated).year()))
+                .font(.system(size: isStory ? 28 : 25))
+                .foregroundStyle(.white.opacity(0.70))
+        }
+    }
+
+    private var route: some View {
+        ShareRouteShape(points: snapshot.route)
+            .padding(20)
+    }
+
+    private var distanceText: String {
+        snapshot.distanceMeters.map { TrainingFormatter.distance(meters: $0) } ?? "—"
+    }
+
+    private var durationText: String {
+        snapshot.duration.map { TrainingFormatter.totalDuration(seconds: $0) } ?? "—"
+    }
+
+    private var paceLabel: String {
+        snapshot.sport.lowercased().contains("cycl") ? "Avg speed" : "Avg pace"
+    }
+
+    private func metricRow(icon: String, value: String, label: String) -> some View {
+        HStack(spacing: 28) {
+            Image(systemName: icon)
+                .font(.system(size: 42, weight: .medium))
+                .frame(width: 52)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(value)
+                    .font(.system(size: 48, weight: .bold))
+                    .monospacedDigit()
+                    .lineLimit(1)
+                Text(label)
+                    .font(.system(size: 27))
+                    .foregroundStyle(.white.opacity(0.70))
+            }
+        }
+    }
+
+    private func compactMetric(_ icon: String, _ value: String, _ label: String) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 34, weight: .medium))
             Text(value)
-                .font(.title3.weight(.semibold))
+                .font(.system(size: 38, weight: .bold))
                 .monospacedDigit()
-                .minimumScaleFactor(0.7)
                 .lineLimit(1)
+                .minimumScaleFactor(0.7)
             Text(label)
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.65))
+                .font(.system(size: 23))
+                .foregroundStyle(.white.opacity(0.70))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -138,7 +230,7 @@ private struct ShareRouteShape: View {
 
             let latSpan = max(maxLat - minLat, 0.000_001)
             let longSpan = max(maxLong - minLong, 0.000_001)
-            let inset: CGFloat = 10
+            let inset: CGFloat = 18
             let width = max(size.width - inset * 2, 1)
             let height = max(size.height - inset * 2, 1)
 
@@ -151,8 +243,17 @@ private struct ShareRouteShape: View {
 
             var path = Path()
             path.move(to: point(points[0]))
-            for routePoint in points.dropFirst() { path.addLine(to: point(routePoint)) }
-            context.stroke(path, with: .color(.white), style: StrokeStyle(lineWidth: 7, lineCap: .round, lineJoin: .round))
+            for routePoint in points.dropFirst() {
+                path.addLine(to: point(routePoint))
+            }
+
+            // High-contrast route colour deliberately separated from TriLoop's
+            // monochrome card so a real GPS trace remains visually dominant.
+            context.stroke(
+                path,
+                with: .color(Color(red: 1.0, green: 0.36, blue: 0.05)),
+                style: StrokeStyle(lineWidth: 11, lineCap: .round, lineJoin: .round)
+            )
         }
         .accessibilityHidden(true)
     }
@@ -161,6 +262,8 @@ private struct ShareRouteShape: View {
 struct WorkoutShareView: View {
     let workout: PlannedWorkout
     @Environment(\.dismiss) private var dismiss
+    @State private var format: WorkoutShareFormat = .story
+    @State private var shareBackground: WorkoutShareBackground = .black
     @State private var showsRoute = false
     @State private var shareImage: UIImage?
 
@@ -171,10 +274,38 @@ struct WorkoutShareView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 18) {
-                    WorkoutShareCard(snapshot: snapshot, showsRoute: showsRoute)
-                        .frame(maxWidth: .infinity)
-                        .clipShape(.rect(cornerRadius: 22))
-                        .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
+                    WorkoutShareCard(
+                        snapshot: snapshot,
+                        format: format,
+                        background: shareBackground,
+                        showsRoute: showsRoute
+                    )
+                    .aspectRatio(format.exportSize.width / format.exportSize.height, contentMode: .fit)
+                    .frame(maxWidth: .infinity)
+                    .background(previewBackground)
+                    .clipShape(.rect(cornerRadius: 22))
+                    .shadow(color: .black.opacity(0.12), radius: 12, y: 4)
+
+                    Picker("Format", selection: $format) {
+                        ForEach(WorkoutShareFormat.allCases) { option in
+                            Label(option.title, systemImage: option.icon).tag(option)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    Picker("Background", selection: $shareBackground) {
+                        ForEach(WorkoutShareBackground.allCases) { option in
+                            Text(option.title).tag(option)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    if shareBackground == .transparent {
+                        Text("Transparent PNG can be placed over your own photo or Story background.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
 
                     if hasRoute {
                         Toggle(isOn: $showsRoute) {
@@ -215,12 +346,52 @@ struct WorkoutShareView: View {
         }
     }
 
+    @ViewBuilder
+    private var previewBackground: some View {
+        if shareBackground == .transparent {
+            CheckerboardBackground()
+        } else {
+            Color.black
+        }
+    }
+
     @MainActor
     private func renderCard() -> UIImage? {
-        let renderer = ImageRenderer(content: WorkoutShareCard(snapshot: snapshot, showsRoute: showsRoute))
-        renderer.proposedSize = ProposedViewSize(width: 720, height: nil)
-        renderer.scale = 2
+        let size = format.exportSize
+        let renderer = ImageRenderer(
+            content: WorkoutShareCard(
+                snapshot: snapshot,
+                format: format,
+                background: shareBackground,
+                showsRoute: showsRoute
+            )
+            .frame(width: size.width, height: size.height)
+        )
+        renderer.proposedSize = ProposedViewSize(size)
+        renderer.scale = 1
+        renderer.isOpaque = shareBackground == .black
         return renderer.uiImage
+    }
+}
+
+private struct CheckerboardBackground: View {
+    var body: some View {
+        Canvas { context, size in
+            let cell: CGFloat = 16
+            let rows = Int(ceil(size.height / cell))
+            let columns = Int(ceil(size.width / cell))
+            for row in 0..<rows {
+                for column in 0..<columns {
+                    let shade = (row + column).isMultiple(of: 2)
+                        ? Color(uiColor: .systemGray5)
+                        : Color(uiColor: .systemGray4)
+                    context.fill(
+                        Path(CGRect(x: CGFloat(column) * cell, y: CGFloat(row) * cell, width: cell, height: cell)),
+                        with: .color(shade)
+                    )
+                }
+            }
+        }
     }
 }
 
