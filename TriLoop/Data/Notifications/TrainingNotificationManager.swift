@@ -148,7 +148,7 @@ private final class TrainingNotificationDelegate: NSObject, UNUserNotificationCe
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
-        // The user is already looking at TriLoop; avoid a banner over the app.
+        // The user is already looking at Athevia; avoid a banner over the app.
         [.badge, .sound]
     }
 }
@@ -283,7 +283,7 @@ final class TrainingNotificationManager {
         if let duration = workout.durationSeconds {
             parts.append(TrainingFormatter.totalDuration(seconds: duration))
         }
-        content.body = parts.joined(separator: " · ") + ". Open TriLoop when you're ready."
+        content.body = parts.joined(separator: " · ") + ". Open Athevia when you're ready."
         content.sound = .default
         content.userInfo = ["route": TrainingNotificationRoute.home.rawValue]
 
@@ -302,7 +302,7 @@ final class TrainingNotificationManager {
     private func scheduleFeedbackReminder(_ workout: TrainingNotificationWorkout, at date: Date) async {
         let content = UNMutableNotificationContent()
         content.title = "How did that \(workout.discipline.displayName.lowercased()) feel?"
-        content.body = "Add your report so TriLoop can adapt what comes next."
+        content.body = "Add your report so Athevia can adapt what comes next."
         content.sound = .default
         content.userInfo = ["route": TrainingNotificationRoute.home.rawValue]
 
