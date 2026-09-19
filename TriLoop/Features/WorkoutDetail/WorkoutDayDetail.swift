@@ -105,13 +105,13 @@ struct WorkoutDayDetail: View {
     /// device evidence removes sensor-only sections rather than leaving holes.
     private var analysisSection: some View {
         VStack(alignment: .leading, spacing: 24) {
-            HStack {
+            HStack(alignment: .firstTextBaseline) {
                 SectionEyebrow(text: "Workout analysis")
                 Spacer()
                 if let execution {
                     Text(execution.overall.displayName)
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(.secondary)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
                 }
             }
 
@@ -183,15 +183,16 @@ struct WorkoutDayDetail: View {
     }
 
     private func compactEffortStat(value: String, label: String) -> some View {
-        VStack(alignment: .center, spacing: 1) {
+        VStack(alignment: .center, spacing: 2) {
+            Text(label)
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(.secondary)
             Text(value)
                 .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.primary)
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
-            Text(label)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(value) \(label)")
