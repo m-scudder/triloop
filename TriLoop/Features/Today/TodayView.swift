@@ -17,6 +17,7 @@ struct TodayView: View {
     @State private var scheduledWorkoutIDs: Set<UUID> = []
     @State private var finishedOnWatch: Set<UUID> = []
     @State private var feedbackWorkout: PlannedWorkout?
+    @State private var sharingWorkout: PlannedWorkout?
     @State private var checkInWorkout: PlannedWorkout?
     @State private var isResolved = false
 
@@ -43,7 +44,6 @@ struct TodayView: View {
                     VStack(alignment: .leading, spacing: 16) {
                         SectionEyebrow(text: eyebrow)
                         primary
-                        nextFooter
                     }
                 }
                 .padding(.horizontal, 20)
@@ -52,13 +52,14 @@ struct TodayView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .navigationTitle(Date.now.formatted(.dateTime.weekday(.wide).day().month(.abbreviated)))
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) { profileButton }
             }
             .overlay(alignment: .bottom) { toast }
             .animation(.default, value: scheduleMessage)
             .sheet(item: $feedbackWorkout) { FeedbackSheet(workout: $0) }
+            .sheet(item: $sharingWorkout) { WorkoutShareView(workout: $0) }
             .sheet(item: $checkInWorkout) { RecoveryCheckInSheet(workout: $0) }
             .task(id: scenePhase) { await refresh() }
             .onAppear { Task { await syncWatchState() } }
@@ -218,12 +219,28 @@ struct TodayView: View {
 
     private func feedbackNeeded(_ workout: PlannedWorkout) -> some View {
         VStack(alignment: .leading, spacing: 18) {
-            Label(
-                "\(workout.discipline.displayName.uppercased()) COMPLETE",
-                systemImage: "checkmark.circle.fill"
-            )
-            .font(.headline)
-            .foregroundStyle(.green)
+            HStack {
+                Label(
+                    "\(workout.discipline.displayName.uppercased()) COMPLETE",
+                    systemImage: "checkmark.circle.fill"
+                )
+                .font(.headline)
+                .foregroundStyle(.green)
+
+                Spacer()
+
+                Button {
+                    sharingWorkout = workout
+                } label: {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.body.weight(.semibold))
+                        .frame(width: 32, height: 32)
+                        .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Share workout")
+                .accessibilityHint("Creates a shareable summary of this completed workout.")
+            }
 
             if let summary = workout.importedSummary {
                 TodayMetricsRow(summary: summary, sport: workout.discipline.sport)
@@ -253,13 +270,6 @@ struct TodayView: View {
                     .font(.subheadline)
                 }
             }
-        }
-    }
-
-    @ViewBuilder
-    private var nextFooter: some View {
-        if let next = presentation.next {
-            TodayNextView(next: next, isLabelled: !presentation.state.isOutstanding)
         }
     }
 

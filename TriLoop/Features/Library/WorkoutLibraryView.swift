@@ -402,6 +402,8 @@ struct AddToPlanSheet: View {
             failure = "That day is not part of this training week."
         } catch WorkoutTemplateScheduler.Failure.cannotReplaceCompletedSession {
             failure = "That session has already been trained, so it cannot be replaced."
+        } catch let error as PlanReshaper.Failure {
+            failure = error.localizedDescription
         } catch {
             failure = "The workout could not be added."
         }

@@ -24,6 +24,7 @@ struct TrainingProfileView: View {
     var body: some View {
         List {
             identitySection
+            historySection
             impactSection
             trainingSection
             preferencesSection
@@ -83,6 +84,50 @@ struct TrainingProfileView: View {
             }
             .accessibilityLabel("Athlete details, \(profileDisplayName)")
         }
+    }
+
+    private var historySection: some View {
+        Section("Workout History") {
+            if historyPlans.isEmpty {
+                HStack(spacing: 10) {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .foregroundStyle(.secondary)
+                    Text("No workout history yet")
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                ForEach(Array(historyPlans.prefix(3))) { plan in
+                    NavigationLink {
+                        WeekReviewView(plan: plan)
+                    } label: {
+                        WeeklyHistoryRow(plan: plan)
+                    }
+                }
+
+                if historyPlans.count > 3 {
+                    NavigationLink {
+                        WeeklyHistoryListView(plans: historyPlans)
+                    } label: {
+                        HStack {
+                            Label("View all weeks", systemImage: "calendar")
+                                .foregroundStyle(.primary)
+
+                            Spacer()
+
+                            Text("\(historyPlans.count)")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var historyPlans: [WeeklyPlan] {
+        plans
+            .filter { $0.trainingSessions.contains(where: \.isCompleted) }
+            .sorted { $0.startDate > $1.startDate }
     }
 
     @ViewBuilder
@@ -593,6 +638,81 @@ struct TrainingProfileView: View {
             get: { message != nil },
             set: { if !$0 { message = nil } }
         )
+    }
+}
+
+private struct WeeklyHistoryListView: View {
+    let plans: [WeeklyPlan]
+
+    var body: some View {
+        List(plans) { plan in
+            NavigationLink {
+                WeekReviewView(plan: plan)
+            } label: {
+                WeeklyHistoryRow(plan: plan)
+            }
+        }
+        .navigationTitle("Workout History")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct WeeklyHistoryRow: View {
+    let plan: WeeklyPlan
+
+    private var completed: [PlannedWorkout] {
+        plan.trainingSessions.filter(\.isCompleted)
+    }
+
+    private var trainingTime: TimeInterval {
+        completed.reduce(0) { total, workout in
+            total + (workout.importedSummary?.duration ?? workout.estimatedDurationSeconds ?? 0)
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "calendar")
+                .font(.subheadline.weight(.semibold))
+                .frame(width: 34, height: 34)
+                .background(.fill.tertiary, in: .circle)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(TrainingFormatter.weekRange(start: plan.startDate, end: plan.endDate))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+
+                Text(summary)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 8)
+
+            if let adherence = plan.adherenceShare {
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("Adherence")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+
+                    Text("\(Int((adherence * 100).rounded()))%")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                        .monospacedDigit()
+                }
+            }
+        }
+        .padding(.vertical, 2)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var summary: String {
+        let count = completed.count
+        let duration = trainingTime > 0
+            ? TrainingFormatter.totalDuration(seconds: trainingTime)
+            : "No duration"
+        return "\(count) workout\(count == 1 ? "" : "s") · \(duration)"
     }
 }
 

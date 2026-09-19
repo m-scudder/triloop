@@ -24,6 +24,7 @@ struct WorkoutDayDetail: View {
     @State private var samplesFailure: String?
     @State private var isImporting = false
     @State private var importMessage: String?
+    @State private var isSharingWorkout = false
 
     var body: some View {
         ScrollView {
@@ -88,6 +89,9 @@ struct WorkoutDayDetail: View {
             Text("This changes your recurring training schedule. Remaining sessions will be reshaped; those that cannot fit will stay in the plan as skipped. Completed and past sessions stay unchanged.")
         }
         .sheet(isPresented: $isMoving) { moveSheet }
+        .sheet(isPresented: $isSharingWorkout) {
+            WorkoutShareView(workout: workout)
+        }
     }
 
     private var hasAnalysis: Bool {
@@ -101,13 +105,13 @@ struct WorkoutDayDetail: View {
     /// device evidence removes sensor-only sections rather than leaving holes.
     private var analysisSection: some View {
         VStack(alignment: .leading, spacing: 24) {
-            HStack {
+            HStack(alignment: .firstTextBaseline) {
                 SectionEyebrow(text: "Workout analysis")
                 Spacer()
                 if let execution {
                     Text(execution.overall.displayName)
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(.secondary)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
                 }
             }
 
@@ -154,26 +158,44 @@ struct WorkoutDayDetail: View {
     /// The two numbers stay visible in analysis instead of being hidden inside a
     /// disclosure, so the target-versus-actual comparison is immediately clear.
     private func effortComparison(target: RPERange, feedback: WorkoutFeedback) -> some View {
-        Card {
-            VStack(alignment: .leading, spacing: 12) {
-                SectionEyebrow(text: "Effort")
+        HStack(spacing: 12) {
+            SectionEyebrow(text: "Effort")
 
-                HStack(spacing: 24) {
-                    StatTile(
-                        value: TrainingFormatter.rpe(target),
-                        label: "Target"
-                    )
-                    StatTile(
-                        value: "\(feedback.rpe)/10",
-                        label: "Actual"
-                    )
-                }
+            Spacer(minLength: 8)
 
-                Text("Target effort is calculated from the workout TriLoop planned. Actual effort comes from the report you shared after the workout.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
+            compactEffortStat(
+                value: TrainingFormatter.rpe(target),
+                label: "Target"
+            )
+            .frame(width: 78)
+
+            compactEffortStat(
+                value: "\(feedback.rpe) / 10",
+                label: "Actual"
+            )
+            .frame(width: 78)
+
+            InfoButton(
+                title: "Effort",
+                explanation: "Target effort is calculated from the workout TriLoop planned. Actual effort comes from the report you shared after the workout."
+            )
         }
+    }
+
+    private func compactEffortStat(value: String, label: String) -> some View {
+        VStack(alignment: .center, spacing: 2) {
+            Text(label)
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.primary)
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(value) \(label)")
     }
 
     private func reportSection(_ feedback: WorkoutFeedback) -> some View {
@@ -449,13 +471,7 @@ struct WorkoutDayDetail: View {
 
                     if let load {
                         VStack(alignment: .leading, spacing: 4) {
-                            HStack {
-                                SectionEyebrow(text: "Load")
-                                Spacer()
-                                InfoButton(concept: .trainingLoad, evidence: [
-                                    .init(label: "Source", value: WorkoutEvidencePresentation.source(load.provenance))
-                                ])
-                            }
+                            SectionEyebrow(text: "Load")
                             Text("\(Int(load.value.rounded()))")
                                 .font(.title3.weight(.semibold))
                                 .monospacedDigit()
@@ -464,6 +480,11 @@ struct WorkoutDayDetail: View {
                                 .foregroundStyle(.secondary)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
+                        .overlay(alignment: .topTrailing) {
+                            InfoButton(concept: .trainingLoad, evidence: [
+                                .init(label: "Source", value: WorkoutEvidencePresentation.source(load.provenance))
+                            ])
+                        }
                     }
                 }
             }
@@ -558,6 +579,19 @@ struct WorkoutDayDetail: View {
             }
 
             Spacer(minLength: 0)
+
+            if workout.isCompleted {
+                Button {
+                    isSharingWorkout = true
+                } label: {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.body.weight(.semibold))
+                        .frame(width: 32, height: 32)
+                        .contentShape(.rect)
+                }
+                .accessibilityLabel("Share workout")
+                .accessibilityHint("Creates a shareable summary of this completed workout.")
+            }
 
             if showsManagementMenu && (canSkip || canChangeAvailability) {
                 managementMenu

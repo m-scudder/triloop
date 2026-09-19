@@ -204,9 +204,16 @@ struct PlanReshaper: Sendable {
         if let sport = workout.discipline.sport, planner.highImpact.contains(sport) {
             let tooClose = others.contains { other in
                 guard other.discipline.sport == sport, !other.isSkipped else { return false }
+                let otherDate = placements[other.id] ?? other.date
+                // An explicit "alongside" choice is intentional stacking, so
+                // same-day work must not be rejected by the between-day spacing
+                // rule. Adjacent-day protection still applies normally.
+                if allowingAlongside && calendar.isDate(otherDate, inSameDayAs: date) {
+                    return false
+                }
                 let distance = calendar.dateComponents(
                     [.day], from: calendar.startOfDay(for: date),
-                    to: calendar.startOfDay(for: placements[other.id] ?? other.date)
+                    to: calendar.startOfDay(for: otherDate)
                 ).day ?? 0
                 return abs(distance) < 2
             }

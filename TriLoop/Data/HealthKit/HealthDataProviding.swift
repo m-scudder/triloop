@@ -81,6 +81,9 @@ protocol HealthDataProviding: Sendable {
     /// Time series behind one completed workout, looked up by its HealthKit id.
     func samples(forWorkout id: UUID) async throws -> WorkoutSamples
 
+    /// GPS evidence is loaded on demand, independently of chart samples.
+    func route(forWorkout id: UUID) async throws -> [RecordedRoutePoint]
+
     /// Steps bucketed by hour for a single day.
     func hourlySteps(on date: Date) async throws -> [SamplePoint]
 
@@ -103,6 +106,11 @@ protocol HealthDataProviding: Sendable {
     func functionalThresholdPower() async throws -> Double?
 }
 
+extension HealthDataProviding {
+    /// Simulations and providers without GPS must never fall through to HealthKit.
+    func route(forWorkout id: UUID) async throws -> [RecordedRoutePoint] { [] }
+}
+
 /// Fixed data for previews, tests and Developer Mode.
 struct StubHealthDataProvider: HealthDataProviding {
     var status: HealthAuthorizationStatus = .authorized
@@ -113,6 +121,7 @@ struct StubHealthDataProvider: HealthDataProviding {
     var daily: [SamplePoint] = []
     var recovery: [RecoveryMetric: [SamplePoint]] = [:]
     var ftp: Double?
+    var storedRoute: [RecordedRoutePoint] = []
 
     var authorizationStatus: HealthAuthorizationStatus {
         get async { status }
@@ -137,6 +146,11 @@ struct StubHealthDataProvider: HealthDataProviding {
     func samples(forWorkout id: UUID) async throws -> WorkoutSamples {
         guard status == .authorized else { throw HealthDataError.notAuthorized }
         return samples
+    }
+
+    func route(forWorkout id: UUID) async throws -> [RecordedRoutePoint] {
+        guard status == .authorized else { throw HealthDataError.notAuthorized }
+        return storedRoute
     }
 
     func hourlySteps(on date: Date) async throws -> [SamplePoint] {

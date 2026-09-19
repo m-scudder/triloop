@@ -45,14 +45,18 @@ struct AdvancedMetricsView: View {
                     SectionEyebrow(text: "Recorded detail")
 
                     ForEach(rows, id: \.name) { row in
-                        HStack {
+                        HStack(alignment: .firstTextBaseline, spacing: 16) {
                             Text(row.name)
+                                .font(.subheadline)
                                 .foregroundStyle(.secondary)
-                            Spacer()
+                                .frame(maxWidth: .infinity, alignment: .leading)
+
                             Text(row.value)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.primary)
                                 .monospacedDigit()
+                                .frame(maxWidth: .infinity, alignment: .trailing)
                         }
-                        .font(.subheadline)
                     }
                 }
             }

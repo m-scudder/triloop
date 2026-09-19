@@ -190,11 +190,29 @@ struct TodayCompletedView: View {
     let outcome: ExecutionComparison.Outcome?
     let explanation: String?
 
+    @State private var isSharingWorkout = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Label("\(workout.discipline.displayName.uppercased()) COMPLETE", systemImage: "checkmark.circle.fill")
-                .font(.headline)
-                .foregroundStyle(.green)
+            HStack {
+                Label("\(workout.discipline.displayName.uppercased()) COMPLETE", systemImage: "checkmark.circle.fill")
+                    .font(.headline)
+                    .foregroundStyle(.green)
+
+                Spacer()
+
+                Button {
+                    isSharingWorkout = true
+                } label: {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.body.weight(.semibold))
+                        .frame(width: 32, height: 32)
+                        .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Share workout")
+                .accessibilityHint("Creates a shareable summary of this completed workout.")
+            }
 
             if let summary = workout.importedSummary {
                 TodayMetricsRow(summary: summary, sport: workout.discipline.sport)
@@ -221,6 +239,9 @@ struct TodayCompletedView: View {
                 WorkoutDayDetail(workout: workout)
             }
             .buttonStyle(SecondaryActionButtonStyle())
+        }
+        .sheet(isPresented: $isSharingWorkout) {
+            WorkoutShareView(workout: workout)
         }
     }
 }

@@ -1,3 +1,4 @@
+import CoreLocation
 import Foundation
 import HealthKit
 
@@ -13,6 +14,7 @@ final class HealthKitWorkoutImporter: HealthDataProviding, @unchecked Sendable {
     private var readTypes: Set<HKObjectType> {
         let workoutTypes: Set<HKObjectType> = [
             HKObjectType.workoutType(),
+            HKSeriesType.workoutRoute(),
             HKQuantityType(.heartRate),
             HKQuantityType(.stepCount),
             HKQuantityType(.activeEnergyBurned),
@@ -247,6 +249,44 @@ final class HealthKitWorkoutImporter: HealthDataProviding, @unchecked Sendable {
             energy: try await energy,
             swimLengths: Self.lengthPoints(from: workout)
         )
+    }
+
+    /// Read only the route associated with this workout, never nearby locations.
+    /// Keep HealthKit GPS in memory rather than duplicating it in backups.
+    func route(forWorkout id: UUID) async throws -> [RecordedRoutePoint] {
+        guard HKHealthStore.isHealthDataAvailable() else {
+            throw HealthDataError.unavailableOnThisDevice
+        }
+        guard let workout = try await workout(with: id) else { return [] }
+        let descriptor = HKSampleQueryDescriptor(
+            predicates: [.workoutRoute(HKQuery.predicateForObjects(from: workout))],
+            sortDescriptors: [SortDescriptor(\HKWorkoutRoute.startDate)]
+        )
+        let routes = try await descriptor.result(for: store)
+        var points: [RecordedRoutePoint] = []
+        for route in routes {
+            var segment: [RecordedRoutePoint] = []
+            let locations = HKWorkoutRouteQueryDescriptor(route).results(for: store)
+            for try await location in locations {
+                try Task.checkCancellation()
+                // Invalid fixes are retained as breaks by the share projection.
+                let valid = CLLocationCoordinate2DIsValid(location.coordinate)
+                    && location.horizontalAccuracy >= 0
+                segment.append(RecordedRoutePoint(
+                    latitude: valid ? location.coordinate.latitude : .nan,
+                    longitude: valid ? location.coordinate.longitude : .nan,
+                    altitudeMeters: location.verticalAccuracy >= 0 ? location.altitude : nil,
+                    timestamp: location.timestamp
+                ))
+            }
+            if !points.isEmpty, !segment.isEmpty {
+                // Separate HealthKit route samples can represent disjoint legs.
+                points.append(RecordedRoutePoint(latitude: .nan, longitude: .nan,
+                                                 timestamp: route.startDate))
+            }
+            points.append(contentsOf: segment.sorted { $0.timestamp < $1.timestamp })
+        }
+        return points
     }
 
     private func workout(with id: UUID) async throws -> HKWorkout? {
@@ -501,4 +541,3 @@ extension HKWorkout {
     var historySwimmingLengthCount: Int { swimmingLengths.count }
 }
 #endif
-

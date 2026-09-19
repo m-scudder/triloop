@@ -124,6 +124,35 @@ struct WorkoutTemplateSchedulerTests {
         #expect(onTheDay.contains { $0.id == original.id })
     }
 
+    @Test("An explicitly added same-sport workout can sit alongside the plan")
+    func sameSportAlongside() throws {
+        let context = ModelContext(try container())
+        let week = plan([.running], in: context)
+        let customRun = WorkoutTemplate(
+            sport: .running,
+            name: "My Run",
+            category: .easy,
+            structure: WorkoutStructure([.work("Run", seconds: 1_800)]),
+            targetRPE: RPERange(3, 4)
+        )
+
+        try WorkoutTemplateScheduler.add(
+            customRun,
+            to: week,
+            on: day(0),
+            resolving: .alongside,
+            calendar: calendar,
+            asOf: day(0),
+            schedule: .everyDay()
+        )
+
+        let onTheDay = week.trainingSessions.filter {
+            !$0.isSkipped && calendar.isDate($0.date, inSameDayAs: day(0))
+        }
+        #expect(onTheDay.count == 2)
+        #expect(onTheDay.contains { $0.origin == .custom })
+    }
+
     @Test("Replacing is possible, but only when asked for")
     func replaceOnRequest() throws {
         let container = try container()
