@@ -69,7 +69,7 @@ enum WorkoutTemplateScheduler {
             targetRPE: template.targetRPE,
             prescribedDurationSeconds: template.totalDurationSeconds,
             targetDistanceMeters: template.totalDistanceMeters,
-            origin: template.source == .Athevia ? .library : .custom,
+            origin: template.source == .athevia ? .library : .custom,
             steps: template.structure.makeSteps()
         )
     }
