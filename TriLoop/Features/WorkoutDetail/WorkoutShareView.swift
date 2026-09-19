@@ -36,16 +36,16 @@ struct WorkoutShareSnapshot {
     }
 
     var paceOrSpeed: String? {
-        let speed = speedMetersPerSecond ?? {
+        let derivedSpeed: Double? = {
             guard let distanceMeters, let duration, duration > 0 else { return nil }
             return distanceMeters / duration
         }()
-        guard speed ?? <#default value#> > 0 else { return nil }
+        guard let speed = speedMetersPerSecond ?? derivedSpeed, speed > 0 else { return nil }
 
         if sport.lowercased().contains("cycl") {
-            return String(format: "%.1f km/h", (speed ?? <#default value#>) * 3.6)
+            return String(format: "%.1f km/h", speed * 3.6)
         }
-        let seconds = Int((1_000 / (speed ?? <#default value#>)).rounded())
+        let seconds = Int((1_000 / speed).rounded())
         guard seconds > 0, seconds < 3_600 else { return nil }
         return String(format: "%d:%02d /km", seconds / 60, seconds % 60)
     }
