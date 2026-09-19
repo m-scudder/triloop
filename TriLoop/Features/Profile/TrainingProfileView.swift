@@ -454,7 +454,7 @@ struct TrainingProfileView: View {
             get: { setup.schedule.isAvailable(on: weekday) },
             set: { isOn in
                 update { current in
-                    var days = current.schedule.days
+                    var days = Weekday.trainingWeek.map { current.schedule.availability(on: $0) }
                     guard let index = days.firstIndex(where: { $0.weekday == weekday }) else { return }
                     days[index].isAvailable = isOn
                     current.schedule = AthleteSchedule(days: days)
