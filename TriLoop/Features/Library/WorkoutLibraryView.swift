@@ -9,6 +9,7 @@ struct WorkoutLibraryView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \StoredWorkoutTemplate.updatedAt, order: .reverse) private var stored: [StoredWorkoutTemplate]
     @State private var sport: Sport = .running
+    @State private var isShowingCustomWorkoutExplainer = false
 
     var body: some View {
         List {
@@ -132,7 +133,7 @@ struct WorkoutLibraryView: View {
 }
 
 private struct CustomWorkoutExplainerView: View {
-    @Environment(\\.dismiss) private var dismiss
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
