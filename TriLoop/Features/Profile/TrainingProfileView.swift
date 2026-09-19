@@ -1,11 +1,12 @@
 import SwiftData
 import SwiftUI
 
-/// Everything onboarding asked, available to change afterwards.
+/// The athlete-facing training profile.
 ///
-/// Edits are recorded immediately but never rewrite history: they shape the
-/// weeks still to come. Anything that would change work already prescribed is
-/// behind an explicit action.
+/// The overview stays compact and readable. Editing is pushed into focused
+/// screens so the profile does not become a second Settings page. Changes save
+/// immediately, while applying training-impacting edits to the current week
+/// remains explicit.
 struct TrainingProfileView: View {
     @Environment(\.modelContext) private var modelContext
     @Bindable var profile: AthleteProfile
@@ -13,15 +14,10 @@ struct TrainingProfileView: View {
 
     @State private var message: String?
     @State private var isConfirmingReassessment = false
-    @State private var customPool = ""
-    /// The setup as it was when this screen opened, so an edit made here can be
-    /// named as training-impacting while the athlete is still looking at it.
-    @State private var opened: AthleteSetup?
-    @State private var healthStatus: HealthAuthorizationStatus = .notDetermined
-    @State private var watchAuthorization: WorkoutSchedulingAuthorization = .notDetermined
 
-    @Environment(\.healthProvider) private var health
-    private let scheduler = WorkoutKitScheduler()
+    /// Snapshot from when this profile screen opened. It lets TriLoop explain
+    /// which edits can change future training without rewriting history.
+    @State private var opened: AthleteSetup?
 
     private var setup: AthleteSetup { profile.setup ?? AthleteSetup() }
 
@@ -29,13 +25,7 @@ struct TrainingProfileView: View {
         List {
             identitySection
             impactSection
-            goalSection
-            aboutSection
-            baselineSection
-            daysSection
-            sportsSection
-            poolSection
-            connectionsSection
+            trainingSection
             preferencesSection
             planSection
         }
@@ -43,8 +33,6 @@ struct TrainingProfileView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task {
             if opened == nil { opened = setup }
-            healthStatus = await health.authorizationStatus
-            watchAuthorization = await scheduler.authorizationState()
         }
         .alert("Training Profile", isPresented: showingMessage) {
             Button("OK", role: .cancel) { message = nil }
@@ -63,46 +51,141 @@ struct TrainingProfileView: View {
         }
     }
 
-    // MARK: - Sections
+    // MARK: - Overview
 
-    /// §10.1.1.3: who TriLoop is training, not a social profile.
     private var identitySection: some View {
         Section {
-            TextField("Name (optional)", text: nameBinding)
-                .textInputAutocapitalization(.words)
+            NavigationLink {
+                identityEditor
+            } label: {
+                HStack(spacing: 14) {
+                    profileAvatar
 
-            if !trainedSports.isEmpty {
-                LabeledContent("Sports", value: trainedSports)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(profileDisplayName)
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+
+                        HStack(spacing: 6) {
+                            Text(profile.experienceLevel.displayName)
+
+                            if !trainedSports.isEmpty {
+                                Text("·")
+                                Text(trainedSports)
+                            }
+                        }
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                    }
+                }
+                .padding(.vertical, 6)
             }
-            LabeledContent("Goal", value: setup.goal.displayName)
-            LabeledContent("Training days", value: "\(setup.schedule.availableDays.count) / week")
-        } header: {
-            Text("Athlete")
+            .accessibilityLabel("Athlete details, \(profileDisplayName)")
         }
     }
 
-    private var trainedSports: String {
-        preferences
-            .filter(\.isTrained)
-            .map { $0.sport.displayName.uppercased() }
-            .joined(separator: " · ")
-    }
-
-    /// §10.1.1.11: the consequence is stated before the athlete leaves.
     @ViewBuilder
     private var impactSection: some View {
         let impact = pendingImpact
         if impact.isTrainingImpacting {
             Section {
-                Label("This change may affect your upcoming training.", systemImage: "info.circle")
-                    .font(.subheadline)
+                Label("Upcoming training needs review", systemImage: "info.circle")
+                    .font(.subheadline.weight(.medium))
 
                 Text(impact.reasons.map(\.displayName).joined(separator: " · "))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } footer: {
-                Text("Days you have already trained or reported on stay exactly as they are. Use Plan below when you are ready to apply this.")
+                Text("Your completed and reported workouts stay unchanged. Use the Plan actions below when you want these edits applied to the days still ahead.")
             }
+        }
+    }
+
+    private var trainingSection: some View {
+        Section("Training") {
+            NavigationLink {
+                goalEditor
+            } label: {
+                ProfileNavigationRow(
+                    title: "Goal",
+                    systemImage: "scope",
+                    value: setup.goal.displayName
+                )
+            }
+
+            NavigationLink {
+                abilityEditor
+            } label: {
+                ProfileNavigationRow(
+                    title: "Current ability",
+                    systemImage: "gauge.with.dots.needle.33percent",
+                    value: profile.experienceLevel.displayName
+                )
+            }
+
+            NavigationLink {
+                availabilityEditor
+            } label: {
+                TrainingDaysSummaryRow(schedule: setup.schedule)
+            }
+
+            NavigationLink {
+                trainingMixEditor
+            } label: {
+                ProfileNavigationRow(
+                    title: "Training mix",
+                    systemImage: "chart.bar.xaxis",
+                    value: trainingMixSummary
+                )
+            }
+
+            if swimmingPreference?.isTrained == true {
+                NavigationLink {
+                    swimmingEditor
+                } label: {
+                    ProfileNavigationRow(
+                        title: "Swimming",
+                        systemImage: "figure.pool.swim",
+                        value: "\(Int(profile.poolLengthMeters)) m pool"
+                    )
+                }
+            }
+        }
+    }
+
+    private var preferencesSection: some View {
+        Section("Preferences") {
+            NavigationLink {
+                heartRateEditor
+            } label: {
+                ProfileNavigationRow(
+                    title: "Heart-rate zones",
+                    systemImage: "heart.text.square",
+                    value: setup.birthDate == nil ? "Workout-based" : "Age + workouts"
+                )
+            }
+
+            Picker("Units", selection: unitsBinding) {
+                Text("Metric").tag(true)
+                Text("Imperial").tag(false)
+            }
+        }
+    }
+
+    private var planSection: some View {
+        Section {
+            Button("Update upcoming days") { reshape() }
+                .disabled(plans.currentPlan() == nil)
+
+            Button("Rebuild from what I can do now") {
+                isConfirmingReassessment = true
+            }
+            .disabled(plans.currentPlan() == nil)
+        } header: {
+            Text("Plan")
+        } footer: {
+            Text("Update moves sessions still ahead onto days you can train. Rebuild also recalculates those sessions from your current ability.")
         }
     }
 
@@ -111,48 +194,239 @@ struct TrainingProfileView: View {
         return AthleteProfileEditor.impact(from: opened, to: setup)
     }
 
-    /// §10.1.1.9: shown, not managed. Granting still happens in Settings.
-    private var connectionsSection: some View {
-        Section {
-            LabeledContent("Apple Health", value: healthStatusText)
-            LabeledContent("Apple Watch", value: watchStatusText)
-        } header: {
-            Text("Connections")
-        } footer: {
-            Text("Manage permissions in Settings.")
-        }
-    }
+    // MARK: - Focused editors
 
-    private var healthStatusText: String {
-        switch healthStatus {
-        case .unavailable: "Not available"
-        case .notDetermined: "Not connected"
-        case .denied: "Denied"
-        case .authorized: "Connected"
-        }
-    }
+    private var identityEditor: some View {
+        Form {
+            Section("Athlete") {
+                TextField("Name (optional)", text: nameBinding)
+                    .textInputAutocapitalization(.words)
 
-    private var watchStatusText: String {
-        guard scheduler.isSupported else { return "Unavailable" }
-        return switch watchAuthorization {
-        case .authorized: "Allowed"
-        case .denied: "Not allowed"
-        case .restricted: "Not available"
-        case .notDetermined: "Not set up"
-        }
-    }
+                LabeledContent("Level", value: profile.experienceLevel.displayName)
 
-    /// §10.1.1.10: training-relevant preferences only.
-    private var preferencesSection: some View {
-        Section {
-            Picker("Units", selection: unitsBinding) {
-                Text("Metric").tag(true)
-                Text("Imperial").tag(false)
+                if !trainedSports.isEmpty {
+                    LabeledContent("Sports", value: trainedSports)
+                }
+
+                LabeledContent(
+                    "Training since",
+                    value: profile.trainingStartDate.formatted(date: .abbreviated, time: .omitted)
+                )
             }
-        } header: {
-            Text("Preferences")
+        }
+        .navigationTitle("Athlete")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var goalEditor: some View {
+        Form {
+            Section {
+                Picker("Goal", selection: binding(\.goal)) {
+                    ForEach(TrainingGoal.allCases, id: \.self) { goal in
+                        Text(goal.displayName).tag(goal)
+                    }
+                }
+                .pickerStyle(.inline)
+                .labelsHidden()
+            } header: {
+                Text("What are you training for?")
+            } footer: {
+                Text(setup.goal.detail)
+            }
+        }
+        .navigationTitle("Goal")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var abilityEditor: some View {
+        Form {
+            Section("Running") {
+                Picker("Running", selection: binding(\.baseline.running)) {
+                    ForEach(RunningBaseline.allCases, id: \.self) {
+                        Text($0.displayName).tag($0)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.inline)
+            }
+
+            Section("Swimming") {
+                Picker("Swimming", selection: binding(\.baseline.swimming)) {
+                    ForEach(SwimmingBaseline.allCases, id: \.self) {
+                        Text($0.displayName).tag($0)
+                    }
+                }
+
+                Picker("Stroke", selection: binding(\.baseline.stroke)) {
+                    ForEach(SwimStroke.allCases, id: \.self) {
+                        Text($0.displayName).tag($0)
+                    }
+                }
+            }
+
+            Section("Cycling") {
+                Picker("Cycling", selection: binding(\.baseline.cycling)) {
+                    ForEach(CyclingBaseline.allCases, id: \.self) {
+                        Text($0.displayName).tag($0)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.inline)
+            }
+        }
+        .navigationTitle("Current Ability")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var availabilityEditor: some View {
+        Form {
+            Section {
+                ForEach(Weekday.trainingWeek, id: \.self) { weekday in
+                    Toggle(weekday.displayName, isOn: dayBinding(weekday))
+                }
+            } header: {
+                Text("Days you can train")
+            } footer: {
+                if setup.schedule.isUsable {
+                    Text("TriLoop fits your sessions onto these days and keeps recovery between harder efforts.")
+                } else {
+                    Text("Choose at least two days so TriLoop can build a usable week.")
+                }
+            }
+        }
+        .navigationTitle("Training Days")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var trainingMixEditor: some View {
+        Form {
+            Section {
+                ForEach(preferences, id: \.sport) { preference in
+                    Picker(preference.sport.displayName, selection: sessionsBinding(preference.sport)) {
+                        Text("Not yet").tag(0)
+                        ForEach(1...SportPreference.permittedSessions.upperBound, id: \.self) {
+                            Text("\($0) × week").tag($0)
+                        }
+                    }
+                }
+            } header: {
+                Text("Sessions per week")
+            } footer: {
+                Text("This is your preferred mix. TriLoop may schedule fewer sessions when your available days or recovery needs require it.")
+            }
+        }
+        .navigationTitle("Training Mix")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var swimmingEditor: some View {
+        Form {
+            Section {
+                Picker("Pool length", selection: poolBinding) {
+                    Text("25 m").tag(25.0)
+                    Text("50 m").tag(50.0)
+
+                    if !isStandardPool {
+                        Text("\(Int(profile.poolLengthMeters)) m").tag(profile.poolLengthMeters)
+                    }
+                }
+            } footer: {
+                Text("Pool length is used to turn swim distances into lengths and to interpret completed sessions.")
+            }
+        }
+        .navigationTitle("Swimming")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var heartRateEditor: some View {
+        Form {
+            Section {
+                Toggle("Use my age for zones", isOn: usesBirthDate)
+
+                if setup.birthDate != nil {
+                    DatePicker(
+                        "Date of birth",
+                        selection: birthDateBinding,
+                        in: birthDateRange,
+                        displayedComponents: .date
+                    )
+                }
+            } header: {
+                Text("Heart-rate zones")
+            } footer: {
+                Text(zoneFooter)
+            }
+        }
+        .navigationTitle("Heart-rate Zones")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    // MARK: - Overview values
+
+    private var profileAvatar: some View {
+        Group {
+            if let monogram {
+                Text(monogram)
+                    .font(.headline.weight(.semibold))
+            } else {
+                Image(systemName: "person.fill")
+                    .font(.headline)
+            }
+        }
+        .foregroundStyle(.primary)
+        .frame(width: 52, height: 52)
+        .background(.fill.tertiary, in: .circle)
+    }
+
+    private var profileDisplayName: String {
+        let trimmed = profile.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "Athlete" : trimmed
+    }
+
+    private var monogram: String? {
+        guard let first = profile.name.trimmingCharacters(in: .whitespacesAndNewlines).first else { return nil }
+        return String(first).uppercased()
+    }
+
+    private var trainedSports: String {
+        preferences
+            .filter(\.isTrained)
+            .map { $0.sport.displayName }
+            .joined(separator: " · ")
+    }
+
+    private var trainingMixSummary: String {
+        let trained = preferences.filter(\.isTrained)
+        guard !trained.isEmpty else { return "Not set" }
+
+        return trained
+            .map { "\($0.sessionsPerWeek) \(shortSportName($0.sport))" }
+            .joined(separator: " · ")
+    }
+
+    private func shortSportName(_ sport: Sport) -> String {
+        switch sport {
+        case .running: "run"
+        case .swimming: "swim"
+        case .cycling: "ride"
         }
     }
+
+    private var swimmingPreference: SportPreference? {
+        preferences.first { $0.sport == .swimming }
+    }
+
+    private var preferences: [SportPreference] {
+        setup.preferences.isEmpty
+            ? SportPreference.defaults(for: setup.baseline)
+            : setup.preferences
+    }
+
+    private var isStandardPool: Bool {
+        profile.poolLengthMeters == 25 || profile.poolLengthMeters == 50
+    }
+
+    // MARK: - Bindings
 
     private var nameBinding: Binding<String> {
         Binding(
@@ -168,171 +442,6 @@ struct TrainingProfileView: View {
         )
     }
 
-    private var goalSection: some View {
-        Section {
-            Picker("Goal", selection: binding(\.goal)) {
-                ForEach(TrainingGoal.allCases, id: \.self) { goal in
-                    Text(goal.displayName).tag(goal)
-                }
-            }
-        } header: {
-            HStack {
-                Text("Goal")
-                Spacer()
-                InfoButton(title: setup.goal.displayName, explanation: setup.goal.detail)
-            }
-        }
-    }
-
-    private var baselineSection: some View {
-        Section {
-            Picker("Running", selection: binding(\.baseline.running)) {
-                ForEach(RunningBaseline.allCases, id: \.self) { Text($0.displayName).tag($0) }
-            }
-            Picker("Swimming", selection: binding(\.baseline.swimming)) {
-                ForEach(SwimmingBaseline.allCases, id: \.self) { Text($0.displayName).tag($0) }
-            }
-            Picker("Stroke", selection: binding(\.baseline.stroke)) {
-                ForEach(SwimStroke.allCases, id: \.self) { Text($0.displayName).tag($0) }
-            }
-            Picker("Cycling", selection: binding(\.baseline.cycling)) {
-                ForEach(CyclingBaseline.allCases, id: \.self) { Text($0.displayName).tag($0) }
-            }
-            LabeledContent("Started", value: profile.trainingStartDate.formatted(date: .abbreviated, time: .omitted))
-        } header: {
-            Text("What you can do")
-        } footer: {
-            Text("Changing these does not alter the weeks you have already trained, and does not change the week you are on until you rebuild it below.")
-        }
-    }
-
-    private var daysSection: some View {
-        Section {
-            ForEach(Weekday.trainingWeek, id: \.self) { weekday in
-                Toggle(weekday.displayName, isOn: dayBinding(weekday))
-            }
-        } header: {
-            Text("Training days")
-        } footer: {
-            if !setup.schedule.isUsable {
-                Text("Pick at least two days.")
-            }
-        }
-    }
-
-    private var sportsSection: some View {
-        Section {
-            ForEach(preferences, id: \.sport) { preference in
-                Picker(preference.sport.displayName, selection: sessionsBinding(preference.sport)) {
-                    Text("Not yet").tag(0)
-                    ForEach(1...SportPreference.permittedSessions.upperBound, id: \.self) {
-                        Text("\($0) × week").tag($0)
-                    }
-                }
-            }
-        } header: {
-            Text("How often")
-        } footer: {
-            Text("Sessions are limited by your available days.")
-        }
-    }
-
-    private var poolSection: some View {
-        Section {
-            Picker("Pool length", selection: poolBinding) {
-                Text("25 m").tag(25.0)
-                Text("50 m").tag(50.0)
-                if !isStandardPool { Text("\(Int(profile.poolLengthMeters)) m").tag(profile.poolLengthMeters) }
-            }
-        } header: {
-            Text("Swimming")
-        }
-    }
-
-    private var planSection: some View {
-        Section {
-            Button("Update upcoming days") { reshape() }
-                .disabled(plans.currentPlan() == nil)
-
-            Button("Rebuild from what I can do now") { isConfirmingReassessment = true }
-                .disabled(plans.currentPlan() == nil)
-        } header: {
-            Text("Plan")
-        } footer: {
-            Text("Updating moves the sports still ahead onto days you can train. Rebuilding also recalculates how hard those sessions are.")
-        }
-    }
-
-    // MARK: - Bindings
-
-    private var preferences: [SportPreference] {
-        setup.preferences.isEmpty ? SportPreference.defaults(for: setup.baseline) : setup.preferences
-    }
-
-    private var isStandardPool: Bool {
-        profile.poolLengthMeters == 25 || profile.poolLengthMeters == 50
-    }
-
-    private var aboutSection: some View {
-        Section {
-            Toggle("Use my age for zones", isOn: usesBirthDate)
-
-            if setup.birthDate != nil {
-                DatePicker(
-                    "Date of birth",
-                    selection: birthDateBinding,
-                    in: birthDateRange,
-                    displayedComponents: .date
-                )
-            }
-        } header: {
-            Text("Heart-rate zones")
-        } footer: {
-            Text(zoneFooter)
-        }
-    }
-
-    private var zoneFooter: String {
-        guard let birthDate = setup.birthDate,
-              let maximum = HeartRateCeiling.ageBased(birthDate: birthDate, asOf: .now) else {
-            return "Without a date of birth, zones are only available once you record a hard effort TriLoop can measure against."
-        }
-        return "Estimated maximum \(Int(maximum)) bpm. If you record a harder effort, TriLoop uses what you actually did."
-    }
-
-    private var birthDateRange: ClosedRange<Date> {
-        let calendar = Calendar.current
-        let oldest = calendar.date(byAdding: .year, value: -100, to: .now) ?? .now
-        let youngest = calendar.date(byAdding: .year, value: -10, to: .now) ?? .now
-        return oldest...youngest
-    }
-
-    private var usesBirthDate: Binding<Bool> {
-        Binding(
-            get: { setup.birthDate != nil },
-            set: { isOn in
-                var updated = setup
-                updated.birthDate = isOn
-                    ? Calendar.current.date(byAdding: .year, value: -30, to: .now)
-                    : nil
-                profile.setup = updated
-                save()
-            }
-        )
-    }
-
-    private var birthDateBinding: Binding<Date> {
-        Binding(
-            get: { setup.birthDate ?? .now },
-            set: { date in
-                var updated = setup
-                updated.birthDate = date
-                profile.setup = updated
-                save()
-            }
-        )
-    }
-
     private func binding<Value>(_ path: WritableKeyPath<AthleteSetup, Value>) -> Binding<Value> {
         Binding(
             get: { setup[keyPath: path] },
@@ -345,7 +454,7 @@ struct TrainingProfileView: View {
             get: { setup.schedule.isAvailable(on: weekday) },
             set: { isOn in
                 update { current in
-                    var days = current.schedule.days
+                    var days = Weekday.trainingWeek.map { current.schedule.availability(on: $0) }
                     guard let index = days.firstIndex(where: { $0.weekday == weekday }) else { return }
                     days[index].isAvailable = isOn
                     current.schedule = AthleteSchedule(days: days)
@@ -381,6 +490,48 @@ struct TrainingProfileView: View {
         )
     }
 
+    private var usesBirthDate: Binding<Bool> {
+        Binding(
+            get: { setup.birthDate != nil },
+            set: { isOn in
+                var updated = setup
+                updated.birthDate = isOn
+                    ? Calendar.current.date(byAdding: .year, value: -30, to: .now)
+                    : nil
+                profile.setup = updated
+                save()
+            }
+        )
+    }
+
+    private var birthDateBinding: Binding<Date> {
+        Binding(
+            get: { setup.birthDate ?? .now },
+            set: { date in
+                var updated = setup
+                updated.birthDate = date
+                profile.setup = updated
+                save()
+            }
+        )
+    }
+
+    private var birthDateRange: ClosedRange<Date> {
+        let calendar = Calendar.current
+        let oldest = calendar.date(byAdding: .year, value: -100, to: .now) ?? .now
+        let youngest = calendar.date(byAdding: .year, value: -10, to: .now) ?? .now
+        return oldest...youngest
+    }
+
+    private var zoneFooter: String {
+        guard let birthDate = setup.birthDate,
+              let maximum = HeartRateCeiling.ageBased(birthDate: birthDate, asOf: .now) else {
+            return "Without a date of birth, zones become available once you record a hard effort TriLoop can measure against."
+        }
+
+        return "Estimated maximum \(Int(maximum)) bpm. If you record a harder effort, TriLoop uses what you actually did."
+    }
+
     // MARK: - Actions
 
     private func update(_ change: (inout AthleteSetup) -> Void) {
@@ -411,6 +562,8 @@ struct TrainingProfileView: View {
             if outcome.dropped > 0 {
                 summary += " \(outcome.dropped) session\(outcome.dropped == 1 ? "" : "s") no longer fit."
             }
+
+            opened = setup
             message = summary
         } catch {
             message = "Could not update your week: \(error.localizedDescription)"
@@ -426,6 +579,7 @@ struct TrainingProfileView: View {
                 poolLengthMeters: profile.poolLengthMeters
             )
 
+            opened = setup
             message = rebuilt == 0
                 ? "Nothing ahead to rebuild this week."
                 : "\(rebuilt) day\(rebuilt == 1 ? "" : "s") rebuilt from your current ability."
@@ -435,6 +589,65 @@ struct TrainingProfileView: View {
     }
 
     private var showingMessage: Binding<Bool> {
-        Binding(get: { message != nil }, set: { if !$0 { message = nil } })
+        Binding(
+            get: { message != nil },
+            set: { if !$0 { message = nil } }
+        )
+    }
+}
+
+private struct ProfileNavigationRow: View {
+    let title: String
+    let systemImage: String
+    let value: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(title)
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+                .layoutPriority(1)
+
+            Spacer(minLength: 8)
+
+            Text(value)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.trailing)
+                .lineLimit(2)
+                .minimumScaleFactor(0.85)
+        }
+    }
+}
+
+private struct TrainingDaysSummaryRow: View {
+    let schedule: AthleteSchedule
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text("Training days")
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+                .layoutPriority(1)
+
+            Spacer(minLength: 6)
+
+            HStack(spacing: 2) {
+                ForEach(Weekday.trainingWeek, id: \.self) { weekday in
+                    Text(weekday.initial)
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(schedule.isAvailable(on: weekday) ? Color.onFocusSurface : Color.secondary)
+                        .frame(width: 20, height: 20)
+                        .background(
+                            schedule.isAvailable(on: weekday)
+                                ? AnyShapeStyle(Color.focusSurface)
+                                : AnyShapeStyle(.fill.tertiary),
+                            in: .circle
+                        )
+                }
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(schedule.availableDays.count) training days per week")
+        }
     }
 }

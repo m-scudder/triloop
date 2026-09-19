@@ -7,6 +7,8 @@ struct SettingsView: View {
     var backup: BackupCoordinator?
 
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.healthProvider) private var health
+    @Query private var profiles: [AthleteProfile]
     @Query(sort: \WeeklyPlan.startDate) private var plans: [WeeklyPlan]
 
     @State private var healthStatus: HealthAuthorizationStatus = .notDetermined
@@ -16,96 +18,23 @@ struct SettingsView: View {
     @State private var scheduledWorkouts: [ScheduledWorkoutSummary] = []
     @State private var watchAuthorization: WorkoutSchedulingAuthorization = .notDetermined
     @State private var permissionMessage: String?
+
     @AppStorage("automaticallyScheduleWorkouts") private var automaticallySchedule = true
     @AppStorage("automaticallyImportWorkouts") private var automaticallyImport = true
     @AppStorage(TrainingNotificationPreferences.enabledKey) private var notificationsEnabled = false
-    @Environment(\.healthProvider) private var health
+
     private let scheduler = WorkoutKitScheduler()
 
     var body: some View {
         NavigationStack {
             List {
-                if let authentication, let backup {
-                    Section {
-                        NavigationLink {
-                            AccountBackupSettingsView(
-                                authentication: authentication,
-                                backup: backup
-                            )
-                        } label: {
-                            LabeledContent("Account & Backup", value: accountStatusText(authentication))
-                        }
-                    } header: {
-                        Text("Account")
-                    }
-                }
-
-                Section {
-                    // Each row is the status and the action. Requesting again
-                    // when already granted is harmless, so there is always a
-                    // route back from a permission removed by mistake.
-                    Button { connectHealth() } label: {
-                        LabeledContent("Apple Health", value: healthStatusText)
-                    }
-                    .disabled(isWorking || healthStatus == .unavailable)
-
-                    Button { connectWatch() } label: {
-                        LabeledContent("Apple Watch", value: watchStatusText)
-                    }
-                    .disabled(isWorking || !scheduler.isSupported || watchAuthorization == .restricted)
-                } header: {
-                    Text("Connections")
-                } footer: {
-                    Text("Tap a row to grant or re-check.")
-                }
-
-                Section {
-                    NavigationLink {
-                        NotificationSettingsView()
-                    } label: {
-                        LabeledContent("Notifications", value: notificationStatusText)
-                    }
-                } header: {
-                    Text("Reminders")
-                }
-
-                Section {
-                    Button("Import completed workouts") { importThisWeek() }
-                        .disabled(isWorking || healthStatus != .authorized || plans.isEmpty)
-
-                    Toggle("Import automatically", isOn: $automaticallyImport)
-
-                    Toggle("Send week to Apple Watch automatically", isOn: $automaticallySchedule)
-                } header: {
-                    Text("Workouts")
-                } footer: {
-                    Text("Automatic import links a session as soon as Apple Health records it, and checks again each time you open TriLoop. Sending keeps the days you have left on your Watch, and clears the ones you have finished.")
-                }
-
-                Section {
-                    LabeledContent("Storage", value: storageStatusText)
-                    LabeledContent("Version", value: appVersion)
-                } header: {
-                    Text("About")
-                } footer: {
-                    Text("Training stays on this iPhone. When you are signed in, TriLoop also keeps automatic cloud backups without putting the network in the workout path.")
-                }
-
-                #if DEBUG
-                Section("Developer") {
-                    NavigationLink("Apple Watch schedule") {
-                        ScheduledWorkoutsView(
-                            isSupported: scheduler.isSupported,
-                            authorization: watchAuthorization,
-                            entries: scheduledWorkouts,
-                            refresh: refreshSchedule
-                        )
-                    }
-                    NavigationLink("Simulate training") {
-                        DeveloperToolsView()
-                    }
-                }
-                #endif
+                profileSection
+                accountSection
+                trainingSection
+                connectionsSection
+                automationSection
+                aboutSection
+                developerSection
             }
             .navigationTitle("Settings")
             .task { await refreshStatus() }
@@ -127,6 +56,187 @@ struct SettingsView: View {
                 Text(permissionMessage ?? "")
             }
         }
+    }
+
+    @ViewBuilder
+    private var profileSection: some View {
+        if let profile = profiles.first {
+            Section {
+                NavigationLink {
+                    TrainingProfileView(profile: profile)
+                } label: {
+                    HStack(spacing: 14) {
+                        profileAvatar(profile)
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(profileDisplayName(profile))
+                                .font(.headline)
+                                .foregroundStyle(.primary)
+
+                            Text(profileSummary(profile))
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(2)
+                        }
+                    }
+                    .padding(.vertical, 6)
+                }
+                .accessibilityLabel("Training profile, \(profileDisplayName(profile))")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var accountSection: some View {
+        if let authentication, let backup {
+            Section("Account") {
+                NavigationLink {
+                    AccountBackupSettingsView(
+                        authentication: authentication,
+                        backup: backup
+                    )
+                } label: {
+                    SettingsNavigationRow(
+                        title: "Account & Backup",
+                        systemImage: "person.crop.circle",
+                        value: accountStatusText(authentication)
+                    )
+                }
+            }
+        }
+    }
+
+    private var trainingSection: some View {
+        Section("Training") {
+            NavigationLink {
+                NotificationSettingsView()
+            } label: {
+                SettingsNavigationRow(
+                    title: "Notifications",
+                    systemImage: "bell",
+                    value: notificationStatusText
+                )
+            }
+        }
+    }
+
+    private var connectionsSection: some View {
+        Section {
+            Button { connectHealth() } label: {
+                SettingsStatusRow(
+                    title: "Apple Health",
+                    systemImage: "heart",
+                    value: healthStatusText
+                )
+            }
+            .buttonStyle(.plain)
+            .disabled(isWorking || healthStatus == .unavailable)
+
+            Button { connectWatch() } label: {
+                SettingsStatusRow(
+                    title: "Apple Watch",
+                    systemImage: "applewatch",
+                    value: watchStatusText
+                )
+            }
+            .buttonStyle(.plain)
+            .disabled(isWorking || !scheduler.isSupported || watchAuthorization == .restricted)
+        } header: {
+            Text("Connections")
+        } footer: {
+            Text("Tap a connection to grant or re-check its permission.")
+        }
+    }
+
+    private var automationSection: some View {
+        Section {
+            Toggle(isOn: $automaticallyImport) {
+                Label("Import workouts automatically", systemImage: "arrow.down.circle")
+            }
+
+            Toggle(isOn: $automaticallySchedule) {
+                Label("Send workouts to Watch", systemImage: "applewatch")
+            }
+
+            Button { importThisWeek() } label: {
+                Label("Import completed workouts now", systemImage: "arrow.clockwise")
+            }
+            .disabled(isWorking || healthStatus != .authorized || plans.isEmpty)
+        } header: {
+            Text("Automation")
+        } footer: {
+            Text("TriLoop can match completed workouts from Apple Health and keep the remaining week available on Apple Watch.")
+        }
+    }
+
+    private var aboutSection: some View {
+        Section("About") {
+            LabeledContent("Storage", value: storageStatusText)
+            LabeledContent("Version", value: appVersion)
+        }
+    }
+
+    @ViewBuilder
+    private var developerSection: some View {
+        #if DEBUG
+        Section("Developer") {
+            NavigationLink("Apple Watch schedule") {
+                ScheduledWorkoutsView(
+                    isSupported: scheduler.isSupported,
+                    authorization: watchAuthorization,
+                    entries: scheduledWorkouts,
+                    refresh: refreshSchedule
+                )
+            }
+
+            NavigationLink("Simulate training") {
+                DeveloperToolsView()
+            }
+        }
+        #endif
+    }
+
+    private func profileAvatar(_ profile: AthleteProfile) -> some View {
+        Group {
+            if let monogram = monogram(of: profile.name) {
+                Text(monogram)
+                    .font(.headline.weight(.semibold))
+            } else {
+                Image(systemName: "person.fill")
+                    .font(.headline)
+            }
+        }
+        .foregroundStyle(.primary)
+        .frame(width: 52, height: 52)
+        .background(.fill.tertiary, in: .circle)
+    }
+
+    private func profileDisplayName(_ profile: AthleteProfile) -> String {
+        let trimmed = profile.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "Training Profile" : trimmed
+    }
+
+    private func profileSummary(_ profile: AthleteProfile) -> String {
+        let setup = profile.setup ?? AthleteSetup()
+        let sports = profileSports(setup)
+        let goal = setup.goal.displayName
+        return sports.isEmpty ? goal : "\(sports) · \(goal)"
+    }
+
+    private func profileSports(_ setup: AthleteSetup) -> String {
+        let preferences = setup.preferences.isEmpty
+            ? SportPreference.defaults(for: setup.baseline)
+            : setup.preferences
+
+        return preferences
+            .filter(\.isTrained)
+            .map { $0.sport.displayName }
+            .joined(separator: " · ")
+    }
+
+    private func monogram(of name: String) -> String? {
+        guard let first = name.trimmingCharacters(in: .whitespacesAndNewlines).first else { return nil }
+        return String(first).uppercased()
     }
 
     private func refreshStatus() async {
@@ -270,6 +380,45 @@ struct SettingsView: View {
             return "Nothing new since the last import."
         }
         return "No matching workouts found for this week."
+    }
+}
+
+private struct SettingsNavigationRow: View {
+    let title: String
+    let systemImage: String
+    let value: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Label(title, systemImage: systemImage)
+                .foregroundStyle(.primary)
+
+            Spacer(minLength: 12)
+
+            Text(value)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+    }
+}
+
+private struct SettingsStatusRow: View {
+    let title: String
+    let systemImage: String
+    let value: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Label(title, systemImage: systemImage)
+                .foregroundStyle(.primary)
+
+            Spacer(minLength: 12)
+
+            Text(value)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .contentShape(.rect)
     }
 }
 
