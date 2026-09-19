@@ -295,7 +295,7 @@ struct WorkoutShareView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
-                if let summary = workout.importedSummary, summary.source != "TriLoop iPhone" {
+                if let summary = workout.importedSummary, !["TriLoop iPhone", "Athevia iPhone"].contains(summary.source) {
                     Button("Retry") { routeRequest += 1 }
                 }
             }
@@ -309,7 +309,7 @@ struct WorkoutShareView: View {
         defer { isLoadingRoute = false }
         guard !WorkoutShareRoute(points: snapshot.route).hasRoute,
               let summary = workout.importedSummary,
-              summary.source != "TriLoop iPhone" else { return }
+              !["TriLoop iPhone", "Athevia iPhone"].contains(summary.source) else { return }
         do {
             try await health.requestAuthorization()
             let points = try await health.route(forWorkout: summary.healthKitUUID)
