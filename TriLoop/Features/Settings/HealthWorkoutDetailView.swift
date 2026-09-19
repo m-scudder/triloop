@@ -68,7 +68,7 @@ struct HealthWorkoutDetailView: View {
             }
 
             if !record.isTrainedByTriLoop {
-                Text("TriLoop does not train this activity. Everything Health recorded is shown; only pace and cadence are withheld, because they would read as performance in a session that never measured it.")
+                Text("Athevia does not train this activity. Everything Health recorded is shown; only pace and cadence are withheld, because they would read as performance in a session that never measured it.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .padding(.top, 4)
