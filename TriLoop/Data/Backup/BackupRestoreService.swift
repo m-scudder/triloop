@@ -10,7 +10,7 @@ enum BackupRestoreError: LocalizedError, Equatable {
         case .unsupportedSchema(let version):
             "This backup uses unsupported schema version \(version)."
         case .localStoreNotEmpty:
-            "This iPhone already contains TriLoop training data. Cloud data was not applied."
+            "This iPhone already contains Athevia training data. Cloud data was not applied."
         }
     }
 }
