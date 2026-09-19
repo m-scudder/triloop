@@ -168,11 +168,13 @@ struct WorkoutDayDetail: View {
                     value: TrainingFormatter.rpe(target),
                     label: "Target"
                 )
+                .frame(width: 78)
 
                 compactEffortStat(
-                    value: "\(feedback.rpe)/10",
+                    value: "\(feedback.rpe) / 10",
                     label: "Actual"
                 )
+                .frame(width: 78)
 
                 InfoButton(
                     title: "Effort",
@@ -183,10 +185,12 @@ struct WorkoutDayDetail: View {
     }
 
     private func compactEffortStat(value: String, label: String) -> some View {
-        VStack(alignment: .trailing, spacing: 0) {
+        VStack(alignment: .center, spacing: 1) {
             Text(value)
                 .font(.subheadline.weight(.semibold))
                 .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
             Text(label)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
@@ -468,13 +472,7 @@ struct WorkoutDayDetail: View {
 
                     if let load {
                         VStack(alignment: .leading, spacing: 4) {
-                            HStack {
-                                SectionEyebrow(text: "Load")
-                                Spacer()
-                                InfoButton(concept: .trainingLoad, evidence: [
-                                    .init(label: "Source", value: WorkoutEvidencePresentation.source(load.provenance))
-                                ])
-                            }
+                            SectionEyebrow(text: "Load")
                             Text("\(Int(load.value.rounded()))")
                                 .font(.title3.weight(.semibold))
                                 .monospacedDigit()
@@ -483,6 +481,11 @@ struct WorkoutDayDetail: View {
                                 .foregroundStyle(.secondary)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
+                        .overlay(alignment: .topTrailing) {
+                            InfoButton(concept: .trainingLoad, evidence: [
+                                .init(label: "Source", value: WorkoutEvidencePresentation.source(load.provenance))
+                            ])
+                        }
                     }
                 }
             }
