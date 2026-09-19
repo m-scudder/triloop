@@ -9,7 +9,7 @@ struct WelcomeStepView: View {
         OnboardingStep(primaryTitle: "Build My Plan", primary: start) {
             VStack(alignment: .leading, spacing: 28) {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("TRILOOP")
+                    Text("ATHEVIA")
                         .font(.largeTitle.weight(.bold))
                     Text("Training that adapts to you.")
                         .font(.title3)
@@ -24,7 +24,7 @@ struct WelcomeStepView: View {
                 }
                 .font(.caption.weight(.semibold))
 
-                Text("We build your week.\nYou train.\nTriLoop adjusts what comes next.")
+                Text("We build your week.\nYou train.\nAthevia adjusts what comes next.")
                     .font(.title3)
                     .fixedSize(horizontal: false, vertical: true)
 
