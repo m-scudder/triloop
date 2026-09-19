@@ -245,7 +245,7 @@ struct WorkoutHistoryView: View {
     private func summary(_ records: [HealthWorkoutRecord]) -> some View {
         Section("Summary") {
             LabeledContent("Workouts", value: "\(records.count)")
-            LabeledContent("TriLoop sports", value: "\(records.count(where: \.isTrainedByTriLoop))")
+            LabeledContent("Athevia sports", value: "\(records.count(where: \.isTrainedByTriLoop))")
             LabeledContent("Other activities", value: "\(records.count(where: { !$0.isTrainedByTriLoop }))")
 
             if let earliest = records.map(\.start).min() {
@@ -269,7 +269,7 @@ struct WorkoutHistoryView: View {
                     if entry.trained {
                         Image(systemName: "checkmark.seal.fill")
                             .foregroundStyle(.tint)
-                            .accessibilityLabel("Trained by TriLoop")
+                            .accessibilityLabel("Trained by Athevia")
                     }
                     Spacer()
                     Text("\(entry.count)")
@@ -309,7 +309,7 @@ struct WorkoutHistoryView: View {
             return "No activity matches “\(term)”."
         }
         if sportFilter == .other {
-            return "Health holds no activities outside running, swimming and cycling in this range. All \(total) workouts here are sports TriLoop trains."
+            return "Health holds no activities outside running, swimming and cycling in this range. All \(total) workouts here are sports Athevia trains."
         }
         return "No \(sportFilter.rawValue) workouts in this range, out of \(total) total."
     }
