@@ -113,7 +113,7 @@ struct CommitmentStepView: View {
         OnboardingStep(isPrimaryEnabled: model.canAdvance, primary: model.advance) {
             OnboardingHeader(
                 title: "How much of each sport?",
-                subtitle: "A starting point, not a promise. TriLoop schedules fewer sessions when the week cannot hold them, and holds a sport back when you need to recover."
+                subtitle: "A starting point, not a promise. Athevia schedules fewer sessions when the week cannot hold them, and holds a sport back when you need to recover."
             )
 
             ForEach(model.setup.preferences, id: \.sport) { preference in
