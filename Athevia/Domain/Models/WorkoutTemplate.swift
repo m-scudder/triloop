@@ -32,7 +32,7 @@ enum WorkoutCategory: String, Codable, CaseIterable, Sendable {
 /// §10.2.4: survives persistence, because a built-in cannot be edited in place
 /// and an athlete's own workout can.
 enum WorkoutTemplateSource: String, Codable, CaseIterable, Sendable {
-    case Athevia
+    case athevia
     case athlete
 
     var isEditable: Bool { self == .athlete }
