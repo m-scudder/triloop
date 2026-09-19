@@ -47,13 +47,16 @@ struct AdvancedMetricsView: View {
                     ForEach(rows, id: \.name) { row in
                         HStack(alignment: .firstTextBaseline, spacing: 16) {
                             Text(row.name)
+                                .font(.subheadline)
                                 .foregroundStyle(.secondary)
                                 .frame(maxWidth: .infinity, alignment: .leading)
+
                             Text(row.value)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.primary)
                                 .monospacedDigit()
                                 .frame(maxWidth: .infinity, alignment: .trailing)
                         }
-                        .font(.subheadline)
                     }
                 }
             }
