@@ -56,8 +56,8 @@ struct WorkoutExecutionTests {
         #expect(engine.result?.elapsedSeconds == 15)
     }
 
-    @Test("A long resume gap advances only the active set")
-    func longResumeGapDoesNotCascade() {
+    @Test("Elapsed background time can finish all timed steps")
+    func timedWorkoutFinishesFromElapsedTime() {
         let start = Date(timeIntervalSince1970: 1_000)
         var engine = WorkoutExecutionEngine(plan: plan(
             WorkoutStep(order: 0, kind: .work, title: "Run", durationSeconds: 10),
@@ -66,41 +66,28 @@ struct WorkoutExecutionTests {
         ))
 
         engine.start(now: start)
-        engine.advance(
-            by: 30,
-            now: start.addingTimeInterval(30),
-            allowsCascading: false
-        )
+        engine.advance(by: 30, now: start.addingTimeInterval(30))
 
-        #expect(engine.currentIndex == 1)
-        #expect(engine.currentStep?.title == "Walk")
-        #expect(engine.stepElapsedSeconds == 0)
-        #expect(engine.elapsedSeconds == 10)
-        #expect(engine.phase == .running)
+        #expect(engine.phase == .finished)
+        #expect(engine.result?.elapsedSeconds == 30)
     }
 
-    @Test("A final timed set can wait for foreground confirmation")
-    func finalTimedStepCanWaitForConfirmation() {
+    @Test("Elapsed time never completes a manual step")
+    func elapsedTimeStopsAtManualStep() {
         let start = Date(timeIntervalSince1970: 1_000)
         var engine = WorkoutExecutionEngine(plan: plan(
-            WorkoutStep(order: 0, kind: .work, title: "Final effort", durationSeconds: 10)
+            WorkoutStep(order: 0, kind: .work, title: "Run", durationSeconds: 10),
+            WorkoutStep(order: 1, kind: .work, title: "Swim 100m", distanceMeters: 100),
+            WorkoutStep(order: 2, kind: .cooldown, title: "Cool down", durationSeconds: 10)
         ))
 
         engine.start(now: start)
-        engine.advance(
-            by: 30,
-            now: start.addingTimeInterval(30),
-            allowsCascading: false,
-            allowsFinishing: false
-        )
+        engine.advance(by: 30, now: start.addingTimeInterval(30))
 
         #expect(engine.phase == .running)
-        #expect(engine.currentIndex == 0)
-        #expect(engine.remainingSeconds == 0)
-        #expect(engine.elapsedSeconds == 10)
-
-        engine.completeCurrentStep(now: start.addingTimeInterval(30))
-        #expect(engine.phase == .finished)
+        #expect(engine.currentIndex == 1)
+        #expect(engine.currentStep?.title == "Swim 100m")
+        #expect(engine.stepElapsedSeconds == 20)
     }
 
     @Test("Completing a paused set starts the next set")
