@@ -65,7 +65,7 @@ struct NotificationSetupSheet: View {
                         .font(.largeTitle)
                     Text("Training reminders")
                         .font(.title2.weight(.semibold))
-                    Text("Choose when TriLoop should remind you on days that have a planned workout.")
+                    Text("Choose when Athevia should remind you on days that have a planned workout.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
