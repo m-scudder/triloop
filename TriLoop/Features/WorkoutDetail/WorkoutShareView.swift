@@ -61,8 +61,8 @@ private enum WorkoutShareBackground: String, CaseIterable, Identifiable {
 
 struct WorkoutShareCard: View {
     let snapshot: WorkoutShareSnapshot
-    let format: WorkoutShareFormat
-    let background: WorkoutShareBackground
+    fileprivate let format: WorkoutShareFormat
+    fileprivate let background: WorkoutShareBackground
     let showsRoute: Bool
 
     private var isStory: Bool { format == .story }
