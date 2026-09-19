@@ -16,7 +16,6 @@ struct WorkoutPlayerView: View {
     @State private var showingExitConfirmation = false
     @State private var liveActivity = WorkoutLiveActivityController()
     @State private var inactiveAt: Date?
-    @State private var awaitsFinalStepConfirmation = false
     @Environment(\.scenePhase) private var scenePhase
 
     private let pulse = Timer.publish(every: 0.25, on: .main, in: .common).autoconnect()
@@ -141,26 +140,19 @@ struct WorkoutPlayerView: View {
                     .padding(.bottom, 18)
                 }
 
-                if awaitsFinalStepConfirmation {
+                HStack(spacing: 12) {
+                    Button { togglePause() } label: {
+                        Label(
+                            engine.phase == .paused ? "Resume" : "Pause",
+                            systemImage: engine.phase == .paused ? "play.fill" : "pause.fill"
+                        )
+                    }
+                    .buttonStyle(SecondaryActionButtonStyle())
+
                     Button { completeCurrentStep() } label: {
-                        Label("Complete Workout", systemImage: "checkmark.circle.fill")
+                        Label(step.usesCountdown ? "Skip" : "Complete Step", systemImage: "forward.fill")
                     }
                     .buttonStyle(PrimaryActionButtonStyle())
-                } else {
-                    HStack(spacing: 12) {
-                        Button { togglePause() } label: {
-                            Label(
-                                engine.phase == .paused ? "Resume" : "Pause",
-                                systemImage: engine.phase == .paused ? "play.fill" : "pause.fill"
-                            )
-                        }
-                        .buttonStyle(SecondaryActionButtonStyle())
-
-                        Button { completeCurrentStep() } label: {
-                            Label(step.usesCountdown ? "Skip" : "Complete Step", systemImage: "forward.fill")
-                        }
-                        .buttonStyle(PrimaryActionButtonStyle())
-                    }
                 }
             }
         }
@@ -324,7 +316,6 @@ struct WorkoutPlayerView: View {
 
     private func completeCurrentStep() {
         let wasPaused = engine.phase == .paused
-        awaitsFinalStepConfirmation = false
         engine.completeCurrentStep(now: .now)
 
         if engine.phase == .finished {
@@ -340,7 +331,6 @@ struct WorkoutPlayerView: View {
     }
 
     private func finishWorkout() {
-        awaitsFinalStepConfirmation = false
         engine.finish(now: .now)
         locationTracker.stop()
         liveActivity.end(finalState: nil)
@@ -348,7 +338,6 @@ struct WorkoutPlayerView: View {
     }
 
     private func cancelWorkout() {
-        awaitsFinalStepConfirmation = false
         locationTracker.discard()
         liveActivity.end(finalState: nil)
         onCancel()
@@ -371,8 +360,7 @@ struct WorkoutPlayerView: View {
 
     private func handlePulse(_ now: Date) {
         guard scenePhase == .active,
-              engine.phase == .running,
-              !awaitsFinalStepConfirmation else {
+              engine.phase == .running else {
             lastPulse = nil
             return
         }
@@ -382,12 +370,14 @@ struct WorkoutPlayerView: View {
         engine.advance(by: max(now.timeIntervalSince(previous), 0), now: now)
 
         if engine.phase == .finished {
-            locationTracker.stop()
-            liveActivity.end(finalState: nil)
-        } else if engine.currentIndex != previousIndex {
+            completeTrackedWorkout()
+            return
+        }
+
+        if engine.currentIndex != previousIndex {
             syncLiveActivity(now: now)
         }
-        lastPulse = engine.phase == .running ? now : nil
+        lastPulse = now
     }
 
     private func handleScenePhaseChange(_ phase: ScenePhase) {
@@ -408,46 +398,43 @@ struct WorkoutPlayerView: View {
 
     private func reconcileAfterBackground(now: Date = .now) {
         guard let inactiveAt else {
-            lastPulse = engine.phase == .running && !awaitsFinalStepConfirmation ? now : nil
+            lastPulse = engine.phase == .running ? now : nil
             return
         }
         self.inactiveAt = nil
 
-        guard engine.phase == .running,
-              !awaitsFinalStepConfirmation else {
+        guard engine.phase == .running else {
             lastPulse = nil
             return
         }
 
-        let delta = max(now.timeIntervalSince(inactiveAt), 0)
         let previousIndex = engine.currentIndex
-        let finalTimedStepWouldExpire: Bool = {
-            guard engine.nextStep == nil,
-                  let remaining = engine.remainingSeconds else { return false }
-            return delta >= remaining
-        }()
 
+        // A user-started timed workout continues while the phone is locked.
+        // Catch up across timed steps using the real inactive duration. Manual
+        // or distance steps remain manual and can never be completed by this.
         engine.advance(
-            by: delta,
-            now: now,
-            allowsCascading: false,
-            allowsFinishing: !finalTimedStepWouldExpire
+            by: max(now.timeIntervalSince(inactiveAt), 0),
+            now: now
         )
 
-        awaitsFinalStepConfirmation =
-            finalTimedStepWouldExpire
-            && engine.phase == .running
-            && engine.nextStep == nil
-            && engine.remainingSeconds == 0
-
         if engine.phase == .finished {
-            locationTracker.stop()
-            liveActivity.end(finalState: nil)
-        } else if engine.currentIndex != previousIndex || awaitsFinalStepConfirmation {
-            syncLiveActivity(now: now)
+            completeTrackedWorkout()
+            return
         }
 
-        lastPulse = engine.phase == .running && !awaitsFinalStepConfirmation ? now : nil
+        if engine.currentIndex != previousIndex {
+            syncLiveActivity(now: now)
+        }
+        lastPulse = now
+    }
+
+    private func completeTrackedWorkout() {
+        guard engine.phase == .finished else { return }
+        locationTracker.stop()
+        liveActivity.end(finalState: nil)
+        lastPulse = nil
+        saveWorkout()
     }
 
     private func syncLiveActivity(now: Date = .now) {
@@ -457,7 +444,7 @@ struct WorkoutPlayerView: View {
 
     private func activityState(now: Date) -> WorkoutActivityAttributes.ContentState? {
         guard let step = engine.currentStep else { return nil }
-        let paused = engine.phase == .paused || awaitsFinalStepConfirmation
+        let paused = engine.phase == .paused
         let isCountdown = step.usesCountdown
         let displayedSeconds = engine.remainingSeconds ?? engine.stepElapsedSeconds
 
