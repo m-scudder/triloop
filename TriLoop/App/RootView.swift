@@ -11,12 +11,17 @@ private enum RootTab: Hashable {
 struct RootView: View {
     var storeOutcome: StoreOutcome = .opened
     var autoImporter: WorkoutAutoImporter?
+    var authentication: AuthenticationCoordinator?
+    var backup: BackupCoordinator?
+    var automaticBackup: AutomaticBackupController?
 
     @Query private var profiles: [AthleteProfile]
     @Query(sort: \WeeklyPlan.startDate) private var plans: [WeeklyPlan]
+    @Query(sort: \StoredWorkoutTemplate.updatedAt) private var templates: [StoredWorkoutTemplate]
     @State private var hasShownStoreAlert = false
     @State private var selectedTab: RootTab = .home
     @State private var lastKnownHighestWeek: Int?
+    @State private var accountReady = false
     @AppStorage("automaticallyImportWorkouts") private var automaticallyImport = true
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.modelContext) private var modelContext
@@ -30,16 +35,56 @@ struct RootView: View {
 
     var body: some View {
         Group {
-            if needsSetup {
-                OnboardingView()
+            if let authentication, let backup, !accountReady {
+                AccountAccessView(
+                    authentication: authentication,
+                    backup: backup,
+                    onReady: { session, seedLocalBackup in
+                        accountReady = true
+                        if seedLocalBackup {
+                            seedAutomaticBackup(for: session)
+                        }
+                    },
+                    onContinueOffline: { accountReady = true }
+                )
             } else {
-                tabs
+                localApp
             }
+        }
+        .onChange(of: backupFingerprint) { _, _ in
+            scheduleAutomaticBackupIfNeeded()
+        }
+        .onChange(of: signedInAccountID) { previousAccountID, newAccountID in
+            guard newAccountID == nil else { return }
+
+            automaticBackup?.cancelPending()
+
+            // An explicit sign-out (or a lost authenticated session) must leave
+            // the training UI immediately. Local data stays intact, but access
+            // returns to the account entry screen until the athlete signs in or
+            // deliberately chooses the local-only escape hatch.
+            if previousAccountID != nil {
+                selectedTab = .home
+                accountReady = false
+            }
+        }
+        .task(id: scenePhase) {
+            guard scenePhase != .active else { return }
+            await flushAutomaticBackupIfNeeded()
         }
         .alert("Training data was reset", isPresented: showStoreAlert) {
             Button("OK", role: .cancel) { hasShownStoreAlert = true }
         } message: {
             Text(storeMessage)
+        }
+    }
+
+    @ViewBuilder
+    private var localApp: some View {
+        if needsSetup {
+            OnboardingView()
+        } else {
+            tabs
         }
     }
 
@@ -55,7 +100,7 @@ struct RootView: View {
                 ProgressOverviewView()
             }
             Tab("Settings", systemImage: "gearshape", value: RootTab.settings) {
-                SettingsView()
+                SettingsView(authentication: authentication, backup: backup)
             }
         }
         .task(id: automaticallyImport) {
@@ -93,6 +138,55 @@ struct RootView: View {
             case .plan: selectedTab = .plan
             }
         }
+    }
+
+    private var backupFingerprint: String {
+        BackupSnapshot.fingerprint(
+            profile: profiles.first,
+            plans: plans,
+            templates: templates
+        ) ?? "unavailable"
+    }
+
+    private var signedInAccountID: String? {
+        guard let authentication else { return nil }
+        guard case .signedIn(let session) = authentication.state else { return nil }
+        return session.userID
+    }
+
+    @MainActor
+    private func seedAutomaticBackup(for session: AccountSession) {
+        guard let automaticBackup,
+              (try? LocalTrainingStoreState.hasUserData(modelContext)) == true else { return }
+
+        automaticBackup.markDirty(
+            accountID: session.userID,
+            context: modelContext,
+            reason: .foreground
+        )
+    }
+
+    @MainActor
+    private func scheduleAutomaticBackupIfNeeded() {
+        guard accountReady,
+              let automaticBackup,
+              let accountID = signedInAccountID,
+              (try? LocalTrainingStoreState.hasUserData(modelContext)) == true else { return }
+
+        automaticBackup.markDirty(
+            accountID: accountID,
+            context: modelContext,
+            reason: .dataChanged
+        )
+    }
+
+    @MainActor
+    private func flushAutomaticBackupIfNeeded() async {
+        guard accountReady,
+              let automaticBackup,
+              let accountID = signedInAccountID else { return }
+
+        await automaticBackup.flush(accountID: accountID, context: modelContext)
     }
 
     private var notificationFingerprint: String {

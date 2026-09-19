@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		AE000000000000000000000C /* TriLoopLiveActivity.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AE0000000000000000000008 /* TriLoopLiveActivity.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		AF0000000000000000000001 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = AF0000000000000000000003 /* Supabase */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -106,6 +107,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AF0000000000000000000001 /* Supabase in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -133,6 +135,13 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		712410B4305DC9D200365CC3 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		AA0000000000000000000002 = {
 			isa = PBXGroup;
 			children = (
@@ -140,6 +149,7 @@
 				AE0000000000000000000009 /* TriLoopLiveActivity */,
 				AC0000000000000000000009 /* TriLoopTests */,
 				AD0000000000000000000009 /* TriLoopUITests */,
+				712410B4305DC9D200365CC3 /* Frameworks */,
 				AA0000000000000000000003 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -177,6 +187,7 @@
 			);
 			name = TriLoop;
 			packageProductDependencies = (
+				AF0000000000000000000003 /* Supabase */,
 			);
 			productName = TriLoop;
 			productReference = AB0000000000000000000008 /* TriLoop.app */;
@@ -280,6 +291,9 @@
 			);
 			mainGroup = AA0000000000000000000002;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				AF0000000000000000000002 /* XCRemoteSwiftPackageReference "supabase-swift" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = AA0000000000000000000003 /* Products */;
 			projectDirPath = "";
@@ -417,7 +431,7 @@
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TRILOOP_BUNDLE_PREFIX = com.example;
+				TRILOOP_BUNDLE_PREFIX = com.mayankagarwal;
 			};
 			name = Debug;
 		};
@@ -456,7 +470,7 @@
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TRILOOP_BUNDLE_PREFIX = com.example;
+				TRILOOP_BUNDLE_PREFIX = com.mayankagarwal;
 				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
@@ -486,7 +500,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = "$(TRILOOP_BUNDLE_PREFIX).TriLoop";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(TRILOOP_BUNDLE_PREFIX).triloop";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -518,7 +532,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = "$(TRILOOP_BUNDLE_PREFIX).TriLoop";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(TRILOOP_BUNDLE_PREFIX).triloop";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -534,7 +548,7 @@
 				DEVELOPMENT_TEAM = 69LB9UDYJD;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = "$(TRILOOP_BUNDLE_PREFIX).TriLoopTests";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(TRILOOP_BUNDLE_PREFIX).triloop.tests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -551,7 +565,7 @@
 				DEVELOPMENT_TEAM = 69LB9UDYJD;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = "$(TRILOOP_BUNDLE_PREFIX).TriLoopTests";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(TRILOOP_BUNDLE_PREFIX).triloop.tests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -567,7 +581,7 @@
 				DEVELOPMENT_TEAM = 69LB9UDYJD;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = "$(TRILOOP_BUNDLE_PREFIX).TriLoopUITests";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(TRILOOP_BUNDLE_PREFIX).triloop.uitests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -583,7 +597,7 @@
 				DEVELOPMENT_TEAM = 69LB9UDYJD;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = "$(TRILOOP_BUNDLE_PREFIX).TriLoopUITests";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(TRILOOP_BUNDLE_PREFIX).triloop.uitests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -607,7 +621,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = "$(TRILOOP_BUNDLE_PREFIX).TriLoop.LiveActivity";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(TRILOOP_BUNDLE_PREFIX).triloop.liveactivity";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -632,7 +646,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = "$(TRILOOP_BUNDLE_PREFIX).TriLoop.LiveActivity";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(TRILOOP_BUNDLE_PREFIX).triloop.liveactivity";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -690,6 +704,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		AF0000000000000000000002 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase/supabase-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.55.2;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		AF0000000000000000000003 /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AF0000000000000000000002 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = AA0000000000000000000001 /* Project object */;
 }

@@ -3,6 +3,9 @@ import SwiftUI
 import UIKit
 
 struct SettingsView: View {
+    var authentication: AuthenticationCoordinator?
+    var backup: BackupCoordinator?
+
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \WeeklyPlan.startDate) private var plans: [WeeklyPlan]
 
@@ -22,6 +25,21 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             List {
+                if let authentication, let backup {
+                    Section {
+                        NavigationLink {
+                            AccountBackupSettingsView(
+                                authentication: authentication,
+                                backup: backup
+                            )
+                        } label: {
+                            LabeledContent("Account & Backup", value: accountStatusText(authentication))
+                        }
+                    } header: {
+                        Text("Account")
+                    }
+                }
+
                 Section {
                     // Each row is the status and the action. Requesting again
                     // when already granted is harmless, so there is always a
@@ -65,12 +83,12 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    LabeledContent("Storage", value: "On this device")
+                    LabeledContent("Storage", value: storageStatusText)
                     LabeledContent("Version", value: appVersion)
                 } header: {
                     Text("About")
                 } footer: {
-                    Text("TriLoop keeps your training data on your device. There is no account and no cloud sync.")
+                    Text("Training stays on this iPhone. When you are signed in, TriLoop also keeps automatic cloud backups without putting the network in the workout path.")
                 }
 
                 #if DEBUG
@@ -123,6 +141,27 @@ struct SettingsView: View {
     private func refreshSchedule() async {
         watchAuthorization = await scheduler.authorizationState()
         scheduledWorkouts = await scheduler.scheduledWorkouts()
+    }
+
+    private func accountStatusText(_ authentication: AuthenticationCoordinator) -> String {
+        switch authentication.state {
+        case .signedIn:
+            "Signed in"
+        case .checking, .signingIn:
+            "Checking…"
+        case .signedOut:
+            "Not signed in"
+        case .failed:
+            "Needs attention"
+        }
+    }
+
+    private var storageStatusText: String {
+        guard let authentication else { return "On this device" }
+        if case .signedIn = authentication.state {
+            return "Device + backup"
+        }
+        return "On this device"
     }
 
     private var appVersion: String {
