@@ -93,7 +93,7 @@ struct TrainingProfileView: View {
                 HStack(spacing: 10) {
                     Image(systemName: "clock.arrow.circlepath")
                         .foregroundStyle(.secondary)
-                    Text("No completed training weeks yet")
+                    Text("No workout history yet")
                         .foregroundStyle(.secondary)
                 }
             } else {
@@ -110,7 +110,10 @@ struct TrainingProfileView: View {
 
                 if historyPlans.count > 3 {
                     NavigationLink {
-                        WeeklyHistoryListView(plans: historyPlans)
+                        WeeklyHistoryListView(
+                            plans: historyPlans,
+                            allPlans: plans
+                        )
                     } label: {
                         HStack {
                             Label("View all weeks", systemImage: "calendar")
@@ -653,6 +656,7 @@ struct TrainingProfileView: View {
 
 private struct WeeklyHistoryListView: View {
     let plans: [WeeklyPlan]
+    let allPlans: [WeeklyPlan]
 
     var body: some View {
         List(plans) { plan in
@@ -670,7 +674,7 @@ private struct WeeklyHistoryListView: View {
     }
 
     private func nextPlan(after plan: WeeklyPlan) -> WeeklyPlan? {
-        plans
+        allPlans
             .filter { $0.startDate > plan.startDate }
             .min { $0.startDate < $1.startDate }
     }
@@ -786,6 +790,14 @@ private struct WeeklyAnalysisHistoryView: View {
         }.count
     }
 
+    private var skippedCount: Int {
+        plan.prescribedTrainingSessions.filter(\.isSkipped).count
+    }
+
+    private var missedCount: Int {
+        plan.prescribedTrainingSessions.filter { $0.isMissed() }.count
+    }
+
     var body: some View {
         List {
             Section {
@@ -802,6 +814,14 @@ private struct WeeklyAnalysisHistoryView: View {
             Section("Summary") {
                 LabeledContent("Planned workouts", value: "\(plan.prescribedTrainingSessions.count)")
                 LabeledContent("Completed", value: "\(plan.completedPrescribedTrainingSessions.count)")
+
+                if skippedCount > 0 {
+                    LabeledContent("Skipped", value: "\(skippedCount)")
+                }
+
+                if missedCount > 0 {
+                    LabeledContent("Missed", value: "\(missedCount)")
+                }
 
                 if let adherence = plan.adherenceShare {
                     LabeledContent(
