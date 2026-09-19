@@ -208,7 +208,17 @@ struct WorkoutExecutionEngine: Equatable, Sendable {
 
     /// Advance active time. Countdown steps transition automatically. A
     /// stopwatch/distance step keeps accumulating until `completeCurrentStep`.
-    mutating func advance(by seconds: TimeInterval, now: Date = .now) {
+    ///
+    /// A normal foreground pulse can carry a small amount of overflow into the
+    /// following step. After a long suspension, however, the player must not
+    /// infer that every later set was performed just because wall-clock time
+    /// passed. Set `allowsCascading` to false to finish at most the current
+    /// timed step and begin the next one from zero.
+    mutating func advance(
+        by seconds: TimeInterval,
+        now: Date = .now,
+        allowsCascading: Bool = true
+    ) {
         guard phase == .running, seconds > 0, currentStep != nil else { return }
 
         var remainingDelta = seconds
@@ -227,6 +237,7 @@ struct WorkoutExecutionEngine: Equatable, Sendable {
 
             if stepElapsedSeconds >= duration {
                 moveToNextStep(now: now)
+                if !allowsCascading { return }
             } else {
                 return
             }
