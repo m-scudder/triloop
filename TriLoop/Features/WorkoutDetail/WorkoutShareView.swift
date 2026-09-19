@@ -94,17 +94,6 @@ struct WorkoutShareCard: View {
                     .background(.fill.tertiary, in: .rect(cornerRadius: 18))
             }
 
-            let secondary = secondaryStats
-            if !secondary.isEmpty {
-                Divider()
-                HStack(alignment: .top, spacing: 12) {
-                    ForEach(Array(secondary.prefix(3)), id: \.label) { stat in
-                        shareStat(stat.value, stat.label)
-                    }
-                }
-            }
-
-            Spacer(minLength: 0)
 
             HStack {
                 Text("Train · Progress · Repeat")
@@ -116,7 +105,7 @@ struct WorkoutShareCard: View {
             }
         }
         .padding(30)
-        .frame(maxWidth: .infinity, minHeight: 450, alignment: .topLeading)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
         .background(
             LinearGradient(
                 colors: [
@@ -146,15 +135,6 @@ struct WorkoutShareCard: View {
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private var secondaryStats: [(label: String, value: String)] {
-        var result: [(String, String)] = []
-        if let hr = snapshot.averageHeartRate { result.append(("Avg HR", "\(Int(hr.rounded())) bpm")) }
-        if let elevation = snapshot.elevationMeters { result.append(("Elevation", TrainingFormatter.distance(meters: elevation))) }
-        if let cadence = snapshot.cadence { result.append(("Cadence", "\(Int(cadence.rounded()))")) }
-        if let rpe = snapshot.actualRPE { result.append(("Effort", "\(rpe)/10")) }
-        return result
     }
 }
 
@@ -205,7 +185,6 @@ struct WorkoutShareView: View {
             ScrollView {
                 VStack(spacing: 18) {
                     WorkoutShareCard(snapshot: snapshot, showsRoute: showsRoute)
-                        .aspectRatio(720.0 / 900.0, contentMode: .fit)
                         .frame(maxWidth: .infinity)
                         .clipShape(.rect(cornerRadius: 22))
                         .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
@@ -252,7 +231,7 @@ struct WorkoutShareView: View {
     @MainActor
     private func renderCard() -> UIImage? {
         let renderer = ImageRenderer(content: WorkoutShareCard(snapshot: snapshot, showsRoute: showsRoute))
-        renderer.proposedSize = ProposedViewSize(width: 720, height: 900)
+        renderer.proposedSize = ProposedViewSize(width: 720, height: nil)
         renderer.scale = 2
         return renderer.uiImage
     }
