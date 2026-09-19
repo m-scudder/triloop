@@ -258,7 +258,19 @@ struct WorkoutShareView: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Workout sharing preview")
-        .accessibilityValue("\(snapshot.title), \(snapshot.distanceText.map { $0 + " kilometres" } ?? ""), \(snapshot.durationText ?? ""), \(showsRoute && route.hasRoute ? "route included" : "no route")")
+        .accessibilityValue(previewAccessibilityValue)
+    }
+
+    private var previewAccessibilityValue: String {
+        var parts: [String] = [snapshot.title]
+        if let distance = snapshot.distanceText {
+            parts.append("\(distance) kilometres")
+        }
+        if let duration = snapshot.durationText {
+            parts.append(duration)
+        }
+        parts.append(showsRoute && route.hasRoute ? "route included" : "no route")
+        return parts.joined(separator: ", ")
     }
 
     @ViewBuilder
