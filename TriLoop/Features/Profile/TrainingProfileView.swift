@@ -871,7 +871,7 @@ private struct WeeklyAnalysisHistoryView: View {
             }
 
             if averageReportedEffort != nil || averageTargetEffort != nil || reportedTrainingLoad != nil || painReports > 0 || fatigueReports > 0 {
-                Section("Effort & Recovery") {
+                Section {
                     if let target = averageTargetEffort {
                         LabeledContent(
                             "Average target effort",
@@ -906,6 +906,8 @@ private struct WeeklyAnalysisHistoryView: View {
                             value: "\(fatigueReports) session\(fatigueReports == 1 ? "" : "s")"
                         )
                     }
+                } header: {
+                    Text("Effort & Recovery")
                 } footer: {
                     if reportedTrainingLoad != nil {
                         Text("Training load uses workout duration × reported effort.")
@@ -915,9 +917,11 @@ private struct WeeklyAnalysisHistoryView: View {
 
             if let nextPlan,
                !nextPlan.generationReason.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                Section("Next Plan Rationale") {
+                Section {
                     Text(nextPlan.generationReason)
                         .font(.subheadline)
+                } header: {
+                    Text("Next Plan Rationale")
                 } footer: {
                     Text("This is the rationale stored with the following week's plan.")
                 }
