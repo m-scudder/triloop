@@ -114,7 +114,9 @@ enum WorkoutTemplateScheduler {
             excluding: Set(replaced.map { [$0.id] } ?? []),
             allowingAlongside: resolution == .alongside, asOf: now
         )
-        replaced?.skip()
+        if let replaced {
+            remove(replaced.id, from: plan)
+        }
         plan.modelContext?.insert(workout)
         plan.workouts.append(workout)
 
