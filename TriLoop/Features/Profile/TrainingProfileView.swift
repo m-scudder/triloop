@@ -770,6 +770,17 @@ private struct WeeklyAnalysisHistoryView: View {
         return Double(reportedEfforts.reduce(0, +)) / Double(reportedEfforts.count)
     }
 
+    private var reportedTrainingLoad: Double? {
+        let loads = completed.compactMap { workout -> Double? in
+            guard let rpe = workout.feedback?.rpe else { return nil }
+            let duration = workout.importedSummary?.duration ?? workout.estimatedDurationSeconds
+            guard let duration, duration > 0 else { return nil }
+            return (duration / 60) * Double(rpe)
+        }
+        guard !loads.isEmpty else { return nil }
+        return loads.reduce(0, +)
+    }
+
     private var averageTargetEffort: (lower: Double, upper: Double)? {
         guard !targetEfforts.isEmpty else { return nil }
         let count = Double(targetEfforts.count)
@@ -859,7 +870,7 @@ private struct WeeklyAnalysisHistoryView: View {
                 }
             }
 
-            if averageReportedEffort != nil || averageTargetEffort != nil || painReports > 0 || fatigueReports > 0 {
+            if averageReportedEffort != nil || averageTargetEffort != nil || reportedTrainingLoad != nil || painReports > 0 || fatigueReports > 0 {
                 Section("Effort & Recovery") {
                     if let target = averageTargetEffort {
                         LabeledContent(
@@ -875,6 +886,13 @@ private struct WeeklyAnalysisHistoryView: View {
                         )
                     }
 
+                    if let load = reportedTrainingLoad {
+                        LabeledContent(
+                            "Training load",
+                            value: "\(Int(load.rounded()))"
+                        )
+                    }
+
                     if painReports > 0 {
                         LabeledContent(
                             "Pain reported",
@@ -887,6 +905,10 @@ private struct WeeklyAnalysisHistoryView: View {
                             "Tired or exhausted",
                             value: "\(fatigueReports) session\(fatigueReports == 1 ? "" : "s")"
                         )
+                    }
+                } footer: {
+                    if reportedTrainingLoad != nil {
+                        Text("Training load uses workout duration × reported effort.")
                     }
                 }
             }
