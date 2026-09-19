@@ -39,7 +39,7 @@ enum WorkoutLibrary {
                 .coolDown("Easy walk", seconds: 300)
             ]),
             targetRPE: RPERange(3, 4),
-            source: .Athevia
+            source: .athevia
         ),
         WorkoutTemplate(
             id: id("2C7C1B10-0001-4000-A000-000000000002"),
@@ -56,7 +56,7 @@ enum WorkoutLibrary {
                 .coolDown("Easy walk", seconds: 300)
             ]),
             targetRPE: RPERange(3, 4),
-            source: .Athevia
+            source: .athevia
         ),
         WorkoutTemplate(
             id: id("2C7C1B10-0001-4000-A000-000000000003"),
@@ -68,7 +68,7 @@ enum WorkoutLibrary {
                 .work("Very easy running", seconds: 1_200, intensity: .veryEasy)
             ]),
             targetRPE: RPERange(2, 3),
-            source: .Athevia
+            source: .athevia
         ),
         WorkoutTemplate(
             id: id("2C7C1B10-0001-4000-A000-000000000004"),
@@ -82,7 +82,7 @@ enum WorkoutLibrary {
                 .coolDown("Easy walk", seconds: 300)
             ]),
             targetRPE: RPERange(3, 5),
-            source: .Athevia
+            source: .athevia
         ),
         WorkoutTemplate(
             id: id("2C7C1B10-0001-4000-A000-000000000005"),
@@ -99,7 +99,7 @@ enum WorkoutLibrary {
                 .coolDown("Easy jog", seconds: 600)
             ]),
             targetRPE: RPERange(6, 7),
-            source: .Athevia
+            source: .athevia
         ),
         WorkoutTemplate(
             id: id("2C7C1B10-0001-4000-A000-000000000006"),
@@ -116,7 +116,7 @@ enum WorkoutLibrary {
                 .coolDown("Easy jog", seconds: 600)
             ]),
             targetRPE: RPERange(8, 9),
-            source: .Athevia
+            source: .athevia
         )
     ]
 
@@ -144,7 +144,7 @@ enum WorkoutLibrary {
                 .coolDown("Easy swim", meters: 200)
             ]),
             targetRPE: RPERange(3, 4),
-            source: .Athevia
+            source: .athevia
         ),
         WorkoutTemplate(
             id: id("2C7C1B10-0002-4000-A000-000000000002"),
@@ -158,7 +158,7 @@ enum WorkoutLibrary {
                 .coolDown("Easy swim", meters: 100)
             ]),
             targetRPE: RPERange(3, 4),
-            source: .Athevia
+            source: .athevia
         ),
         WorkoutTemplate(
             id: id("2C7C1B10-0002-4000-A000-000000000003"),
@@ -175,7 +175,7 @@ enum WorkoutLibrary {
                 .coolDown("Easy swim", meters: 200)
             ]),
             targetRPE: RPERange(6, 7),
-            source: .Athevia
+            source: .athevia
         ),
         WorkoutTemplate(
             id: id("2C7C1B10-0002-4000-A000-000000000004"),
@@ -187,7 +187,7 @@ enum WorkoutLibrary {
                 .work("Very easy swim", meters: 400, intensity: .veryEasy)
             ]),
             targetRPE: RPERange(2, 3),
-            source: .Athevia
+            source: .athevia
         )
     ]
 
@@ -206,7 +206,7 @@ enum WorkoutLibrary {
                 .coolDown("Spin down", seconds: 600)
             ]),
             targetRPE: RPERange(3, 4),
-            source: .Athevia
+            source: .athevia
         ),
         WorkoutTemplate(
             id: id("2C7C1B10-0003-4000-A000-000000000002"),
@@ -220,7 +220,7 @@ enum WorkoutLibrary {
                 .coolDown("Spin down", seconds: 600)
             ]),
             targetRPE: RPERange(3, 5),
-            source: .Athevia
+            source: .athevia
         ),
         WorkoutTemplate(
             id: id("2C7C1B10-0003-4000-A000-000000000003"),
@@ -232,7 +232,7 @@ enum WorkoutLibrary {
                 .work("Very easy spinning", seconds: 1_800, intensity: .veryEasy)
             ]),
             targetRPE: RPERange(2, 3),
-            source: .Athevia
+            source: .athevia
         ),
         WorkoutTemplate(
             id: id("2C7C1B10-0003-4000-A000-000000000004"),
@@ -249,7 +249,7 @@ enum WorkoutLibrary {
                 .coolDown("Spin down", seconds: 600)
             ]),
             targetRPE: RPERange(6, 7),
-            source: .Athevia
+            source: .athevia
         ),
         WorkoutTemplate(
             id: id("2C7C1B10-0003-4000-A000-000000000005"),
@@ -266,7 +266,7 @@ enum WorkoutLibrary {
                 .coolDown("Spin down", seconds: 600)
             ]),
             targetRPE: RPERange(7, 8),
-            source: .Athevia
+            source: .athevia
         )
     ]
 
