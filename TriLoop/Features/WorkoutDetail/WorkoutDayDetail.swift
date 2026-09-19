@@ -158,29 +158,42 @@ struct WorkoutDayDetail: View {
     /// The two numbers stay visible in analysis instead of being hidden inside a
     /// disclosure, so the target-versus-actual comparison is immediately clear.
     private func effortComparison(target: RPERange, feedback: WorkoutFeedback) -> some View {
-        Card {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
+        Card(padding: 10) {
+            HStack(spacing: 12) {
+                HStack(spacing: 2) {
                     SectionEyebrow(text: "Effort")
-                    Spacer()
                     InfoButton(
                         title: "Effort",
                         explanation: "Target effort is calculated from the workout TriLoop planned. Actual effort comes from the report you shared after the workout."
                     )
                 }
 
-                HStack(spacing: 24) {
-                    StatTile(
-                        value: TrainingFormatter.rpe(target),
-                        label: "Target"
-                    )
-                    StatTile(
-                        value: "\(feedback.rpe)/10",
-                        label: "Actual"
-                    )
-                }
+                Spacer(minLength: 8)
+
+                compactEffortStat(
+                    value: TrainingFormatter.rpe(target),
+                    label: "Target"
+                )
+
+                compactEffortStat(
+                    value: "\(feedback.rpe)/10",
+                    label: "Actual"
+                )
             }
         }
+    }
+
+    private func compactEffortStat(value: String, label: String) -> some View {
+        VStack(alignment: .trailing, spacing: 0) {
+            Text(value)
+                .font(.subheadline.weight(.semibold))
+                .monospacedDigit()
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(value) \(label)")
     }
 
     private func reportSection(_ feedback: WorkoutFeedback) -> some View {
