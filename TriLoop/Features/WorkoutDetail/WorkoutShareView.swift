@@ -53,7 +53,7 @@ private struct WorkoutShareCard: View {
             }
             VStack(alignment: .leading, spacing: isStory ? 38 : 26) {
                 VStack(alignment: .leading, spacing: isStory ? 28 : 18) {
-                    Text("TriLoop")
+                    Text("Athevia")
                         .font(.system(size: isStory ? 40 : 32, weight: .bold, design: .rounded))
                     VStack(alignment: .leading, spacing: 10) {
                         Text(snapshot.title)
@@ -387,7 +387,7 @@ struct WorkoutShareView: View {
         }
         do {
             let url = FileManager.default.temporaryDirectory
-                .appendingPathComponent("TriLoop-\(UUID().uuidString).png")
+                .appendingPathComponent("Athevia-\(UUID().uuidString).png")
             try data.write(to: url, options: .atomic)
             lastExportURL = url
             exportedFile = WorkoutShareFile(url: url)
