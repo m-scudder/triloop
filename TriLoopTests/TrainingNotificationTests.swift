@@ -10,6 +10,18 @@ struct TrainingNotificationTests {
         return calendar
     }
 
+    @Test("Notification route survives launch and is consumed once")
+    func notificationRouteIsOneShot() {
+        let suite = "TriLoop.TrainingNotificationTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        TrainingNotificationRouteStore.enqueue(.plan, defaults: defaults)
+
+        #expect(TrainingNotificationRouteStore.consume(defaults: defaults) == .plan)
+        #expect(TrainingNotificationRouteStore.consume(defaults: defaults) == nil)
+    }
+
     @Test("Workout reminder uses the training day and preferred clock time")
     func workoutReminderTime() {
         let now = Date(timeIntervalSince1970: 1_800_000_000)
