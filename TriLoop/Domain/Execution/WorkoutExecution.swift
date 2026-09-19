@@ -136,8 +136,9 @@ struct WorkoutExecutionResult: Equatable, Sendable {
 /// Pure state machine for the phone workout player.
 ///
 /// It does not own a Timer. The UI feeds elapsed wall-clock deltas into
-/// `advance`, which means a suspended/backgrounded UI can catch up correctly on
-/// the next pulse rather than relying on a timer firing every second.
+/// `advance`. Normal foreground pulses can flow across timed steps; after a
+/// long suspension the caller can restrict catch-up to the step that was
+/// actually active so later sets are never inferred as completed.
 struct WorkoutExecutionEngine: Equatable, Sendable {
     enum Phase: Equatable, Sendable {
         case ready
