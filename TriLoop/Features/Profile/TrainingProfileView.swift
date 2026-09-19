@@ -1,3 +1,4 @@
+import Foundation
 import SwiftData
 import SwiftUI
 
@@ -11,7 +12,6 @@ struct TrainingProfileView: View {
     @Environment(\.modelContext) private var modelContext
     @Bindable var profile: AthleteProfile
     @Query(sort: \WeeklyPlan.startDate) private var plans: [WeeklyPlan]
-    @Query(sort: \PlannedWorkout.date, order: .reverse) private var workouts: [PlannedWorkout]
 
     @State private var message: String?
     @State private var isConfirmingReassessment = false
@@ -89,33 +89,36 @@ struct TrainingProfileView: View {
 
     private var historySection: some View {
         Section("Workout History") {
-            if completedWorkouts.isEmpty {
+            if historyPlans.isEmpty {
                 HStack(spacing: 10) {
                     Image(systemName: "clock.arrow.circlepath")
                         .foregroundStyle(.secondary)
-                    Text("No completed workouts yet")
+                    Text("No completed training weeks yet")
                         .foregroundStyle(.secondary)
                 }
             } else {
-                ForEach(Array(completedWorkouts.prefix(3))) { workout in
+                ForEach(Array(historyPlans.prefix(3))) { plan in
                     NavigationLink {
-                        WorkoutDayDetail(workout: workout)
+                        WeeklyAnalysisHistoryView(
+                            plan: plan,
+                            nextPlan: nextPlan(after: plan)
+                        )
                     } label: {
-                        WorkoutHistoryRow(workout: workout)
+                        WeeklyHistoryRow(plan: plan)
                     }
                 }
 
-                if completedWorkouts.count > 3 {
+                if historyPlans.count > 3 {
                     NavigationLink {
-                        CompletedWorkoutsListView(workouts: completedWorkouts)
+                        WeeklyHistoryListView(plans: historyPlans)
                     } label: {
                         HStack {
-                            Label("View all workouts", systemImage: "clock.arrow.circlepath")
+                            Label("View all weeks", systemImage: "calendar")
                                 .foregroundStyle(.primary)
 
                             Spacer()
 
-                            Text("\(completedWorkouts.count)")
+                            Text("\(historyPlans.count)")
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
@@ -125,8 +128,16 @@ struct TrainingProfileView: View {
         }
     }
 
-    private var completedWorkouts: [PlannedWorkout] {
-        workouts.filter { $0.isCompleted && $0.discipline.isTrainingSession }
+    private var historyPlans: [WeeklyPlan] {
+        plans
+            .filter { $0.trainingSessions.contains(where: \.isCompleted) }
+            .sorted { $0.startDate > $1.startDate }
+    }
+
+    private func nextPlan(after plan: WeeklyPlan) -> WeeklyPlan? {
+        plans
+            .filter { $0.startDate > plan.startDate }
+            .min { $0.startDate < $1.startDate }
     }
 
     @ViewBuilder
@@ -640,34 +651,270 @@ struct TrainingProfileView: View {
     }
 }
 
-private struct CompletedWorkoutsListView: View {
-    let workouts: [PlannedWorkout]
+private struct WeeklyHistoryListView: View {
+    let plans: [WeeklyPlan]
 
     var body: some View {
-        List(workouts) { workout in
+        List(plans) { plan in
             NavigationLink {
-                WorkoutDayDetail(workout: workout)
+                WeeklyAnalysisHistoryView(
+                    plan: plan,
+                    nextPlan: nextPlan(after: plan)
+                )
             } label: {
-                WorkoutHistoryRow(workout: workout)
+                WeeklyHistoryRow(plan: plan)
             }
         }
         .navigationTitle("Workout History")
         .navigationBarTitleDisplayMode(.inline)
     }
+
+    private func nextPlan(after plan: WeeklyPlan) -> WeeklyPlan? {
+        plans
+            .filter { $0.startDate > plan.startDate }
+            .min { $0.startDate < $1.startDate }
+    }
 }
 
-private struct WorkoutHistoryRow: View {
-    let workout: PlannedWorkout
+private struct WeeklyHistoryRow: View {
+    let plan: WeeklyPlan
 
-    private var trailingMetric: (label: String, value: String) {
-        if let duration = workout.importedSummary?.duration {
-            return ("Duration", TrainingFormatter.totalDuration(seconds: duration))
-        }
-        if let feedback = workout.feedback {
-            return ("Effort", "\(feedback.rpe) / 10")
-        }
-        return ("Status", "Completed")
+    private var completed: [PlannedWorkout] {
+        plan.trainingSessions.filter(\.isCompleted)
     }
+
+    private var trainingTime: TimeInterval {
+        completed.reduce(0) { total, workout in
+            total + (workout.importedSummary?.duration ?? workout.estimatedDurationSeconds ?? 0)
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "calendar")
+                .font(.subheadline.weight(.semibold))
+                .frame(width: 34, height: 34)
+                .background(.fill.tertiary, in: .circle)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(plan.historyDateRange)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+
+                Text(summary)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 8)
+
+            if let adherence = plan.adherenceShare {
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("Adherence")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+
+                    Text("\(Int((adherence * 100).rounded()))%")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                        .monospacedDigit()
+                }
+            }
+        }
+        .padding(.vertical, 2)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var summary: String {
+        let count = completed.count
+        let duration = trainingTime > 0
+            ? TrainingFormatter.totalDuration(seconds: trainingTime)
+            : "No duration"
+        return "\(count) workout\(count == 1 ? "" : "s") · \(duration)"
+    }
+}
+
+private struct WeeklyAnalysisHistoryView: View {
+    let plan: WeeklyPlan
+    let nextPlan: WeeklyPlan?
+
+    private var completed: [PlannedWorkout] {
+        plan.trainingSessions.filter(\.isCompleted)
+    }
+
+    private var trainingTime: TimeInterval {
+        completed.reduce(0) { total, workout in
+            total + (workout.importedSummary?.duration ?? workout.estimatedDurationSeconds ?? 0)
+        }
+    }
+
+    private var recordedDistanceMeters: Double {
+        completed.compactMap { $0.importedSummary?.distanceMeters }.reduce(0, +)
+    }
+
+    private var reportedEfforts: [Int] {
+        completed.compactMap { $0.feedback?.rpe }
+    }
+
+    private var targetEfforts: [RPERange] {
+        completed.compactMap(\.targetRPE)
+    }
+
+    private var averageReportedEffort: Double? {
+        guard !reportedEfforts.isEmpty else { return nil }
+        return Double(reportedEfforts.reduce(0, +)) / Double(reportedEfforts.count)
+    }
+
+    private var averageTargetEffort: (lower: Double, upper: Double)? {
+        guard !targetEfforts.isEmpty else { return nil }
+        let count = Double(targetEfforts.count)
+        return (
+            Double(targetEfforts.reduce(0) { $0 + $1.lower }) / count,
+            Double(targetEfforts.reduce(0) { $0 + $1.upper }) / count
+        )
+    }
+
+    private var painReports: Int {
+        completed.filter { $0.feedback?.reportedPain == true }.count
+    }
+
+    private var fatigueReports: Int {
+        completed.filter {
+            guard let feeling = $0.feedback?.recoveryFeeling else { return false }
+            return feeling.severity >= RecoveryFeeling.tired.severity
+        }.count
+    }
+
+    var body: some View {
+        List {
+            Section {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(plan.historyDateRange)
+                        .font(.title3.weight(.semibold))
+                    Text("Week \(plan.weekNumber)")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 4)
+            }
+
+            Section("Summary") {
+                LabeledContent("Planned workouts", value: "\(plan.prescribedTrainingSessions.count)")
+                LabeledContent("Completed", value: "\(plan.completedPrescribedTrainingSessions.count)")
+
+                if let adherence = plan.adherenceShare {
+                    LabeledContent(
+                        "Adherence",
+                        value: "\(Int((adherence * 100).rounded()))%"
+                    )
+                }
+
+                if trainingTime > 0 {
+                    LabeledContent(
+                        "Training time",
+                        value: TrainingFormatter.totalDuration(seconds: trainingTime)
+                    )
+                }
+
+                if recordedDistanceMeters > 0 {
+                    LabeledContent(
+                        "Recorded distance",
+                        value: distanceText(recordedDistanceMeters)
+                    )
+                }
+            }
+
+            if !completed.isEmpty {
+                Section("Sport Mix") {
+                    ForEach(Sport.allCases, id: \.rawValue) { sport in
+                        let sessions = completed.filter { $0.discipline.sport == sport }
+                        if !sessions.isEmpty {
+                            LabeledContent(
+                                sport.displayName,
+                                value: sportSummary(sessions)
+                            )
+                        }
+                    }
+                }
+            }
+
+            if averageReportedEffort != nil || averageTargetEffort != nil || painReports > 0 || fatigueReports > 0 {
+                Section("Effort & Recovery") {
+                    if let target = averageTargetEffort {
+                        LabeledContent(
+                            "Average target effort",
+                            value: String(format: "%.1f–%.1f / 10", target.lower, target.upper)
+                        )
+                    }
+
+                    if let actual = averageReportedEffort {
+                        LabeledContent(
+                            "Average reported effort",
+                            value: String(format: "%.1f / 10", actual)
+                        )
+                    }
+
+                    if painReports > 0 {
+                        LabeledContent(
+                            "Pain reported",
+                            value: "\(painReports) session\(painReports == 1 ? "" : "s")"
+                        )
+                    }
+
+                    if fatigueReports > 0 {
+                        LabeledContent(
+                            "Tired or exhausted",
+                            value: "\(fatigueReports) session\(fatigueReports == 1 ? "" : "s")"
+                        )
+                    }
+                }
+            }
+
+            if let nextPlan,
+               !nextPlan.generationReason.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Section("Next Plan Rationale") {
+                    Text(nextPlan.generationReason)
+                        .font(.subheadline)
+                } footer: {
+                    Text("This is the rationale stored with the following week's plan.")
+                }
+            }
+
+            Section("Workouts") {
+                ForEach(plan.trainingSessions) { workout in
+                    NavigationLink {
+                        WorkoutDayDetail(workout: workout)
+                    } label: {
+                        WeeklyWorkoutHistoryRow(workout: workout)
+                    }
+                }
+            }
+        }
+        .navigationTitle("Weekly Analysis")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func sportSummary(_ sessions: [PlannedWorkout]) -> String {
+        let seconds = sessions.reduce(0) { total, workout in
+            total + (workout.importedSummary?.duration ?? workout.estimatedDurationSeconds ?? 0)
+        }
+        let duration = seconds > 0
+            ? TrainingFormatter.totalDuration(seconds: seconds)
+            : "—"
+        return "\(sessions.count) · \(duration)"
+    }
+
+    private func distanceText(_ meters: Double) -> String {
+        if meters >= 1_000 {
+            return String(format: "%.1f km", meters / 1_000)
+        }
+        return "\(Int(meters.rounded())) m"
+    }
+}
+
+private struct WeeklyWorkoutHistoryRow: View {
+    let workout: PlannedWorkout
 
     var body: some View {
         HStack(spacing: 12) {
@@ -682,7 +929,7 @@ private struct WorkoutHistoryRow: View {
                     .foregroundStyle(.primary)
                     .lineLimit(1)
 
-                Text(workout.date.formatted(.dateTime.day().month(.abbreviated).year()))
+                Text(workout.date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -690,18 +937,54 @@ private struct WorkoutHistoryRow: View {
             Spacer(minLength: 8)
 
             VStack(alignment: .trailing, spacing: 2) {
-                Text(trailingMetric.label)
+                Text(metric.label)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
 
-                Text(trailingMetric.value)
+                Text(metric.value)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(metric.isProblem ? .secondary : .primary)
                     .monospacedDigit()
             }
         }
         .padding(.vertical, 2)
         .accessibilityElement(children: .combine)
+    }
+
+    private var metric: (label: String, value: String, isProblem: Bool) {
+        if workout.isCompleted {
+            if let duration = workout.importedSummary?.duration ?? workout.estimatedDurationSeconds {
+                return ("Duration", TrainingFormatter.totalDuration(seconds: duration), false)
+            }
+            if let feedback = workout.feedback {
+                return ("Effort", "\(feedback.rpe) / 10", false)
+            }
+            return ("Status", "Completed", false)
+        }
+
+        if workout.isSkipped {
+            return ("Status", "Skipped", true)
+        }
+
+        if workout.isMissed() {
+            return ("Status", "Missed", true)
+        }
+
+        return ("Status", "Planned", false)
+    }
+}
+
+private extension WeeklyPlan {
+    var historyDateRange: String {
+        let calendar = Calendar.current
+        let startMonth = calendar.component(.month, from: startDate)
+        let endMonth = calendar.component(.month, from: endDate)
+
+        if startMonth == endMonth {
+            return "\(startDate.formatted(.dateTime.day()))–\(endDate.formatted(.dateTime.day().month(.abbreviated)))"
+        }
+
+        return "\(startDate.formatted(.dateTime.day().month(.abbreviated)))–\(endDate.formatted(.dateTime.day().month(.abbreviated)))"
     }
 }
 
