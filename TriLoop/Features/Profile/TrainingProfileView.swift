@@ -605,14 +605,18 @@ private struct ProfileNavigationRow: View {
         HStack(spacing: 12) {
             Label(title, systemImage: systemImage)
                 .foregroundStyle(.primary)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+                .layoutPriority(1)
 
-            Spacer(minLength: 12)
+            Spacer(minLength: 8)
 
             Text(value)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.trailing)
                 .lineLimit(2)
+                .minimumScaleFactor(0.85)
         }
     }
 }
@@ -624,15 +628,18 @@ private struct TrainingDaysSummaryRow: View {
         HStack(spacing: 12) {
             Label("Training days", systemImage: "calendar")
                 .foregroundStyle(.primary)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+                .layoutPriority(1)
 
-            Spacer(minLength: 8)
+            Spacer(minLength: 6)
 
-            HStack(spacing: 4) {
+            HStack(spacing: 2) {
                 ForEach(Weekday.trainingWeek, id: \.self) { weekday in
                     Text(weekday.initial)
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(schedule.isAvailable(on: weekday) ? Color.onFocusSurface : Color.secondary)
-                        .frame(width: 22, height: 22)
+                        .frame(width: 20, height: 20)
                         .background(
                             schedule.isAvailable(on: weekday)
                                 ? AnyShapeStyle(Color.focusSurface)
