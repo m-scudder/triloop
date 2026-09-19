@@ -168,6 +168,10 @@ struct DeveloperToolsView: View {
                         attachRecorded(plan, factor: 0.5)
                         message = "Recorded data attached at 50%. Expect reduce."
                     }
+                    Button("Attach recorded data + GPS route") {
+                        attachRecorded(plan, factor: 0.97, includesRoute: true)
+                        message = "Recorded data with a simulated GPS route attached."
+                    }
                 } header: {
                     Text("Simulated Apple Health")
                 } footer: {
@@ -293,7 +297,7 @@ struct DeveloperToolsView: View {
 
     /// Plausible per-sport metrics. Every sport records heart rate, including
     /// pool swims; only ascent is genuinely absent indoors.
-    private func attachRecorded(_ plan: WeeklyPlan, factor: Double) {
+    private func attachRecorded(_ plan: WeeklyPlan, factor: Double, includesRoute: Bool = false) {
         for workout in plan.trainingSessions {
             guard let sport = workout.discipline.sport else { continue }
 
@@ -318,7 +322,12 @@ struct DeveloperToolsView: View {
                 swimmingStrokeCount: lengths.map { Double($0) * 19 },
                 // Two lengths without stopping, which is the beginner reality.
                 longestContinuousSwimMeters: lengths.map { _ in 50 },
-                metrics: RecordedMetrics(averageCadence: sport == .running ? 162 : nil),
+                metrics: RecordedMetrics(
+                    averageCadence: sport == .running ? 162 : nil,
+                    route: includesRoute && sport != .swimming
+                        ? simulatedRoute(startingAt: start, duration: duration)
+                        : []
+                ),
                 source: "com.apple.workout"
             )
 
@@ -326,6 +335,28 @@ struct DeveloperToolsView: View {
             workout.attach(summary)
         }
         try? modelContext.save()
+    }
+
+    /// Deterministic loop-shaped route for exercising route UI without Location Services.
+    /// Debug-only and stored through the same RecordedMetrics path as real phone GPS.
+    private func simulatedRoute(startingAt start: Date, duration: TimeInterval) -> [RecordedRoutePoint] {
+        let centerLatitude = 17.4435
+        let centerLongitude = 78.3772
+        let pointCount = 36
+
+        return (0..<pointCount).map { index in
+            let progress = Double(index) / Double(pointCount - 1)
+            let angle = progress * Double.pi * 2
+            let latitude = centerLatitude + sin(angle) * 0.006 + sin(angle * 2) * 0.0015
+            let longitude = centerLongitude + cos(angle) * 0.007
+
+            return RecordedRoutePoint(
+                latitude: latitude,
+                longitude: longitude,
+                altitudeMeters: 540 + sin(angle * 3) * 8,
+                timestamp: start.addingTimeInterval(duration * progress)
+            )
+        }
     }
 
     private func averageHeartRate(for sport: Sport) -> Double {
