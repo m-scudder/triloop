@@ -46,7 +46,7 @@ struct WorkoutLibraryTests {
 
     @Test("Nothing in the library claims to be the athlete's own")
     func builtInsAreNotEditable() {
-        #expect(WorkoutLibrary.all.allSatisfy { $0.source == .Athevia })
+        #expect(WorkoutLibrary.all.allSatisfy { $0.source == .athevia })
         #expect(WorkoutLibrary.all.allSatisfy { !$0.source.isEditable })
     }
 
