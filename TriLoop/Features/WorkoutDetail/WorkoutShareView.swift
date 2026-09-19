@@ -165,6 +165,8 @@ struct WorkoutShareView: View {
             ScrollView {
                 VStack(spacing: 18) {
                     preview
+                        .frame(maxWidth: 280 * format.exportSize.width / format.exportSize.height)
+                        .frame(maxWidth: .infinity)
                     Picker("Format", selection: $format) {
                         ForEach(WorkoutShareFormat.allCases) { Text($0.title).tag($0) }
                     }
