@@ -17,6 +17,7 @@ struct WorkoutPlayerView: View {
     @State private var liveActivity = WorkoutLiveActivityController()
 
     private let pulse = Timer.publish(every: 0.25, on: .main, in: .common).autoconnect()
+    private let maximumForegroundPulseGap: TimeInterval = 2
 
     @MainActor
     init(
@@ -310,11 +311,16 @@ struct WorkoutPlayerView: View {
     }
 
     private func completeCurrentStep() {
+        let wasPaused = engine.phase == .paused
         engine.completeCurrentStep(now: .now)
+
         if engine.phase == .finished {
             locationTracker.stop()
             liveActivity.end(finalState: nil)
         } else {
+            if wasPaused, engine.phase == .running, recordsGPS {
+                locationTracker.resume()
+            }
             syncLiveActivity()
         }
         lastPulse = engine.phase == .running ? .now : nil
@@ -355,8 +361,19 @@ struct WorkoutPlayerView: View {
         }
 
         let previous = lastPulse ?? now
+        let delta = max(now.timeIntervalSince(previous), 0)
         let previousIndex = engine.currentIndex
-        engine.advance(by: now.timeIntervalSince(previous), now: now)
+
+        // A normal foreground pulse may spill into the next timed set. A long
+        // gap means the app was suspended or otherwise unable to observe the
+        // intermediate sets, so only finish the set that was actually active.
+        // This prevents reopening from a notification from cascading through
+        // the rest of the workout and landing on "Workout complete".
+        engine.advance(
+            by: delta,
+            now: now,
+            allowsCascading: delta <= maximumForegroundPulseGap
+        )
 
         if engine.phase == .finished {
             locationTracker.stop()
