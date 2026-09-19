@@ -35,7 +35,7 @@ struct HealthStepView: View {
         ) {
             OnboardingHeader(
                 title: "Connect Apple Health",
-                subtitle: "TriLoop reads what you have already recorded, so you never log a workout twice."
+                subtitle: "Athevia reads what you have already recorded, so you never log a workout twice."
             )
 
             VStack(spacing: 12) {
@@ -54,7 +54,7 @@ struct HealthStepView: View {
                 }
             }
 
-            Text("TriLoop only reads. Nothing is written back to Health, and nothing leaves your device.")
+            Text("Athevia only reads. Nothing is written back to Health, and nothing leaves your device.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
 
@@ -84,7 +84,7 @@ struct HealthStepView: View {
                 status = await health.authorizationStatus
                 model.advance()
             } catch HealthDataError.unavailableOnThisDevice {
-                message = "Apple Health is not available on this device. You can still use TriLoop and report sessions yourself."
+                message = "Apple Health is not available on this device. You can still use Athevia and report sessions yourself."
             } catch {
                 message = "Could not connect to Apple Health: \(error.localizedDescription). You can connect later in Settings."
             }
@@ -111,14 +111,14 @@ struct WatchStepView: View {
         ) {
             OnboardingHeader(
                 title: "Train with Apple Watch",
-                subtitle: "TriLoop can send each session to the Workout app, so your watch already knows the intervals."
+                subtitle: "Athevia can send each session to the Workout app, so your watch already knows the intervals."
             )
 
             Card {
                 VStack(alignment: .leading, spacing: 10) {
                     Label("Structured sessions on your wrist", systemImage: "applewatch")
                         .font(.subheadline.weight(.medium))
-                    Text("You still start and record workouts in Apple's Workout app. TriLoop just puts the right session there.")
+                    Text("You still start and record workouts in Apple's Workout app. Athevia just puts the right session there.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
