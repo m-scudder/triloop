@@ -431,7 +431,7 @@
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TRILOOP_BUNDLE_PREFIX = com.mayankagarwal;
+				ATHEVIA_BUNDLE_PREFIX = com.mayankagarwal;
 			};
 			name = Debug;
 		};
@@ -470,7 +470,7 @@
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TRILOOP_BUNDLE_PREFIX = com.mayankagarwal;
+				ATHEVIA_BUNDLE_PREFIX = com.mayankagarwal;
 				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
@@ -487,8 +487,9 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = TriLoop/Info.plist;
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "TriLoop reads your completed running, swimming and cycling workouts so it can analyse each week and adapt the next one.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "TriLoop uses your location during in-app runs and rides to record distance, pace, and your route.";
+				INFOPLIST_KEY_CFBundleDisplayName = Athevia;
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Athevia reads your completed running, swimming and cycling workouts so it can analyse each week and adapt the next one.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Athevia uses your location during in-app runs and rides to record distance, pace, and your route.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIBackgroundModes = location;
@@ -500,7 +501,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = "$(TRILOOP_BUNDLE_PREFIX).triloop";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(ATHEVIA_BUNDLE_PREFIX).athevia";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -519,8 +520,9 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = TriLoop/Info.plist;
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "TriLoop reads your completed running, swimming and cycling workouts so it can analyse each week and adapt the next one.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "TriLoop uses your location during in-app runs and rides to record distance, pace, and your route.";
+				INFOPLIST_KEY_CFBundleDisplayName = Athevia;
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Athevia reads your completed running, swimming and cycling workouts so it can analyse each week and adapt the next one.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Athevia uses your location during in-app runs and rides to record distance, pace, and your route.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIBackgroundModes = location;
@@ -532,7 +534,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = "$(TRILOOP_BUNDLE_PREFIX).triloop";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(ATHEVIA_BUNDLE_PREFIX).athevia";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -548,7 +550,7 @@
 				DEVELOPMENT_TEAM = 69LB9UDYJD;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = "$(TRILOOP_BUNDLE_PREFIX).triloop.tests";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(ATHEVIA_BUNDLE_PREFIX).athevia.tests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -565,7 +567,7 @@
 				DEVELOPMENT_TEAM = 69LB9UDYJD;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = "$(TRILOOP_BUNDLE_PREFIX).triloop.tests";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(ATHEVIA_BUNDLE_PREFIX).athevia.tests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -581,7 +583,7 @@
 				DEVELOPMENT_TEAM = 69LB9UDYJD;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = "$(TRILOOP_BUNDLE_PREFIX).triloop.uitests";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(ATHEVIA_BUNDLE_PREFIX).athevia.uitests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -597,7 +599,7 @@
 				DEVELOPMENT_TEAM = 69LB9UDYJD;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = "$(TRILOOP_BUNDLE_PREFIX).triloop.uitests";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(ATHEVIA_BUNDLE_PREFIX).athevia.uitests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -621,7 +623,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = "$(TRILOOP_BUNDLE_PREFIX).triloop.liveactivity";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(ATHEVIA_BUNDLE_PREFIX).athevia.liveactivity";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -646,7 +648,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = "$(TRILOOP_BUNDLE_PREFIX).triloop.liveactivity";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(ATHEVIA_BUNDLE_PREFIX).athevia.liveactivity";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
