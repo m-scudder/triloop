@@ -52,7 +52,7 @@ struct OnboardingView: View {
             OnboardingStep(primary: model.advance) {
                 OnboardingHeader(title: "Anything we should consider?", subtitle: "Keep training comfortable.")
                 Text("Do not train through pain or warning symptoms. Stop if you feel unwell; seek medical advice for severe or persistent symptoms.")
-                Text("Report effort, pain and recovery after each session so TriLoop can adjust what comes next.")
+                Text("Report effort, pain and recovery after each session so Athevia can adjust what comes next.")
             }
         }
     }
