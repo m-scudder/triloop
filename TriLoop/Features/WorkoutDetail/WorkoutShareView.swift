@@ -53,7 +53,7 @@ private struct WorkoutShareCard: View {
             }
             VStack(alignment: .leading, spacing: isStory ? 38 : 26) {
                 VStack(alignment: .leading, spacing: isStory ? 28 : 18) {
-                    Text("TriLoop")
+                    Text("Athevia")
                         .font(.system(size: isStory ? 40 : 32, weight: .bold, design: .rounded))
                     VStack(alignment: .leading, spacing: 10) {
                         Text(snapshot.title)
@@ -295,7 +295,7 @@ struct WorkoutShareView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
-                if let summary = workout.importedSummary, summary.source != "TriLoop iPhone" {
+                if let summary = workout.importedSummary, !["TriLoop iPhone", "Athevia iPhone"].contains(summary.source) {
                     Button("Retry") { routeRequest += 1 }
                 }
             }
@@ -309,7 +309,7 @@ struct WorkoutShareView: View {
         defer { isLoadingRoute = false }
         guard !WorkoutShareRoute(points: snapshot.route).hasRoute,
               let summary = workout.importedSummary,
-              summary.source != "TriLoop iPhone" else { return }
+              !["TriLoop iPhone", "Athevia iPhone"].contains(summary.source) else { return }
         do {
             try await health.requestAuthorization()
             let points = try await health.route(forWorkout: summary.healthKitUUID)
@@ -387,7 +387,7 @@ struct WorkoutShareView: View {
         }
         do {
             let url = FileManager.default.temporaryDirectory
-                .appendingPathComponent("TriLoop-\(UUID().uuidString).png")
+                .appendingPathComponent("Athevia-\(UUID().uuidString).png")
             try data.write(to: url, options: .atomic)
             lastExportURL = url
             exportedFile = WorkoutShareFile(url: url)

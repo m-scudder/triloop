@@ -35,11 +35,11 @@ enum TrainingConceptExplanation: String, CaseIterable, Identifiable {
 
     var usage: String {
         switch self {
-        case .rpe: "TriLoop uses your report with completion, pain and recovery to assess the session."
+        case .rpe: "Athevia uses your report with completion, pain and recovery to assess the session."
         case .trainingLoad: "Compare sessions and weeks using the same load method. Missing evidence is not zero load."
-        case .intensity: "The result identifies its evidence source. Without heart-rate data, TriLoop cannot confirm heart-rate intensity."
+        case .intensity: "The result identifies its evidence source. Without heart-rate data, Athevia cannot confirm heart-rate intensity."
         case .adherence: "Check the displayed period and evidence source. Unmatched activity and missing reports can limit the comparison."
-        case .hrv, .restingHeartRate: "TriLoop compares available readings with your history. Missing readings do not establish normal recovery."
+        case .hrv, .restingHeartRate: "Athevia compares available readings with your history. Missing readings do not establish normal recovery."
         case .recovery: "Review symptoms and your check-in alongside recorded signals. A metric does not override a pain or recovery warning."
         case .sportBalance: "Use the displayed duration or session counts to compare sports within the selected period."
         case .plannedVsActual: "Matched recordings supply measured values. A manual report does not provide heart-rate or measured distance evidence."

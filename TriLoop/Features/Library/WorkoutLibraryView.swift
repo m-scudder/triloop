@@ -55,7 +55,7 @@ struct WorkoutLibraryView: View {
                 }
             }
 
-            Section("TriLoop Workouts") {
+            Section("Athevia Workouts") {
                 ForEach(WorkoutLibrary.templates(for: sport)) { template in
                     row(template)
                 }
@@ -168,7 +168,7 @@ private struct CustomWorkoutExplainerView: View {
                         detail: "Saved workouts stay in My Workouts, so you can add them again in future weeks."
                     )
 
-                    Text("Custom workouts are sessions you choose yourself. They are kept separate from the training TriLoop prescribed for you.")
+                    Text("Custom workouts are sessions you choose yourself. They are kept separate from the training Athevia prescribed for you.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                         .padding(.top, 4)
@@ -363,7 +363,7 @@ struct AddToPlanSheet: View {
                 } header: {
                     Text("This day")
                 } footer: {
-                    Text("Workouts you add are training you chose to do. They are not counted as part of the plan TriLoop set you.")
+                    Text("Workouts you add are training you chose to do. They are not counted as part of the plan Athevia set you.")
                 }
             }
             .navigationTitle("Add to Plan")

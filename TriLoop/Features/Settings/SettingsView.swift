@@ -165,7 +165,7 @@ struct SettingsView: View {
         } header: {
             Text("Automation")
         } footer: {
-            Text("TriLoop can match completed workouts from Apple Health and keep the remaining week available on Apple Watch.")
+            Text("Athevia can match completed workouts from Apple Health and keep the remaining week available on Apple Watch.")
         }
     }
 
@@ -328,7 +328,7 @@ struct SettingsView: View {
             case .restricted:
                 "The system will not allow scheduling on this device."
             case .denied where before == .denied:
-                "iOS did not show a prompt because the answer is already recorded. Reinstalling TriLoop clears it."
+                "iOS did not show a prompt because the answer is already recorded. Reinstalling Athevia clears it."
             case .denied:
                 "Workout scheduling was declined."
             case .notDetermined:
@@ -346,8 +346,8 @@ struct SettingsView: View {
                 healthStatus = await health.authorizationStatus
 
                 permissionMessage = healthStatus == .authorized
-                    ? "Apple Health has been asked already. To change what TriLoop can read, open the Health app, tap your profile picture, then Apps, then TriLoop."
-                    : "Apple Health did not grant access. Open the Health app, tap your profile picture, then Apps, then TriLoop."
+                    ? "Apple Health has been asked already. To change what Athevia can read, open the Health app, tap your profile picture, then Apps, then Athevia."
+                    : "Apple Health did not grant access. Open the Health app, tap your profile picture, then Apps, then Athevia."
             } catch HealthDataError.unavailableOnThisDevice {
                 permissionMessage = "Apple Health is not available on this device."
             } catch {

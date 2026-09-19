@@ -27,7 +27,7 @@ struct AccountAccessView: View {
             switch authentication.state {
             case .checking:
                 statusContent(
-                    title: "Getting TriLoop ready",
+                    title: "Getting Athevia ready",
                     detail: "Checking your account…"
                 )
 
@@ -64,7 +64,7 @@ struct AccountAccessView: View {
                 disciplineMark
 
                 VStack(spacing: 10) {
-                    Text("TriLoop")
+                    Text("Athevia")
                         .font(.system(size: 42, weight: .bold, design: .rounded))
                         .tracking(-1)
 
@@ -184,7 +184,7 @@ struct AccountAccessView: View {
                 Text("Welcome back")
                     .font(.largeTitle.weight(.bold))
 
-                Text("We found your latest TriLoop backup.")
+                Text("We found your latest Athevia backup.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }

@@ -177,7 +177,7 @@ struct WorkoutDayDetail: View {
 
             InfoButton(
                 title: "Effort",
-                explanation: "Target effort is calculated from the workout TriLoop planned. Actual effort comes from the report you shared after the workout."
+                explanation: "Target effort is calculated from the workout Athevia planned. Actual effort comes from the report you shared after the workout."
             )
         }
     }

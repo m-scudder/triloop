@@ -1,7 +1,7 @@
 import SwiftData
 import SwiftUI
 
-/// Account and cloud-backup controls for the authenticated TriLoop account.
+/// Account and cloud-backup controls for the authenticated Athevia account.
 ///
 /// Sign-out changes only authentication state. RootView reacts to that state
 /// transition and returns the app to the account entry screen while keeping
@@ -56,7 +56,7 @@ struct AccountBackupSettingsView: View {
                 } header: {
                     Text("Cloud Backup")
                 } footer: {
-                    Text("TriLoop keeps training on this iPhone first. Cloud backup runs separately, so losing connectivity does not stop a workout from being recorded.")
+                    Text("Athevia keeps training on this iPhone first. Cloud backup runs separately, so losing connectivity does not stop a workout from being recorded.")
                 }
             }
         }
@@ -129,7 +129,7 @@ struct AccountBackupSettingsView: View {
                     accountID: session.userID,
                     from: modelContext
                 )
-                message = "Your TriLoop training is backed up."
+                message = "Your Athevia training is backed up."
             } catch {
                 message = error.localizedDescription
             }

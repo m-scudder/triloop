@@ -14,7 +14,7 @@ struct ConnectionsStepView: View {
             OnboardingHeader(title: "Connect your training", subtitle: "Optional. You can connect later in Settings.")
             VStack(alignment: .leading, spacing: 12) {
                 Label("Apple Health", systemImage: "heart.fill").font(.headline)
-                Text("Let TriLoop learn from your workouts automatically.")
+                Text("Let Athevia learn from your workouts automatically.")
                 if healthStatus == .authorized {
                     Label("Connected", systemImage: "checkmark.circle")
                 } else if healthStatus == .unavailable {

@@ -10,7 +10,7 @@ enum AppleSignInPreparationError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .nonceGenerationFailed:
-            "TriLoop could not prepare a secure Apple sign-in request."
+            "Athevia could not prepare a secure Apple sign-in request."
         case .missingIdentityToken, .invalidIdentityToken:
             "Apple did not return a valid identity token."
         }

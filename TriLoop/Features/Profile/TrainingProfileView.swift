@@ -333,9 +333,9 @@ struct TrainingProfileView: View {
                 Text("Days you can train")
             } footer: {
                 if setup.schedule.isUsable {
-                    Text("TriLoop fits your sessions onto these days and keeps recovery between harder efforts.")
+                    Text("Athevia fits your sessions onto these days and keeps recovery between harder efforts.")
                 } else {
-                    Text("Choose at least two days so TriLoop can build a usable week.")
+                    Text("Choose at least two days so Athevia can build a usable week.")
                 }
             }
         }
@@ -357,7 +357,7 @@ struct TrainingProfileView: View {
             } header: {
                 Text("Sessions per week")
             } footer: {
-                Text("This is your preferred mix. TriLoop may schedule fewer sessions when your available days or recovery needs require it.")
+                Text("This is your preferred mix. Athevia may schedule fewer sessions when your available days or recovery needs require it.")
             }
         }
         .navigationTitle("Training Mix")
@@ -571,10 +571,10 @@ struct TrainingProfileView: View {
     private var zoneFooter: String {
         guard let birthDate = setup.birthDate,
               let maximum = HeartRateCeiling.ageBased(birthDate: birthDate, asOf: .now) else {
-            return "Without a date of birth, zones become available once you record a hard effort TriLoop can measure against."
+            return "Without a date of birth, zones become available once you record a hard effort Athevia can measure against."
         }
 
-        return "Estimated maximum \(Int(maximum)) bpm. If you record a harder effort, TriLoop uses what you actually did."
+        return "Estimated maximum \(Int(maximum)) bpm. If you record a harder effort, Athevia uses what you actually did."
     }
 
     // MARK: - Actions
