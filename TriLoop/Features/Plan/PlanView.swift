@@ -61,7 +61,7 @@ struct PlanView: View {
                                 }
                             }
                             .pickerStyle(.segmented)
-                            .padding(.horizontal, 16)
+                            .padding(.horizontal, 20)
                             .padding(.vertical, 8)
                         }
 
