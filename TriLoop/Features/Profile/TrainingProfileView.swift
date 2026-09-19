@@ -107,7 +107,7 @@ struct TrainingProfileView: View {
 
                 if completedWorkouts.count > 3 {
                     NavigationLink {
-                        WorkoutHistoryView(workouts: completedWorkouts)
+                        CompletedWorkoutsListView(workouts: completedWorkouts)
                     } label: {
                         HStack {
                             Label("View all workouts", systemImage: "clock.arrow.circlepath")
@@ -640,7 +640,7 @@ struct TrainingProfileView: View {
     }
 }
 
-private struct WorkoutHistoryView: View {
+private struct CompletedWorkoutsListView: View {
     let workouts: [PlannedWorkout]
 
     var body: some View {

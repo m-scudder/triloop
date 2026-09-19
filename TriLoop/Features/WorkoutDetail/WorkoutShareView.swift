@@ -165,7 +165,7 @@ struct WorkoutShareView: View {
             ScrollView {
                 VStack(spacing: 18) {
                     preview
-                        .frame(maxWidth: 280 * format.exportSize.width / format.exportSize.height)
+                        .frame(maxWidth: previewMaxWidth)
                         .frame(maxWidth: .infinity)
                     Picker("Format", selection: $format) {
                         ForEach(WorkoutShareFormat.allCases) { Text($0.title).tag($0) }
@@ -273,6 +273,11 @@ struct WorkoutShareView: View {
         }
         parts.append(showsRoute && route.hasRoute ? "route included" : "no route")
         return parts.joined(separator: ", ")
+    }
+
+    private var previewMaxWidth: CGFloat {
+        let size = format.exportSize
+        return 280 * size.width / size.height
     }
 
     @ViewBuilder
