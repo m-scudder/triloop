@@ -22,8 +22,31 @@ enum TrainingNotificationRoute: String, Sendable {
     case plan
 }
 
-extension Notification.Name {
-    static let triLoopNotificationRoute = Notification.Name("triLoop.notificationRoute")
+/// Notification taps can arrive before SwiftUI has constructed RootView, and
+/// account/onboarding can delay the tab hierarchy even further. Persist the
+/// requested destination until the app is actually ready to consume it.
+enum TrainingNotificationRouteStore {
+    private static let pendingKey = "pendingTrainingNotificationRoute"
+
+    static func enqueue(
+        _ route: TrainingNotificationRoute,
+        defaults: UserDefaults = .standard
+    ) {
+        defaults.set(route.rawValue, forKey: pendingKey)
+    }
+
+    static func consume(
+        defaults: UserDefaults = .standard
+    ) -> TrainingNotificationRoute? {
+        guard let raw = defaults.string(forKey: pendingKey),
+              let route = TrainingNotificationRoute(rawValue: raw) else {
+            defaults.removeObject(forKey: pendingKey)
+            return nil
+        }
+
+        defaults.removeObject(forKey: pendingKey)
+        return route
+    }
 }
 
 enum TrainingNotificationPreferences {
@@ -115,12 +138,10 @@ private final class TrainingNotificationDelegate: NSObject, UNUserNotificationCe
     ) async {
         let raw = response.notification.request.content.userInfo["route"] as? String
         guard let raw, let route = TrainingNotificationRoute(rawValue: raw) else { return }
-        await MainActor.run {
-            NotificationCenter.default.post(
-                name: .triLoopNotificationRoute,
-                object: route.rawValue
-            )
-        }
+
+        // Do not mutate SwiftUI navigation from the notification callback.
+        // On a cold launch this callback can beat RootView to the screen.
+        TrainingNotificationRouteStore.enqueue(route)
     }
 
     func userNotificationCenter(
