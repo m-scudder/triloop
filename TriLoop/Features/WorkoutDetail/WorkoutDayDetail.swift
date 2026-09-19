@@ -57,16 +57,6 @@ struct WorkoutDayDetail: View {
 
                 plannedWorkoutSection
 
-                if workout.isCompleted {
-                    Button {
-                        isSharingWorkout = true
-                    } label: {
-                        Label("Share Workout", systemImage: "square.and.arrow.up")
-                    }
-                    .buttonStyle(PrimaryActionButtonStyle())
-                    .accessibilityHint("Creates a shareable summary of this completed workout.")
-                }
-
                 if let actionMessage {
                     Text(actionMessage)
                         .font(.footnote)
@@ -572,6 +562,19 @@ struct WorkoutDayDetail: View {
             }
 
             Spacer(minLength: 0)
+
+            if workout.isCompleted {
+                Button {
+                    isSharingWorkout = true
+                } label: {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.body.weight(.semibold))
+                        .frame(width: 32, height: 32)
+                        .contentShape(.rect)
+                }
+                .accessibilityLabel("Share workout")
+                .accessibilityHint("Creates a shareable summary of this completed workout.")
+            }
 
             if showsManagementMenu && (canSkip || canChangeAvailability) {
                 managementMenu
