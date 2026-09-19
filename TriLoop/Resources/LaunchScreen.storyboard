@@ -22,11 +22,6 @@
                                     <constraint firstAttribute="width" constant="96" id="LaunchIconWidth"/>
                                     <constraint firstAttribute="height" constant="96" id="LaunchIconHeight"/>
                                 </constraints>
-                                <userDefinedRuntimeAttributes>
-                                    <userDefinedRuntimeAttribute type="number" keyPath="layer.cornerRadius">
-                                        <real key="value" value="21"/>
-                                    </userDefinedRuntimeAttribute>
-                                </userDefinedRuntimeAttributes>
                             </imageView>
                             <label opaque="NO" userInteractionEnabled="NO" contentMode="left" text="Athevia" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="LaunchTitle">
                                 <rect key="frame" x="156.5" y="462" width="80" height="29"/>
