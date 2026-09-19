@@ -238,7 +238,7 @@ struct WorkoutTemplateDetailView: View {
                         .font(.largeTitle.weight(.semibold))
 
                     if !template.purpose.isEmpty {
-                        if template.source == .Athevia {
+                        if template.source == .athevia {
                             HStack {
                                 Text(template.category.displayName)
                                     .font(.subheadline)
