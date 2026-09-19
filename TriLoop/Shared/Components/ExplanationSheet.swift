@@ -70,7 +70,7 @@ struct InfoButton: View {
             ExplanationSheet(title: title) {
                 Section("What it means") { Text(definition) }
                 if let usage {
-                    Section("How TriLoop uses it") { Text(usage) }
+                    Section("How Athevia uses it") { Text(usage) }
                 }
                 if !evidence.isEmpty || detail != nil {
                     Section("This session") {
