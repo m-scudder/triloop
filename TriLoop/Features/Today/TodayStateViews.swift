@@ -101,7 +101,7 @@ struct TodayWorkoutView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("TriLoop needs location access to record distance, pace and route for this workout. You can still run the workout timer without GPS.")
+            Text("Athevia needs location access to record distance, pace and route for this workout. You can still run the workout timer without GPS.")
         }
     }
 
@@ -154,7 +154,7 @@ struct TodayWorkoutView: View {
             duration: result.elapsedSeconds,
             distanceMeters: result.distanceMeters,
             metrics: metrics.isEmpty ? nil : metrics,
-            source: "TriLoop iPhone"
+            source: "Athevia iPhone"
         )
         modelContext.insert(summary)
         workout.attach(summary)
