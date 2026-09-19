@@ -9,6 +9,7 @@ import SwiftUI
 struct AppleSignInButtonView: View {
     let signIn: @MainActor (AppleAuthenticationCredential) async throws -> Void
 
+    @Environment(\.colorScheme) private var colorScheme
     @State private var activeNonce: String?
     @State private var errorMessage: String?
     @State private var isWorking = false
@@ -20,9 +21,10 @@ struct AppleSignInButtonView: View {
             } onCompletion: { result in
                 handle(result)
             }
-            .signInWithAppleButtonStyle(.black)
-            .frame(height: 52)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
+            .frame(maxWidth: .infinity)
+            .frame(height: 54)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             .disabled(isWorking)
 
             if isWorking {

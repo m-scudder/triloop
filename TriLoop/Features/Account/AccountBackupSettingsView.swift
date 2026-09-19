@@ -1,10 +1,11 @@
 import SwiftData
 import SwiftUI
 
-/// Account/backup settings UI ready for the Supabase adapter.
+/// Account and cloud-backup controls for the authenticated TriLoop account.
 ///
-/// It is intentionally not linked from Settings until cloud configuration is
-/// present. That keeps the current local-only build fully functional.
+/// Sign-out changes only authentication state. RootView reacts to that state
+/// transition and returns the app to the account entry screen while keeping
+/// local training intact.
 struct AccountBackupSettingsView: View {
     let authentication: AuthenticationCoordinator
     let backup: BackupCoordinator

@@ -54,9 +54,18 @@ struct RootView: View {
         .onChange(of: backupFingerprint) { _, _ in
             scheduleAutomaticBackupIfNeeded()
         }
-        .onChange(of: signedInAccountID) { _, newAccountID in
-            if newAccountID == nil {
-                automaticBackup?.cancelPending()
+        .onChange(of: signedInAccountID) { previousAccountID, newAccountID in
+            guard newAccountID == nil else { return }
+
+            automaticBackup?.cancelPending()
+
+            // An explicit sign-out (or a lost authenticated session) must leave
+            // the training UI immediately. Local data stays intact, but access
+            // returns to the account entry screen until the athlete signs in or
+            // deliberately chooses the local-only escape hatch.
+            if previousAccountID != nil {
+                selectedTab = .home
+                accountReady = false
             }
         }
         .task(id: scenePhase) {

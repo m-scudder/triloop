@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import UIKit
 
 /// Account entry for launch.
 ///
@@ -19,28 +20,32 @@ struct AccountAccessView: View {
     @State private var hasLocalTraining = false
 
     var body: some View {
-        NavigationStack {
-            Group {
-                switch authentication.state {
-                case .checking:
-                    ProgressView("Checking your account…")
+        ZStack {
+            Color(uiColor: .systemBackground)
+                .ignoresSafeArea()
 
-                case .signedOut:
-                    signInContent
+            switch authentication.state {
+            case .checking:
+                statusContent(
+                    title: "Getting TriLoop ready",
+                    detail: "Checking your account…"
+                )
 
-                case .signingIn:
-                    ProgressView("Signing in…")
+            case .signedOut:
+                signInContent
 
-                case .signedIn(let session):
-                    signedInContent(session)
+            case .signingIn:
+                statusContent(
+                    title: "Signing in",
+                    detail: "Connecting securely with Apple…"
+                )
 
-                case .failed(let message):
-                    failureContent(message)
-                }
+            case .signedIn(let session):
+                signedInContent(session)
+
+            case .failed(let message):
+                failureContent(message)
             }
-            .padding(24)
-            .navigationTitle("TriLoop")
-            .navigationBarTitleDisplayMode(.inline)
         }
         .task {
             hasLocalTraining = (try? LocalTrainingStoreState.hasUserData(modelContext)) == true
@@ -52,104 +57,240 @@ struct AccountAccessView: View {
     }
 
     private var signInContent: some View {
-        VStack(spacing: 24) {
-            Spacer()
+        VStack(spacing: 0) {
+            Spacer(minLength: 36)
 
-            Image(systemName: "figure.run.circle.fill")
-                .font(.system(size: 64))
-                .accessibilityHidden(true)
+            VStack(spacing: 26) {
+                disciplineMark
 
-            VStack(spacing: 8) {
-                Text("Your training, backed up")
-                    .font(.title2.weight(.bold))
-                Text("Sign in to protect your plans, completed workouts and reports. Training still works from this iPhone when you're offline.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
+                VStack(spacing: 10) {
+                    Text("TriLoop")
+                        .font(.system(size: 42, weight: .bold, design: .rounded))
+                        .tracking(-1)
 
-            AppleSignInButtonView { credential in
-                let session = try await authentication.signInWithApple(credential)
-                await resolveAfterSignIn(session, seedLocalBackup: true)
-            }
+                    Text("Train. Learn. Adapt.")
+                        .font(.title3.weight(.semibold))
 
-            if hasLocalTraining {
-                Button("Continue on this iPhone") {
-                    onContinueOffline()
+                    Text("Adaptive training for running, cycling and swimming — built around what you actually do.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(3)
+                        .frame(maxWidth: 360)
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
             }
 
-            Spacer()
+            Spacer(minLength: 44)
+
+            VStack(spacing: 14) {
+                AppleSignInButtonView { credential in
+                    let session = try await authentication.signInWithApple(credential)
+                    await resolveAfterSignIn(session, seedLocalBackup: true)
+                }
+
+                if hasLocalTraining {
+                    Button("Continue on this iPhone") {
+                        onContinueOffline()
+                    }
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .padding(.vertical, 6)
+                }
+
+                Text(hasLocalTraining
+                     ? "Your existing training stays on this iPhone. Sign in whenever you want cloud backup and restore."
+                     : "Your training stays on this iPhone first. Signing in adds cloud backup and restore.")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(2)
+                    .frame(maxWidth: 360)
+            }
+            .frame(maxWidth: 420)
+
+            Spacer(minLength: 24)
         }
+        .padding(.horizontal, 24)
+        .padding(.vertical, 20)
+    }
+
+    private var disciplineMark: some View {
+        HStack(spacing: 10) {
+            disciplineSymbol("figure.run")
+            disciplineSymbol("bicycle")
+            disciplineSymbol("figure.pool.swim")
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Running, cycling and swimming")
+    }
+
+    private func disciplineSymbol(_ name: String) -> some View {
+        Image(systemName: name)
+            .font(.system(size: 23, weight: .semibold))
+            .symbolRenderingMode(.hierarchical)
+            .frame(width: 58, height: 58)
+            .background(.fill.tertiary, in: .circle)
     }
 
     @ViewBuilder
     private func signedInContent(_ session: AccountSession) -> some View {
         if isCheckingBackup {
-            ProgressView("Checking for training data…")
+            statusContent(
+                title: "Checking your training",
+                detail: "Looking for your latest backup…"
+            )
         } else if let restoreCandidate {
             restoreContent(restoreCandidate, session: session)
         } else if let accountError {
             failureContent(accountError)
         } else {
-            ProgressView()
+            statusContent(
+                title: "Almost there",
+                detail: "Preparing your training…"
+            )
         }
+    }
+
+    private func statusContent(title: String, detail: String) -> some View {
+        VStack(spacing: 22) {
+            disciplineMark
+
+            VStack(spacing: 8) {
+                Text(title)
+                    .font(.title2.weight(.semibold))
+                Text(detail)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+
+            ProgressView()
+                .controlSize(.regular)
+        }
+        .padding(28)
     }
 
     private func restoreContent(_ envelope: BackupEnvelope, session: AccountSession) -> some View {
-        VStack(spacing: 24) {
-            Spacer()
+        VStack(spacing: 0) {
+            Spacer(minLength: 28)
 
-            Image(systemName: "icloud.and.arrow.down")
-                .font(.system(size: 54))
-                .accessibilityHidden(true)
+            VStack(spacing: 14) {
+                Image(systemName: "icloud.and.arrow.down.fill")
+                    .font(.system(size: 42, weight: .medium))
+                    .symbolRenderingMode(.hierarchical)
+                    .frame(width: 82, height: 82)
+                    .background(.fill.tertiary, in: .circle)
+                    .accessibilityHidden(true)
 
-            VStack(spacing: 8) {
-                Text("Training data found")
-                    .font(.title2.weight(.bold))
-                Text(restoreSummary(envelope))
+                Text("Welcome back")
+                    .font(.largeTitle.weight(.bold))
+
+                Text("We found your latest TriLoop backup.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
             }
 
-            Button("Restore my training") {
-                restore(session)
-            }
-            .buttonStyle(PrimaryActionButtonStyle())
+            Spacer(minLength: 34)
 
-            Button("Sign Out", role: .cancel) {
-                Task { try? await authentication.signOut() }
-            }
+            Card {
+                VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        SectionEyebrow(text: "Last backup")
+                        Text(envelope.createdAt.formatted(date: .abbreviated, time: .shortened))
+                            .font(.body.weight(.medium))
+                    }
 
-            Spacer()
-        }
-    }
+                    Divider()
 
-    private func failureContent(_ message: String) -> some View {
-        ContentUnavailableView {
-            Label("Account unavailable", systemImage: "exclamationmark.icloud")
-        } description: {
-            Text(message)
-        } actions: {
-            Button("Try Again") {
-                Task {
-                    accountError = nil
-                    await authentication.refresh()
-                    if case .signedIn(let session) = authentication.state {
-                        await resolveAfterSignIn(session, seedLocalBackup: false)
+                    HStack(alignment: .top, spacing: 12) {
+                        StatTile(
+                            value: "\(envelope.snapshot.plans.count)",
+                            label: envelope.snapshot.plans.count == 1 ? "Training week" : "Training weeks"
+                        )
+
+                        StatTile(
+                            value: "\(completedWorkoutCount(envelope))",
+                            label: "Completed"
+                        )
                     }
                 }
             }
+            .frame(maxWidth: 420)
 
-            if hasLocalTraining {
-                Button("Continue on this iPhone") {
-                    onContinueOffline()
+            Spacer(minLength: 28)
+
+            VStack(spacing: 12) {
+                Button("Restore my training") {
+                    restore(session)
+                }
+                .buttonStyle(PrimaryActionButtonStyle())
+
+                Button("Sign Out", role: .cancel) {
+                    Task { try? await authentication.signOut() }
+                }
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.secondary)
+                .padding(.vertical, 6)
+            }
+            .frame(maxWidth: 420)
+
+            Spacer(minLength: 20)
+        }
+        .padding(.horizontal, 24)
+        .padding(.vertical, 20)
+    }
+
+    private func failureContent(_ message: String) -> some View {
+        VStack(spacing: 0) {
+            Spacer()
+
+            VStack(spacing: 18) {
+                Image(systemName: "exclamationmark.icloud.fill")
+                    .font(.system(size: 42, weight: .medium))
+                    .symbolRenderingMode(.hierarchical)
+                    .frame(width: 82, height: 82)
+                    .background(.fill.tertiary, in: .circle)
+                    .accessibilityHidden(true)
+
+                VStack(spacing: 8) {
+                    Text("Account unavailable")
+                        .font(.title2.weight(.semibold))
+
+                    Text(message)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(2)
                 }
             }
+            .frame(maxWidth: 420)
+
+            Spacer()
+
+            VStack(spacing: 12) {
+                Button("Try Again") {
+                    Task {
+                        accountError = nil
+                        await authentication.refresh()
+                        if case .signedIn(let session) = authentication.state {
+                            await resolveAfterSignIn(session, seedLocalBackup: false)
+                        }
+                    }
+                }
+                .buttonStyle(PrimaryActionButtonStyle())
+
+                if hasLocalTraining {
+                    Button("Continue on this iPhone") {
+                        onContinueOffline()
+                    }
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .padding(.vertical, 6)
+                }
+            }
+            .frame(maxWidth: 420)
         }
+        .padding(.horizontal, 24)
+        .padding(.vertical, 28)
     }
 
     @MainActor
@@ -201,14 +342,11 @@ struct AccountAccessView: View {
         }
     }
 
-    private func restoreSummary(_ envelope: BackupEnvelope) -> String {
-        let weeks = envelope.snapshot.plans.count
-        let completed = envelope.snapshot.plans
+    private func completedWorkoutCount(_ envelope: BackupEnvelope) -> Int {
+        envelope.snapshot.plans
             .flatMap(\.workouts)
             .filter { $0.status == .completed }
             .count
-        let date = envelope.createdAt.formatted(date: .abbreviated, time: .shortened)
-        return "Last backup: \(date)\n\(weeks) training \(weeks == 1 ? "week" : "weeks") · \(completed) completed workouts"
     }
 }
 
