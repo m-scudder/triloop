@@ -63,7 +63,7 @@ struct DeveloperToolsView: View {
                 ShadowEvaluationView()
             }
         } footer: {
-            Text("Everything in Health, including activities TriLoop does not train. Read-only, with load, intensity and sport balance computed from the workouts you filter to.\n\nShadow evaluation compares the training engine's decision with what the intelligence signals suggest. It never changes your plan.")
+            Text("Everything in Health, including activities Athevia does not train. Read-only, with load, intensity and sport balance computed from the workouts you filter to.\n\nShadow evaluation compares the training engine's decision with what the intelligence signals suggest. It never changes your plan.")
         }
     }
 
@@ -175,7 +175,7 @@ struct DeveloperToolsView: View {
                 } header: {
                     Text("Simulated Apple Health")
                 } footer: {
-                    Text("Stands in for an import so Workout Detail shows a Recorded section. Uses TriLoop's own model, not HealthKit.")
+                    Text("Stands in for an import so Workout Detail shows a Recorded section. Uses Athevia's own model, not HealthKit.")
                 }
 
                 Section {
