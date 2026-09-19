@@ -56,6 +56,47 @@ struct WorkoutExecutionTests {
         #expect(engine.result?.elapsedSeconds == 15)
     }
 
+    @Test("A long resume gap advances only the active set")
+    func longResumeGapDoesNotCascade() {
+        let start = Date(timeIntervalSince1970: 1_000)
+        var engine = WorkoutExecutionEngine(plan: plan(
+            WorkoutStep(order: 0, kind: .work, title: "Run", durationSeconds: 10),
+            WorkoutStep(order: 1, kind: .recovery, title: "Walk", durationSeconds: 10),
+            WorkoutStep(order: 2, kind: .work, title: "Run again", durationSeconds: 10)
+        ))
+
+        engine.start(now: start)
+        engine.advance(
+            by: 30,
+            now: start.addingTimeInterval(30),
+            allowsCascading: false
+        )
+
+        #expect(engine.currentIndex == 1)
+        #expect(engine.currentStep?.title == "Walk")
+        #expect(engine.stepElapsedSeconds == 0)
+        #expect(engine.elapsedSeconds == 10)
+        #expect(engine.phase == .running)
+    }
+
+    @Test("Completing a paused set starts the next set")
+    func pausedCompletionStartsNextSet() {
+        var engine = WorkoutExecutionEngine(plan: plan(
+            WorkoutStep(order: 0, kind: .work, title: "Swim 100m", distanceMeters: 100),
+            WorkoutStep(order: 1, kind: .recovery, title: "Rest", durationSeconds: 30)
+        ))
+
+        engine.start()
+        engine.advance(by: 20)
+        engine.pause()
+        engine.completeCurrentStep()
+
+        #expect(engine.currentIndex == 1)
+        #expect(engine.currentStep?.title == "Rest")
+        #expect(engine.stepElapsedSeconds == 0)
+        #expect(engine.phase == .running)
+    }
+
     @Test("Paused time does not count")
     func pauseStopsClock() {
         var engine = WorkoutExecutionEngine(plan: plan(
