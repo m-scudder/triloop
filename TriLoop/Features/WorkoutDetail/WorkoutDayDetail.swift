@@ -158,29 +158,27 @@ struct WorkoutDayDetail: View {
     /// The two numbers stay visible in analysis instead of being hidden inside a
     /// disclosure, so the target-versus-actual comparison is immediately clear.
     private func effortComparison(target: RPERange, feedback: WorkoutFeedback) -> some View {
-        Card(padding: 10) {
-            HStack(spacing: 12) {
-                SectionEyebrow(text: "Effort")
+        HStack(spacing: 12) {
+            SectionEyebrow(text: "Effort")
 
-                Spacer(minLength: 8)
+            Spacer(minLength: 8)
 
-                compactEffortStat(
-                    value: TrainingFormatter.rpe(target),
-                    label: "Target"
-                )
-                .frame(width: 78)
+            compactEffortStat(
+                value: TrainingFormatter.rpe(target),
+                label: "Target"
+            )
+            .frame(width: 78)
 
-                compactEffortStat(
-                    value: "\(feedback.rpe) / 10",
-                    label: "Actual"
-                )
-                .frame(width: 78)
+            compactEffortStat(
+                value: "\(feedback.rpe) / 10",
+                label: "Actual"
+            )
+            .frame(width: 78)
 
-                InfoButton(
-                    title: "Effort",
-                    explanation: "Target effort is calculated from the workout TriLoop planned. Actual effort comes from the report you shared after the workout."
-                )
-            }
+            InfoButton(
+                title: "Effort",
+                explanation: "Target effort is calculated from the workout TriLoop planned. Actual effort comes from the report you shared after the workout."
+            )
         }
     }
 
