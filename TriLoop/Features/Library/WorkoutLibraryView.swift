@@ -13,6 +13,23 @@ struct WorkoutLibraryView: View {
     var body: some View {
         List {
             Section {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Custom Workouts")
+                        .font(.headline)
+
+                    Text("Build your own run, ride, or swim and add it to your training week.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+
+                    Button("How it works") {
+                        isShowingCustomWorkoutExplainer = true
+                    }
+                    .font(.subheadline.weight(.medium))
+                }
+                .padding(.vertical, 4)
+            }
+
+            Section {
                 Picker("Sport", selection: $sport) {
                     ForEach(Sport.allCases, id: \.self) { sport in
                         Text(sport.displayName).tag(sport)
@@ -45,6 +62,9 @@ struct WorkoutLibraryView: View {
         }
         .navigationTitle("Workouts")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $isShowingCustomWorkoutExplainer) {
+            CustomWorkoutExplainerView()
+        }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 NavigationLink {
@@ -110,6 +130,87 @@ struct WorkoutLibraryView: View {
         return parts.joined(separator: " · ")
     }
 }
+
+private struct CustomWorkoutExplainerView: View {
+    @Environment(\\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Build your own workout")
+                            .font(.title2.weight(.semibold))
+
+                        Text("Create a run, ride, or swim that fits what you want to do, then add it to your current training week.")
+                            .foregroundStyle(.secondary)
+                    }
+
+                    ExplainerStep(
+                        number: 1,
+                        title: "Build it",
+                        detail: "Choose a sport and combine warm-up, work, recovery, repeat, and cool-down blocks."
+                    )
+                    ExplainerStep(
+                        number: 2,
+                        title: "Add it to your plan",
+                        detail: "Pick a day. If another session is already planned, you can add yours alongside it or replace the uncompleted session."
+                    )
+                    ExplainerStep(
+                        number: 3,
+                        title: "Train it normally",
+                        detail: "It appears in Today and works with workout tracking, Apple Watch, Health imports, and post-workout feedback."
+                    )
+                    ExplainerStep(
+                        number: 4,
+                        title: "Reuse it anytime",
+                        detail: "Saved workouts stay in My Workouts, so you can add them again in future weeks."
+                    )
+
+                    Text("Custom workouts are sessions you choose yourself. They are kept separate from the training TriLoop prescribed for you.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .padding(.top, 4)
+                }
+                .padding(20)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .navigationTitle("Custom Workouts")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+}
+
+private struct ExplainerStep: View {
+    let number: Int
+    let title: String
+    let detail: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 14) {
+            Text("\\(number)")
+                .font(.subheadline.weight(.semibold))
+                .frame(width: 28, height: 28)
+                .background(.fill.tertiary, in: Circle())
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.headline)
+
+                Text(detail)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
 
 /// A reusable workout, shown with the same language as Workout Detail.
 struct WorkoutTemplateDetailView: View {
