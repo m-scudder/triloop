@@ -38,7 +38,7 @@ struct AboutYouStepView: View {
         ) {
             OnboardingHeader(
                 title: "When were you born?",
-                subtitle: "This sets your heart-rate zones, so TriLoop can tell an easy session from a hard one."
+                subtitle: "This sets your heart-rate zones, so Athevia can tell an easy session from a hard one."
             )
 
             DatePicker(
@@ -55,7 +55,7 @@ struct AboutYouStepView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Estimated maximum heart rate: \(Int(maximum)) bpm")
                         .font(.subheadline)
-                    Text("A population average, so it can be out by 10 bpm either way. If you record a harder effort than this, TriLoop uses what you actually did.")
+                    Text("A population average, so it can be out by 10 bpm either way. If you record a harder effort than this, Athevia uses what you actually did.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
