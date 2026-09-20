@@ -489,6 +489,7 @@
 				INFOPLIST_FILE = Athevia/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Athevia;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Athevia reads your completed running, swimming and cycling workouts so it can analyse each week and adapt the next one.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Athevia may save workout data to Apple Health when you record or complete workouts in the app.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Athevia uses your location during in-app runs and rides to record distance, pace, and your route.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -522,6 +523,7 @@
 				INFOPLIST_FILE = Athevia/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Athevia;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Athevia reads your completed running, swimming and cycling workouts so it can analyse each week and adapt the next one.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Athevia may save workout data to Apple Health when you record or complete workouts in the app.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Athevia uses your location during in-app runs and rides to record distance, pace, and your route.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
