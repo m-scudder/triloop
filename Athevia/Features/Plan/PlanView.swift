@@ -70,6 +70,9 @@ struct PlanView: View {
                                 workout: workout,
                                 showsManagementMenu: true
                             )
+                            .safeAreaInset(edge: .bottom, spacing: 0) {
+                                PlanWatchAction(workout: workout)
+                            }
                             .id(workout.id)
                         } else {
                             ContentUnavailableView(
@@ -146,6 +149,107 @@ struct PlanView: View {
             abs($0.date.timeIntervalSince(now)) < abs($1.date.timeIntervalSince(now))
         }
         if let nearest { selection = nearest.date }
+    }
+}
+
+/// Kept on Plan so the selected session has a visible Watch action above the tabs.
+private struct PlanWatchAction: View {
+    let workout: PlannedWorkout
+    var scheduler: any WorkoutScheduling = WorkoutKitScheduler()
+
+    @State private var isSending = false
+    @State private var message: String?
+    @State private var finishedOnWatch = false
+
+    private var canSend: Bool {
+        workout.discipline.isTrainingSession
+            && !workout.isCompleted
+            && !workout.isSkipped
+            && !workout.hasReport
+            && workout.importedSummary == nil
+            && !finishedOnWatch
+    }
+
+    var body: some View {
+        Group {
+            if canSend {
+                VStack(spacing: 0) {
+                    Divider()
+                    Button(action: send) {
+                        HStack(spacing: 8) {
+                            if isSending {
+                                ProgressView().tint(.white)
+                            } else {
+                                Image(systemName: "applewatch")
+                            }
+                            Text(isSending ? "Sending…" : "Send to Watch")
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(PrimaryActionButtonStyle())
+                    .disabled(isSending)
+                    .accessibilityIdentifier("plan.sendToWatch")
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 12)
+                }
+                .background(.regularMaterial)
+            }
+        }
+        .alert("Apple Watch", isPresented: Binding(
+            get: { message != nil },
+            set: { if !$0 { message = nil } }
+        )) {
+            Button("OK", role: .cancel) { message = nil }
+        } message: {
+            Text(message ?? "")
+        }
+    }
+
+    private func send() {
+        guard canSend, !isSending else { return }
+        isSending = true
+        Task { @MainActor in
+            defer { isSending = false }
+            do {
+                guard scheduler.isSupported else { throw WorkoutSchedulingError.unavailable }
+                guard WorkoutPlanBuilder.plan(for: workout) != nil else {
+                    throw WorkoutSchedulingError.unsupportedWorkout
+                }
+                guard await scheduler.requestAuthorization() == .authorized else {
+                    throw WorkoutSchedulingError.notAuthorized
+                }
+
+                let entries = await scheduler.scheduledWorkouts().filter { $0.id == workout.id }
+                if entries.contains(where: \.isComplete) {
+                    finishedOnWatch = true
+                    message = "This workout is already complete on your Watch. Its details are waiting to sync."
+                    return
+                }
+                guard canSend else { return }
+
+                // Explicitly resend the selected session, replacing its old copy
+                // so repeated taps cannot accumulate different scheduled times.
+                let existingDate = entries.compactMap(\.date).first {
+                    Calendar.current.isDate($0, inSameDayAs: workout.date)
+                }
+                if !entries.isEmpty {
+                    await scheduler.removeScheduled(ids: [workout.id])
+                }
+                try await scheduler.schedule(
+                    workout,
+                    at: existingDate ?? workout.suggestedScheduleDate()
+                )
+                message = "Scheduled for your Apple Watch. Look for “\(WorkoutPlanBuilder.displayName(for: workout))” in the Workout app after it syncs."
+            } catch WorkoutSchedulingError.unavailable {
+                message = "Workout scheduling is unavailable. Check that an Apple Watch is paired with this iPhone."
+            } catch WorkoutSchedulingError.notAuthorized {
+                message = "Allow Athevia to add workouts in your Apple Watch Workout settings, then try again."
+            } catch WorkoutSchedulingError.unsupportedWorkout {
+                message = "This workout cannot be sent to Apple Watch."
+            } catch {
+                message = "The workout could not be scheduled. Check your Watch connection and try again."
+            }
+        }
     }
 }
 

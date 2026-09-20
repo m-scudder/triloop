@@ -261,8 +261,8 @@ struct WorkoutDayDetail: View {
         }
     }
 
-    /// Only schedule-management actions live here. Mark-as-done and Watch
-    /// actions belong exclusively to Home.
+    /// Schedule-management actions live here. Plan adds its Watch action in a
+    /// bottom inset; marking a workout as done belongs to Home.
     private var managementMenu: some View {
         Menu {
             if canSkip {
