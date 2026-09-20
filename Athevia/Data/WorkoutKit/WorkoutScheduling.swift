@@ -50,12 +50,23 @@ extension WorkoutScheduling {
 /// Records what would have been scheduled, for previews and tests.
 final class StubWorkoutScheduler: WorkoutScheduling, @unchecked Sendable {
     var isSupported: Bool
-    private(set) var scheduled: [(workoutID: UUID, date: Date)] = []
+    private var entries: [ScheduledWorkoutSummary]
+    var scheduled: [(workoutID: UUID, date: Date)] {
+        entries.compactMap { entry in
+            guard let date = entry.date else { return nil }
+            return (entry.id, date)
+        }
+    }
     private var state: WorkoutSchedulingAuthorization
 
-    init(isSupported: Bool = true, state: WorkoutSchedulingAuthorization = .authorized) {
+    init(
+        isSupported: Bool = true,
+        state: WorkoutSchedulingAuthorization = .authorized,
+        entries: [ScheduledWorkoutSummary] = []
+    ) {
         self.isSupported = isSupported
         self.state = state
+        self.entries = entries
     }
 
     func authorizationState() async -> WorkoutSchedulingAuthorization { state }
@@ -71,25 +82,23 @@ final class StubWorkoutScheduler: WorkoutScheduling, @unchecked Sendable {
         guard WorkoutPlanBuilder.plan(for: workout) != nil else {
             throw WorkoutSchedulingError.unsupportedWorkout
         }
-        scheduled.append((workout.id, date))
+        entries.append(ScheduledWorkoutSummary(
+            id: workout.id,
+            displayName: WorkoutPlanBuilder.displayName(for: workout),
+            date: date,
+            isComplete: false
+        ))
     }
 
     func scheduledWorkouts() async -> [ScheduledWorkoutSummary] {
-        scheduled.map {
-            ScheduledWorkoutSummary(
-                id: $0.workoutID,
-                displayName: nil,
-                date: $0.date,
-                isComplete: false
-            )
-        }
+        entries
     }
 
     func removeScheduled(ids: Set<UUID>) async {
-        scheduled.removeAll { ids.contains($0.workoutID) }
+        entries.removeAll { ids.contains($0.id) }
     }
 
     func removeAllScheduled() async {
-        scheduled.removeAll()
+        entries.removeAll()
     }
 }

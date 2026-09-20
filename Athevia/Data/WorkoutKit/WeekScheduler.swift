@@ -4,8 +4,8 @@ import WorkoutKit
 /// Schedules a whole week to Apple Watch in one action.
 ///
 /// Per-workout scheduling means opening each session in turn, which is more
-/// effort than the week is worth. This is idempotent: sessions already on the
-/// Watch are left alone, so it can be run repeatedly and on every launch.
+/// effort than the week is worth. Unchanged sessions are left alone, while
+/// renamed sessions are replaced without changing their scheduled time.
 @MainActor
 struct WeekScheduler {
     var scheduler: any WorkoutScheduling = WorkoutKitScheduler()
@@ -36,7 +36,8 @@ struct WeekScheduler {
         // session, one already reported, or a leftover from a week that has
         // since been regenerated. Left alone it accumulates until the athlete
         // cannot find today's workout.
-        let existing = await scheduler.scheduledWorkoutIDs()
+        let entries = await scheduler.scheduledWorkouts()
+        let existing = Set(entries.map(\.id))
         let stale = existing.subtracting(wanted.map(\.id))
         if !stale.isEmpty {
             await scheduler.removeScheduled(ids: stale)
@@ -50,14 +51,30 @@ struct WeekScheduler {
         )
 
         for workout in wanted {
-            if existing.contains(workout.id) {
+            let matching = entries.filter { $0.id == workout.id }
+            // A completed Watch workout may still be waiting for Health to sync.
+            // Renaming must never replace it with an uncompleted session.
+            if matching.contains(where: \.isComplete) {
                 outcome.alreadyScheduled += 1
                 continue
+            }
+            if !matching.isEmpty,
+               matching.allSatisfy({ $0.displayName == WorkoutPlanBuilder.displayName(for: workout) }) {
+                outcome.alreadyScheduled += 1
+                continue
+            }
+
+            if !matching.isEmpty {
+                await scheduler.removeScheduled(ids: [workout.id])
+                outcome.removed += 1
+                remaining += 1
             }
             guard remaining > 0 else { break }
 
             do {
-                try await scheduler.schedule(workout, at: workout.suggestedScheduleDate(now: now, calendar: calendar))
+                let date = matching.first?.date
+                    ?? workout.suggestedScheduleDate(now: now, calendar: calendar)
+                try await scheduler.schedule(workout, at: date)
                 outcome.added += 1
                 remaining -= 1
             } catch {

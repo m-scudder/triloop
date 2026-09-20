@@ -54,6 +54,59 @@ struct WeekSchedulerTests {
         #expect(stub.scheduled.count == 6)
     }
 
+    @Test("Previously sent plain titles are refreshed once without moving the workout")
+    func legacyNamesAreRefreshed() async throws {
+        let plan = plan()
+        let entries = plan.trainingSessions.map { workout in
+            ScheduledWorkoutSummary(
+                id: workout.id,
+                displayName: workout.title,
+                date: workout.suggestedScheduleDate(now: date(day: 17), calendar: calendar),
+                isComplete: false
+            )
+        }
+        let stub = StubWorkoutScheduler(entries: entries)
+        let scheduler = weekScheduler(stub)
+
+        // Sync later: the rename must retain the original scheduled time.
+        let outcome = await scheduler.scheduleWeek(plan, now: date(day: 17, hour: 12))
+        #expect(outcome.removed == entries.count)
+        #expect(outcome.added == entries.count)
+        #expect(outcome.failed == 0)
+
+        let updated = await stub.scheduledWorkouts()
+        #expect(updated.count == entries.count)
+        for original in entries {
+            let entry = try #require(updated.first { $0.id == original.id })
+            #expect(entry.date == original.date)
+            #expect(entry.displayName == "Athevia - " + (original.displayName ?? ""))
+        }
+
+        let again = await scheduler.scheduleWeek(plan, now: date(day: 17, hour: 13))
+        #expect(!again.changedAnything)
+        #expect(again.alreadyScheduled == entries.count)
+    }
+
+    @Test("Renaming preserves a Watch completion waiting to import")
+    func completedWatchEntryIsNotRenamed() async throws {
+        let plan = plan()
+        let workout = try #require(plan.trainingSessions.first)
+        let completed = ScheduledWorkoutSummary(
+            id: workout.id,
+            displayName: workout.title,
+            date: date(day: 17, hour: 7),
+            isComplete: true
+        )
+        let stub = StubWorkoutScheduler(entries: [completed])
+
+        let outcome = await weekScheduler(stub).scheduleWeek(plan, now: date(day: 17))
+
+        #expect(outcome.removed == 0)
+        #expect(outcome.alreadyScheduled == 1)
+        let entries = await stub.scheduledWorkouts()
+        #expect(entries.first { $0.id == workout.id } == completed)
+    }
+
     @Test("Days that have already gone are skipped")
     func pastDaysAreSkipped() async {
         let stub = StubWorkoutScheduler()

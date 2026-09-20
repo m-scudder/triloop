@@ -102,11 +102,11 @@ enum WorkoutPlanBuilder {
         )
     }
 
-    /// Plain, and deliberately so: a decorated name stopped workouts appearing
-    /// in the Watch's Workout app, so this stays as the session's own title
-    /// until that is understood.
-    private static func displayName(for workout: PlannedWorkout) -> String {
-        workout.title
+    /// Identify the source on the Watch while retaining the session's title.
+    /// Use plain text so the name stays easy to read on a small display.
+    static func displayName(for workout: PlannedWorkout) -> String {
+        let prefix = "Athevia - "
+        return workout.title.hasPrefix(prefix) ? workout.title : prefix + workout.title
     }
 
     private static func convert(_ step: WorkoutStep) -> WorkoutKit.WorkoutStep {
