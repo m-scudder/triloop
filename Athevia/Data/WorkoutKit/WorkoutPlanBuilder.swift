@@ -62,6 +62,11 @@ enum WorkoutPlanBuilder {
         let activity = sport.workoutActivityType
         guard CustomWorkout.supportsActivity(activity) else { return nil }
 
+        // Step display names require watchOS 11. The iPhone's API availability
+        // does not describe the paired Watch, so run/cycle exports use the
+        // watchOS 10 step format. The workout-level Athevia title is retained.
+        let includeStepNames = sport == .swimming
+
         var warmup: WorkoutKit.WorkoutStep?
         var cooldown: WorkoutKit.WorkoutStep?
         var blocks: [IntervalBlock] = []
@@ -69,14 +74,14 @@ enum WorkoutPlanBuilder {
         for step in workout.orderedSteps {
             switch step.kind {
             case .warmUp:
-                warmup = convert(step)
+                warmup = convert(step, includeStepNames: includeStepNames)
 
             case .cooldown:
-                cooldown = convert(step)
+                cooldown = convert(step, includeStepNames: includeStepNames)
 
             case .repeatBlock:
                 let children = step.orderedChildren.map {
-                    IntervalStep($0.purpose, step: convert($0))
+                    IntervalStep($0.purpose, step: convert($0, includeStepNames: includeStepNames))
                 }
                 guard !children.isEmpty else { continue }
                 blocks.append(
@@ -85,7 +90,13 @@ enum WorkoutPlanBuilder {
 
             case .work, .recovery:
                 blocks.append(
-                    IntervalBlock(steps: [IntervalStep(step.purpose, step: convert(step))], iterations: 1)
+                    IntervalBlock(
+                        steps: [IntervalStep(
+                            step.purpose,
+                            step: convert(step, includeStepNames: includeStepNames)
+                        )],
+                        iterations: 1
+                    )
                 )
             }
         }
@@ -109,8 +120,14 @@ enum WorkoutPlanBuilder {
         return workout.title.hasPrefix(prefix) ? workout.title : prefix + workout.title
     }
 
-    private static func convert(_ step: WorkoutStep) -> WorkoutKit.WorkoutStep {
-        WorkoutKit.WorkoutStep(goal: goal(for: step), displayName: step.title)
+    private static func convert(
+        _ step: WorkoutStep,
+        includeStepNames: Bool
+    ) -> WorkoutKit.WorkoutStep {
+        if includeStepNames {
+            return WorkoutKit.WorkoutStep(goal: goal(for: step), displayName: step.title)
+        }
+        return WorkoutKit.WorkoutStep(goal: goal(for: step))
     }
 
     /// Duration wins over distance: every Athevia step that has both is

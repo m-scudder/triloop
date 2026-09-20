@@ -41,14 +41,19 @@ struct WorkoutPlanBuilderTests {
         #expect(block.steps.last?.step.goal == .time(120, .seconds))
     }
 
-    @Test("Step titles travel to the Watch")
-    func stepNamesArePreserved() throws {
-        let workout = try #require(WorkoutPlanBuilder.customWorkout(for: session(.running)))
-        let block = try #require(workout.blocks.first)
+    @Test(
+        "Run and cycle exports omit watchOS 11 step labels",
+        arguments: [Discipline.running, .cycling]
+    )
+    func runAndCycleUseWatchOS10Steps(_ discipline: Discipline) throws {
+        let source = session(discipline)
+        let workout = try #require(WorkoutPlanBuilder.customWorkout(for: source))
+        let steps = [workout.warmup, workout.cooldown].compactMap { $0 }
+            + workout.blocks.flatMap { $0.steps.map(\.step) }
 
-        #expect(workout.warmup?.displayName == "Brisk walk")
-        #expect(block.steps.first?.step.displayName == "Easy run")
-        #expect(block.steps.last?.step.displayName == "Walk")
+        #expect(!steps.isEmpty)
+        #expect(steps.allSatisfy { $0.displayName == nil })
+        #expect(workout.displayName == "Athevia - " + source.title)
     }
 
     @Test("Swim steps are prescribed by distance")
