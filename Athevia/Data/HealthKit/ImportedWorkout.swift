@@ -26,6 +26,10 @@ struct ImportedWorkout: Equatable, Sendable, Identifiable {
     var metrics: RecordedMetrics
     /// Exact Athevia plan identity when the workout was recorded by Athevia Watch.
     let plannedWorkoutID: UUID?
+    /// Fraction of the concrete structured prescription completed on Athevia Watch.
+    let prescriptionCompletion: Double?
+    let completedPrescriptionSteps: Int?
+    let totalPrescriptionSteps: Int?
     /// Bundle identifier of the app that recorded it, e.g. Apple's Workout app.
     let source: String?
 
@@ -46,6 +50,9 @@ struct ImportedWorkout: Equatable, Sendable, Identifiable {
         longestContinuousSwimMeters: Double? = nil,
         metrics: RecordedMetrics = RecordedMetrics(),
         plannedWorkoutID: UUID? = nil,
+        prescriptionCompletion: Double? = nil,
+        completedPrescriptionSteps: Int? = nil,
+        totalPrescriptionSteps: Int? = nil,
         source: String? = nil
     ) {
         self.healthKitUUID = healthKitUUID
@@ -62,6 +69,9 @@ struct ImportedWorkout: Equatable, Sendable, Identifiable {
         self.longestContinuousSwimMeters = longestContinuousSwimMeters
         self.metrics = metrics
         self.plannedWorkoutID = plannedWorkoutID
+        self.prescriptionCompletion = prescriptionCompletion
+        self.completedPrescriptionSteps = completedPrescriptionSteps
+        self.totalPrescriptionSteps = totalPrescriptionSteps
         self.source = source
     }
 }
