@@ -1,9 +1,9 @@
 import SwiftUI
 
 enum AudioCoachingPreferences {
-    static let enabledKey = "audioCoachingEnabled"
-    static let countdownsKey = "audioCoachingCountdowns"
-    static let volumeKey = "audioCoachingVolume"
+    static let enabledKey = SharedAudioCoachingPreferences.enabledKey
+    static let countdownsKey = SharedAudioCoachingPreferences.countdownsKey
+    static let volumeKey = SharedAudioCoachingPreferences.volumeKey
 }
 
 struct AudioCoachingSettingsView: View {
