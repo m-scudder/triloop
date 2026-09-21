@@ -91,6 +91,13 @@
 			);
 			target = AE0000000000000000000001 /* AtheviaLiveActivity */;
 		};
+		AJ000000000000000000000D /* Exceptions for "AtheviaWatch" folder in "Athevia Watch" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = AG0000000000000000000001 /* Athevia Watch */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -122,6 +129,9 @@
 		};
 		AG0000000000000000000009 /* AtheviaWatch */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				AJ000000000000000000000D /* Exceptions for "AtheviaWatch" folder in "Athevia Watch" target */,
+			);
 			path = AtheviaWatch;
 			sourceTree = "<group>";
 		};
