@@ -57,6 +57,21 @@ struct WatchScheduleSyncTests {
         #expect(stub.scheduled.isEmpty)
     }
 
+    @Test("Overlapping automatic triggers reconcile the week only once")
+    func overlappingSyncsAreSerialized() async {
+        let stub = StubWorkoutScheduler()
+        let week = plan()
+        let now = date(day: 17)
+        let first = Task { await WatchScheduleSync.sync(week, scheduler: stub, now: now) }
+        let second = Task { await WatchScheduleSync.sync(week, scheduler: stub, now: now) }
+
+        let a = await first.value
+        let b = await second.value
+        #expect(a.added + b.added == 6)
+        #expect(a.alreadyScheduled + b.alreadyScheduled == 6)
+        #expect(stub.scheduled.count == 6)
+    }
+
     @Test("No plan is not an error")
     func noPlan() async {
         let stub = StubWorkoutScheduler()

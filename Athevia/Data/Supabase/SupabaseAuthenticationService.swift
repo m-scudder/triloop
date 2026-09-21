@@ -39,12 +39,37 @@ actor SupabaseAuthenticationService: AuthenticationService {
     func signOut() async throws {
         try await client.auth.signOut()
     }
+
+    func deleteAccount() async throws {
+        struct DeleteAccountResponse: Decodable {
+            let deleted: Bool
+        }
+
+        let response: DeleteAccountResponse = try await client.functions.invoke(
+            "delete-account",
+            options: FunctionInvokeOptions(method: .delete)
+        )
+
+        guard response.deleted else {
+            throw SupabaseAuthenticationError.accountDeletionFailed
+        }
+
+        // Account deletion invalidates the remote identity. Clear any cached
+        // local auth session so RootView immediately returns to account entry.
+        try? await client.auth.signOut()
+    }
 }
 
 enum SupabaseAuthenticationError: LocalizedError, Equatable {
     case missingNonce
+    case accountDeletionFailed
 
     var errorDescription: String? {
-        "Apple sign-in could not be verified because its secure nonce is missing."
+        switch self {
+        case .missingNonce:
+            "Apple sign-in could not be verified because its secure nonce is missing."
+        case .accountDeletionFailed:
+            "Your account could not be deleted. Please try again."
+        }
     }
 }

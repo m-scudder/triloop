@@ -5,7 +5,7 @@ import WorkoutKit
 ///
 /// Per-workout scheduling means opening each session in turn, which is more
 /// effort than the week is worth. Unchanged sessions are left alone, while
-/// renamed sessions are replaced without changing their scheduled time.
+/// renamed sessions keep their time and moved sessions follow their planned day.
 @MainActor
 struct WeekScheduler {
     var scheduler: any WorkoutScheduling = WorkoutKitScheduler()
@@ -59,7 +59,10 @@ struct WeekScheduler {
                 continue
             }
             if !matching.isEmpty,
-               matching.allSatisfy({ $0.displayName == WorkoutPlanBuilder.displayName(for: workout) }) {
+               matching.allSatisfy({ entry in
+                   entry.displayName == WorkoutPlanBuilder.displayName(for: workout)
+                       && entry.date.map({ calendar.isDate($0, inSameDayAs: workout.date) }) == true
+               }) {
                 outcome.alreadyScheduled += 1
                 continue
             }
@@ -72,7 +75,12 @@ struct WeekScheduler {
             guard remaining > 0 else { break }
 
             do {
-                let date = matching.first?.date
+                // Preserve the time only when the entry belongs to the planned day.
+                // Otherwise a moved session can remain scheduled for yesterday.
+                let sameDayDate = matching.compactMap(\.date).first {
+                    calendar.isDate($0, inSameDayAs: workout.date)
+                }
+                let date = sameDayDate
                     ?? workout.suggestedScheduleDate(now: now, calendar: calendar)
                 try await scheduler.schedule(workout, at: date)
                 outcome.added += 1

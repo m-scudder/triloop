@@ -32,6 +32,7 @@ protocol AuthenticationService: Sendable {
     func currentSession() async throws -> AccountSession?
     func signInWithApple(_ credential: AppleAuthenticationCredential) async throws -> AccountSession
     func signOut() async throws
+    func deleteAccount() async throws
 }
 
 enum AuthenticationServiceError: LocalizedError, Equatable {
@@ -52,4 +53,7 @@ actor UnconfiguredAuthenticationService: AuthenticationService {
     }
 
     func signOut() async throws {}
+    func deleteAccount() async throws {
+        throw AuthenticationServiceError.notConfigured
+    }
 }

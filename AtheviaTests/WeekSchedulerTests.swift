@@ -139,6 +139,48 @@ struct WeekSchedulerTests {
         #expect(stub.scheduled.isEmpty)
     }
 
+
+    @Test("Moving a scheduled ride to today updates the Watch date once")
+    func movedRideFollowsPlannedDay() async throws {
+        let plan = plan()
+        let ride = try #require(plan.trainingSessions.first { $0.discipline == .cycling })
+        let stub = StubWorkoutScheduler()
+        let scheduler = weekScheduler(stub)
+        _ = await scheduler.scheduleWeek(plan, now: date(day: 17))
+
+        ride.date = date(day: 17, hour: 0)
+        let outcome = await scheduler.scheduleWeek(plan, now: date(day: 17))
+        let entries = await stub.scheduledWorkouts()
+        let updated = try #require(entries.first { $0.id == ride.id })
+        let scheduledDate = try #require(updated.date)
+
+        #expect(outcome.removed == 1)
+        #expect(outcome.added == 1)
+        #expect(calendar.isDate(scheduledDate, inSameDayAs: ride.date))
+        #expect(entries.filter { $0.id == ride.id }.count == 1)
+
+        let again = await scheduler.scheduleWeek(plan, now: date(day: 17, hour: 12))
+        #expect(!again.changedAnything)
+    }
+
+    @Test("A completed Watch workout is preserved even if its planned date changes")
+    func movedCompletedEntryIsPreserved() async throws {
+        let plan = plan()
+        let ride = try #require(plan.trainingSessions.first { $0.discipline == .cycling })
+        let completed = ScheduledWorkoutSummary(
+            id: ride.id,
+            displayName: WorkoutPlanBuilder.displayName(for: ride),
+            date: ride.suggestedScheduleDate(now: date(day: 17), calendar: calendar),
+            isComplete: true
+        )
+        let stub = StubWorkoutScheduler(entries: [completed])
+        ride.date = date(day: 17, hour: 0)
+
+        _ = await weekScheduler(stub).scheduleWeek(plan, now: date(day: 17))
+        let entries = await stub.scheduledWorkouts()
+        #expect(entries.first { $0.id == ride.id } == completed)
+    }
+
     // MARK: - Clearing spent sessions
 
     @Test("A session reported on is taken back off the Watch")

@@ -60,4 +60,14 @@ final class AuthenticationCoordinator {
             throw error
         }
     }
+
+    func deleteAccount() async throws {
+        do {
+            try await service.deleteAccount()
+            state = .signedOut
+        } catch {
+            state = .failed(error.localizedDescription)
+            throw error
+        }
+    }
 }

@@ -3,6 +3,8 @@ import SwiftUI
 struct ConnectionsStepView: View {
     @Bindable var model: OnboardingModel
     @Environment(\.healthProvider) private var health
+    @StateObject private var watch = WatchAvailability.shared
+    @Environment(\.scenePhase) private var scenePhase
     @State private var healthStatus: HealthAuthorizationStatus = .notDetermined
     @State private var watchStatus: WorkoutSchedulingAuthorization = .notDetermined
     @State private var message: String?
@@ -25,18 +27,20 @@ struct ConnectionsStepView: View {
                         .disabled(isConnecting)
                 }
             }
-            Divider()
-            VStack(alignment: .leading, spacing: 12) {
-                Label("Apple Watch", systemImage: "applewatch").font(.headline)
-                Text("Send your sessions to the Workout app on your wrist.")
-                if !scheduler.isSupported || watchStatus == .restricted {
-                    Text("Workout scheduling is unavailable on this device.")
-                } else if watchStatus == .authorized {
-                    Label("Scheduling allowed", systemImage: "checkmark.circle")
-                } else {
-                    Button("Set Up Apple Watch", action: connectWatch)
-                        .buttonStyle(SecondaryActionButtonStyle())
-                        .disabled(isConnecting)
+            if watch.canSchedule {
+                Divider()
+                VStack(alignment: .leading, spacing: 12) {
+                    Label("Apple Watch", systemImage: "applewatch").font(.headline)
+                    Text("Send your sessions to the Workout app on your wrist.")
+                    if !scheduler.isSupported || watchStatus == .restricted {
+                        Text("Workout scheduling is unavailable on this device.")
+                    } else if watchStatus == .authorized {
+                        Label("Scheduling allowed", systemImage: "checkmark.circle")
+                    } else {
+                        Button("Set Up Apple Watch", action: connectWatch)
+                            .buttonStyle(SecondaryActionButtonStyle())
+                            .disabled(isConnecting)
+                    }
                 }
             }
             if let message {
@@ -46,7 +50,9 @@ struct ConnectionsStepView: View {
             Button("Not Now", action: model.advance)
                 .frame(minHeight: 44)
         }
-        .task {
+        .task(id: scenePhase) {
+            guard scenePhase == .active else { return }
+            watch.refresh()
             healthStatus = await health.authorizationStatus
             watchStatus = await scheduler.authorizationState()
         }
@@ -67,6 +73,7 @@ struct ConnectionsStepView: View {
     }
 
     private func connectWatch() {
+        guard watch.canSchedule else { return }
         isConnecting = true
         Task {
             defer { isConnecting = false }

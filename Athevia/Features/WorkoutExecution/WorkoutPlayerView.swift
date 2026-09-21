@@ -2,8 +2,7 @@ import Combine
 import SwiftUI
 
 /// Executes the exact prescription already stored on the workout.
-/// Opening this screen starts execution immediately; there is no second
-/// prescription/Start screen between Home and the active workout.
+/// Opening this screen prepares audio when enabled, then starts execution.
 struct WorkoutPlayerView: View {
     let workout: PlannedWorkout
     let onFinish: (WorkoutExecutionResult) -> Void
@@ -11,6 +10,16 @@ struct WorkoutPlayerView: View {
 
     @State private var engine: WorkoutExecutionEngine
     @StateObject private var locationTracker: WorkoutLocationTracker
+    @StateObject private var coach = WorkoutAudioCoach()
+    @AppStorage(AudioCoachingPreferences.enabledKey) private var coachingEnabled = true
+    @AppStorage(AudioCoachingPreferences.countdownsKey) private var coachingCountdowns = true
+    @AppStorage(AudioCoachingPreferences.volumeKey) private var coachingVolume = 0.8
+    @State private var audioClock = WorkoutPlaybackClock()
+    @State private var preparationComplete = false
+    @State private var preparationMessage: String?
+    @State private var showingAudioControls = false
+    @State private var hasLeft = false
+    @State private var didSave = false
     @State private var lastPulse: Date?
     @State private var showingEndConfirmation = false
     @State private var showingExitConfirmation = false
@@ -44,8 +53,7 @@ struct WorkoutPlayerView: View {
             Group {
                 switch engine.phase {
                 case .ready:
-                    ProgressView()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    preparationView
                 case .running, .paused:
                     activeView
                 case .finished:
@@ -58,11 +66,6 @@ struct WorkoutPlayerView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbar }
             .interactiveDismissDisabled(engine.phase == .running || engine.phase == .paused)
-            .onAppear { startWorkoutIfNeeded() }
-            .onChange(of: scenePhase) { _, newPhase in
-                handleScenePhaseChange(newPhase)
-            }
-            .onReceive(pulse, perform: handlePulse)
             .sensoryFeedback(.success, trigger: engine.currentIndex)
             .alert("End workout?", isPresented: $showingEndConfirmation) {
                 Button("End Workout", role: .destructive) { finishWorkout() }
@@ -77,6 +80,61 @@ struct WorkoutPlayerView: View {
                 Text("This workout is still in progress and will not be saved.")
             }
         }
+        // Keep lifecycle work on the stable container, not the phase-specific
+        // Group: changing from preparation to playback must not cancel audio.
+        .task { await prepareWorkout() }
+        .onDisappear {
+            hasLeft = true
+            coach.stop()
+        }
+        .sheet(isPresented: $showingAudioControls) { audioControls }
+        .onChange(of: coachingVolume) { _, volume in coach.setVolume(Float(volume)) }
+        .onChange(of: scenePhase) { _, newPhase in handleScenePhaseChange(newPhase) }
+        .onReceive(pulse, perform: handlePulse)
+    }
+
+    private var preparationView: some View {
+        VStack(spacing: 20) {
+            if let preparationMessage {
+                Text(preparationMessage).multilineTextAlignment(.center)
+                Button("Start with On-screen Timer") {
+                    self.preparationMessage = nil
+                    preparationComplete = true
+                    startWorkoutIfNeeded()
+                }
+                .buttonStyle(PrimaryActionButtonStyle())
+            } else {
+                ProgressView("Preparing workout…")
+                Text("Preparing spoken cues before the workout starts.")
+                    .font(.footnote).foregroundStyle(.secondary)
+            }
+            Button("Cancel", action: cancelWorkout)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var audioControls: some View {
+        NavigationStack {
+            Form {
+                Section("Coach volume") {
+                    Slider(value: $coachingVolume, in: 0.1...1)
+                        .accessibilityLabel("Coach volume")
+                    Text("Your phone's media volume also controls what you hear.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
+                Button("Continue without Audio Coaching") {
+                    syncAudioPosition()
+                    coach.stop()
+                    inactiveAt = nil
+                    lastPulse = engine.phase == .running ? .now : nil
+                    showingAudioControls = false
+                    if engine.phase == .finished { completeTrackedWorkout() }
+                }
+            }
+            .navigationTitle("Audio coaching")
+            .toolbar { Button("Done") { showingAudioControls = false } }
+        }
+        .presentationDetents([.medium])
     }
 
     private var activeView: some View {
@@ -125,6 +183,12 @@ struct WorkoutPlayerView: View {
                 }
 
                 Spacer(minLength: 32)
+
+                if let message = coach.message {
+                    Text(message)
+                        .font(.footnote).foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center).padding(.bottom, 12)
+                }
 
                 if let next = engine.nextStep {
                     HStack {
@@ -241,6 +305,12 @@ struct WorkoutPlayerView: View {
 
         ToolbarItem(placement: .topBarTrailing) {
             if engine.phase == .running || engine.phase == .paused {
+                if coach.isPrepared {
+                    Button { showingAudioControls = true } label: {
+                        Image(systemName: "speaker.wave.2")
+                    }
+                    .accessibilityLabel("Audio coaching controls")
+                }
                 Button("End") { showingEndConfirmation = true }
                     .foregroundStyle(.red)
             }
@@ -283,14 +353,49 @@ struct WorkoutPlayerView: View {
         return String(format: "%02d:%02d", minutes, remaining)
     }
 
+    private func prepareWorkout() async {
+        guard engine.phase == .ready, !preparationComplete, !hasLeft else { return }
+        if coachingEnabled, recordsGPS {
+            guard WorkoutCoachingTimeline(plan: engine.plan, countdowns: coachingCountdowns) != nil else {
+                preparationMessage = "Audio coaching needs timed steps and a workout of six hours or less. This workout uses the on-screen timer."
+                return
+            }
+            do {
+                try await coach.prepare(plan: engine.plan, countdowns: coachingCountdowns, volume: Float(coachingVolume))
+                try Task.checkCancellation()
+                guard !hasLeft else { coach.stop(); return }
+                coach.onPause = { pauseWorkout() }
+                coach.onFinished = {
+                    syncAudioPosition(position: coach.timeline?.duration)
+                    completeTrackedWorkout()
+                }
+            } catch is CancellationError {
+                coach.stop()
+                return
+            } catch {
+                guard !hasLeft, !Task.isCancelled else { return }
+                coach.stop()
+                preparationMessage = "Spoken guidance could not be prepared. Some cues may be too long for their sets. You can use the on-screen timer."
+                return
+            }
+        }
+        preparationComplete = true
+        startWorkoutIfNeeded()
+    }
+
     private func startWorkoutIfNeeded() {
-        guard engine.phase == .ready else { return }
+        guard engine.phase == .ready, preparationComplete, scenePhase == .active, !hasLeft else { return }
         let now = Date.now
         engine.start(now: now)
         if recordsGPS { locationTracker.start() }
         lastPulse = now
+        if coach.isPrepared, !coach.play() {
+            engine.pause()
+            if recordsGPS { locationTracker.pause() }
+            lastPulse = nil
+        }
 
-        if engine.phase == .running, let state = activityState(now: now) {
+        if let state = activityState(now: now) {
             liveActivity.start(
                 workoutTitle: workout.title,
                 disciplineName: workout.discipline.displayName,
@@ -302,26 +407,54 @@ struct WorkoutPlayerView: View {
     }
 
     private func togglePause() {
-        if engine.phase == .paused {
-            engine.resume()
-            if recordsGPS { locationTracker.resume() }
-            lastPulse = .now
-        } else {
-            engine.pause()
-            if recordsGPS { locationTracker.pause() }
-            lastPulse = nil
+        if engine.phase == .paused { resumeWorkout() }
+        else { pauseWorkout() }
+    }
+
+    private func pauseWorkout() {
+        guard engine.phase == .running else { return }
+        if coach.isPrepared {
+            coach.pause()
+            syncAudioPosition()
+            if engine.phase == .finished {
+                completeTrackedWorkout()
+                return
+            }
         }
+        engine.pause()
+        if recordsGPS { locationTracker.pause() }
+        lastPulse = nil
+        inactiveAt = nil
+        syncLiveActivity()
+    }
+
+    private func resumeWorkout() {
+        guard engine.phase == .paused else { return }
+        if coach.isPrepared, !coach.play() { return }
+        engine.resume()
+        if recordsGPS { locationTracker.resume() }
+        lastPulse = .now
+        inactiveAt = nil
         syncLiveActivity()
     }
 
     private func completeCurrentStep() {
+        guard engine.phase == .running || engine.phase == .paused else { return }
+        if coach.isPrepared { syncAudioPosition() }
+        guard engine.phase != .finished else { return }
         let wasPaused = engine.phase == .paused
         engine.completeCurrentStep(now: .now)
 
         if engine.phase == .finished {
+            coach.stop()
             locationTracker.stop()
             liveActivity.end(finalState: nil)
         } else {
+            if coach.isPrepared {
+                coach.seekToStep(engine.currentIndex)
+                audioClock.seek(to: coach.position)
+                if wasPaused, !coach.play() { engine.pause() }
+            }
             if wasPaused, engine.phase == .running, recordsGPS {
                 locationTracker.resume()
             }
@@ -331,6 +464,8 @@ struct WorkoutPlayerView: View {
     }
 
     private func finishWorkout() {
+        syncAudioPosition()
+        coach.stop()
         engine.finish(now: .now)
         locationTracker.stop()
         liveActivity.end(finalState: nil)
@@ -338,13 +473,18 @@ struct WorkoutPlayerView: View {
     }
 
     private func cancelWorkout() {
+        hasLeft = true
+        coach.stop()
         locationTracker.discard()
         liveActivity.end(finalState: nil)
         onCancel()
     }
 
     private func saveWorkout() {
-        guard let base = engine.result else { return }
+        guard !didSave, let base = engine.result else { return }
+        didSave = true
+        hasLeft = true
+        coach.stop()
         liveActivity.end(finalState: nil)
         let gps = locationTracker.snapshot
         let result = WorkoutExecutionResult(
@@ -359,6 +499,10 @@ struct WorkoutPlayerView: View {
     }
 
     private func handlePulse(_ now: Date) {
+        if coach.isPrepared {
+            syncAudioPosition(now: now)
+            return
+        }
         guard scenePhase == .active,
               engine.phase == .running else {
             lastPulse = nil
@@ -381,6 +525,14 @@ struct WorkoutPlayerView: View {
     }
 
     private func handleScenePhaseChange(_ phase: ScenePhase) {
+        if phase == .active, engine.phase == .ready {
+            startWorkoutIfNeeded()
+            return
+        }
+        if coach.isPrepared {
+            syncAudioPosition()
+            return
+        }
         switch phase {
         case .inactive, .background:
             if engine.phase == .running, inactiveAt == nil {
@@ -393,6 +545,21 @@ struct WorkoutPlayerView: View {
 
         @unknown default:
             break
+        }
+    }
+
+    private func syncAudioPosition(position: TimeInterval? = nil, now: Date = .now) {
+        guard coach.isPrepared, engine.phase == .running else { return }
+        let previousIndex = engine.currentIndex
+        let elapsed = audioClock.consume(position ?? coach.position)
+        engine.advance(by: elapsed, now: now)
+        if engine.phase == .finished {
+            locationTracker.stop()
+            liveActivity.end(finalState: nil)
+            lastPulse = nil
+            // The final spoken cue still needs to play. Its delegate saves.
+        } else if engine.currentIndex != previousIndex {
+            syncLiveActivity(now: now)
         }
     }
 
