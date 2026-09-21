@@ -2,27 +2,59 @@ import SwiftUI
 
 struct WatchWorkoutListView: View {
     @EnvironmentObject private var store: WatchWorkoutStore
+    @EnvironmentObject private var manager: WatchWorkoutSessionManager
 
     var body: some View {
         NavigationStack {
             Group {
-                if store.workouts.isEmpty {
+                if store.workouts.isEmpty && manager.activeWorkout == nil {
                     ContentUnavailableView(
                         "No workouts yet",
                         systemImage: "figure.run.circle",
                         description: Text("Open Athevia on your iPhone to sync your current training week.")
                     )
                 } else {
-                    List(store.workouts) { workout in
-                        NavigationLink(value: workout.id) {
-                            WatchWorkoutRow(
-                                workout: workout,
-                                isCompleted: store.isCompleted(workout)
-                            )
+                    List {
+                        if let active = manager.activeWorkout, manager.isActive {
+                            Section("Active Workout") {
+                                NavigationLink {
+                                    WatchWorkoutPlayerView(workout: active)
+                                } label: {
+                                    WatchWorkoutRow(
+                                        workout: active,
+                                        isCompleted: false,
+                                        showsActiveIndicator: true
+                                    )
+                                }
+                                .listRowBackground(
+                                    active.discipline.listTint.opacity(0.24)
+                                )
+                            }
                         }
-                        .listRowBackground(
-                            workout.discipline.listTint.opacity(0.16)
-                        )
+
+                        if !todayWorkouts.isEmpty {
+                            Section("Today") {
+                                ForEach(todayWorkouts) { workout in
+                                    workoutLink(workout)
+                                }
+                            }
+                        }
+
+                        if !weekWorkouts.isEmpty {
+                            Section("This Week") {
+                                ForEach(weekWorkouts) { workout in
+                                    workoutLink(workout)
+                                }
+                            }
+                        }
+
+                        if !completedWorkouts.isEmpty {
+                            Section("Completed") {
+                                ForEach(completedWorkouts) { workout in
+                                    workoutLink(workout)
+                                }
+                            }
+                        }
                     }
                     .listStyle(.carousel)
                     .navigationDestination(for: UUID.self) { id in
@@ -35,11 +67,55 @@ struct WatchWorkoutListView: View {
             .navigationTitle("Workouts")
         }
     }
+
+    private var activeWorkoutID: UUID? {
+        manager.isActive ? manager.activeWorkout?.id : nil
+    }
+
+    private var incompleteWorkouts: [WatchWorkoutPayload] {
+        store.workouts.filter {
+            !store.isCompleted($0) && $0.id != activeWorkoutID
+        }
+    }
+
+    private var todayWorkouts: [WatchWorkoutPayload] {
+        incompleteWorkouts.filter {
+            Calendar.current.isDateInToday($0.date)
+        }
+    }
+
+    private var weekWorkouts: [WatchWorkoutPayload] {
+        incompleteWorkouts.filter {
+            !Calendar.current.isDateInToday($0.date)
+        }
+    }
+
+    private var completedWorkouts: [WatchWorkoutPayload] {
+        store.workouts.filter {
+            store.isCompleted($0) && $0.id != activeWorkoutID
+        }
+    }
+
+    private func workoutLink(_ workout: WatchWorkoutPayload) -> some View {
+        NavigationLink(value: workout.id) {
+            WatchWorkoutRow(
+                workout: workout,
+                isCompleted: store.isCompleted(workout),
+                showsActiveIndicator: false
+            )
+        }
+        .listRowBackground(
+            workout.discipline.listTint.opacity(
+                store.isCompleted(workout) ? 0.09 : 0.16
+            )
+        )
+    }
 }
 
 private struct WatchWorkoutRow: View {
     let workout: WatchWorkoutPayload
     let isCompleted: Bool
+    let showsActiveIndicator: Bool
 
     var body: some View {
         HStack(spacing: 10) {
@@ -60,16 +136,22 @@ private struct WatchWorkoutRow: View {
                         .foregroundStyle(.primary)
                         .lineLimit(1)
 
-                    if isCompleted {
+                    if showsActiveIndicator {
+                        Image(systemName: "record.circle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.green)
+                    } else if isCompleted {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.caption)
                             .foregroundStyle(workout.discipline.listTint)
                     }
                 }
 
-                Text(subtitle)
+                Text(showsActiveIndicator ? "In Progress" : subtitle)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(
+                        showsActiveIndicator ? Color.green : Color.secondary
+                    )
                     .lineLimit(1)
             }
         }
