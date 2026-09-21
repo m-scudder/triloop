@@ -749,9 +749,11 @@
 				INFOPLIST_KEY_CFBundleDisplayName = Athevia;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Athevia reads live workout metrics such as heart rate and distance while you train.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Athevia saves workouts completed on Apple Watch to Apple Health.";
+				INFOPLIST_KEY_WKApplication = YES;
 				INFOPLIST_KEY_WKBackgroundModes = "workout-processing";
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = "$(ATHEVIA_BUNDLE_PREFIX).athevia";
 				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = NO;
+				INFOPLIST_KEY_WKWatchOnly = NO;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -781,9 +783,11 @@
 				INFOPLIST_KEY_CFBundleDisplayName = Athevia;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Athevia reads live workout metrics such as heart rate and distance while you train.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Athevia saves workouts completed on Apple Watch to Apple Health.";
+				INFOPLIST_KEY_WKApplication = YES;
 				INFOPLIST_KEY_WKBackgroundModes = "workout-processing";
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = "$(ATHEVIA_BUNDLE_PREFIX).athevia";
 				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = NO;
+				INFOPLIST_KEY_WKWatchOnly = NO;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
