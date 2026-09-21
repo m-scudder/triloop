@@ -37,6 +37,9 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
     private var isFinalizing = false
     private var coachingSettings: WatchCoachingSettingsPayload = .defaults
     private var countdownAnnouncedStepID: String?
+    private var lastPersistedAt: Date?
+
+    private static let activeStateKey = "athevia.active-watch-workout.v1"
 
     var isActive: Bool {
         switch state {
@@ -134,6 +137,7 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
             lastTickDate = startDate
             lastEngineDistanceMeters = 0
             startTicker()
+            persistActiveState(force: true)
             WKInterfaceDevice.current().play(.start)
 
             if voiceEnabled {
@@ -161,6 +165,7 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
         state = .paused
         lastTickDate = nil
         voiceCoach.stop()
+        persistActiveState(force: true)
         WKInterfaceDevice.current().play(.click)
     }
 
@@ -177,6 +182,7 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
             voiceCoach.announceResume(engine?.currentStep)
         }
 
+        persistActiveState(force: true)
         WKInterfaceDevice.current().play(.click)
     }
 
@@ -187,6 +193,7 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
         if voiceEnabled, state == .running {
             voiceCoach.announceStep(engine?.currentStep)
         }
+        persistActiveState(force: true)
     }
 
     func completeCurrentStep() {
@@ -194,6 +201,7 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
         let previousID = engine?.currentStep?.id
         engine?.completeCurrent()
         handleStepTransition(from: previousID)
+        persistActiveState(force: true)
 
         if engine?.phase == .finished {
             end()
@@ -224,11 +232,182 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
         isFinalizing = false
         countdownAnnouncedStepID = nil
         state = .idle
+        clearPersistedActiveState()
         resetMetrics()
     }
 
     func clearError() {
         errorMessage = nil
+    }
+
+    func recoverIfNeeded() async {
+        guard state == .idle,
+              let persisted = loadPersistedActiveState() else {
+            return
+        }
+
+        do {
+            guard let recoveredSession = try await healthStore.recoverActiveWorkoutSession() else {
+                clearPersistedActiveState()
+                return
+            }
+
+            let recoveredBuilder = recoveredSession.associatedWorkoutBuilder()
+            let recoveredConfiguration = recoveredSession.workoutConfiguration
+            recoveredBuilder.dataSource = HKLiveWorkoutDataSource(
+                healthStore: healthStore,
+                workoutConfiguration: recoveredConfiguration
+            )
+            recoveredSession.delegate = self
+            recoveredBuilder.delegate = self
+
+            session = recoveredSession
+            builder = recoveredBuilder
+            activeWorkout = persisted.workout
+            activeConfiguration = persisted.configuration
+            coachingSettings = persisted.coaching
+            voiceEnabled = persisted.voiceEnabled
+            voiceCoach.configure(persisted.coaching)
+            voiceCoach.setEnabled(persisted.voiceEnabled)
+            savedWorkoutUUID = nil
+            isFinalizing = false
+            countdownAnnouncedStepID = nil
+
+            var recoveredEngine = WatchWorkoutExecutionEngine(
+                workout: persisted.workout,
+                snapshot: persisted.execution
+            )
+
+            switch recoveredSession.state {
+            case .running:
+                if recoveredEngine.phase == .ready {
+                    recoveredEngine.start()
+                } else if recoveredEngine.phase == .paused {
+                    recoveredEngine.resume()
+                }
+
+            case .paused:
+                if recoveredEngine.phase == .running {
+                    recoveredEngine.pause()
+                }
+
+            default:
+                clearPersistedActiveState()
+                session = nil
+                builder = nil
+                return
+            }
+
+            resetMetrics()
+            refreshRecoveredStatistics()
+
+            if recoveredEngine.phase == .running {
+                let elapsedFromHealth = recoveredBuilder.elapsedTime(at: .now)
+                let elapsedDelta = max(
+                    elapsedFromHealth - persisted.execution.elapsedSeconds,
+                    0
+                )
+                let distanceDelta = max(
+                    distanceMeters - persisted.totalDistanceMeters,
+                    0
+                )
+                recoveredEngine.advance(
+                    by: elapsedDelta,
+                    distanceDeltaMeters: distanceDelta
+                )
+            }
+
+            engine = recoveredEngine
+            state = recoveredSession.state == .paused ? .paused : .running
+            lastTickDate = state == .running ? .now : nil
+            lastEngineDistanceMeters = distanceMeters
+
+            if state == .running {
+                startTicker()
+                if voiceEnabled {
+                    voiceCoach.announceResume(engine?.currentStep)
+                }
+            }
+
+            persistActiveState(force: true)
+        } catch {
+            clearPersistedActiveState()
+            errorMessage = "Athevia could not recover the interrupted workout."
+        }
+    }
+
+    private func refreshRecoveredStatistics() {
+        guard let builder, let workout = activeWorkout else { return }
+
+        if let quantity = builder.statistics(
+            for: workout.discipline.healthKitDistanceType
+        )?.sumQuantity() {
+            distanceMeters = quantity.doubleValue(for: .meter())
+        }
+
+        if let quantity = builder.statistics(
+            for: HKQuantityType(.activeEnergyBurned)
+        )?.sumQuantity() {
+            activeEnergyKilocalories = quantity.doubleValue(for: .kilocalorie())
+        }
+
+        if let heartStatistics = builder.statistics(
+            for: HKQuantityType(.heartRate)
+        ) {
+            let unit = HKUnit.count().unitDivided(by: .minute())
+            heartRate = heartStatistics.mostRecentQuantity()?.doubleValue(for: unit)
+            averageHeartRate = heartStatistics.averageQuantity()?.doubleValue(for: unit)
+        }
+
+        if let speedType = workout.discipline.healthKitSpeedType,
+           let quantity = builder.statistics(for: speedType)?.mostRecentQuantity() {
+            currentSpeedMetersPerSecond = quantity.doubleValue(
+                for: HKUnit.meter().unitDivided(by: .second())
+            )
+        }
+    }
+
+    private func persistActiveState(force: Bool = false, now: Date = .now) {
+        guard let workout = activeWorkout,
+              let configuration = activeConfiguration,
+              let engine,
+              engine.phase == .running || engine.phase == .paused else {
+            return
+        }
+
+        if !force,
+           let lastPersistedAt,
+           now.timeIntervalSince(lastPersistedAt) < 5 {
+            return
+        }
+
+        let persisted = PersistedWatchWorkoutState(
+            workout: workout,
+            configuration: configuration,
+            coaching: coachingSettings,
+            voiceEnabled: voiceEnabled,
+            execution: engine.snapshot,
+            totalDistanceMeters: distanceMeters
+        )
+
+        guard let data = try? JSONEncoder().encode(persisted) else { return }
+        UserDefaults.standard.set(data, forKey: Self.activeStateKey)
+        lastPersistedAt = now
+    }
+
+    private func loadPersistedActiveState() -> PersistedWatchWorkoutState? {
+        guard let data = UserDefaults.standard.data(forKey: Self.activeStateKey) else {
+            return nil
+        }
+        return try? JSONDecoder().decode(
+            PersistedWatchWorkoutState.self,
+            from: data
+        )
+    }
+
+    private func clearPersistedActiveState() {
+        UserDefaults.standard.removeObject(forKey: Self.activeStateKey)
+        lastPersistedAt = nil
     }
 
     private func requestAuthorization() async throws {
@@ -330,6 +509,7 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
 
         handleStepTransition(from: previousID)
         announceCountdownIfNeeded()
+        persistActiveState()
 
         if runningEngine.phase == .finished {
             end()
@@ -436,6 +616,7 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
                     guard let self else { return }
                     self.isFinalizing = false
                     self.state = .finished
+                    self.clearPersistedActiveState()
                     self.errorMessage = "The workout ended, but HealthKit could not finalize its samples."
                 }
                 return
@@ -450,6 +631,7 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
                     self.state = .finished
                     self.session = nil
                     self.builder = nil
+                    self.clearPersistedActiveState()
 
                     if let finishError {
                         self.errorMessage = finishError.localizedDescription
@@ -484,6 +666,7 @@ extension WatchWorkoutSessionManager: HKWorkoutSessionDelegate {
             self.ticker?.cancel()
             self.ticker = nil
             self.voiceCoach.stop()
+            self.clearPersistedActiveState()
             self.errorMessage = error.localizedDescription
             self.state = .finished
         }
@@ -530,6 +713,15 @@ private extension WatchWorkoutDiscipline {
         case .swimming: HKQuantityType(.distanceSwimming)
         }
     }
+}
+
+private struct PersistedWatchWorkoutState: Codable {
+    let workout: WatchWorkoutPayload
+    let configuration: WatchWorkoutStartConfiguration
+    let coaching: WatchCoachingSettingsPayload
+    let voiceEnabled: Bool
+    let execution: WatchWorkoutExecutionSnapshot
+    let totalDistanceMeters: Double
 }
 
 private enum WatchWorkoutSessionError: LocalizedError {
