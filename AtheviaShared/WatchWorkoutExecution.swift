@@ -77,6 +77,22 @@ struct WatchWorkoutExecutionPlan: Equatable, Sendable {
     }
 }
 
+struct WatchWorkoutExecutionSnapshot: Codable, Equatable, Sendable {
+    enum Phase: String, Codable, Equatable, Sendable {
+        case ready
+        case running
+        case paused
+        case finished
+    }
+
+    let workoutID: UUID
+    let phase: Phase
+    let currentIndex: Int
+    let elapsedSeconds: TimeInterval
+    let stepElapsedSeconds: TimeInterval
+    let stepDistanceMeters: Double
+}
+
 struct WatchWorkoutExecutionEngine: Equatable, Sendable {
     enum Phase: Equatable, Sendable {
         case ready
@@ -127,6 +143,48 @@ struct WatchWorkoutExecutionEngine: Equatable, Sendable {
 
     init(workout: WatchWorkoutPayload) {
         plan = WatchWorkoutExecutionPlan(workout: workout)
+    }
+
+    init(
+        workout: WatchWorkoutPayload,
+        snapshot: WatchWorkoutExecutionSnapshot
+    ) {
+        plan = WatchWorkoutExecutionPlan(workout: workout)
+
+        guard snapshot.workoutID == workout.id else { return }
+
+        currentIndex = min(max(snapshot.currentIndex, 0), plan.steps.count)
+        elapsedSeconds = max(snapshot.elapsedSeconds, 0)
+        stepElapsedSeconds = max(snapshot.stepElapsedSeconds, 0)
+        stepDistanceMeters = max(snapshot.stepDistanceMeters, 0)
+
+        if currentIndex >= plan.steps.count {
+            phase = .finished
+            return
+        }
+
+        phase = switch snapshot.phase {
+        case .ready: .ready
+        case .running: .running
+        case .paused: .paused
+        case .finished: .finished
+        }
+    }
+
+    var snapshot: WatchWorkoutExecutionSnapshot {
+        WatchWorkoutExecutionSnapshot(
+            workoutID: plan.workoutID,
+            phase: switch phase {
+            case .ready: .ready
+            case .running: .running
+            case .paused: .paused
+            case .finished: .finished
+            },
+            currentIndex: currentIndex,
+            elapsedSeconds: elapsedSeconds,
+            stepElapsedSeconds: stepElapsedSeconds,
+            stepDistanceMeters: stepDistanceMeters
+        )
     }
 
     mutating func start() {
