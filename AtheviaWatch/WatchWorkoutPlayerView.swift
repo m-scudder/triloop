@@ -4,6 +4,7 @@ struct WatchWorkoutPlayerView: View {
     let workout: WatchWorkoutPayload
 
     @EnvironmentObject private var manager: WatchWorkoutSessionManager
+    @EnvironmentObject private var store: WatchWorkoutStore
     @Environment(\.dismiss) private var dismiss
 
     @State private var page = 1
@@ -20,6 +21,11 @@ struct WatchWorkoutPlayerView: View {
         }
         .background(Color.black)
         .navigationBarBackButtonHidden(manager.isActive)
+        .onChange(of: manager.savedWorkoutUUID) { _, savedID in
+            if savedID != nil {
+                store.markCompleted(workout.id)
+            }
+        }
         .confirmationDialog(
             "End Workout?",
             isPresented: $showsEndConfirmation,
@@ -104,11 +110,13 @@ struct WatchWorkoutPlayerView: View {
                 }
 
                 controlButton(
-                    title: "Metrics",
-                    systemImage: "chart.bar.fill",
-                    tint: .green
+                    title: manager.voiceEnabled ? "Voice On" : "Voice Off",
+                    systemImage: manager.voiceEnabled
+                        ? "speaker.wave.2.fill"
+                        : "speaker.slash.fill",
+                    tint: manager.voiceEnabled ? .green : .gray
                 ) {
-                    page = 1
+                    manager.toggleVoice()
                 }
 
                 controlButton(
@@ -396,6 +404,9 @@ struct WatchWorkoutPlayerView: View {
                 }
 
                 Button("Done") {
+                    if manager.savedWorkoutUUID != nil {
+                        store.markCompleted(workout.id)
+                    }
                     manager.reset()
                     dismiss()
                 }
