@@ -160,6 +160,9 @@ private struct PlanWatchAction: View {
     @State private var isSending = false
     @State private var message: String?
     @State private var finishedOnWatch = false
+    @State private var isScheduledOnWatch = false
+    @State private var isCheckingWatch = true
+    @Environment(\.scenePhase) private var scenePhase
 
     private var canSend: Bool {
         workout.discipline.isTrainingSession
@@ -177,23 +180,36 @@ private struct PlanWatchAction: View {
                     Divider()
                     Button(action: send) {
                         HStack(spacing: 8) {
-                            if isSending {
+                            if isSending || isCheckingWatch {
                                 ProgressView().tint(.white)
                             } else {
-                                Image(systemName: "applewatch")
+                                Image(systemName: isScheduledOnWatch ? "checkmark.circle.fill" : "applewatch")
                             }
-                            Text(isSending ? "Sending…" : "Send to Watch")
+                            Text(watchActionTitle)
                         }
                         .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(PrimaryActionButtonStyle())
-                    .disabled(isSending)
+                    .disabled(isSending || isCheckingWatch || isScheduledOnWatch)
                     .accessibilityIdentifier("plan.sendToWatch")
                     .padding(.horizontal, 20)
                     .padding(.vertical, 12)
+
+                    if isScheduledOnWatch {
+                        Text("Scheduled. Watch sync may still be pending.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 20)
+                            .padding(.bottom, 12)
+                    }
                 }
                 .background(.regularMaterial)
             }
+        }
+        .task(id: scenePhase) {
+            guard scenePhase == .active else { return }
+            await refreshWatchStatus()
         }
         .alert("Apple Watch", isPresented: Binding(
             get: { message != nil },
@@ -205,8 +221,27 @@ private struct PlanWatchAction: View {
         }
     }
 
+    private var watchActionTitle: String {
+        if isSending { return "Sending…" }
+        if isCheckingWatch { return "Checking…" }
+        return isScheduledOnWatch ? "On Watch" : "Send to Watch"
+    }
+
+    @MainActor
+    private func refreshWatchStatus() async {
+        guard !isSending else { return }
+        isCheckingWatch = true
+        defer { isCheckingWatch = false }
+        let entries = await scheduler.scheduledWorkouts()
+        // A send may have started while the query was suspended.
+        guard !Task.isCancelled, !isSending else { return }
+        let matching = entries.filter { $0.id == workout.id }
+        isScheduledOnWatch = !matching.isEmpty
+        finishedOnWatch = matching.contains(where: \.isComplete)
+    }
+
     private func send() {
-        guard canSend, !isSending else { return }
+        guard canSend, !isSending, !isCheckingWatch, !isScheduledOnWatch else { return }
         isSending = true
         Task { @MainActor in
             defer { isSending = false }
@@ -239,6 +274,7 @@ private struct PlanWatchAction: View {
                     workout,
                     at: existingDate ?? workout.suggestedScheduleDate()
                 )
+                isScheduledOnWatch = true
                 message = "Scheduled for your Apple Watch. Look for “\(WorkoutPlanBuilder.displayName(for: workout))” in the Workout app after it syncs."
             } catch WorkoutSchedulingError.unavailable {
                 message = "Workout scheduling is unavailable. Check that an Apple Watch is paired with this iPhone."
