@@ -271,68 +271,77 @@ struct WatchWorkoutPlayerView: View {
     @ViewBuilder
     private var upNextView: some View {
         if let step = manager.currentStep {
-            VStack(alignment: .leading, spacing: 8) {
-                workoutHeader
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 6) {
+                    workoutHeader
 
-                Text(step.kind.appleWorkoutLabel.uppercased())
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(step.kind.tint)
+                    Text(step.kind.appleWorkoutLabel.uppercased())
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(step.kind.tint)
 
-                if let repetition = step.repetitionLabel {
-                    Text(repetition)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                Text(step.title)
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(.white)
-                    .lineLimit(2)
-
-                Text(primaryProgressText)
-                    .font(.system(size: 34, weight: .semibold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(step.kind.tint)
-                    .minimumScaleFactor(0.75)
-
-                if let progress = manager.engine?.stepProgress {
-                    ProgressView(value: progress)
-                        .tint(step.kind.tint)
-                }
-
-                if let intensity = step.targetIntensity {
-                    Text(intensity.displayName)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                Spacer(minLength: 0)
-
-                if let next = manager.nextStep {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("UP NEXT")
-                            .font(.caption2.weight(.semibold))
+                    if let repetition = step.repetitionLabel {
+                        Text(repetition)
+                            .font(.caption2)
                             .foregroundStyle(.secondary)
-
-                        HStack {
-                            Text(next.title)
-                                .font(.subheadline.weight(.semibold))
-                                .lineLimit(1)
-
-                            Spacer()
-
-                            Text(next.prescriptionText)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
                     }
-                } else {
-                    Text("Final interval")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+
+                    Text(step.title)
+                        .font(.headline.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.8)
+
+                    Text(primaryProgressText)
+                        .font(.system(size: 30, weight: .semibold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(step.kind.tint)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+
+                    if let progress = manager.engine?.stepProgress {
+                        ProgressView(value: progress)
+                            .tint(step.kind.tint)
+                    }
+
+                    if let intensity = step.targetIntensity {
+                        Text(intensity.displayName)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Divider()
+                        .padding(.vertical, 2)
+
+                    if let next = manager.nextStep {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("UP NEXT")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.secondary)
+
+                            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                                Text(next.title)
+                                    .font(.subheadline.weight(.semibold))
+                                    .lineLimit(2)
+                                    .minimumScaleFactor(0.8)
+
+                                Spacer(minLength: 4)
+
+                                Text(next.prescriptionText)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
+                        }
+                    } else {
+                        Text("Final interval")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
             }
-            .padding(.horizontal, 8)
         } else {
             ProgressView()
         }
