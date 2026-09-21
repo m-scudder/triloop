@@ -18,6 +18,8 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
     @Published private(set) var activeWorkout: WatchWorkoutPayload?
     @Published private(set) var engine: WatchWorkoutExecutionEngine?
     @Published private(set) var heartRate: Double?
+    @Published private(set) var averageHeartRate: Double?
+    @Published private(set) var currentSpeedMetersPerSecond: Double?
     @Published private(set) var distanceMeters: Double = 0
     @Published private(set) var activeEnergyKilocalories: Double = 0
     @Published private(set) var savedWorkoutUUID: UUID?
@@ -190,7 +192,9 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
             HKQuantityType(.activeEnergyBurned),
             HKQuantityType(.distanceWalkingRunning),
             HKQuantityType(.distanceCycling),
-            HKQuantityType(.distanceSwimming)
+            HKQuantityType(.distanceSwimming),
+            HKQuantityType(.runningSpeed),
+            HKQuantityType(.cyclingSpeed)
         ]
 
         try await healthStore.requestAuthorization(toShare: shareTypes, read: readTypes)
@@ -255,6 +259,8 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
 
     private func resetMetrics() {
         heartRate = nil
+        averageHeartRate = nil
+        currentSpeedMetersPerSecond = nil
         distanceMeters = 0
         activeEnergyKilocalories = 0
         lastEngineDistanceMeters = 0
@@ -265,10 +271,17 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
 
         let heartRateType = HKQuantityType(.heartRate)
         if types.contains(heartRateType),
-           let quantity = builder.statistics(for: heartRateType)?.mostRecentQuantity() {
-            heartRate = quantity.doubleValue(
-                for: HKUnit.count().unitDivided(by: .minute())
-            )
+           let statistics = builder.statistics(for: heartRateType) {
+            if let quantity = statistics.mostRecentQuantity() {
+                heartRate = quantity.doubleValue(
+                    for: HKUnit.count().unitDivided(by: .minute())
+                )
+            }
+            if let average = statistics.averageQuantity() {
+                averageHeartRate = average.doubleValue(
+                    for: HKUnit.count().unitDivided(by: .minute())
+                )
+            }
         }
 
         let energyType = HKQuantityType(.activeEnergyBurned)
@@ -281,6 +294,14 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
         if types.contains(distanceType),
            let quantity = builder.statistics(for: distanceType)?.sumQuantity() {
             distanceMeters = quantity.doubleValue(for: .meter())
+        }
+
+        if let speedType = workout.discipline.healthKitSpeedType,
+           types.contains(speedType),
+           let quantity = builder.statistics(for: speedType)?.mostRecentQuantity() {
+            currentSpeedMetersPerSecond = quantity.doubleValue(
+                for: HKUnit.meter().unitDivided(by: .second())
+            )
         }
     }
 
@@ -379,6 +400,17 @@ private extension WatchWorkoutDiscipline {
         switch self {
         case .running, .cycling: .outdoor
         case .swimming: .unknown
+        }
+    }
+
+    var healthKitSpeedType: HKQuantityType? {
+        switch self {
+        case .running:
+            HKQuantityType(.runningSpeed)
+        case .cycling:
+            HKQuantityType(.cyclingSpeed)
+        case .swimming:
+            nil
         }
     }
 
