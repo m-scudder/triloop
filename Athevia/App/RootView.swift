@@ -23,6 +23,7 @@ struct RootView: View {
     @State private var lastKnownHighestWeek: Int?
     @State private var accountReady = false
     @AppStorage("automaticallyImportWorkouts") private var automaticallyImport = true
+    @AppStorage("automaticallyScheduleWorkouts") private var automaticallySchedule = true
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.modelContext) private var modelContext
 
@@ -117,9 +118,15 @@ struct RootView: View {
             // A week that has simply ended must not leave the athlete with
             // nothing to do until they happen to open the Plan tab.
             try? PlanStore(context: modelContext).advanceToCurrentWeek()
+            // Refresh scheduling regardless of the currently selected tab.
+            await WatchScheduleSync.sync(plans.currentPlan())
             if automaticallyImport {
                 await autoImporter?.importRecentWeeks()
             }
+        }
+        .task(id: automaticallySchedule) {
+            guard scenePhase == .active, automaticallySchedule else { return }
+            await WatchScheduleSync.sync(plans.currentPlan())
         }
         .onAppear {
             applyPendingNotificationRoute()
