@@ -118,8 +118,10 @@ struct RootView: View {
             // A week that has simply ended must not leave the athlete with
             // nothing to do until they happen to open the Plan tab.
             try? PlanStore(context: modelContext).advanceToCurrentWeek()
-            // Refresh scheduling regardless of the currently selected tab.
+            // Refresh both Apple's Workout schedule and the native Athevia
+            // Watch app cache regardless of the currently selected tab.
             await WatchScheduleSync.sync(plans.currentPlan())
+            _ = WatchAppPlanSync.sync(plans.currentPlan())
             if automaticallyImport {
                 await autoImporter?.importRecentWeeks()
             }
@@ -127,6 +129,10 @@ struct RootView: View {
         .task(id: automaticallySchedule) {
             guard scenePhase == .active, automaticallySchedule else { return }
             await WatchScheduleSync.sync(plans.currentPlan())
+        }
+        .task(id: watchAppFingerprint) {
+            guard scenePhase == .active else { return }
+            _ = WatchAppPlanSync.sync(plans.currentPlan())
         }
         .onAppear {
             applyPendingNotificationRoute()
@@ -206,6 +212,10 @@ struct RootView: View {
               let accountID = signedInAccountID else { return }
 
         await automaticBackup.flush(accountID: accountID, context: modelContext)
+    }
+
+    private var watchAppFingerprint: String {
+        WatchAppPlanSync.fingerprint(plans.currentPlan())
     }
 
     private var notificationFingerprint: String {
