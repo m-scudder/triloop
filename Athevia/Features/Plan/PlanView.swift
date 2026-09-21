@@ -157,6 +157,7 @@ private struct PlanWatchAction: View {
     let workout: PlannedWorkout
     var scheduler: any WorkoutScheduling = WorkoutKitScheduler()
 
+    @StateObject private var watch = WatchAvailability.shared
     @State private var isSending = false
     @State private var message: String?
     @State private var finishedOnWatch = false
@@ -165,7 +166,8 @@ private struct PlanWatchAction: View {
     @Environment(\.scenePhase) private var scenePhase
 
     private var canSend: Bool {
-        workout.discipline.isTrainingSession
+        watch.canSchedule && scheduler.isSupported
+            && workout.discipline.isTrainingSession
             && !workout.isCompleted
             && !workout.isSkipped
             && !workout.hasReport
@@ -209,6 +211,7 @@ private struct PlanWatchAction: View {
         }
         .task(id: scenePhase) {
             guard scenePhase == .active else { return }
+            watch.refresh()
             await refreshWatchStatus()
         }
         .alert("Apple Watch", isPresented: Binding(
