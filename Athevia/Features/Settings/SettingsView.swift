@@ -20,6 +20,7 @@ struct SettingsView: View {
     @State private var scheduledWorkouts: [ScheduledWorkoutSummary] = []
     @State private var watchAuthorization: WorkoutSchedulingAuthorization = .notDetermined
     @State private var permissionMessage: String?
+    @State private var showsWatchAppSetup = false
 
     @AppStorage("automaticallyScheduleWorkouts") private var automaticallySchedule = true
     @AppStorage("automaticallyImportWorkouts") private var automaticallyImport = true
@@ -49,6 +50,12 @@ struct SettingsView: View {
                 Button("OK", role: .cancel) { importMessage = nil }
             } message: {
                 Text(importMessage ?? "")
+            }
+            .sheet(isPresented: $showsWatchAppSetup) {
+                WatchAppSetupView(
+                    watch: watch,
+                    currentPlan: plans.currentPlan()
+                )
             }
             .alert(
                 "Permissions",
@@ -147,29 +154,43 @@ struct SettingsView: View {
             .buttonStyle(.plain)
             .disabled(isWorking || healthStatus == .unavailable)
 
-            if watch.canSchedule {
-                Button { connectWatch() } label: {
+            if watch.isPairedWatch {
+                Button {
+                    showsWatchAppSetup = true
+                } label: {
                     SettingsStatusRow(
-                        title: "Apple Watch",
+                        title: "Athevia Watch",
                         systemImage: "applewatch",
-                        value: watchStatusText
+                        value: watch.isAtheviaWatchInstalled ? "Installed" : "Not installed"
                     )
                 }
                 .buttonStyle(.plain)
-                .disabled(isWorking || !scheduler.isSupported || watchAuthorization == .restricted)
-                NavigationLink("Watch schedule details") {
-                    ScheduledWorkoutsView(
-                        isSupported: scheduler.isSupported,
-                        authorization: watchAuthorization,
-                        entries: scheduledWorkouts,
-                        refresh: refreshSchedule
-                    )
+
+                if watch.canSchedule {
+                    Button { connectWatch() } label: {
+                        SettingsStatusRow(
+                            title: "Workout scheduling",
+                            systemImage: "calendar.badge.clock",
+                            value: watchStatusText
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isWorking || !scheduler.isSupported || watchAuthorization == .restricted)
+
+                    NavigationLink("Apple Workout schedule") {
+                        ScheduledWorkoutsView(
+                            isSupported: scheduler.isSupported,
+                            authorization: watchAuthorization,
+                            entries: scheduledWorkouts,
+                            refresh: refreshSchedule
+                        )
+                    }
                 }
             }
         } header: {
             Text("Connections")
         } footer: {
-            Text("Tap a connection to grant or re-check its permission.")
+            Text(connectionsFooterText)
         }
     }
 
@@ -192,9 +213,7 @@ struct SettingsView: View {
         } header: {
             Text("Automation")
         } footer: {
-            Text(watch.canSchedule
-                ? "Athevia can match completed workouts from Apple Health and keep the remaining week available on Apple Watch."
-                : "Athevia can match completed workouts from Apple Health.")
+            Text(automationFooterText)
         }
     }
 
@@ -327,6 +346,26 @@ struct SettingsView: View {
         }
     }
 
+    private var connectionsFooterText: String {
+        if watch.isPairedWatch && !watch.isAtheviaWatchInstalled {
+            return "Your Apple Watch is paired. Install Athevia on it to view and start workouts from your wrist."
+        }
+        if watch.isAtheviaWatchInstalled {
+            return "Athevia Watch is installed. Your current training week syncs automatically."
+        }
+        return "Tap a connection to grant or re-check its permission."
+    }
+
+    private var automationFooterText: String {
+        if watch.isAtheviaWatchInstalled {
+            return "Athevia keeps the current week available in the Athevia Watch app and imports completed workouts from Apple Health."
+        }
+        if watch.canSchedule {
+            return "Athevia can match completed workouts from Apple Health and keep workouts available in Apple's Workout app."
+        }
+        return "Athevia can match completed workouts from Apple Health."
+    }
+
     private var notificationStatusText: String {
         switch notificationStatus {
         case .notDetermined: "Not set up"
@@ -401,6 +440,146 @@ struct SettingsView: View {
             return "Nothing new since the last import."
         }
         return "No matching workouts found for this week."
+    }
+}
+
+
+
+private struct WatchAppSetupView: View {
+    @ObservedObject var watch: WatchAvailability
+    let currentPlan: WeeklyPlan?
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var statusMessage: String?
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    HStack(spacing: 14) {
+                        Image(systemName: "applewatch")
+                            .font(.title2)
+                            .frame(width: 42, height: 42)
+                            .background(.fill.tertiary, in: .circle)
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Athevia Watch")
+                                .font(.headline)
+                            Text(watch.isAtheviaWatchInstalled ? "Installed" : "Not installed")
+                                .font(.subheadline)
+                                .foregroundStyle(watch.isAtheviaWatchInstalled ? .green : .secondary)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+
+                if watch.isAtheviaWatchInstalled {
+                    Section("Workout Sync") {
+                        Label("Your current training week syncs automatically.", systemImage: "checkmark.circle.fill")
+
+                        Button {
+                            let queued = WatchAppPlanSync.sync(currentPlan)
+                            let count = currentPlan?.trainingSessions.count ?? 0
+                            statusMessage = queued
+                                ? "Queued \(count) workout\(count == 1 ? "" : "s") for your Apple Watch."
+                                : "Athevia could not prepare the current week for Watch sync."
+                        } label: {
+                            Label("Sync Current Week Now", systemImage: "arrow.triangle.2.circlepath")
+                        }
+
+                        if let statusMessage {
+                            Text(statusMessage)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    Section {
+                        Text("After syncing, workouts remain available in the Athevia Watch app even when your iPhone is not nearby.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                } else {
+                    Section("Install from your iPhone") {
+                        installationStep(
+                            number: 1,
+                            title: "Open the Watch app",
+                            detail: "Use Apple's Watch app on this iPhone."
+                        )
+                        installationStep(
+                            number: 2,
+                            title: "Open My Watch",
+                            detail: "Scroll to the Available Apps section."
+                        )
+                        installationStep(
+                            number: 3,
+                            title: "Find Athevia",
+                            detail: "Tap Install next to Athevia."
+                        )
+                        installationStep(
+                            number: 4,
+                            title: "Return to Athevia",
+                            detail: "Your workouts will sync automatically once installation is detected."
+                        )
+                    }
+
+                    Section {
+                        Button {
+                            watch.refresh()
+                            statusMessage = watch.isAtheviaWatchInstalled
+                                ? "Athevia Watch is installed."
+                                : "Athevia Watch is not installed yet."
+                        } label: {
+                            Label("Check Again", systemImage: "arrow.clockwise")
+                        }
+
+                        if let statusMessage {
+                            Text(statusMessage)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    } footer: {
+                        Text("If Automatic App Install is enabled in the Watch app, Athevia may already install automatically.")
+                    }
+                }
+            }
+            .navigationTitle("Athevia Watch")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                }
+            }
+            .onAppear {
+                watch.refresh()
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+
+    private func installationStep(
+        number: Int,
+        title: String,
+        detail: String
+    ) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Text("\(number)")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(.secondary)
+                .frame(width: 26, height: 26)
+                .background(.fill.tertiary, in: .circle)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                Text(detail)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, 2)
     }
 }
 
