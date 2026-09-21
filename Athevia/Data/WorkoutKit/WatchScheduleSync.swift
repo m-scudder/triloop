@@ -8,6 +8,10 @@ import SwiftData
 /// athlete happened to open that tab.
 @MainActor
 enum WatchScheduleSync {
+    // MainActor methods can interleave at awaits. Queue whole reconciliations so
+    // foreground and plan-change triggers cannot both replace the same entry.
+    private static var pending: Task<WeekScheduler.Outcome, Never>?
+    private static var pendingID: UUID?
 
     /// Read directly rather than through `@AppStorage`, so this can be called
     /// from anywhere that changes the plan.
@@ -24,8 +28,23 @@ enum WatchScheduleSync {
         now: Date = .now
     ) async -> WeekScheduler.Outcome {
         guard let plan, isEnabledByPreference else { return WeekScheduler.Outcome() }
-        guard await scheduler.authorizationState() == .authorized else { return WeekScheduler.Outcome() }
-
-        return await WeekScheduler(scheduler: scheduler).scheduleWeek(plan, now: now)
+        let previous = pending
+        let id = UUID()
+        let task = Task { @MainActor in
+            if let previous { _ = await previous.value }
+            guard isEnabledByPreference,
+                  await scheduler.authorizationState() == .authorized else {
+                return WeekScheduler.Outcome()
+            }
+            return await WeekScheduler(scheduler: scheduler).scheduleWeek(plan, now: now)
+        }
+        pending = task
+        pendingID = id
+        let outcome = await task.value
+        if pendingID == id {
+            pending = nil
+            pendingID = nil
+        }
+        return outcome
     }
 }
