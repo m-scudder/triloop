@@ -1,5 +1,23 @@
 import Foundation
 
+enum SharedAudioCoachingPreferences {
+    static let enabledKey = "audioCoachingEnabled"
+    static let countdownsKey = "audioCoachingCountdowns"
+    static let volumeKey = "audioCoachingVolume"
+}
+
+struct WatchCoachingSettingsPayload: Codable, Equatable, Sendable {
+    let enabled: Bool
+    let countdowns: Bool
+    let volume: Double
+
+    static let defaults = WatchCoachingSettingsPayload(
+        enabled: true,
+        countdowns: true,
+        volume: 0.8
+    )
+}
+
 struct WatchWorkoutListPayload: Codable, Equatable, Sendable {
     static let currentSchemaVersion = 1
 
@@ -7,17 +25,20 @@ struct WatchWorkoutListPayload: Codable, Equatable, Sendable {
     let generatedAt: Date
     let weekStart: Date?
     let workouts: [WatchWorkoutPayload]
+    let coaching: WatchCoachingSettingsPayload?
 
     init(
         schemaVersion: Int = Self.currentSchemaVersion,
         generatedAt: Date = .now,
         weekStart: Date?,
-        workouts: [WatchWorkoutPayload]
+        workouts: [WatchWorkoutPayload],
+        coaching: WatchCoachingSettingsPayload? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.generatedAt = generatedAt
         self.weekStart = weekStart
         self.workouts = workouts
+        self.coaching = coaching
     }
 }
 
