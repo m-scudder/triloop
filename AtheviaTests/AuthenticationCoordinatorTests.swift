@@ -36,6 +36,19 @@ struct AuthenticationCoordinatorTests {
         #expect(receivedCredential == credential)
     }
 
+    @Test("Deleting the account clears the account state")
+    func deleteAccount() async throws {
+        let session = AccountSession(userID: "user-delete")
+        let service = AuthenticationServiceStub(session: session)
+        let coordinator = AuthenticationCoordinator(service: service)
+        await coordinator.refresh()
+
+        try await coordinator.deleteAccount()
+
+        #expect(coordinator.state == .signedOut)
+        #expect(await service.didDeleteAccount)
+    }
+
     @Test("Sign out clears the account state")
     func signOut() async throws {
         let session = AccountSession(userID: "user-3")
@@ -53,6 +66,7 @@ private actor AuthenticationServiceStub: AuthenticationService {
     private var session: AccountSession?
     private let signInResult: AccountSession?
     private(set) var lastCredential: AppleAuthenticationCredential?
+    private(set) var didDeleteAccount = false
 
     init(session: AccountSession? = nil, signInResult: AccountSession? = nil) {
         self.session = session
@@ -71,6 +85,11 @@ private actor AuthenticationServiceStub: AuthenticationService {
     }
 
     func signOut() async throws {
+        session = nil
+    }
+
+    func deleteAccount() async throws {
+        didDeleteAccount = true
         session = nil
     }
 }
