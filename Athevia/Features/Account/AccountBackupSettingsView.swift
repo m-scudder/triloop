@@ -14,6 +14,7 @@ struct AccountBackupSettingsView: View {
     @State private var latestBackup: BackupEnvelope?
     @State private var isWorking = false
     @State private var message: String?
+    @State private var showsDeleteConfirmation = false
 
     var body: some View {
         List {
@@ -22,8 +23,13 @@ struct AccountBackupSettingsView: View {
                 case .signedIn(let session):
                     LabeledContent("Apple", value: session.email ?? "Signed in")
 
-                    Button("Sign Out", role: .destructive) {
+                    Button("Sign Out") {
                         signOut()
+                    }
+                    .disabled(isWorking)
+
+                    Button("Delete Account", role: .destructive) {
+                        showsDeleteConfirmation = true
                     }
                     .disabled(isWorking)
 
@@ -68,6 +74,18 @@ struct AccountBackupSettingsView: View {
             if case .signedIn = authentication.state {
                 await refreshBackup()
             }
+        }
+        .confirmationDialog(
+            "Delete your Athevia account?",
+            isPresented: $showsDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Delete Account & Cloud Data", role: .destructive) {
+                deleteAccount()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This permanently deletes your Athevia account and cloud backups. Training stored locally on this iPhone is not deleted.")
         }
         .alert(
             "Cloud Backup",
@@ -130,6 +148,19 @@ struct AccountBackupSettingsView: View {
                     from: modelContext
                 )
                 message = "Your Athevia training is backed up."
+            } catch {
+                message = error.localizedDescription
+            }
+        }
+    }
+
+    private func deleteAccount() {
+        isWorking = true
+        Task { @MainActor in
+            defer { isWorking = false }
+            do {
+                try await authentication.deleteAccount()
+                latestBackup = nil
             } catch {
                 message = error.localizedDescription
             }
