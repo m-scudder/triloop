@@ -95,6 +95,43 @@ struct WatchWorkoutExecutionTests {
         #expect(engine.phase == .finished)
     }
 
+
+    @Test("Execution snapshot restores active interval progress")
+    func snapshotRestore() {
+        let first = step(title: "Warm-up", duration: 10)
+        let second = step(title: "Work", duration: 10)
+        let workout = makeWorkout(steps: [first, second])
+
+        var original = WatchWorkoutExecutionEngine(workout: workout)
+        original.start()
+        original.advance(by: 4)
+
+        let restored = WatchWorkoutExecutionEngine(
+            workout: workout,
+            snapshot: original.snapshot
+        )
+
+        #expect(restored.phase == .running)
+        #expect(restored.elapsedSeconds == 4)
+        #expect(restored.remainingSeconds == 6)
+        #expect(restored.currentStep?.title == "Warm-up")
+    }
+
+    @Test("Structured completion includes partial current step")
+    func structuredCompletionRatio() {
+        let first = step(title: "Warm-up", duration: 10)
+        let second = step(title: "Work", duration: 10)
+        var engine = WatchWorkoutExecutionEngine(
+            workout: makeWorkout(steps: [first, second])
+        )
+
+        engine.start()
+        engine.advance(by: 15)
+
+        #expect(engine.completedStepCount == 1)
+        #expect(abs(engine.prescriptionCompletionRatio - 0.75) < 0.0001)
+    }
+
     private func step(title: String, duration: TimeInterval) -> WatchWorkoutStepPayload {
         WatchWorkoutStepPayload(
             id: UUID(),
