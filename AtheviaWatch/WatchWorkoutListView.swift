@@ -26,15 +26,6 @@ struct WatchWorkoutListView: View {
                 }
             }
             .navigationTitle("Workouts")
-            .toolbar {
-                if let updated = store.lastUpdatedText {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Text(updated)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
         }
     }
 }
