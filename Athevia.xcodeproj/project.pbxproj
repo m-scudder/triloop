@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		AE000000000000000000000C /* AtheviaLiveActivity.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AE0000000000000000000008 /* AtheviaLiveActivity.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		AF0000000000000000000001 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = AF0000000000000000000003 /* Supabase */; };
+		AG000000000000000000000C /* Athevia Watch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = AG0000000000000000000008 /* Athevia Watch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -33,6 +34,13 @@
 			remoteGlobalIDString = AE0000000000000000000001;
 			remoteInfo = AtheviaLiveActivity;
 		};
+		AG000000000000000000000B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AA0000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AG0000000000000000000001;
+			remoteInfo = "Athevia Watch";
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -47,6 +55,17 @@
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AI000000000000000000000B /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				AG000000000000000000000C /* Athevia Watch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -54,6 +73,7 @@
 		AC0000000000000000000008 /* AtheviaTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AtheviaTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		AD0000000000000000000008 /* AtheviaUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AtheviaUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		AE0000000000000000000008 /* AtheviaLiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = AtheviaLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		AG0000000000000000000008 /* Athevia Watch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Athevia Watch.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -70,6 +90,13 @@
 				Info.plist,
 			);
 			target = AE0000000000000000000001 /* AtheviaLiveActivity */;
+		};
+		AJ000000000000000000000D /* Exceptions for "AtheviaWatch" folder in "Athevia Watch" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = AG0000000000000000000001 /* Athevia Watch */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -98,6 +125,19 @@
 				AE000000000000000000000D /* Exceptions for "AtheviaLiveActivity" folder in "AtheviaLiveActivity" target */,
 			);
 			path = AtheviaLiveActivity;
+			sourceTree = "<group>";
+		};
+		AG0000000000000000000009 /* AtheviaWatch */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				AJ000000000000000000000D /* Exceptions for "AtheviaWatch" folder in "Athevia Watch" target */,
+			);
+			path = AtheviaWatch;
+			sourceTree = "<group>";
+		};
+		AH0000000000000000000009 /* AtheviaShared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = AtheviaShared;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -132,6 +172,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AG0000000000000000000003 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -147,6 +194,8 @@
 			children = (
 				AB0000000000000000000009 /* Athevia */,
 				AE0000000000000000000009 /* AtheviaLiveActivity */,
+				AG0000000000000000000009 /* AtheviaWatch */,
+				AH0000000000000000000009 /* AtheviaShared */,
 				AC0000000000000000000009 /* AtheviaTests */,
 				AD0000000000000000000009 /* AtheviaUITests */,
 				712410B4305DC9D200365CC3 /* Frameworks */,
@@ -159,6 +208,7 @@
 			children = (
 				AB0000000000000000000008 /* Athevia.app */,
 				AE0000000000000000000008 /* AtheviaLiveActivity.appex */,
+				AG0000000000000000000008 /* Athevia Watch.app */,
 				AC0000000000000000000008 /* AtheviaTests.xctest */,
 				AD0000000000000000000008 /* AtheviaUITests.xctest */,
 			);
@@ -176,14 +226,17 @@
 				AB0000000000000000000003 /* Frameworks */,
 				AB0000000000000000000004 /* Resources */,
 				AB000000000000000000000B /* Embed Foundation Extensions */,
+				AI000000000000000000000B /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				AB000000000000000000000A /* PBXTargetDependency */,
+				AG000000000000000000000A /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				AB0000000000000000000009 /* Athevia */,
+				AH0000000000000000000009 /* AtheviaShared */,
 			);
 			name = Athevia;
 			packageProductDependencies = (
@@ -261,6 +314,29 @@
 			productReference = AE0000000000000000000008 /* AtheviaLiveActivity.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		AG0000000000000000000001 /* Athevia Watch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AG0000000000000000000005 /* Build configuration list for PBXNativeTarget "Athevia Watch" */;
+			buildPhases = (
+				AG0000000000000000000002 /* Sources */,
+				AG0000000000000000000003 /* Frameworks */,
+				AG0000000000000000000004 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				AG0000000000000000000009 /* AtheviaWatch */,
+				AH0000000000000000000009 /* AtheviaShared */,
+			);
+			name = "Athevia Watch";
+			packageProductDependencies = (
+			);
+			productName = "Athevia Watch";
+			productReference = AG0000000000000000000008 /* Athevia Watch.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -278,6 +354,9 @@
 						TestTargetID = AB0000000000000000000001;
 					};
 					AE0000000000000000000001 = {
+						CreatedOnToolsVersion = 26.0;
+					};
+					AG0000000000000000000001 = {
 						CreatedOnToolsVersion = 26.0;
 					};
 				};
@@ -301,6 +380,7 @@
 			targets = (
 				AB0000000000000000000001 /* Athevia */,
 				AE0000000000000000000001 /* AtheviaLiveActivity */,
+				AG0000000000000000000001 /* Athevia Watch */,
 				AC0000000000000000000001 /* AtheviaTests */,
 				AD0000000000000000000001 /* AtheviaUITests */,
 			);
@@ -330,6 +410,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		AE0000000000000000000004 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AG0000000000000000000004 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -367,6 +454,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AG0000000000000000000002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -384,6 +478,11 @@
 			isa = PBXTargetDependency;
 			target = AB0000000000000000000001 /* Athevia */;
 			targetProxy = AD000000000000000000000B /* PBXContainerItemProxy */;
+		};
+		AG000000000000000000000A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AG0000000000000000000001 /* Athevia Watch */;
+			targetProxy = AG000000000000000000000B /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -659,6 +758,63 @@
 			};
 			name = Release;
 		};
+		AG0000000000000000000006 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = AtheviaWatch/AtheviaWatch.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 69LB9UDYJD;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AtheviaWatch/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(ATHEVIA_BUNDLE_PREFIX).athevia.watchkitapp";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
+		AG0000000000000000000007 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = AtheviaWatch/AtheviaWatch.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 69LB9UDYJD;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AtheviaWatch/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(ATHEVIA_BUNDLE_PREFIX).athevia.watchkitapp";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				VALIDATE_PRODUCT = YES;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -703,6 +859,15 @@
 			buildConfigurations = (
 				AE0000000000000000000006 /* Debug */,
 				AE0000000000000000000007 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AG0000000000000000000005 /* Build configuration list for PBXNativeTarget "Athevia Watch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AG0000000000000000000006 /* Debug */,
+				AG0000000000000000000007 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -16,8 +16,9 @@ struct MatchResult {
 
 /// Pairs planned sessions with what actually happened.
 ///
-/// Requires same-day metric agreement and a unique candidate on both sides.
-/// Adjacent days need a plan identifier, which normalized recordings do not carry.
+/// Athevia Watch recordings carry the prescribed workout UUID in HealthKit
+/// metadata and are matched exactly. Other recordings use same-day metric
+/// agreement and a unique candidate on both sides.
 struct WorkoutMatcher: Sendable {
     var calendar: Calendar = .current
     var toleranceDays: Int = 0
@@ -38,8 +39,45 @@ struct WorkoutMatcher: Sendable {
         }
 
         var candidates: [Candidate] = []
+        var usedPlanned: Set<Int> = []
+        var usedImported: Set<Int> = []
+        var matches: [WorkoutMatch] = []
+
+        // Athevia Watch writes the planned workout UUID into HealthKit metadata.
+        // This is authoritative and should win before date/duration heuristics.
+        for (importedIndex, activity) in imported.enumerated() {
+            guard let plannedID = activity.plannedWorkoutID,
+                  activity.startDate <= now,
+                  let plannedIndex = sessions.firstIndex(where: {
+                      $0.id == plannedID
+                          && !$0.isSkipped
+                          && $0.importedSummary == nil
+                          && $0.discipline.sport == activity.sport
+                  }),
+                  !usedPlanned.contains(plannedIndex) else { continue }
+
+            let session = sessions[plannedIndex]
+            let plannedDay = calendar.startOfDay(for: session.date)
+            let activityDay = calendar.startOfDay(for: activity.startDate)
+            let offset = calendar.dateComponents(
+                [.day],
+                from: plannedDay,
+                to: activityDay
+            ).day ?? 0
+
+            usedPlanned.insert(plannedIndex)
+            usedImported.insert(importedIndex)
+            matches.append(
+                WorkoutMatch(
+                    planned: session,
+                    imported: activity,
+                    dayOffset: offset
+                )
+            )
+        }
 
         for (plannedIndex, session) in sessions.enumerated() {
+            guard !usedPlanned.contains(plannedIndex) else { continue }
             guard let sport = session.discipline.sport,
                   !session.isSkipped, session.importedSummary == nil else { continue }
             let plannedDay = calendar.startOfDay(for: session.date)
@@ -49,7 +87,8 @@ struct WorkoutMatcher: Sendable {
             // tomorrow's ride complete before the athlete has done it.
             guard plannedDay <= today else { continue }
 
-            for (importedIndex, activity) in imported.enumerated() where activity.sport == sport {
+            for (importedIndex, activity) in imported.enumerated()
+            where activity.sport == sport && !usedImported.contains(importedIndex) {
                 let activityDay = calendar.startOfDay(for: activity.startDate)
                 let offset = calendar.dateComponents([.day], from: plannedDay, to: activityDay).day ?? 0
                 guard offset == 0, activity.startDate <= now,
@@ -79,10 +118,6 @@ struct WorkoutMatcher: Sendable {
                 )
             }
         }
-
-        var usedPlanned: Set<Int> = []
-        var usedImported: Set<Int> = []
-        var matches: [WorkoutMatch] = []
 
         for candidate in candidates {
             let alternatives = candidates.filter {

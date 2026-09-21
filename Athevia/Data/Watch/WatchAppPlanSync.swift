@@ -1,0 +1,109 @@
+import Foundation
+import SwiftData
+
+@MainActor
+enum WatchAppPlanSync {
+    static let contextKey = "athevia.workout-list.v1"
+
+    @discardableResult
+    static func sync(_ plan: WeeklyPlan?) -> Bool {
+        let payload = payload(for: plan)
+        do {
+            let data = try JSONEncoder.atheviaWatch.encode(payload)
+            WatchAvailability.shared.updateWatchAppContext([contextKey: data])
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    static func fingerprint(_ plan: WeeklyPlan?) -> String {
+        guard let plan else { return "no-current-plan" }
+        return plan.orderedWorkouts
+            .filter(\.discipline.isTrainingSession)
+            .map(workoutFingerprint)
+            .joined(separator: "|")
+    }
+
+    private static func payload(for plan: WeeklyPlan?) -> WatchWorkoutListPayload {
+        guard let plan else {
+            return WatchWorkoutListPayload(weekStart: nil, workouts: [])
+        }
+
+        let workouts = plan.orderedWorkouts
+            .filter(\.discipline.isTrainingSession)
+            .map(WatchWorkoutPayload.init(workout:))
+
+        return WatchWorkoutListPayload(
+            weekStart: plan.startDate,
+            workouts: workouts
+        )
+    }
+
+    private static func workoutFingerprint(_ workout: PlannedWorkout) -> String {
+        [
+            workout.id.uuidString,
+            String(workout.date.timeIntervalSince1970),
+            workout.discipline.rawValue,
+            workout.title,
+            workout.goal,
+            workout.status.rawValue,
+            workout.orderedSteps.map(stepFingerprint).joined(separator: ",")
+        ].joined(separator: ":")
+    }
+
+    private static func stepFingerprint(_ step: WorkoutStep) -> String {
+        [
+            step.id.uuidString,
+            String(step.order),
+            step.kind.rawValue,
+            step.title,
+            step.instructions ?? "",
+            step.durationSeconds.map { String($0) } ?? "",
+            step.distanceMeters.map { String($0) } ?? "",
+            step.targetIntensity?.rawValue ?? "",
+            step.repeatCount.map { String($0) } ?? "",
+            step.orderedChildren.map(stepFingerprint).joined(separator: ";")
+        ].joined(separator: "~")
+    }
+}
+
+private extension WatchWorkoutPayload {
+    init(workout: PlannedWorkout) {
+        self.init(
+            id: workout.id,
+            date: workout.date,
+            discipline: WatchWorkoutDiscipline(rawValue: workout.discipline.rawValue) ?? .running,
+            title: workout.title,
+            goal: workout.goal,
+            estimatedDurationSeconds: workout.estimatedDurationSeconds,
+            estimatedDistanceMeters: workout.estimatedDistanceMeters,
+            status: WatchWorkoutStatus(rawValue: workout.status.rawValue) ?? .planned,
+            steps: workout.orderedSteps.map(WatchWorkoutStepPayload.init(step:))
+        )
+    }
+}
+
+private extension WatchWorkoutStepPayload {
+    init(step: WorkoutStep) {
+        self.init(
+            id: step.id,
+            kind: WatchWorkoutStepKind(rawValue: step.kind.rawValue) ?? .work,
+            title: step.title,
+            instructions: step.instructions,
+            durationSeconds: step.durationSeconds,
+            distanceMeters: step.distanceMeters,
+            targetIntensity: step.targetIntensity.flatMap { WatchWorkoutIntensity(rawValue: $0.rawValue) },
+            repeatCount: step.repeatCount,
+            children: step.orderedChildren.map(WatchWorkoutStepPayload.init(step:))
+        )
+    }
+}
+
+private extension JSONEncoder {
+    static var atheviaWatch: JSONEncoder {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        return encoder
+    }
+}
