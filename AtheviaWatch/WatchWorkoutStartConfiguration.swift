@@ -1,7 +1,7 @@
 import Foundation
 
-struct WatchWorkoutStartConfiguration: Equatable, Sendable {
-    enum Environment: String, CaseIterable, Identifiable, Sendable {
+struct WatchWorkoutStartConfiguration: Codable, Equatable, Sendable {
+    enum Environment: String, Codable, CaseIterable, Identifiable, Sendable {
         case indoor
         case outdoor
         case pool
