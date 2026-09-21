@@ -6,6 +6,7 @@ import WatchConnectivity
 final class WatchWorkoutStore: NSObject, ObservableObject {
     @Published private(set) var payload: WatchWorkoutListPayload
     @Published private(set) var connectionState: ConnectionState = .starting
+    @Published private(set) var locallyCompletedWorkoutIDs: Set<UUID>
 
     enum ConnectionState: Equatable {
         case starting
@@ -15,9 +16,11 @@ final class WatchWorkoutStore: NSObject, ObservableObject {
 
     private static let contextKey = "athevia.workout-list.v1"
     private static let cacheKey = "athevia.cached-workout-list.v1"
+    private static let completedKey = "athevia.completed-workout-ids.v1"
 
     override init() {
         let cached = Self.loadCachedPayload()
+        locallyCompletedWorkoutIDs = Self.loadCompletedWorkoutIDs()
         #if DEBUG
         #if targetEnvironment(simulator)
         payload = cached.workouts.isEmpty ? WatchSimulatorFixture.payload() : cached
@@ -34,6 +37,19 @@ final class WatchWorkoutStore: NSObject, ObservableObject {
 
     var workouts: [WatchWorkoutPayload] {
         payload.workouts.sorted { $0.date < $1.date }
+    }
+
+    var coachingSettings: WatchCoachingSettingsPayload {
+        payload.coaching ?? .defaults
+    }
+
+    func isCompleted(_ workout: WatchWorkoutPayload) -> Bool {
+        workout.status == .completed || locallyCompletedWorkoutIDs.contains(workout.id)
+    }
+
+    func markCompleted(_ workoutID: UUID) {
+        locallyCompletedWorkoutIDs.insert(workoutID)
+        persistCompletedWorkoutIDs()
     }
 
     var lastUpdatedText: String? {
@@ -63,7 +79,27 @@ final class WatchWorkoutStore: NSObject, ObservableObject {
         }
 
         payload = decoded
+
+        let currentIDs = Set(decoded.workouts.map(\.id))
+        locallyCompletedWorkoutIDs.formIntersection(currentIDs)
+        for workout in decoded.workouts where workout.status == .completed {
+            locallyCompletedWorkoutIDs.insert(workout.id)
+        }
+        persistCompletedWorkoutIDs()
+
         UserDefaults.standard.set(data, forKey: Self.cacheKey)
+    }
+
+    private func persistCompletedWorkoutIDs() {
+        UserDefaults.standard.set(
+            locallyCompletedWorkoutIDs.map(\.uuidString),
+            forKey: Self.completedKey
+        )
+    }
+
+    private static func loadCompletedWorkoutIDs() -> Set<UUID> {
+        let values = UserDefaults.standard.stringArray(forKey: completedKey) ?? []
+        return Set(values.compactMap(UUID.init(uuidString:)))
     }
 
     private static func loadCachedPayload() -> WatchWorkoutListPayload {
