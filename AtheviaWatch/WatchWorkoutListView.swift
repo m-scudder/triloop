@@ -15,7 +15,10 @@ struct WatchWorkoutListView: View {
                 } else {
                     List(store.workouts) { workout in
                         NavigationLink(value: workout.id) {
-                            WatchWorkoutRow(workout: workout)
+                            WatchWorkoutRow(
+                                workout: workout,
+                                isCompleted: store.isCompleted(workout)
+                            )
                         }
                         .listRowBackground(
                             workout.discipline.listTint.opacity(0.16)
@@ -36,6 +39,7 @@ struct WatchWorkoutListView: View {
 
 private struct WatchWorkoutRow: View {
     let workout: WatchWorkoutPayload
+    let isCompleted: Bool
 
     var body: some View {
         HStack(spacing: 10) {
@@ -56,7 +60,7 @@ private struct WatchWorkoutRow: View {
                         .foregroundStyle(.primary)
                         .lineLimit(1)
 
-                    if workout.status == .completed {
+                    if isCompleted {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.caption)
                             .foregroundStyle(workout.discipline.listTint)
@@ -70,6 +74,7 @@ private struct WatchWorkoutRow: View {
             }
         }
         .padding(.vertical, 3)
+        .opacity(isCompleted ? 0.72 : 1)
     }
 
     private var subtitle: String {
