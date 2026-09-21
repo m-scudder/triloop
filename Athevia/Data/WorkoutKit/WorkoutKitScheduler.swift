@@ -98,6 +98,8 @@ struct WorkoutKitScheduler: WorkoutScheduling {
 final class WatchAvailability: NSObject, ObservableObject, WCSessionDelegate {
     static let shared = WatchAvailability()
     @Published private(set) var canSchedule = false
+    @Published private(set) var isAtheviaWatchInstalled = false
+    private var pendingWatchAppContext: [String: Any]?
 
     private override init() {
         super.init()
@@ -107,18 +109,56 @@ final class WatchAvailability: NSObject, ObservableObject, WCSessionDelegate {
     func refresh() {
         guard WCSession.isSupported() else {
             canSchedule = false
+            isAtheviaWatchInstalled = false
             return
         }
         let session = WCSession.default
         session.delegate = self
         guard session.activationState == .activated else {
             canSchedule = false
+            isAtheviaWatchInstalled = false
             if session.activationState == .notActivated { session.activate() }
             return
         }
         // isReachable requires a running companion app; it is not a test for
         // whether WorkoutKit can queue a workout for Apple's Workout app.
         canSchedule = session.isPaired && WorkoutScheduler.isSupported
+        isAtheviaWatchInstalled = session.isPaired && session.isWatchAppInstalled
+        flushWatchAppContext()
+    }
+
+    /// Application context is ideal for the weekly plan: only the newest
+    /// snapshot matters, and watchOS receives it when connectivity becomes
+    /// available again. The Watch caches the payload for phone-free workouts.
+    func updateWatchAppContext(_ context: [String: Any]) {
+        pendingWatchAppContext = context
+        guard WCSession.isSupported() else { return }
+
+        let session = WCSession.default
+        session.delegate = self
+        if session.activationState == .notActivated {
+            session.activate()
+        } else if session.activationState == .activated {
+            flushWatchAppContext()
+        }
+    }
+
+    private func flushWatchAppContext() {
+        guard let pendingWatchAppContext,
+              WCSession.isSupported() else { return }
+
+        let session = WCSession.default
+        guard session.activationState == .activated,
+              session.isPaired,
+              session.isWatchAppInstalled else { return }
+
+        do {
+            try session.updateApplicationContext(pendingWatchAppContext)
+            self.pendingWatchAppContext = nil
+        } catch {
+            // Keep the latest snapshot queued. A later activation/state change
+            // or foreground sync gets another chance without losing the plan.
+        }
     }
 
     nonisolated func session(
@@ -130,6 +170,7 @@ final class WatchAvailability: NSObject, ObservableObject, WCSessionDelegate {
             // Do not immediately retry a failed activation.
             guard activationState == .activated, error == nil else {
                 self.canSchedule = false
+                self.isAtheviaWatchInstalled = false
                 return
             }
             self.refresh()
@@ -141,12 +182,16 @@ final class WatchAvailability: NSObject, ObservableObject, WCSessionDelegate {
     }
 
     nonisolated func sessionDidBecomeInactive(_ session: WCSession) {
-        Task { @MainActor in self.canSchedule = false }
+        Task { @MainActor in
+            self.canSchedule = false
+            self.isAtheviaWatchInstalled = false
+        }
     }
 
     nonisolated func sessionDidDeactivate(_ session: WCSession) {
         Task { @MainActor in
             self.canSchedule = false
+            self.isAtheviaWatchInstalled = false
             WCSession.default.activate()
         }
     }
