@@ -89,7 +89,13 @@ final class WorkoutAudioCoach: NSObject, ObservableObject, AVAudioPlayerDelegate
 
     func seekToStep(_ index: Int) {
         guard let timeline, timeline.stepStarts.indices.contains(index) else { return }
-        player?.currentTime = timeline.stepStarts[index]
+        seek(to: timeline.stepStarts[index])
+    }
+
+    func seek(to position: TimeInterval) {
+        guard let player else { return }
+        let upperBound = max(player.duration - 0.05, 0)
+        player.currentTime = min(max(position, 0), upperBound)
         updateDucking()
     }
 
