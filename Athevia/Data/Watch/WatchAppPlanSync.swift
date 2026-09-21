@@ -1,6 +1,5 @@
 import Foundation
 import SwiftData
-import WatchConnectivity
 
 @MainActor
 enum WatchAppPlanSync {
@@ -8,19 +7,10 @@ enum WatchAppPlanSync {
 
     @discardableResult
     static func sync(_ plan: WeeklyPlan?) -> Bool {
-        guard WCSession.isSupported() else { return false }
-
-        let session = WCSession.default
-        guard session.activationState == .activated,
-              session.isPaired,
-              session.isWatchAppInstalled else {
-            return false
-        }
-
         let payload = payload(for: plan)
         do {
             let data = try JSONEncoder.atheviaWatch.encode(payload)
-            try session.updateApplicationContext([contextKey: data])
+            WatchAvailability.shared.updateWatchAppContext([contextKey: data])
             return true
         } catch {
             return false
