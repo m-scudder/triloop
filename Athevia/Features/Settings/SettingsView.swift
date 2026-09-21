@@ -11,6 +11,8 @@ struct SettingsView: View {
     @Query private var profiles: [AthleteProfile]
     @Query(sort: \WeeklyPlan.startDate) private var plans: [WeeklyPlan]
 
+    @StateObject private var watch = WatchAvailability.shared
+    @Environment(\.scenePhase) private var scenePhase
     @State private var healthStatus: HealthAuthorizationStatus = .notDetermined
     @State private var notificationStatus: TrainingNotificationAuthorization = .notDetermined
     @State private var importMessage: String?
@@ -37,7 +39,11 @@ struct SettingsView: View {
                 developerSection
             }
             .navigationTitle("Settings")
-            .task { await refreshStatus() }
+            .task(id: scenePhase) {
+                guard scenePhase == .active else { return }
+                watch.refresh()
+                await refreshStatus()
+            }
             .refreshable { await refreshStatus() }
             .alert("Apple Health", isPresented: showingImportMessage) {
                 Button("OK", role: .cancel) { importMessage = nil }
@@ -132,15 +138,25 @@ struct SettingsView: View {
             .buttonStyle(.plain)
             .disabled(isWorking || healthStatus == .unavailable)
 
-            Button { connectWatch() } label: {
-                SettingsStatusRow(
-                    title: "Apple Watch",
-                    systemImage: "applewatch",
-                    value: watchStatusText
-                )
+            if watch.canSchedule {
+                Button { connectWatch() } label: {
+                    SettingsStatusRow(
+                        title: "Apple Watch",
+                        systemImage: "applewatch",
+                        value: watchStatusText
+                    )
+                }
+                .buttonStyle(.plain)
+                .disabled(isWorking || !scheduler.isSupported || watchAuthorization == .restricted)
+                NavigationLink("Watch schedule details") {
+                    ScheduledWorkoutsView(
+                        isSupported: scheduler.isSupported,
+                        authorization: watchAuthorization,
+                        entries: scheduledWorkouts,
+                        refresh: refreshSchedule
+                    )
+                }
             }
-            .buttonStyle(.plain)
-            .disabled(isWorking || !scheduler.isSupported || watchAuthorization == .restricted)
         } header: {
             Text("Connections")
         } footer: {
@@ -154,8 +170,10 @@ struct SettingsView: View {
                 Label("Import workouts automatically", systemImage: "arrow.down.circle")
             }
 
-            Toggle(isOn: $automaticallySchedule) {
-                Label("Send workouts to Watch", systemImage: "applewatch")
+            if watch.canSchedule {
+                Toggle(isOn: $automaticallySchedule) {
+                    Label("Send workouts to Watch", systemImage: "applewatch")
+                }
             }
 
             Button { importThisWeek() } label: {
@@ -165,7 +183,9 @@ struct SettingsView: View {
         } header: {
             Text("Automation")
         } footer: {
-            Text("Athevia can match completed workouts from Apple Health and keep the remaining week available on Apple Watch.")
+            Text(watch.canSchedule
+                ? "Athevia can match completed workouts from Apple Health and keep the remaining week available on Apple Watch."
+                : "Athevia can match completed workouts from Apple Health.")
         }
     }
 
@@ -180,15 +200,6 @@ struct SettingsView: View {
     private var developerSection: some View {
         #if DEBUG
         Section("Developer") {
-            NavigationLink("Apple Watch schedule") {
-                ScheduledWorkoutsView(
-                    isSupported: scheduler.isSupported,
-                    authorization: watchAuthorization,
-                    entries: scheduledWorkouts,
-                    refresh: refreshSchedule
-                )
-            }
-
             NavigationLink("Simulate training") {
                 DeveloperToolsView()
             }
@@ -316,6 +327,7 @@ struct SettingsView: View {
     }
 
     private func connectWatch() {
+        guard watch.canSchedule else { return }
         isWorking = true
         Task {
             defer { isWorking = false }

@@ -1,5 +1,7 @@
 import Foundation
 import WorkoutKit
+import WatchConnectivity
+import Combine
 
 /// Schedules Athevia workouts into Apple's Workout app.
 ///
@@ -32,15 +34,14 @@ struct WorkoutKitScheduler: WorkoutScheduling {
         }
 
         // WorkoutKit identifies a scheduled workout by plan *and* date, so the
-        // components must include the time, not just the day.
+        // components retain the intended starting time.
         let components = calendar.dateComponents(
             [.year, .month, .day, .hour, .minute],
             from: date
         )
         await WorkoutScheduler.shared.schedule(plan, at: components)
 
-        // `schedule` neither throws nor returns anything, so the only way to know
-        // it worked is to read the schedule back.
+        // Read back local acceptance. This does not acknowledge Watch delivery.
         guard await scheduledWorkoutIDs().contains(plan.id) else {
             throw WorkoutSchedulingError.notAccepted
         }
@@ -86,6 +87,67 @@ struct WorkoutKitScheduler: WorkoutScheduling {
         case .denied: .denied
         case .authorized: .authorized
         @unknown default: .notDetermined
+        }
+    }
+}
+
+
+/// Pairing is separate from WorkoutKit support and live message reachability.
+/// No companion Watch app is required for Apple's Workout app integration.
+@MainActor
+final class WatchAvailability: NSObject, ObservableObject, WCSessionDelegate {
+    static let shared = WatchAvailability()
+    @Published private(set) var canSchedule = false
+
+    private override init() {
+        super.init()
+        refresh()
+    }
+
+    func refresh() {
+        guard WCSession.isSupported() else {
+            canSchedule = false
+            return
+        }
+        let session = WCSession.default
+        session.delegate = self
+        guard session.activationState == .activated else {
+            canSchedule = false
+            if session.activationState == .notActivated { session.activate() }
+            return
+        }
+        // isReachable requires a running companion app; it is not a test for
+        // whether WorkoutKit can queue a workout for Apple's Workout app.
+        canSchedule = session.isPaired && WorkoutScheduler.isSupported
+    }
+
+    nonisolated func session(
+        _ session: WCSession,
+        activationDidCompleteWith activationState: WCSessionActivationState,
+        error: Error?
+    ) {
+        Task { @MainActor in
+            // Do not immediately retry a failed activation.
+            guard activationState == .activated, error == nil else {
+                self.canSchedule = false
+                return
+            }
+            self.refresh()
+        }
+    }
+
+    nonisolated func sessionWatchStateDidChange(_ session: WCSession) {
+        Task { @MainActor in self.refresh() }
+    }
+
+    nonisolated func sessionDidBecomeInactive(_ session: WCSession) {
+        Task { @MainActor in self.canSchedule = false }
+    }
+
+    nonisolated func sessionDidDeactivate(_ session: WCSession) {
+        Task { @MainActor in
+            self.canSchedule = false
+            WCSession.default.activate()
         }
     }
 }
