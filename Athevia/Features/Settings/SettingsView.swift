@@ -109,6 +109,15 @@ struct SettingsView: View {
     private var trainingSection: some View {
         Section("Training") {
             NavigationLink {
+                AudioCoachingSettingsView()
+            } label: {
+                SettingsNavigationRow(
+                    title: "Audio coaching",
+                    systemImage: "speaker.wave.2",
+                    value: "Runs & rides"
+                )
+            }
+            NavigationLink {
                 NotificationSettingsView()
             } label: {
                 SettingsNavigationRow(

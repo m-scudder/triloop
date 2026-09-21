@@ -48,6 +48,15 @@ struct TodayWorkoutView: View {
                     .foregroundStyle(.secondary)
             }
 
+            if workout.discipline == .running || workout.discipline == .cycling {
+                NavigationLink {
+                    AudioCoachingSettingsView()
+                } label: {
+                    Label("Audio coaching", systemImage: "speaker.wave.2")
+                        .font(.subheadline.weight(.medium))
+                }
+            }
+
             HStack(spacing: 10) {
                 Button("Start Workout", action: beginPhoneWorkout)
                     .buttonStyle(PrimaryActionButtonStyle())
