@@ -16,6 +16,7 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
 
     @Published private(set) var state: State = .idle
     @Published private(set) var activeWorkout: WatchWorkoutPayload?
+    @Published private(set) var activeConfiguration: WatchWorkoutStartConfiguration?
     @Published private(set) var engine: WatchWorkoutExecutionEngine?
     @Published private(set) var heartRate: Double?
     @Published private(set) var averageHeartRate: Double?
@@ -23,15 +24,19 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
     @Published private(set) var distanceMeters: Double = 0
     @Published private(set) var activeEnergyKilocalories: Double = 0
     @Published private(set) var savedWorkoutUUID: UUID?
+    @Published private(set) var voiceEnabled = true
     @Published var errorMessage: String?
 
     private let healthStore = HKHealthStore()
+    private let voiceCoach = WatchWorkoutVoiceCoach()
     private var session: HKWorkoutSession?
     private var builder: HKLiveWorkoutBuilder?
     private var ticker: Task<Void, Never>?
     private var lastTickDate: Date?
     private var lastEngineDistanceMeters: Double = 0
     private var isFinalizing = false
+    private var coachingSettings: WatchCoachingSettingsPayload = .defaults
+    private var countdownAnnouncedStepID: String?
 
     var isActive: Bool {
         switch state {
@@ -54,8 +59,17 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
         engine?.nextStep
     }
 
+    var completedPlannedWorkoutID: UUID? {
+        guard savedWorkoutUUID != nil else { return nil }
+        return activeWorkout?.id
+    }
+
     @discardableResult
-    func start(_ workout: WatchWorkoutPayload) async -> Bool {
+    func start(
+        _ workout: WatchWorkoutPayload,
+        configuration: WatchWorkoutStartConfiguration,
+        coaching: WatchCoachingSettingsPayload
+    ) async -> Bool {
         if isActive {
             return activeWorkout?.id == workout.id
         }
@@ -67,24 +81,31 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
 
         state = .preparing
         resetMetrics()
+        savedWorkoutUUID = nil
         activeWorkout = workout
+        activeConfiguration = configuration
         engine = WatchWorkoutExecutionEngine(workout: workout)
+        coachingSettings = coaching
+        voiceEnabled = coaching.enabled
+        voiceCoach.configure(coaching)
+        countdownAnnouncedStepID = nil
 
         do {
             try await requestAuthorization()
 
-            let configuration = HKWorkoutConfiguration()
-            configuration.activityType = workout.discipline.healthKitActivityType
-            configuration.locationType = workout.discipline.defaultLocationType
+            let workoutConfiguration = healthKitConfiguration(
+                for: workout,
+                startConfiguration: configuration
+            )
 
             let newSession = try HKWorkoutSession(
                 healthStore: healthStore,
-                configuration: configuration
+                configuration: workoutConfiguration
             )
             let newBuilder = newSession.associatedWorkoutBuilder()
             newBuilder.dataSource = HKLiveWorkoutDataSource(
                 healthStore: healthStore,
-                workoutConfiguration: configuration
+                workoutConfiguration: workoutConfiguration
             )
 
             newSession.delegate = self
@@ -114,14 +135,21 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
             lastEngineDistanceMeters = 0
             startTicker()
             WKInterfaceDevice.current().play(.start)
+
+            if voiceEnabled {
+                voiceCoach.announceStart(engine?.currentStep)
+            }
+
             return true
         } catch {
             errorMessage = error.localizedDescription
             state = .idle
             activeWorkout = nil
+            activeConfiguration = nil
             engine = nil
             session = nil
             builder = nil
+            voiceCoach.stop()
             return false
         }
     }
@@ -132,6 +160,7 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
         engine?.pause()
         state = .paused
         lastTickDate = nil
+        voiceCoach.stop()
         WKInterfaceDevice.current().play(.click)
     }
 
@@ -142,7 +171,22 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
         state = .running
         lastTickDate = .now
         lastEngineDistanceMeters = distanceMeters
+        countdownAnnouncedStepID = nil
+
+        if voiceEnabled {
+            voiceCoach.announceResume(engine?.currentStep)
+        }
+
         WKInterfaceDevice.current().play(.click)
+    }
+
+    func toggleVoice() {
+        voiceEnabled.toggle()
+        voiceCoach.setEnabled(voiceEnabled)
+
+        if voiceEnabled, state == .running {
+            voiceCoach.announceStep(engine?.currentStep)
+        }
     }
 
     func completeCurrentStep() {
@@ -161,6 +205,7 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
         state = .ending
         ticker?.cancel()
         ticker = nil
+        voiceCoach.stop()
         session?.end()
     }
 
@@ -168,13 +213,16 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
         guard !isActive else { return }
         ticker?.cancel()
         ticker = nil
+        voiceCoach.stop()
         session = nil
         builder = nil
         activeWorkout = nil
+        activeConfiguration = nil
         engine = nil
         savedWorkoutUUID = nil
         errorMessage = nil
         isFinalizing = false
+        countdownAnnouncedStepID = nil
         state = .idle
         resetMetrics()
     }
@@ -202,6 +250,47 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
         guard healthStore.authorizationStatus(for: workoutType) == .sharingAuthorized else {
             throw WatchWorkoutSessionError.healthWriteNotAuthorized
         }
+    }
+
+    private func healthKitConfiguration(
+        for workout: WatchWorkoutPayload,
+        startConfiguration: WatchWorkoutStartConfiguration
+    ) -> HKWorkoutConfiguration {
+        let configuration = HKWorkoutConfiguration()
+        configuration.activityType = workout.discipline.healthKitActivityType
+
+        switch workout.discipline {
+        case .running, .cycling:
+            configuration.locationType = startConfiguration.environment == .indoor
+                ? .indoor
+                : .outdoor
+
+        case .swimming:
+            switch startConfiguration.environment {
+            case .pool:
+                configuration.locationType = .indoor
+                configuration.swimmingLocationType = .pool
+                let meters = startConfiguration.poolLengthMeters ?? 25
+                configuration.lapLength = HKQuantity(
+                    unit: HKUnit.meter(),
+                    doubleValue: max(meters, 1)
+                )
+
+            case .openWater:
+                configuration.locationType = .outdoor
+                configuration.swimmingLocationType = .openWater
+
+            case .indoor:
+                configuration.locationType = .indoor
+                configuration.swimmingLocationType = .pool
+
+            case .outdoor:
+                configuration.locationType = .outdoor
+                configuration.swimmingLocationType = .openWater
+            }
+        }
+
+        return configuration
     }
 
     private func beginCollection(_ builder: HKLiveWorkoutBuilder, at date: Date) async -> Bool {
@@ -240,20 +329,46 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
         lastEngineDistanceMeters = distanceMeters
 
         handleStepTransition(from: previousID)
+        announceCountdownIfNeeded()
 
         if runningEngine.phase == .finished {
             end()
         }
     }
 
+    private func announceCountdownIfNeeded() {
+        guard voiceEnabled,
+              coachingSettings.countdowns,
+              let step = engine?.currentStep,
+              let duration = step.durationSeconds,
+              duration >= 30,
+              let remaining = engine?.remainingSeconds,
+              remaining > 0,
+              remaining <= 10,
+              countdownAnnouncedStepID != step.id else {
+            return
+        }
+
+        countdownAnnouncedStepID = step.id
+        voiceCoach.announceCountdown(nextStep: engine?.nextStep)
+    }
+
     private func handleStepTransition(from previousID: String?) {
         let currentID = engine?.currentStep?.id
         guard previousID != nil, previousID != currentID else { return }
 
+        countdownAnnouncedStepID = nil
+
         if currentID == nil {
             WKInterfaceDevice.current().play(.success)
+            if voiceEnabled {
+                voiceCoach.announceCompletion()
+            }
         } else {
             WKInterfaceDevice.current().play(.notification)
+            if voiceEnabled {
+                voiceCoach.announceStep(engine?.currentStep)
+            }
         }
     }
 
@@ -368,6 +483,7 @@ extension WatchWorkoutSessionManager: HKWorkoutSessionDelegate {
         Task { @MainActor in
             self.ticker?.cancel()
             self.ticker = nil
+            self.voiceCoach.stop()
             self.errorMessage = error.localizedDescription
             self.state = .finished
         }
@@ -396,13 +512,6 @@ private extension WatchWorkoutDiscipline {
         }
     }
 
-    var defaultLocationType: HKWorkoutSessionLocationType {
-        switch self {
-        case .running, .cycling: .outdoor
-        case .swimming: .unknown
-        }
-    }
-
     var healthKitSpeedType: HKQuantityType? {
         switch self {
         case .running:
@@ -422,7 +531,6 @@ private extension WatchWorkoutDiscipline {
         }
     }
 }
-
 
 private enum WatchWorkoutSessionError: LocalizedError {
     case healthWriteNotAuthorized
