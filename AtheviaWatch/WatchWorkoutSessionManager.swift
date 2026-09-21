@@ -610,34 +610,46 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
         ticker?.cancel()
         ticker = nil
 
-        builder.endCollection(withEnd: endDate) { [weak self] success, error in
-            guard success, error == nil else {
-                Task { @MainActor in
-                    guard let self else { return }
-                    self.isFinalizing = false
-                    self.state = .finished
-                    self.clearPersistedActiveState()
-                    self.errorMessage = "The workout ended, but HealthKit could not finalize its samples."
-                }
-                return
-            }
+        let totalSteps = engine?.plan.steps.count ?? 0
+        let completedSteps = engine?.completedStepCount ?? 0
+        let completion = engine?.prescriptionCompletionRatio ?? 0
 
-            builder.finishWorkout { workout, finishError in
-                Task { @MainActor in
-                    guard let self else { return }
-                    self.isFinalizing = false
-                    self.savedWorkoutUUID = workout?.uuid
-                    self.engine?.finish()
-                    self.state = .finished
-                    self.session = nil
-                    self.builder = nil
-                    self.clearPersistedActiveState()
+        let adherenceMetadata: [String: Any] = [
+            AtheviaWorkoutMetadata.prescriptionCompletionKey: completion,
+            AtheviaWorkoutMetadata.completedStepsKey: completedSteps,
+            AtheviaWorkoutMetadata.totalStepsKey: totalSteps
+        ]
 
-                    if let finishError {
-                        self.errorMessage = finishError.localizedDescription
+        builder.addMetadata(adherenceMetadata) { [weak self] _, _ in
+            builder.endCollection(withEnd: endDate) { success, error in
+                guard success, error == nil else {
+                    Task { @MainActor in
+                        guard let self else { return }
+                        self.isFinalizing = false
+                        self.state = .finished
+                        self.clearPersistedActiveState()
+                        self.errorMessage = "The workout ended, but HealthKit could not finalize its samples."
                     }
+                    return
+                }
 
-                    WKInterfaceDevice.current().play(.success)
+                builder.finishWorkout { workout, finishError in
+                    Task { @MainActor in
+                        guard let self else { return }
+                        self.isFinalizing = false
+                        self.savedWorkoutUUID = workout?.uuid
+                        self.engine?.finish()
+                        self.state = .finished
+                        self.session = nil
+                        self.builder = nil
+                        self.clearPersistedActiveState()
+
+                        if let finishError {
+                            self.errorMessage = finishError.localizedDescription
+                        }
+
+                        WKInterfaceDevice.current().play(.success)
+                    }
                 }
             }
         }
