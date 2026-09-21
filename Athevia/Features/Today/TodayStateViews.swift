@@ -17,6 +17,8 @@ struct TodayWorkoutView: View {
 
     @Environment(\.modelContext) private var modelContext
     @StateObject private var locationPermission = WorkoutLocationPermissionRequester()
+    @StateObject private var watch = WatchAvailability.shared
+    @Environment(\.scenePhase) private var scenePhase
     @State private var showsPlayer = false
     @State private var showsLocationIssue = false
     @State private var pendingResult: WorkoutExecutionResult?
@@ -61,15 +63,17 @@ struct TodayWorkoutView: View {
                 Button("Start Workout", action: beginPhoneWorkout)
                     .buttonStyle(PrimaryActionButtonStyle())
 
-                Button(action: start) {
-                    Label(
-                        isScheduledOnWatch ? "On Watch" : (isScheduling ? "Sending…" : "Send to Watch"),
-                        systemImage: isScheduledOnWatch ? "checkmark.circle.fill" : "applewatch"
-                    )
-                    .foregroundStyle(isScheduledOnWatch ? Color.green : .primary)
+                if watch.canSchedule {
+                    Button(action: start) {
+                        Label(
+                            isScheduledOnWatch ? "On Watch" : (isScheduling ? "Sending…" : "Send to Watch"),
+                            systemImage: isScheduledOnWatch ? "checkmark.circle.fill" : "applewatch"
+                        )
+                        .foregroundStyle(isScheduledOnWatch ? Color.green : .primary)
+                    }
+                    .buttonStyle(SecondaryActionButtonStyle())
+                    .disabled(isScheduling || isScheduledOnWatch)
                 }
-                .buttonStyle(SecondaryActionButtonStyle())
-                .disabled(isScheduling || isScheduledOnWatch)
             }
 
             Button("Mark as Done without tracking", action: markDone)
@@ -90,6 +94,9 @@ struct TodayWorkoutView: View {
                 .foregroundStyle(.primary)
                 .padding(.vertical, 4)
             }
+        }
+        .task(id: scenePhase) {
+            if scenePhase == .active { watch.refresh() }
         }
         .fullScreenCover(isPresented: $showsPlayer, onDismiss: savePendingResult) {
             WorkoutPlayerView(
