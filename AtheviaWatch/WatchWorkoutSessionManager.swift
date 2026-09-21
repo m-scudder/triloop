@@ -194,6 +194,10 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
         ]
 
         try await healthStore.requestAuthorization(toShare: shareTypes, read: readTypes)
+
+        guard healthStore.authorizationStatus(for: workoutType) == .sharingAuthorized else {
+            throw WatchWorkoutSessionError.healthWriteNotAuthorized
+        }
     }
 
     private func beginCollection(_ builder: HKLiveWorkoutBuilder, at date: Date) async -> Bool {
@@ -383,6 +387,18 @@ private extension WatchWorkoutDiscipline {
         case .running: HKQuantityType(.distanceWalkingRunning)
         case .cycling: HKQuantityType(.distanceCycling)
         case .swimming: HKQuantityType(.distanceSwimming)
+        }
+    }
+}
+
+
+private enum WatchWorkoutSessionError: LocalizedError {
+    case healthWriteNotAuthorized
+
+    var errorDescription: String? {
+        switch self {
+        case .healthWriteNotAuthorized:
+            "Allow Athevia to write workouts to Apple Health before starting."
         }
     }
 }
