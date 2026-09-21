@@ -9,7 +9,7 @@
 /* Begin PBXBuildFile section */
 		AE000000000000000000000C /* AtheviaLiveActivity.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AE0000000000000000000008 /* AtheviaLiveActivity.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		AF0000000000000000000001 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = AF0000000000000000000003 /* Supabase */; };
-		AG000000000000000000000C /* Athevia Watch.app in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AG0000000000000000000008 /* Athevia Watch.app */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		AG000000000000000000000C /* Athevia Watch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = AG0000000000000000000008 /* Athevia Watch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -51,9 +51,19 @@
 			dstSubfolderSpec = 13;
 			files = (
 				AE000000000000000000000C /* AtheviaLiveActivity.appex in Embed Foundation Extensions */,
-				AG000000000000000000000C /* Athevia Watch.app in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AI000000000000000000000B /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				AG000000000000000000000C /* Athevia Watch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -206,6 +216,7 @@
 				AB0000000000000000000003 /* Frameworks */,
 				AB0000000000000000000004 /* Resources */,
 				AB000000000000000000000B /* Embed Foundation Extensions */,
+				AI000000000000000000000B /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
@@ -749,11 +760,9 @@
 				INFOPLIST_KEY_CFBundleDisplayName = Athevia;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Athevia reads live workout metrics such as heart rate and distance while you train.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Athevia saves workouts completed on Apple Watch to Apple Health.";
-				INFOPLIST_KEY_WKApplication = YES;
 				INFOPLIST_KEY_WKBackgroundModes = "workout-processing";
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = "$(ATHEVIA_BUNDLE_PREFIX).athevia";
 				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = NO;
-				INFOPLIST_KEY_WKWatchOnly = NO;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -783,11 +792,9 @@
 				INFOPLIST_KEY_CFBundleDisplayName = Athevia;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Athevia reads live workout metrics such as heart rate and distance while you train.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Athevia saves workouts completed on Apple Watch to Apple Health.";
-				INFOPLIST_KEY_WKApplication = YES;
 				INFOPLIST_KEY_WKBackgroundModes = "workout-processing";
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = "$(ATHEVIA_BUNDLE_PREFIX).athevia";
 				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = NO;
-				INFOPLIST_KEY_WKWatchOnly = NO;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
