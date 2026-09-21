@@ -17,7 +17,17 @@ final class WatchWorkoutStore: NSObject, ObservableObject {
     private static let cacheKey = "athevia.cached-workout-list.v1"
 
     override init() {
-        payload = Self.loadCachedPayload()
+        let cached = Self.loadCachedPayload()
+        #if DEBUG
+        #if targetEnvironment(simulator)
+        payload = cached.workouts.isEmpty ? WatchSimulatorFixture.payload() : cached
+        #else
+        payload = cached
+        #endif
+        #else
+        payload = cached
+        #endif
+
         super.init()
         activate()
     }
