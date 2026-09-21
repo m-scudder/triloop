@@ -16,8 +16,9 @@ struct MatchResult {
 
 /// Pairs planned sessions with what actually happened.
 ///
-/// Requires same-day metric agreement and a unique candidate on both sides.
-/// Adjacent days need a plan identifier, which normalized recordings do not carry.
+/// Athevia Watch recordings carry the prescribed workout UUID in HealthKit
+/// metadata and are matched exactly. Other recordings use same-day metric
+/// agreement and a unique candidate on both sides.
 struct WorkoutMatcher: Sendable {
     var calendar: Calendar = .current
     var toleranceDays: Int = 0
@@ -52,7 +53,8 @@ struct WorkoutMatcher: Sendable {
                           && !$0.isSkipped
                           && $0.importedSummary == nil
                           && $0.discipline.sport == activity.sport
-                  }) else { continue }
+                  }),
+                  !usedPlanned.contains(plannedIndex) else { continue }
 
             let session = sessions[plannedIndex]
             let plannedDay = calendar.startOfDay(for: session.date)
