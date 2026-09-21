@@ -3,6 +3,10 @@ import SwiftUI
 struct WatchWorkoutDetailView: View {
     let workout: WatchWorkoutPayload
 
+    @EnvironmentObject private var manager: WatchWorkoutSessionManager
+    @State private var isStarting = false
+    @State private var showsPlayer = false
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
@@ -24,18 +28,65 @@ struct WatchWorkoutDetailView: View {
                     }
                 }
 
-                Button("Start Workout") {}
-                    .buttonStyle(.borderedProminent)
-                    .disabled(true)
+                Button(action: startOrResume) {
+                    HStack {
+                        if isStarting || manager.state == .preparing {
+                            ProgressView()
+                        } else {
+                            Image(systemName: isCurrentWorkout ? "play.fill" : "figure.run")
+                        }
 
-                Text("Native workout execution is added in Phase W2. The full workout is already cached on this Watch.")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                        Text(isCurrentWorkout ? "Resume Workout" : "Start Workout")
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(
+                    isStarting
+                    || workout.status != .planned
+                    || (manager.isActive && !isCurrentWorkout)
+                )
             }
             .padding(.horizontal, 4)
         }
         .navigationTitle(workout.discipline.displayName)
         .navigationBarTitleDisplayMode(.inline)
+        .navigationDestination(isPresented: $showsPlayer) {
+            WatchWorkoutPlayerView(workout: workout)
+        }
+        .alert(
+            "Workout",
+            isPresented: Binding(
+                get: { manager.errorMessage != nil },
+                set: { if !$0 { manager.clearError() } }
+            )
+        ) {
+            Button("OK", role: .cancel) {
+                manager.clearError()
+            }
+        } message: {
+            Text(manager.errorMessage ?? "")
+        }
+    }
+
+    private var isCurrentWorkout: Bool {
+        manager.activeWorkout?.id == workout.id && manager.isActive
+    }
+
+    private func startOrResume() {
+        if isCurrentWorkout {
+            showsPlayer = true
+            return
+        }
+
+        isStarting = true
+        Task { @MainActor in
+            let started = await manager.start(workout)
+            isStarting = false
+            if started {
+                showsPlayer = true
+            }
+        }
     }
 
     private var header: some View {
@@ -68,7 +119,9 @@ private struct WatchWorkoutStepView: View {
             HStack(alignment: .firstTextBaseline) {
                 Text(stepTitle)
                     .font(.subheadline.weight(.semibold))
+
                 Spacer()
+
                 if let prescription {
                     Text(prescription)
                         .font(.caption)
@@ -94,9 +147,11 @@ private struct WatchWorkoutStepView: View {
                         Circle()
                             .frame(width: 4, height: 4)
                             .padding(.top, 6)
+
                         VStack(alignment: .leading, spacing: 2) {
                             Text(child.title)
                                 .font(.caption)
+
                             if let value = prescription(for: child) {
                                 Text(value)
                                     .font(.caption2)
