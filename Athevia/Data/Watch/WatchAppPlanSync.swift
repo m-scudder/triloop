@@ -18,16 +18,27 @@ enum WatchAppPlanSync {
     }
 
     static func fingerprint(_ plan: WeeklyPlan?) -> String {
-        guard let plan else { return "no-current-plan" }
+        let coaching = coachingSettings
+        let coachingFingerprint = [
+            String(coaching.enabled),
+            String(coaching.countdowns),
+            String(coaching.volume)
+        ].joined(separator: ":")
+
+        guard let plan else { return "no-current-plan|" + coachingFingerprint }
         return plan.orderedWorkouts
             .filter(\.discipline.isTrainingSession)
             .map(workoutFingerprint)
-            .joined(separator: "|")
+            .joined(separator: "|") + "|" + coachingFingerprint
     }
 
     private static func payload(for plan: WeeklyPlan?) -> WatchWorkoutListPayload {
         guard let plan else {
-            return WatchWorkoutListPayload(weekStart: nil, workouts: [])
+            return WatchWorkoutListPayload(
+                weekStart: nil,
+                workouts: [],
+                coaching: coachingSettings
+            )
         }
 
         let workouts = plan.orderedWorkouts
@@ -36,7 +47,27 @@ enum WatchAppPlanSync {
 
         return WatchWorkoutListPayload(
             weekStart: plan.startDate,
-            workouts: workouts
+            workouts: workouts,
+            coaching: coachingSettings
+        )
+    }
+
+    private static var coachingSettings: WatchCoachingSettingsPayload {
+        let defaults = UserDefaults.standard
+        let enabled = defaults.object(
+            forKey: SharedAudioCoachingPreferences.enabledKey
+        ) as? Bool ?? true
+        let countdowns = defaults.object(
+            forKey: SharedAudioCoachingPreferences.countdownsKey
+        ) as? Bool ?? true
+        let volume = defaults.object(
+            forKey: SharedAudioCoachingPreferences.volumeKey
+        ) as? Double ?? 0.8
+
+        return WatchCoachingSettingsPayload(
+            enabled: enabled,
+            countdowns: countdowns,
+            volume: min(max(volume, 0.1), 1)
         )
     }
 
