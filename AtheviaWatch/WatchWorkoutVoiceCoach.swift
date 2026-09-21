@@ -94,8 +94,12 @@ final class WatchWorkoutVoiceCoach {
             let session = AVAudioSession.sharedInstance()
             try session.setCategory(
                 .playback,
-                mode: .spokenAudio,
-                options: [.mixWithOthers, .duckOthers]
+                mode: .voicePrompt,
+                options: [
+                    .mixWithOthers,
+                    .duckOthers,
+                    .interruptSpokenAudioAndMixWithOthers
+                ]
             )
             try session.setActive(true)
         } catch {
