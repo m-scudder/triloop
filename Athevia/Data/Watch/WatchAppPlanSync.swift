@@ -59,10 +59,10 @@ enum WatchAppPlanSync {
             step.kind.rawValue,
             step.title,
             step.instructions ?? "",
-            step.durationSeconds.map(String.init) ?? "",
-            step.distanceMeters.map(String.init) ?? "",
+            step.durationSeconds.map { String($0) } ?? "",
+            step.distanceMeters.map { String($0) } ?? "",
             step.targetIntensity?.rawValue ?? "",
-            step.repeatCount.map(String.init) ?? "",
+            step.repeatCount.map { String($0) } ?? "",
             step.orderedChildren.map(stepFingerprint).joined(separator: ";")
         ].joined(separator: "~")
     }
