@@ -98,6 +98,7 @@ struct WorkoutKitScheduler: WorkoutScheduling {
 final class WatchAvailability: NSObject, ObservableObject, WCSessionDelegate {
     static let shared = WatchAvailability()
     @Published private(set) var canSchedule = false
+    @Published private(set) var isPairedWatch = false
     @Published private(set) var isAtheviaWatchInstalled = false
     private var pendingWatchAppContext: [String: Any]?
 
@@ -109,6 +110,7 @@ final class WatchAvailability: NSObject, ObservableObject, WCSessionDelegate {
     func refresh() {
         guard WCSession.isSupported() else {
             canSchedule = false
+            isPairedWatch = false
             isAtheviaWatchInstalled = false
             return
         }
@@ -116,14 +118,16 @@ final class WatchAvailability: NSObject, ObservableObject, WCSessionDelegate {
         session.delegate = self
         guard session.activationState == .activated else {
             canSchedule = false
+            isPairedWatch = session.isPaired
             isAtheviaWatchInstalled = false
             if session.activationState == .notActivated { session.activate() }
             return
         }
         // isReachable requires a running companion app; it is not a test for
         // whether WorkoutKit can queue a workout for Apple's Workout app.
-        canSchedule = session.isPaired && WorkoutScheduler.isSupported
-        isAtheviaWatchInstalled = session.isPaired && session.isWatchAppInstalled
+        isPairedWatch = session.isPaired
+        canSchedule = isPairedWatch && WorkoutScheduler.isSupported
+        isAtheviaWatchInstalled = isPairedWatch && session.isWatchAppInstalled
         flushWatchAppContext()
     }
 
@@ -170,6 +174,7 @@ final class WatchAvailability: NSObject, ObservableObject, WCSessionDelegate {
             // Do not immediately retry a failed activation.
             guard activationState == .activated, error == nil else {
                 self.canSchedule = false
+                self.isPairedWatch = session.isPaired
                 self.isAtheviaWatchInstalled = false
                 return
             }
@@ -184,6 +189,7 @@ final class WatchAvailability: NSObject, ObservableObject, WCSessionDelegate {
     nonisolated func sessionDidBecomeInactive(_ session: WCSession) {
         Task { @MainActor in
             self.canSchedule = false
+            self.isPairedWatch = session.isPaired
             self.isAtheviaWatchInstalled = false
         }
     }
@@ -191,6 +197,7 @@ final class WatchAvailability: NSObject, ObservableObject, WCSessionDelegate {
     nonisolated func sessionDidDeactivate(_ session: WCSession) {
         Task { @MainActor in
             self.canSchedule = false
+            self.isPairedWatch = false
             self.isAtheviaWatchInstalled = false
             WCSession.default.activate()
         }
