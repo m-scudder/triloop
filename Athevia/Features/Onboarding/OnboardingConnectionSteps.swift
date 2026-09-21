@@ -93,6 +93,8 @@ struct HealthStepView: View {
 }
 
 struct WatchStepView: View {
+    @StateObject private var watch = WatchAvailability.shared
+    @Environment(\.scenePhase) private var scenePhase
     @Bindable var model: OnboardingModel
     @State private var authorization: WorkoutSchedulingAuthorization = .notDetermined
     @State private var message: String?
@@ -100,12 +102,12 @@ struct WatchStepView: View {
     private let scheduler = WorkoutKitScheduler()
 
     private var skip: OnboardingSecondaryAction? {
-        authorization == .authorized ? nil : OnboardingSecondaryAction("Not now", action: model.advance)
+        !watch.canSchedule || authorization == .authorized ? nil : OnboardingSecondaryAction("Not now", action: model.advance)
     }
 
     var body: some View {
         OnboardingStep(
-            primaryTitle: authorization == .authorized ? "Continue" : "Allow Workout Scheduling",
+            primaryTitle: !watch.canSchedule || authorization == .authorized ? "Continue" : "Allow Workout Scheduling",
             secondary: skip,
             primary: primaryAction
         ) {
@@ -124,7 +126,7 @@ struct WatchStepView: View {
                 }
             }
 
-            if !scheduler.isSupported {
+            if !watch.canSchedule {
                 Text("Workout scheduling is not available on this device.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -136,11 +138,15 @@ struct WatchStepView: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .task { authorization = await scheduler.authorizationState() }
+        .task(id: scenePhase) {
+            guard scenePhase == .active else { return }
+            watch.refresh()
+            authorization = await scheduler.authorizationState()
+        }
     }
 
     private func primaryAction() {
-        guard authorization != .authorized, scheduler.isSupported else {
+        guard authorization != .authorized, watch.canSchedule else {
             model.advance()
             return
         }
