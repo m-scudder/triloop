@@ -380,6 +380,8 @@ final class HealthKitWorkoutImporter: HealthDataProviding, @unchecked Sendable {
             swimmingStrokeCount: workout.sum(HKQuantityType(.swimmingStrokeCount), in: .count()),
             longestContinuousSwimMeters: Self.longestContinuous(in: lengths),
             metrics: Self.recordedMetrics(of: workout, sport: sport),
+            plannedWorkoutID: (workout.metadata?[AtheviaWorkoutMetadata.plannedWorkoutIDKey] as? String)
+                .flatMap(UUID.init(uuidString:)),
             source: workout.sourceRevision.source.bundleIdentifier
         )
     }
