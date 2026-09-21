@@ -467,7 +467,7 @@ private struct WatchAppSetupView: View {
                                 .font(.headline)
                             Text(watch.isAtheviaWatchInstalled ? "Installed" : "Not installed")
                                 .font(.subheadline)
-                                .foregroundStyle(watch.isAtheviaWatchInstalled ? .green : .secondary)
+                                .foregroundStyle(watch.isAtheviaWatchInstalled ? Color.green : Color.secondary)
                         }
                     }
                     .padding(.vertical, 4)
