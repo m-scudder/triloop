@@ -247,7 +247,7 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
         }
 
         do {
-            guard let recoveredSession = try await healthStore.recoverActiveWorkoutSession() else {
+            guard let recoveredSession = try await recoverActiveSession() else {
                 clearPersistedActiveState()
                 return
             }
@@ -333,6 +333,18 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
         } catch {
             clearPersistedActiveState()
             errorMessage = "Athevia could not recover the interrupted workout."
+        }
+    }
+
+    private func recoverActiveSession() async throws -> HKWorkoutSession? {
+        try await withCheckedThrowingContinuation { continuation in
+            healthStore.recoverActiveWorkoutSession { session, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume(returning: session)
+                }
+            }
         }
     }
 
