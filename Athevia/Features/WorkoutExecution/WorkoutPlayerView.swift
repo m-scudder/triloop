@@ -17,6 +17,7 @@ struct WorkoutPlayerView: View {
     @State private var audioClock = WorkoutPlaybackClock()
     @State private var preparationComplete = false
     @State private var preparationMessage: String?
+    @State private var audioSetupMessage: String?
     @State private var showingAudioControls = false
     @State private var hasLeft = false
     @State private var didSave = false
@@ -184,7 +185,7 @@ struct WorkoutPlayerView: View {
 
                 Spacer(minLength: 32)
 
-                if let message = coach.message {
+                if let message = coach.message ?? audioSetupMessage {
                     Text(message)
                         .font(.footnote).foregroundStyle(.secondary)
                         .multilineTextAlignment(.center).padding(.bottom, 12)
@@ -355,32 +356,61 @@ struct WorkoutPlayerView: View {
 
     private func prepareWorkout() async {
         guard engine.phase == .ready, !preparationComplete, !hasLeft else { return }
-        if coachingEnabled, recordsGPS {
-            guard WorkoutCoachingTimeline(plan: engine.plan, countdowns: coachingCountdowns) != nil else {
-                preparationMessage = "Audio coaching needs timed steps and a workout of six hours or less. This workout uses the on-screen timer."
-                return
-            }
-            do {
-                try await coach.prepare(plan: engine.plan, countdowns: coachingCountdowns, volume: Float(coachingVolume))
-                try Task.checkCancellation()
-                guard !hasLeft else { coach.stop(); return }
-                coach.onPause = { pauseWorkout() }
-                coach.onFinished = {
-                    syncAudioPosition(position: coach.timeline?.duration)
-                    completeTrackedWorkout()
-                }
-            } catch is CancellationError {
-                coach.stop()
-                return
-            } catch {
-                guard !hasLeft, !Task.isCancelled else { return }
-                coach.stop()
-                preparationMessage = "Spoken guidance could not be prepared. Some cues may be too long for their sets. You can use the on-screen timer."
-                return
-            }
-        }
+
+        // Starting the workout must never wait on speech rendering. Move to the
+        // timer immediately, then attach the finite audio programme in the
+        // background at the current active-time position when it is ready.
         preparationComplete = true
         startWorkoutIfNeeded()
+
+        guard coachingEnabled, recordsGPS, !hasLeft else { return }
+
+        guard WorkoutCoachingTimeline(
+            plan: engine.plan,
+            countdowns: coachingCountdowns
+        ) != nil else {
+            audioSetupMessage = "Audio coaching is unavailable for this workout. The on-screen timer will continue normally."
+            return
+        }
+
+        do {
+            try await coach.prepare(
+                plan: engine.plan,
+                countdowns: coachingCountdowns,
+                volume: Float(coachingVolume)
+            )
+            try Task.checkCancellation()
+
+            guard !hasLeft,
+                  engine.phase == .running || engine.phase == .paused else {
+                coach.stop()
+                return
+            }
+
+            coach.onPause = { pauseWorkout() }
+            coach.onFinished = {
+                syncAudioPosition(position: coach.timeline?.duration)
+                completeTrackedWorkout()
+            }
+
+            let joinPosition = min(
+                engine.elapsedSeconds,
+                coach.timeline?.duration ?? engine.elapsedSeconds
+            )
+            coach.seek(to: joinPosition)
+            audioClock.seek(to: joinPosition)
+
+            if engine.phase == .running, !coach.play() {
+                coach.stop()
+                audioSetupMessage = "Audio coaching could not start. The workout timer will continue without spoken cues."
+            }
+        } catch is CancellationError {
+            coach.stop()
+        } catch {
+            guard !hasLeft, !Task.isCancelled else { return }
+            coach.stop()
+            audioSetupMessage = "Spoken guidance could not be prepared. The workout timer will continue without audio."
+        }
     }
 
     private func startWorkoutIfNeeded() {
@@ -390,9 +420,8 @@ struct WorkoutPlayerView: View {
         if recordsGPS { locationTracker.start() }
         lastPulse = now
         if coach.isPrepared, !coach.play() {
-            engine.pause()
-            if recordsGPS { locationTracker.pause() }
-            lastPulse = nil
+            coach.stop()
+            audioSetupMessage = "Audio coaching could not start. The workout timer will continue without spoken cues."
         }
 
         if let state = activityState(now: now) {
@@ -430,7 +459,10 @@ struct WorkoutPlayerView: View {
 
     private func resumeWorkout() {
         guard engine.phase == .paused else { return }
-        if coach.isPrepared, !coach.play() { return }
+        if coach.isPrepared, !coach.play() {
+            coach.stop()
+            audioSetupMessage = "Audio coaching could not resume. The workout timer will continue without spoken cues."
+        }
         engine.resume()
         if recordsGPS { locationTracker.resume() }
         lastPulse = .now
@@ -499,7 +531,7 @@ struct WorkoutPlayerView: View {
     }
 
     private func handlePulse(_ now: Date) {
-        if coach.isPrepared {
+        if coach.isPrepared && coach.isPlaying {
             syncAudioPosition(now: now)
             return
         }
@@ -529,7 +561,7 @@ struct WorkoutPlayerView: View {
             startWorkoutIfNeeded()
             return
         }
-        if coach.isPrepared {
+        if coach.isPrepared && coach.isPlaying {
             syncAudioPosition()
             return
         }
