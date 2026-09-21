@@ -63,9 +63,13 @@ struct WatchWorkoutTransferTests {
                 )
             ]
         )
+        let start = Calendar.current.startOfDay(for: .now)
+        let end = Calendar.current.date(byAdding: .day, value: 6, to: start)!
+
         let plan = WeeklyPlan(
             weekNumber: 1,
-            startDate: Calendar.current.startOfDay(for: .now),
+            startDate: start,
+            endDate: end,
             workouts: [workout]
         )
 
