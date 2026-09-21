@@ -141,6 +141,18 @@ struct WatchWorkoutExecutionEngine: Equatable, Sendable {
         return nil
     }
 
+    var completedStepCount: Int {
+        min(currentIndex, plan.steps.count)
+    }
+
+    var prescriptionCompletionRatio: Double {
+        guard !plan.steps.isEmpty else { return 1 }
+
+        let completed = Double(completedStepCount)
+        let partial = currentStep == nil ? 0 : (stepProgress ?? 0)
+        return min(max((completed + partial) / Double(plan.steps.count), 0), 1)
+    }
+
     init(workout: WatchWorkoutPayload) {
         plan = WatchWorkoutExecutionPlan(workout: workout)
     }
