@@ -34,6 +34,7 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
     private var ticker: Task<Void, Never>?
     private var lastTickDate: Date?
     private var lastEngineDistanceMeters: Double = 0
+    private var observedPoolLapCount = 0
     private var isFinalizing = false
     private var coachingSettings: WatchCoachingSettingsPayload = .defaults
     private var countdownAnnouncedStepID: String?
@@ -106,6 +107,7 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
                 configuration: workoutConfiguration
             )
             let newBuilder = newSession.associatedWorkoutBuilder()
+            newBuilder.shouldCollectWorkoutEvents = true
             newBuilder.dataSource = HKLiveWorkoutDataSource(
                 healthStore: healthStore,
                 workoutConfiguration: workoutConfiguration
@@ -119,25 +121,37 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
             let startDate = Date()
             newSession.startActivity(with: startDate)
 
-            let began = await beginCollection(newBuilder, at: startDate)
-            guard began else {
-                newSession.end()
-                errorMessage = "Athevia could not start recording this workout."
-                state = .idle
-                return false
-            }
+            try await beginCollection(newBuilder, at: startDate)
 
-            newBuilder.addMetadata([
+            var workoutMetadata: [String: Any] = [
                 AtheviaWorkoutMetadata.plannedWorkoutIDKey: workout.id.uuidString,
                 AtheviaWorkoutMetadata.sourceKey: AtheviaWorkoutMetadata.sourceWatchValue
-            ]) { _, _ in }
+            ]
+
+            if workout.discipline == .swimming {
+                workoutMetadata[HKMetadataKeySwimmingLocationType] =
+                    workoutConfiguration.swimmingLocationType.rawValue as NSNumber
+
+                if workoutConfiguration.swimmingLocationType == .pool,
+                   let lapLength = workoutConfiguration.lapLength {
+                    workoutMetadata[HKMetadataKeyLapLength] = lapLength
+                }
+            }
+
+            newBuilder.addMetadata(workoutMetadata) { _, _ in }
 
             engine?.start()
             state = .running
             lastTickDate = startDate
             lastEngineDistanceMeters = 0
+            observedPoolLapCount = 0
             startTicker()
             persistActiveState(force: true)
+
+            if workout.discipline == .swimming {
+                enableWaterLockIfSupported()
+            }
+
             WKInterfaceDevice.current().play(.start)
 
             if voiceEnabled {
@@ -253,6 +267,7 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
             }
 
             let recoveredBuilder = recoveredSession.associatedWorkoutBuilder()
+            recoveredBuilder.shouldCollectWorkoutEvents = true
             let recoveredConfiguration = recoveredSession.workoutConfiguration
             recoveredBuilder.dataSource = HKLiveWorkoutDataSource(
                 healthStore: healthStore,
@@ -300,6 +315,7 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
 
             resetMetrics()
             refreshRecoveredStatistics()
+            updatePoolDistanceFromLapEvents(recoveredBuilder)
 
             if recoveredEngine.phase == .running {
                 let elapsedFromHealth = recoveredBuilder.elapsedTime(at: .now)
@@ -461,10 +477,12 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
             case .pool:
                 configuration.locationType = .indoor
                 configuration.swimmingLocationType = .pool
-                let meters = startConfiguration.poolLengthMeters ?? 25
+                let meters = normalizedPoolLength(
+                    startConfiguration.poolLengthMeters
+                )
                 configuration.lapLength = HKQuantity(
                     unit: HKUnit.meter(),
-                    doubleValue: max(meters, 1)
+                    doubleValue: meters
                 )
 
             case .openWater:
@@ -484,11 +502,61 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
         return configuration
     }
 
-    private func beginCollection(_ builder: HKLiveWorkoutBuilder, at date: Date) async -> Bool {
-        await withCheckedContinuation { continuation in
-            builder.beginCollection(withStart: date) { success, _ in
-                continuation.resume(returning: success)
+    private func beginCollection(
+        _ builder: HKLiveWorkoutBuilder,
+        at date: Date
+    ) async throws {
+        try await withCheckedThrowingContinuation { continuation in
+            builder.beginCollection(withStart: date) { success, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else if success {
+                    continuation.resume()
+                } else {
+                    continuation.resume(
+                        throwing: WatchWorkoutSessionError.collectionCouldNotStart
+                    )
+                }
             }
+        }
+    }
+
+    private func normalizedPoolLength(_ meters: Double?) -> Double {
+        guard let meters, meters.isFinite else { return 25 }
+        return min(max(meters, 10), 100)
+    }
+
+    private func enableWaterLockIfSupported() {
+        #if !targetEnvironment(simulator)
+        let device = WKInterfaceDevice.current()
+        if device.waterResistanceRating == .wr50,
+           !device.isWaterLockEnabled {
+            device.enableWaterLock()
+        }
+        #endif
+    }
+
+    private func updatePoolDistanceFromLapEvents(
+        _ workoutBuilder: HKLiveWorkoutBuilder
+    ) {
+        guard activeWorkout?.discipline == .swimming,
+              activeConfiguration?.environment == .pool,
+              let poolLength = activeConfiguration?.poolLengthMeters else {
+            return
+        }
+
+        let lapCount = workoutBuilder.workoutEvents.filter {
+            $0.type == .lap
+        }.count
+
+        guard lapCount > observedPoolLapCount else { return }
+        observedPoolLapCount = lapCount
+
+        // HealthKit's live distance sample can arrive after the lap event.
+        // Never add the values together; use whichever source is further ahead.
+        let eventDistance = Double(lapCount) * normalizedPoolLength(poolLength)
+        if eventDistance > distanceMeters {
+            distanceMeters = eventDistance
         }
     }
 
@@ -571,6 +639,7 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
         distanceMeters = 0
         activeEnergyKilocalories = 0
         lastEngineDistanceMeters = 0
+        observedPoolLapCount = 0
     }
 
     private func updateStatistics(for types: Set<HKSampleType>) {
@@ -698,7 +767,11 @@ extension WatchWorkoutSessionManager: HKWorkoutSessionDelegate {
 }
 
 extension WatchWorkoutSessionManager: HKLiveWorkoutBuilderDelegate {
-    nonisolated func workoutBuilderDidCollectEvent(_ workoutBuilder: HKLiveWorkoutBuilder) {}
+    nonisolated func workoutBuilderDidCollectEvent(_ workoutBuilder: HKLiveWorkoutBuilder) {
+        Task { @MainActor in
+            self.updatePoolDistanceFromLapEvents(workoutBuilder)
+        }
+    }
 
     nonisolated func workoutBuilder(
         _ workoutBuilder: HKLiveWorkoutBuilder,
@@ -750,11 +823,14 @@ private struct PersistedWatchWorkoutState: Codable {
 
 private enum WatchWorkoutSessionError: LocalizedError {
     case healthWriteNotAuthorized
+    case collectionCouldNotStart
 
     var errorDescription: String? {
         switch self {
         case .healthWriteNotAuthorized:
             "Allow Athevia to write workouts to Apple Health before starting."
+        case .collectionCouldNotStart:
+            "Apple Watch could not start collecting workout data. Try starting the pool workout again."
         }
     }
 }
