@@ -1,0 +1,31 @@
+{
+  "configurations": [
+    {
+      "id": "540F378D-F51A-4A08-90EA-95FA859DA24C",
+      "name": "Post-merge",
+      "options": {}
+    }
+  ],
+  "defaultOptions": {
+    "codeCoverage": false
+  },
+  "testTargets": [
+    {
+      "parallelizable": false,
+      "target": {
+        "containerPath": "container:Athevia.xcodeproj",
+        "identifier": "AC0000000000000000000001",
+        "name": "AtheviaTests"
+      }
+    },
+    {
+      "parallelizable": false,
+      "target": {
+        "containerPath": "container:Athevia.xcodeproj",
+        "identifier": "AD0000000000000000000001",
+        "name": "AtheviaUITests"
+      }
+    }
+  ],
+  "version": 1
+}
