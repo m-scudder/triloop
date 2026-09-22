@@ -40,6 +40,10 @@ final class WorkoutAutoImporter {
     /// Sunday can be saved after the next week has already begun.
     @discardableResult
     func importRecentWeeks() async -> Int {
+        // Do not mutate planned-workout completion while its phone player owns
+        // execution. A delayed HealthKit/Watch import can otherwise replace the
+        // Today subtree and dismiss the full-screen timer mid-workout.
+        guard !PhoneWorkoutExecutionState.isActive else { return 0 }
         guard await health.authorizationStatus == .authorized else { return 0 }
 
         let context = container.mainContext
