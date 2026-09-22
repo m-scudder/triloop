@@ -2,10 +2,6 @@ import SwiftData
 import SwiftUI
 
 /// Account and cloud-backup controls for the authenticated Athevia account.
-///
-/// Sign-out changes only authentication state. RootView reacts to that state
-/// transition and returns the app to the account entry screen while keeping
-/// local training intact.
 struct AccountBackupSettingsView: View {
     let authentication: AuthenticationCoordinator
     let backup: BackupCoordinator
@@ -24,7 +20,7 @@ struct AccountBackupSettingsView: View {
                     LabeledContent("Apple", value: session.email ?? "Signed in")
 
                     Button("Sign Out") {
-                        signOut()
+                        signOut(session)
                     }
                     .disabled(isWorking)
 
@@ -62,7 +58,7 @@ struct AccountBackupSettingsView: View {
                 } header: {
                     Text("Cloud Backup")
                 } footer: {
-                    Text("Athevia keeps training on this iPhone first. Cloud backup runs separately, so losing connectivity does not stop a workout from being recorded.")
+                    Text("Your latest backup is restored automatically after you sign in.")
                 }
             }
         }
@@ -167,15 +163,23 @@ struct AccountBackupSettingsView: View {
         }
     }
 
-    private func signOut() {
+    private func signOut(_ session: AccountSession) {
         isWorking = true
         Task { @MainActor in
             defer { isWorking = false }
             do {
+                // Preserve all local changes before removing the signed-in
+                // working copy. If backup fails, sign-out is cancelled rather
+                // than silently discarding training.
+                latestBackup = try await backup.backup(
+                    accountID: session.userID,
+                    from: modelContext
+                )
                 try await authentication.signOut()
+                try LocalTrainingStoreState.removeUserData(modelContext)
                 latestBackup = nil
             } catch {
-                message = error.localizedDescription
+                message = "Sign out was not completed: \(error.localizedDescription)"
             }
         }
     }
