@@ -41,7 +41,7 @@ struct StartingPointStepView: View {
                 ExplanationSheet(title: sport.displayName) {
                     Section("Starting point") {
                         baselineChoices(sport)
-                        Button("Not sure") {
+                        Button(notSureTitle(for: sport)) {
                             chooseConservativeDefault(for: sport)
                         }
                     }
