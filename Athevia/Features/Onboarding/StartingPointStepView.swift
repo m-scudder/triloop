@@ -252,6 +252,17 @@ struct StartingPointStepView: View {
         .frame(minHeight: 44)
     }
 
+    private func notSureTitle(for sport: Sport) -> String {
+        switch sport {
+        case .running:
+            "Not sure - start with run/walk"
+        case .swimming:
+            "Not sure - start with supported practice"
+        case .cycling:
+            "Not sure - start with a short ride"
+        }
+    }
+
     private func chooseConservativeDefault(for sport: Sport) {
         switch sport {
         case .running:
