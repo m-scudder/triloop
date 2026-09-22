@@ -380,6 +380,7 @@ struct WorkoutPlayerView: View {
         }
 
         do {
+            try await coach.waitForImmediateCueToStart()
             try await coach.prepare(
                 plan: engine.plan,
                 countdowns: coachingCountdowns,
@@ -458,7 +459,7 @@ struct WorkoutPlayerView: View {
 
     private func pauseWorkout() {
         guard engine.phase == .running else { return }
-        if coach.isPrepared {
+        if coachingEnabled {
             coach.pause()
         }
         engine.pause()
