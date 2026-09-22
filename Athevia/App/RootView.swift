@@ -45,8 +45,7 @@ struct RootView: View {
                         if seedLocalBackup {
                             seedAutomaticBackup(for: session)
                         }
-                    },
-                    onContinueOffline: { accountReady = true }
+                    }
                 )
             } else {
                 localApp
@@ -60,10 +59,9 @@ struct RootView: View {
 
             automaticBackup?.cancelPending()
 
-            // An explicit sign-out (or a lost authenticated session) must leave
-            // the training UI immediately. Local data stays intact, but access
-            // returns to the account entry screen until the athlete signs in or
-            // deliberately chooses the local-only escape hatch.
+            // Signed-out users never remain inside the training UI. Settings
+            // clears the local working copy during explicit sign-out, and the
+            // next interactive sign-in rehydrates from that account's backup.
             if previousAccountID != nil {
                 selectedTab = .home
                 accountReady = false
