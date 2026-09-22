@@ -72,7 +72,7 @@ struct WeeklyPlanGenerator: Sendable {
 
         // Every day the athlete marked available remains a planned day. Any
         // available slot not occupied by a sport becomes recovery.
-        let recoveryDays = Set(
+        let recoveryDays: Set<Int> = Set(
             Weekday.trainingWeek.enumerated().compactMap { offset, weekday in
                 guard schedule.isAvailable(on: weekday),
                       !shape.disciplines[offset].isTrainingSession else {
