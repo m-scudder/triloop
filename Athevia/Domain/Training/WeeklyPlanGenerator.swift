@@ -9,9 +9,8 @@ struct WeeklyPlanGenerator: Sendable {
     /// fallback opens every day so tests and previews about progression do not
     /// have to describe a schedule.
     var schedule: AthleteSchedule = .everyDay()
-    /// How much of each sport the athlete asked for. Used when the previous
-    /// week cannot say — after a recovery week there is nothing to carry
-    /// forward, and without this training would never resume.
+    /// Which sports the athlete selected. Session counts are no longer treated
+    /// as quotas; availability defines the week's plan slots.
     var preferences: [SportPreference] = []
     var planner: WeekShapePlanner = WeekShapePlanner()
     var calendar: Calendar = .current
@@ -25,33 +24,44 @@ struct WeeklyPlanGenerator: Sendable {
             calendar.date(byAdding: .day, value: offset, to: monday) ?? monday
         }
 
-        let parameters = analysis.sports.reduce(plan.parameters) { current, sport in
+        let adjusted = analysis.sports.reduce(plan.parameters) { current, sport in
             current.applying(sport.adjustment, to: sport.sport)
         }
+        let parameters = adjusted.capped(
+            toTrainingMinutes: trainingMinuteCap(in: schedule)
+        )
 
-        // A sport sent to recovery is not prescribed at all next week; its slot
-        // becomes a recovery day rather than a lighter version of the session.
+        // A sport sent to recovery is not prescribed next week. Its intended
+        // slots are left open so they become recovery sessions rather than
+        // being reassigned as extra load to another sport.
         let recovering = Set(
             analysis.sports
                 .filter { $0.status == .recoveryRequired }
                 .map(\.sport)
         )
 
-        // Frequency follows what the athlete asked for, with what they were
-        // already doing as the floor's companion rather than its ceiling: a week
-        // cut short by a mid-week start, or by sessions that would not fit,
-        // is not evidence they wanted less. Availability still caps it below, so
-        // availability changes the placement of sessions and never their number.
-        let days = schedule.availableDays.count
-        let frequencies = Sport.allCases.compactMap { sport -> SportFrequency? in
-            guard !recovering.contains(sport) else { return nil }
+        let intendedFrequencies: [SportFrequency]
+        let selectedSports = Sport.allCases.filter { sport in
+            preferences.first(where: { $0.sport == sport })?.isTrained == true
+        }
 
-            let carried = plan.prescribedTrainingSessions.filter { $0.discipline.sport == sport }.count
-            let preferred = preferences.first { $0.sport == sport }?.sessionsPerWeek ?? 0
-            let intended = max(carried, preferred)
+        if selectedSports.isEmpty {
+            // Legacy/tests without stored preferences retain the previous
+            // prescribed sport counts rather than guessing a new mix.
+            intendedFrequencies = Sport.allCases.compactMap { sport in
+                let count = plan.prescribedTrainingSessions
+                    .count { $0.discipline.sport == sport }
+                return count > 0 ? SportFrequency(sport: sport, sessions: count) : nil
+            }
+        } else {
+            intendedFrequencies = WeekShapePlanner.frequencies(
+                for: selectedSports,
+                schedule: schedule
+            )
+        }
 
-            guard intended > 0, days > 0 else { return nil }
-            return SportFrequency(sport: sport, sessions: min(intended, days))
+        let frequencies = intendedFrequencies.filter {
+            !recovering.contains($0.sport)
         }
 
         let shape = planner.plan(
@@ -60,13 +70,17 @@ struct WeeklyPlanGenerator: Sendable {
             durations: durations(from: parameters)
         )
 
-        // One recovery day for each session actually pulled. Turning every free
-        // day into recovery would bury the week in it, and a week with nothing
-        // to report cannot be closed.
-        let pulled = recovering.reduce(0) { total, sport in
-            total + plan.prescribedTrainingSessions.filter { $0.discipline.sport == sport }.count
-        }
-        let recoveryDays = freeDays(in: shape, limit: pulled)
+        // Every day the athlete marked available remains a planned day. Any
+        // available slot not occupied by a sport becomes recovery.
+        let recoveryDays = Set(
+            Weekday.trainingWeek.enumerated().compactMap { offset, weekday in
+                guard schedule.isAvailable(on: weekday),
+                      !shape.disciplines[offset].isTrainingSession else {
+                    return nil
+                }
+                return offset
+            }
+        )
 
         var workouts: [PlannedWorkout] = []
 
@@ -76,7 +90,10 @@ struct WeeklyPlanGenerator: Sendable {
             guard let sport = discipline.sport else {
                 workouts.append(
                     recoveryDays.contains(offset)
-                        ? PrescribedSessions.recoveryDay(on: date, goal: recoveryGoal(for: recovering))
+                        ? PrescribedSessions.recoveryDay(
+                            on: date,
+                            goal: recoveryGoal(for: recovering)
+                        )
                         : PrescribedSessions.restDay(on: date)
                 )
                 continue
@@ -110,18 +127,6 @@ struct WeeklyPlanGenerator: Sendable {
         )
     }
 
-    /// Positions of the first `limit` days the planner left empty, earliest
-    /// first so the result never depends on iteration order.
-    private func freeDays(in shape: WeekShape, limit: Int) -> Set<Int> {
-        guard limit > 0 else { return [] }
-
-        let free = shape.disciplines.enumerated()
-            .filter { !$0.element.isTrainingSession }
-            .map(\.offset)
-
-        return Set(free.prefix(limit))
-    }
-
     private func recoveryGoal(for recovering: Set<Sport>) -> String? {
         guard let sport = recovering.sorted(by: { $0.rawValue < $1.rawValue }).first else { return nil }
         return "Replacing \(sport.displayName.lowercased()) while last week's symptoms settle."
@@ -129,13 +134,18 @@ struct WeeklyPlanGenerator: Sendable {
 
     private func durations(from parameters: TrainingParameters) -> [Sport: TimeInterval] {
         let reference = Date.now
+
         return Sport.allCases.reduce(into: [:]) { totals, sport in
-            let prescribed = PrescribedSessions
+            totals[sport] = PrescribedSessions
                 .session(sport.discipline, on: reference, parameters: parameters)
                 .estimatedDurationSeconds ?? 0
-            let stated = preferences.first { $0.sport == sport }?.typicalSeconds ?? 0
-            totals[sport] = max(prescribed, stated)
         }
+    }
+
+    /// New onboarding stores one daily limit. The minimum also gives a safe
+    /// interpretation to older profiles that still have mixed per-day limits.
+    private func trainingMinuteCap(in schedule: AthleteSchedule) -> Int? {
+        schedule.availableDays.compactMap(\.maxDurationMinutes).min()
     }
 
     private func reason(from analysis: WeeklyAnalysis) -> String {
