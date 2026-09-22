@@ -104,7 +104,7 @@ struct OnboardingFlowTests {
         #expect(OnboardingModel(context: ModelContext(container)).setup.isComplete)
     }
 
-    @Test func scheduleUsesOneSharedDurationAndAutomaticFrequencies() throws {
+    @Test func scheduleUsesOneSharedDurationAndSelectedSports() throws {
         let context = ModelContext(try AtheviaModelContainer.make(inMemory: true))
         let model = OnboardingModel(context: context)
 
@@ -126,9 +126,16 @@ struct OnboardingFlowTests {
         model.advance()
 
         #expect(model.stage == .health)
-        #expect(model.setup.preferences.first(where: { $0.sport == .running })?.sessionsPerWeek == 2)
-        #expect(model.setup.preferences.first(where: { $0.sport == .cycling })?.sessionsPerWeek == 2)
-        #expect(model.setup.preferences.first(where: { $0.sport == .swimming })?.sessionsPerWeek == 0)
+        #expect(model.setup.preferences.first(where: { $0.sport == .running })?.isTrained == true)
+        #expect(model.setup.preferences.first(where: { $0.sport == .cycling })?.isTrained == true)
+        #expect(model.setup.preferences.first(where: { $0.sport == .swimming })?.isTrained != true)
+
+        let frequencies = WeekShapePlanner.frequencies(
+            from: model.setup.preferences,
+            schedule: model.setup.schedule
+        )
+        #expect(frequencies.first(where: { $0.sport == .running })?.sessions == 2)
+        #expect(frequencies.first(where: { $0.sport == .cycling })?.sessions == 2)
     }
 
     @Test func returningToScheduleRequiresGoingForwardAgain() throws {
