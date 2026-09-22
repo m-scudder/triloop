@@ -10,7 +10,22 @@
 - This is CI setup for existing coverage, not implementation of the entire blocker test plan.
 - Existing app and watch schemes are unchanged.
 
-## One-time activation (not performed by committing these files)
+## Cloud setup status (2026-09-22)
+
+A workflow named `Athevia - Main Tests` has been saved in Xcode Cloud, **inactive**:
+- Exact `main` Branch Changes condition; no PR, schedule or tag condition.
+- One Test action, Required to Pass; no archive or post-actions.
+- One iPhone 16 destination, iOS runtime from selected Xcode.
+- Xcode 26.5 (17F42), macOS Tahoe 26.2 (25C56), caching enabled.
+- Auto-cancel off so closely spaced merges are not silently superseded.
+- Temporary scheme: `Athevia`. Cloud's picker does not yet list `Athevia CI`, which is on this PR branch.
+- Existing Test Flight Automation Workflow was inspected and left unchanged; it has only an Archive action.
+
+After merging PR #25, edit the saved workflow to select `Athevia CI` (default plan `AtheviaCI`), enforce PR-only updates to main, then activate. No test or manual build was triggered during setup.
+
+Workflow: https://appstoreconnect.apple.com/teams/06e39095-081d-41a1-a0a6-d2720b3fd929/xcode-cloud/products/B1FF0105-F556-4143-91B6-D77369A36C35/workflows/b9eaafb0-3d6c-41e5-b269-473054aeea32
+
+## Workflow settings reference
 
 In Xcode Cloud's workflow editor in Xcode or App Store Connect:
 
