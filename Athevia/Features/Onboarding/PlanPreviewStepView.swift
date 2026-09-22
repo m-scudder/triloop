@@ -2,7 +2,7 @@ import SwiftUI
 
 /// The generated week, shown before it becomes the athlete's plan.
 ///
-/// Nothing is committed until "Start This Plan": a preview the athlete cannot
+/// Nothing is committed until "Start My Plan": a preview the athlete cannot
 /// refuse is not a preview.
 struct PlanPreviewStepView: View {
     @Bindable var model: OnboardingModel
@@ -33,16 +33,6 @@ struct PlanPreviewStepView: View {
                 }
 
                 week(plan)
-
-                HStack {
-                    Text("Starting conservatively").font(.subheadline)
-                    Spacer()
-                    InfoButton(title: "Starting conservatively", explanation: "Athevia uses your starting point to choose a manageable first week, then adjusts from completion, effort, pain and recovery. \(plan.generationReason)")
-                }
-
-                Text("Athevia will adjust future weeks based on how these sessions go.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
             } else {
                 ProgressView()
                     .frame(maxWidth: .infinity)
@@ -55,10 +45,13 @@ struct PlanPreviewStepView: View {
     /// Starting today gives a short week rather than backdating sessions the
     /// athlete never had the chance to do.
     private var startPicker: some View {
-        Picker("Start", selection: Binding(
-            get: { model.startChoice },
-            set: { model.choose(start: $0) }
-        )) {
+        Picker(
+            "Start",
+            selection: Binding(
+                get: { model.startChoice },
+                set: { model.choose(start: $0) }
+            )
+        ) {
             Text("Start this week").tag(OnboardingModel.StartChoice.now)
             Text("Start Monday").tag(OnboardingModel.StartChoice.nextMonday)
         }
