@@ -77,62 +77,63 @@ struct WatchWorkoutPlayerView: View {
     // MARK: - Apple Workout style controls page
 
     private var workoutControls: some View {
-        VStack(spacing: 12) {
-            workoutHeader
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(spacing: 6) {
+                workoutHeader
+                    .padding(.top, 2)
 
-            Spacer(minLength: 0)
-
-            LazyVGrid(
-                columns: [
-                    GridItem(.flexible(), spacing: 12),
-                    GridItem(.flexible(), spacing: 12)
-                ],
-                spacing: 12
-            ) {
-                controlButton(
-                    title: "End",
-                    systemImage: "xmark",
-                    tint: .red
+                LazyVGrid(
+                    columns: [
+                        GridItem(.flexible(), spacing: 8),
+                        GridItem(.flexible(), spacing: 8)
+                    ],
+                    spacing: 6
                 ) {
-                    showsEndConfirmation = true
-                }
+                    controlButton(
+                        title: "End",
+                        systemImage: "xmark",
+                        tint: .red
+                    ) {
+                        showsEndConfirmation = true
+                    }
 
-                controlButton(
-                    title: manager.state == .paused ? "Resume" : "Pause",
-                    systemImage: manager.state == .paused ? "play.fill" : "pause.fill",
-                    tint: .yellow
-                ) {
-                    if manager.state == .paused {
-                        manager.resume()
-                    } else {
-                        manager.pause()
+                    controlButton(
+                        title: manager.state == .paused ? "Resume" : "Pause",
+                        systemImage: manager.state == .paused ? "play.fill" : "pause.fill",
+                        tint: .yellow
+                    ) {
+                        if manager.state == .paused {
+                            manager.resume()
+                        } else {
+                            manager.pause()
+                        }
+                    }
+
+                    controlButton(
+                        title: manager.voiceEnabled ? "Voice On" : "Voice Off",
+                        systemImage: manager.voiceEnabled
+                            ? "speaker.wave.2.fill"
+                            : "speaker.slash.fill",
+                        tint: manager.voiceEnabled ? .green : .gray
+                    ) {
+                        manager.toggleVoice()
+                    }
+
+                    controlButton(
+                        title: "Next",
+                        systemImage: "forward.end.fill",
+                        tint: .blue,
+                        disabled: manager.currentStep == nil
+                    ) {
+                        manager.completeCurrentStep()
+                        page = 2
                     }
                 }
-
-                controlButton(
-                    title: manager.voiceEnabled ? "Voice On" : "Voice Off",
-                    systemImage: manager.voiceEnabled
-                        ? "speaker.wave.2.fill"
-                        : "speaker.slash.fill",
-                    tint: manager.voiceEnabled ? .green : .gray
-                ) {
-                    manager.toggleVoice()
-                }
-
-                controlButton(
-                    title: "Next",
-                    systemImage: "forward.end.fill",
-                    tint: .blue,
-                    disabled: manager.currentStep == nil
-                ) {
-                    manager.completeCurrentStep()
-                    page = 2
-                }
             }
-
-            Spacer(minLength: 0)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 4)
         }
-        .padding(.horizontal, 8)
     }
 
     private func controlButton(
@@ -147,16 +148,18 @@ struct WatchWorkoutPlayerView: View {
                 ZStack {
                     Circle()
                         .fill(tint.opacity(0.22))
-                        .frame(width: 52, height: 52)
+                        .frame(width: 44, height: 44)
 
                     Image(systemName: systemImage)
-                        .font(.system(size: 20, weight: .semibold))
+                        .font(.system(size: 18, weight: .semibold))
                         .foregroundStyle(tint)
                 }
 
                 Text(title)
                     .font(.caption2)
                     .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
             }
         }
         .buttonStyle(.plain)
