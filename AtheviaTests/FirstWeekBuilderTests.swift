@@ -98,7 +98,7 @@ struct FirstWeekBuilderTests {
             startDate: thursday
         )
 
-        #expect(plan.trainingSessions.count == 3)
+        #expect(plan.trainingSessions.count == 4)
         #expect(plan.trainingSessions.allSatisfy { $0.date >= thursday })
     }
 
@@ -161,22 +161,24 @@ struct FirstWeekBuilderTests {
         #expect(plan.orderedWorkouts.contains { $0.discipline == .running })
     }
 
-    @Test("A day too short for a session is not used for it")
-    func durationLimitsAreHonoured() throws {
-        // Every day capped below even the shortest ride, so cycling cannot fit.
-        let schedule = AthleteSchedule.everyDay(maxDurationMinutes: 15)
+    @Test("A daily time limit shortens the workout instead of dropping it")
+    func durationLimitsCapTheWorkout() throws {
+        let schedule = AthleteSchedule.everyDay(maxDurationMinutes: 60)
 
-        let plan = try? builder.build(
+        let plan = try builder.build(
             setup: setup(
                 cycling: .sixtyPlus,
                 schedule: schedule,
-                preferences: [SportPreference(sport: .cycling, sessionsPerWeek: 2, typicalMinutes: 75)]
+                preferences: [SportPreference(sport: .cycling, sessionsPerWeek: 1, typicalMinutes: 75)]
             ),
             poolLengthMeters: 25,
             startDate: monday()
         )
 
-        #expect(plan == nil)
+        let rides = plan.trainingSessions.filter { $0.discipline == .cycling }
+        #expect(rides.count == 7)
+        #expect(rides.allSatisfy { $0.estimatedDurationSeconds == TimeInterval(60 * 60) })
+        #expect(plan.parameters.rideWorkSeconds == TimeInterval(50 * 60))
     }
 
     @Test("An unusable schedule fails explicitly rather than producing a bad week")
@@ -229,11 +231,115 @@ struct FirstWeekBuilderTests {
         #expect(first.orderedWorkouts.map(\.discipline) == second.orderedWorkouts.map(\.discipline))
     }
 
-    @Test("Rest days are left in rather than every day being filled")
-    func weekIsNotPackedFull() throws {
+    @Test("Every available day receives a planned session")
+    func availableDaysAreFilled() throws {
         let plan = try builder.build(setup: setup(), poolLengthMeters: 25, startDate: monday())
 
-        #expect(plan.orderedWorkouts.contains { $0.discipline == .rest })
-        #expect(plan.trainingSessions.count <= 6)
+        #expect(plan.orderedWorkouts.contains { $0.discipline == .rest } == false)
+        #expect(plan.trainingSessions.count == 7)
+    }
+
+    @Test("Six available Run and Cycle days produce six sessions")
+    func runCycleScenarioUsesAllSixDays() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC") ?? .gmt
+        var builder = FirstWeekBuilder()
+        builder.calendar = calendar
+
+        let schedule = AthleteSchedule(
+            days: Weekday.trainingWeek.map { weekday in
+                TrainingAvailability(
+                    weekday: weekday,
+                    isAvailable: weekday != .monday,
+                    maxDurationMinutes: 60
+                )
+            }
+        )
+        let tuesday = try #require(
+            calendar.date(from: DateComponents(year: 2026, month: 8, day: 25))
+        )
+
+        let plan = try builder.build(
+            setup: setup(
+                running: .continuous20To30Minutes,
+                cycling: .sixtyPlus,
+                schedule: schedule,
+                preferences: [
+                    SportPreference(sport: .running, sessionsPerWeek: 1),
+                    SportPreference(sport: .cycling, sessionsPerWeek: 1)
+                ]
+            ),
+            poolLengthMeters: 25,
+            startDate: tuesday
+        )
+
+        let runs = plan.trainingSessions.filter { $0.discipline == .running }
+        let rides = plan.trainingSessions.filter { $0.discipline == .cycling }
+
+        #expect(plan.trainingSessions.count == 6)
+        #expect(runs.count == 3)
+        #expect(rides.count == 3)
+        #expect(runs.allSatisfy { $0.estimatedDurationSeconds == TimeInterval(30 * 60) })
+        #expect(rides.allSatisfy { $0.estimatedDurationSeconds == TimeInterval(60 * 60) })
+        #expect(plan.parameters.rideWorkSeconds == TimeInterval(50 * 60))
+
+        let plannedDays = plan.orderedWorkouts.filter {
+            Weekday(date: $0.date, calendar: calendar) != .monday
+        }
+        #expect(plannedDays.allSatisfy { $0.discipline != .rest })
+    }
+
+    @Test("Running-only availability uses recovery between runs")
+    func runningOnlyUsesRecoverySlots() throws {
+        let schedule = AthleteSchedule(
+            days: Weekday.trainingWeek.map {
+                TrainingAvailability(
+                    weekday: $0,
+                    isAvailable: $0 != .sunday,
+                    maxDurationMinutes: 60
+                )
+            }
+        )
+
+        let plan = try builder.build(
+            setup: setup(
+                running: .continuous20To30Minutes,
+                schedule: schedule,
+                preferences: [
+                    SportPreference(sport: .running, sessionsPerWeek: 1)
+                ]
+            ),
+            poolLengthMeters: 25,
+            startDate: monday()
+        )
+
+        #expect(plan.orderedWorkouts.filter { $0.discipline == .running }.count == 3)
+        #expect(plan.orderedWorkouts.filter { $0.discipline == .recovery }.count == 3)
+        #expect(plan.orderedWorkouts.last?.discipline == .rest)
+    }
+
+    @Test("A 30 minute cap preserves warm-up and cooldown")
+    func thirtyMinuteCapShortensMainWork() throws {
+        let schedule = AthleteSchedule.everyDay(maxDurationMinutes: 30)
+
+        let plan = try builder.build(
+            setup: setup(
+                running: .regular5K,
+                cycling: .sixtyPlus,
+                schedule: schedule,
+                preferences: [
+                    SportPreference(sport: .running, sessionsPerWeek: 1),
+                    SportPreference(sport: .cycling, sessionsPerWeek: 1)
+                ]
+            ),
+            poolLengthMeters: 25,
+            startDate: monday()
+        )
+
+        #expect(plan.parameters.runContinuousSeconds == TimeInterval(20 * 60))
+        #expect(plan.parameters.rideWorkSeconds == TimeInterval(20 * 60))
+        #expect(plan.trainingSessions.allSatisfy {
+            ($0.estimatedDurationSeconds ?? 0) <= TimeInterval(30 * 60)
+        })
     }
 }
