@@ -310,6 +310,10 @@ final class OnboardingModel {
 
         context.insert(preview)
         persist()
+
+        if failure == nil {
+            TrainingResetBoundary.completeFreshStart()
+        }
     }
 
     private func latestPlan() -> WeeklyPlan? {
