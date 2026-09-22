@@ -35,7 +35,38 @@ struct WorkoutExecutionPlan: Equatable, Sendable {
     init(workout: PlannedWorkout) {
         workoutID = workout.id
         title = workout.title
-        steps = Self.flatten(workout.orderedSteps)
+
+        let structured = Self.flatten(workout.orderedSteps)
+        if !structured.isEmpty {
+            steps = structured
+            return
+        }
+
+        // Legacy/simple sessions can carry only a workout-level prescription.
+        // They still need one executable step; an empty plan would otherwise
+        // transition from ready -> finished the instant Start is tapped.
+        let duration = workout.prescribedDurationSeconds
+            ?? workout.estimatedDurationSeconds
+        let distance = workout.estimatedDistanceMeters
+
+        if duration != nil || distance != nil {
+            steps = [
+                ExecutableWorkoutStep(
+                    id: "fallback-\(workout.id.uuidString)",
+                    sourceStepID: workout.id,
+                    kind: .work,
+                    title: workout.title,
+                    instructions: workout.goal.isEmpty ? nil : workout.goal,
+                    durationSeconds: duration,
+                    distanceMeters: duration == nil ? distance : nil,
+                    targetIntensity: nil,
+                    repetition: nil,
+                    repetitionCount: nil
+                )
+            ]
+        } else {
+            steps = structured
+        }
     }
 
     @MainActor
