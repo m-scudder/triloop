@@ -137,6 +137,32 @@ struct SeedWeekOneTests {
         #expect(plan.startDate == today)
     }
 
+    @Test func startOverRecordsAHealthBoundaryAndPendingFreshStart() throws {
+        TrainingResetBoundary.clearForTesting()
+        defer { TrainingResetBoundary.clearForTesting() }
+
+        let context = try makeContext()
+        context.insert(SeedWeekOne.makeProfile(startDate: monday()))
+        context.insert(SeedWeekOne.makePlan(startDate: monday(), calendar: calendar))
+        try context.save()
+
+        let resetAt = calendar.date(
+            from: DateComponents(year: 2026, month: 9, day: 22, hour: 23, minute: 45)
+        ) ?? .now
+
+        SeedDataInstaller.eraseAll(in: context, at: resetAt)
+
+        #expect(TrainingResetBoundary.latest == resetAt)
+        #expect(TrainingResetBoundary.isFreshStartPending)
+        #expect(try context.fetchCount(FetchDescriptor<AthleteProfile>()) == 0)
+        #expect(try context.fetchCount(FetchDescriptor<WeeklyPlan>()) == 0)
+
+        TrainingResetBoundary.completeFreshStart()
+
+        #expect(TrainingResetBoundary.isFreshStartPending == false)
+        #expect(TrainingResetBoundary.latest == resetAt)
+    }
+
     /// A reset used to reinstall a week fixed to August 2026, which left the
     /// athlete looking at a week that had already ended.
     @Test func resetStartsFromToday() throws {
