@@ -129,8 +129,9 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
             ]
 
             if workout.discipline == .swimming {
-                workoutMetadata[HKMetadataKeySwimmingLocationType] =
-                    workoutConfiguration.swimmingLocationType.rawValue as NSNumber
+                workoutMetadata[HKMetadataKeySwimmingLocationType] = NSNumber(
+                    value: workoutConfiguration.swimmingLocationType.rawValue
+                )
 
                 if workoutConfiguration.swimmingLocationType == .pool,
                    let lapLength = workoutConfiguration.lapLength {
@@ -540,10 +541,13 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
         _ workoutBuilder: HKLiveWorkoutBuilder
     ) {
         guard activeWorkout?.discipline == .swimming,
-              activeConfiguration?.environment == .pool,
-              let poolLength = activeConfiguration?.poolLengthMeters else {
+              activeConfiguration?.environment == .pool else {
             return
         }
+
+        let poolLength = normalizedPoolLength(
+            activeConfiguration?.poolLengthMeters
+        )
 
         let lapCount = workoutBuilder.workoutEvents.filter {
             $0.type == .lap
@@ -554,7 +558,7 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
 
         // HealthKit's live distance sample can arrive after the lap event.
         // Never add the values together; use whichever source is further ahead.
-        let eventDistance = Double(lapCount) * normalizedPoolLength(poolLength)
+        let eventDistance = Double(lapCount) * poolLength
         if eventDistance > distanceMeters {
             distanceMeters = eventDistance
         }
