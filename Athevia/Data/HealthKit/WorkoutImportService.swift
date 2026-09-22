@@ -12,6 +12,9 @@ struct WorkoutImportService {
     let provider: any HealthDataProviding
     var matcher: WorkoutMatcher = WorkoutMatcher()
     var calendar: Calendar = .current
+    /// Activities before the most recent explicit Start Over belong to the
+    /// athlete's old training timeline and must not be attached to a fresh plan.
+    var importCutoff: Date? = TrainingResetBoundary.latest
 
     struct Outcome: Equatable, Sendable {
         var matched: Int = 0
@@ -33,8 +36,13 @@ struct WorkoutImportService {
         // import cannot attach a result and destroy the active player subtree.
         guard !PhoneWorkoutExecutionState.isActive else { return Outcome() }
 
+        let eligible = activities.filter { activity in
+            guard let importCutoff else { return true }
+            return activity.startDate >= importCutoff
+        }
+
         var known = Set(try context.fetch(FetchDescriptor<ImportedWorkoutSummary>()).map(\.healthKitUUID))
-        let fresh = activities.filter { known.insert($0.healthKitUUID).inserted }
+        let fresh = eligible.filter { known.insert($0.healthKitUUID).inserted }
 
         let result = matcher.match(planned: plan.orderedWorkouts, with: fresh)
 
@@ -64,7 +72,7 @@ struct WorkoutImportService {
 
         return Outcome(
             matched: result.matches.count,
-            alreadyKnown: activities.count - fresh.count,
+            alreadyKnown: eligible.count - fresh.count,
             unrecognised: result.unmatchedImported.count
         )
     }
