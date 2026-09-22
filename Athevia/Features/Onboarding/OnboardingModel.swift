@@ -198,10 +198,6 @@ final class OnboardingModel {
     func advance() {
         guard canAdvance else { return }
 
-        if stage == .days {
-            assignAutomaticFrequencies()
-        }
-
         setup.stage = stage.next
         persist()
 
@@ -321,41 +317,10 @@ final class OnboardingModel {
         return (try? context.fetch(descriptor))?.last
     }
 
-    // MARK: - Automatic sport allocation
+    // MARK: - Sport selection
 
-    /// Sport selection is the user's intent. Frequency is deliberately not
-    /// another onboarding question: start with one session per selected sport,
-    /// then use spare training days up to the conservative baseline defaults.
-    private func assignAutomaticFrequencies() {
-        let selected = selectedSports
-        guard !selected.isEmpty else { return }
-
-        for sport in selected {
-            let index = preferenceIndex(for: sport)
-            let opening = openingPreference(for: sport)
-            setup.preferences[index].sessionsPerWeek = 1
-            setup.preferences[index].typicalMinutes = opening.typicalMinutes
-        }
-
-        var remaining = max(setup.schedule.availableDays.count - selected.count, 0)
-
-        while remaining > 0 {
-            var added = false
-
-            for sport in selected where remaining > 0 {
-                let index = preferenceIndex(for: sport)
-                let target = openingPreference(for: sport).sessionsPerWeek
-                guard setup.preferences[index].sessionsPerWeek < target else { continue }
-
-                setup.preferences[index].sessionsPerWeek += 1
-                remaining -= 1
-                added = true
-            }
-
-            if !added { break }
-        }
-    }
-
+    /// Frequency is derived later from the selected sports and available days.
+    /// A positive stored value only marks that the sport is selected.
     private func preferenceIndex(for sport: Sport) -> Int {
         if let index = setup.preferences.firstIndex(where: { $0.sport == sport }) {
             return index
