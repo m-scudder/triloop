@@ -184,14 +184,16 @@ struct WatchWorkoutExecutionEngine: Equatable, Sendable {
     }
 
     var snapshot: WatchWorkoutExecutionSnapshot {
-        WatchWorkoutExecutionSnapshot(
+        let snapshotPhase: WatchWorkoutExecutionSnapshot.Phase = switch phase {
+        case .ready: .ready
+        case .running: .running
+        case .paused: .paused
+        case .finished: .finished
+        }
+
+        return WatchWorkoutExecutionSnapshot(
             workoutID: plan.workoutID,
-            phase: switch phase {
-            case .ready: .ready
-            case .running: .running
-            case .paused: .paused
-            case .finished: .finished
-            },
+            phase: snapshotPhase,
             currentIndex: currentIndex,
             elapsedSeconds: elapsedSeconds,
             stepElapsedSeconds: stepElapsedSeconds,

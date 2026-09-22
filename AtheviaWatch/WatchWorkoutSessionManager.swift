@@ -512,7 +512,8 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
         _ builder: HKLiveWorkoutBuilder,
         at date: Date
     ) async throws {
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation {
+            (continuation: CheckedContinuation<Void, Error>) in
             builder.beginCollection(withStart: date) { success, error in
                 if let error {
                     continuation.resume(throwing: error)
