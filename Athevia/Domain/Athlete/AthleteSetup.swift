@@ -29,14 +29,14 @@ struct AthleteSetup: Codable, Equatable, Sendable {
         case complete
         case safety
 
-        static let onboardingFlow: [Stage] = [.welcome, .goal, .running, .days, .safety, .health, .preview]
+        static let onboardingFlow: [Stage] = [.welcome, .goal, .running, .days, .health, .preview]
 
         var consolidated: Stage {
             switch self {
             case .about: .goal
             case .swimming, .cycling, .pool: .running
             case .commitment: .days
-            case .watch: .health
+            case .watch, .safety: .health
             default: self
             }
         }
@@ -62,8 +62,7 @@ struct AthleteSetup: Codable, Equatable, Sendable {
     /// rather than guessing when the athlete would rather not say.
     var birthDate: Date?
     var schedule: AthleteSchedule
-    /// How much of each sport the athlete wants. Empty until the commitment
-    /// step, which seeds it from the baselines.
+    /// Selected sports and their automatically assigned opening frequency.
     var preferences: [SportPreference]
     var stage: Stage
     var completedAt: Date?
