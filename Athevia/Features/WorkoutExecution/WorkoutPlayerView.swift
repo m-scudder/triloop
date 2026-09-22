@@ -25,6 +25,7 @@ struct WorkoutPlayerView: View {
     @State private var showingExitConfirmation = false
     @State private var liveActivity = WorkoutLiveActivityController()
     @State private var inactiveAt: Date?
+    @State private var immediateCountdownStepID: String?
     @Environment(\.scenePhase) private var scenePhase
 
     private let pulse = Timer.publish(every: 0.25, on: .main, in: .common).autoconnect()
@@ -355,9 +356,9 @@ struct WorkoutPlayerView: View {
     private func prepareWorkout() async {
         guard engine.phase == .ready, !preparationComplete, !hasLeft else { return }
 
-        // Starting the workout must never wait on speech rendering. Move to the
-        // timer immediately, then attach the finite audio programme in the
-        // background at the current active-time position when it is ready.
+        // The workout timer starts immediately. Live TTS announces the current
+        // step right away while the finite lock-screen-safe programme renders
+        // in the background.
         preparationComplete = true
         startWorkoutIfNeeded()
 
@@ -369,6 +370,13 @@ struct WorkoutPlayerView: View {
         ) != nil else {
             audioSetupMessage = "Audio coaching is unavailable for this workout. The on-screen timer will continue normally."
             return
+        }
+
+        if let currentStep = engine.currentStep {
+            coach.announceImmediately(
+                step: currentStep,
+                volume: Float(coachingVolume)
+            )
         }
 
         do {
@@ -392,22 +400,32 @@ struct WorkoutPlayerView: View {
                 audioSetupMessage = nil
             }
 
-            let joinPosition = min(
+            // If a live cue is still speaking, let it finish rather than
+            // overlapping it with the pre-rendered programme.
+            try await coach.waitForImmediateCueToFinish()
+            try Task.checkCancellation()
+
+            guard !hasLeft,
+                  engine.phase == .running || engine.phase == .paused else {
+                coach.stop()
+                return
+            }
+
+            let rawJoinPosition = min(
                 engine.elapsedSeconds,
                 coach.timeline?.duration ?? engine.elapsedSeconds
             )
+            let joinPosition = coach.safeJoinPosition(rawJoinPosition)
             coach.seek(to: joinPosition)
 
             if engine.phase == .running, !coach.play() {
-                coach.stop()
-                audioSetupMessage = "Audio coaching could not start. The workout timer will continue without spoken cues."
+                audioSetupMessage = "Audio coaching could not start. Live spoken cues will continue when possible."
             }
         } catch is CancellationError {
             coach.stop()
         } catch {
             guard !hasLeft, !Task.isCancelled else { return }
-            coach.stop()
-            audioSetupMessage = "Spoken guidance could not be prepared. The workout timer will continue without audio."
+            audioSetupMessage = "Pre-rendered coaching could not be prepared. Live spoken cues will continue when possible."
         }
     }
 
@@ -453,10 +471,18 @@ struct WorkoutPlayerView: View {
     private func resumeWorkout() {
         guard engine.phase == .paused else { return }
         if coach.isPrepared, !coach.play() {
-            coach.stop()
-            audioSetupMessage = "Audio coaching could not resume. The workout timer will continue without spoken cues."
+            audioSetupMessage = "Pre-rendered coaching could not resume. Live spoken cues will continue when possible."
         }
         engine.resume()
+
+        if coachingEnabled,
+           !coach.isPlaying,
+           let currentStep = engine.currentStep {
+            coach.announceImmediately(
+                step: currentStep,
+                volume: Float(coachingVolume)
+            )
+        }
         if recordsGPS { locationTracker.resume() }
         lastPulse = .now
         inactiveAt = nil
@@ -474,10 +500,22 @@ struct WorkoutPlayerView: View {
             locationTracker.stop()
             liveActivity.end(finalState: nil)
         } else {
+            immediateCountdownStepID = nil
+
             if coach.isPrepared {
                 coach.seekToStep(engine.currentIndex)
                 if wasPaused, !coach.play() { engine.pause() }
             }
+
+            if coachingEnabled,
+               !coach.isPlaying,
+               let currentStep = engine.currentStep {
+                coach.announceImmediately(
+                    step: currentStep,
+                    volume: Float(coachingVolume)
+                )
+            }
+
             if wasPaused, engine.phase == .running, recordsGPS {
                 locationTracker.resume()
             }
@@ -537,7 +575,20 @@ struct WorkoutPlayerView: View {
         }
 
         if engine.currentIndex != previousIndex {
+            immediateCountdownStepID = nil
+
+            if coachingEnabled,
+               !coach.isPlaying,
+               let currentStep = engine.currentStep {
+                coach.announceImmediately(
+                    step: currentStep,
+                    volume: Float(coachingVolume)
+                )
+            }
+
             syncLiveActivity(now: now)
+        } else {
+            announceImmediateCountdownIfNeeded()
         }
         lastPulse = now
     }
@@ -590,9 +641,43 @@ struct WorkoutPlayerView: View {
         }
 
         if engine.currentIndex != previousIndex {
+            immediateCountdownStepID = nil
+
+            if coachingEnabled,
+               !coach.isPlaying,
+               let currentStep = engine.currentStep {
+                coach.announceImmediately(
+                    step: currentStep,
+                    volume: Float(coachingVolume)
+                )
+            }
+
             syncLiveActivity(now: now)
+        } else {
+            announceImmediateCountdownIfNeeded()
         }
         lastPulse = now
+    }
+
+    private func announceImmediateCountdownIfNeeded() {
+        guard coachingEnabled,
+              coachingCountdowns,
+              !coach.isPlaying,
+              let step = engine.currentStep,
+              let duration = step.durationSeconds,
+              duration >= 30,
+              let remaining = engine.remainingSeconds,
+              remaining > 0,
+              remaining <= 10,
+              immediateCountdownStepID != step.id else {
+            return
+        }
+
+        immediateCountdownStepID = step.id
+        coach.announceImmediateCountdown(
+            nextStep: engine.nextStep,
+            volume: Float(coachingVolume)
+        )
     }
 
     private func completeTrackedWorkout() {
