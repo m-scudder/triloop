@@ -4,8 +4,17 @@ struct WatchWorkoutDetailView: View {
     let workout: WatchWorkoutPayload
 
     @EnvironmentObject private var manager: WatchWorkoutSessionManager
+    @EnvironmentObject private var store: WatchWorkoutStore
+    @State private var startConfiguration: WatchWorkoutStartConfiguration
     @State private var isStarting = false
     @State private var showsPlayer = false
+
+    init(workout: WatchWorkoutPayload) {
+        self.workout = workout
+        _startConfiguration = State(
+            initialValue: .defaultValue(for: workout.discipline)
+        )
+    }
 
     var body: some View {
         ScrollView {
@@ -28,24 +37,54 @@ struct WatchWorkoutDetailView: View {
                     }
                 }
 
+                if !isCompleted && !isCurrentWorkout {
+                    NavigationLink {
+                        WatchWorkoutSetupView(
+                            workout: workout,
+                            configuration: $startConfiguration
+                        )
+                    } label: {
+                        HStack {
+                            Label(
+                                startConfiguration.displayName,
+                                systemImage: "slider.horizontal.3"
+                            )
+                            Spacer()
+                        }
+                    }
+                }
+
                 Button(action: startOrResume) {
                     HStack {
                         if isStarting || manager.state == .preparing {
                             ProgressView()
                         } else {
-                            Image(systemName: isCurrentWorkout ? "play.fill" : "figure.run")
+                            Image(
+                                systemName: isCompleted
+                                    ? "checkmark.circle.fill"
+                                    : (isCurrentWorkout ? "play.fill" : "figure.run")
+                            )
                         }
 
-                        Text(isCurrentWorkout ? "Resume Workout" : "Start Workout")
+                        Text(buttonTitle)
                     }
+                    .fontWeight(.semibold)
                     .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
+                .tint(.green)
                 .disabled(
-                    isStarting
-                    || workout.status != .planned
+                    isCompleted
+                    || isStarting
+                    || workout.status == .skipped
                     || (manager.isActive && !isCurrentWorkout)
                 )
+
+                if isCompleted {
+                    Text("This workout is complete and can’t be started again.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
             }
             .padding(.horizontal, 4)
         }
@@ -73,7 +112,21 @@ struct WatchWorkoutDetailView: View {
         manager.activeWorkout?.id == workout.id && manager.isActive
     }
 
+    private var isCompleted: Bool {
+        store.isCompleted(workout)
+            || manager.completedPlannedWorkoutID == workout.id
+    }
+
+    private var buttonTitle: String {
+        if isCompleted {
+            return "Workout Completed"
+        }
+        return isCurrentWorkout ? "Resume Workout" : "Start Workout"
+    }
+
     private func startOrResume() {
+        guard !isCompleted else { return }
+
         if isCurrentWorkout {
             showsPlayer = true
             return
@@ -81,7 +134,11 @@ struct WatchWorkoutDetailView: View {
 
         isStarting = true
         Task { @MainActor in
-            let started = await manager.start(workout)
+            let started = await manager.start(
+                workout,
+                configuration: startConfiguration,
+                coaching: store.coachingSettings
+            )
             isStarting = false
             if started {
                 showsPlayer = true
@@ -108,6 +165,49 @@ struct WatchWorkoutDetailView: View {
             .font(.caption)
             .foregroundStyle(.secondary)
         }
+    }
+}
+
+private struct WatchWorkoutSetupView: View {
+    let workout: WatchWorkoutPayload
+    @Binding var configuration: WatchWorkoutStartConfiguration
+
+    var body: some View {
+        Form {
+            switch workout.discipline {
+            case .running, .cycling:
+                Picker("Workout Type", selection: $configuration.environment) {
+                    Text("Outdoor")
+                        .tag(WatchWorkoutStartConfiguration.Environment.outdoor)
+                    Text("Indoor")
+                        .tag(WatchWorkoutStartConfiguration.Environment.indoor)
+                }
+
+            case .swimming:
+                Picker("Swim Type", selection: $configuration.environment) {
+                    Text("Pool")
+                        .tag(WatchWorkoutStartConfiguration.Environment.pool)
+                    Text("Open Water")
+                        .tag(WatchWorkoutStartConfiguration.Environment.openWater)
+                }
+
+                if configuration.environment == .pool {
+                    Picker(
+                        "Pool Length",
+                        selection: Binding(
+                            get: { configuration.poolLengthMeters ?? 25 },
+                            set: { configuration.poolLengthMeters = $0 }
+                        )
+                    ) {
+                        Text("20 m").tag(20.0)
+                        Text("25 m").tag(25.0)
+                        Text("33.3 m").tag(33.3)
+                        Text("50 m").tag(50.0)
+                    }
+                }
+            }
+        }
+        .navigationTitle("Workout Setup")
     }
 }
 

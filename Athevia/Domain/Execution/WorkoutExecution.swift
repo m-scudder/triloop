@@ -35,7 +35,38 @@ struct WorkoutExecutionPlan: Equatable, Sendable {
     init(workout: PlannedWorkout) {
         workoutID = workout.id
         title = workout.title
-        steps = Self.flatten(workout.orderedSteps)
+
+        let structured = Self.flatten(workout.orderedSteps)
+        if !structured.isEmpty {
+            steps = structured
+            return
+        }
+
+        // Legacy/simple sessions can carry only a workout-level prescription.
+        // They still need one executable step; an empty plan would otherwise
+        // transition from ready -> finished the instant Start is tapped.
+        let rawDuration = workout.prescribedDurationSeconds
+            ?? workout.estimatedDurationSeconds
+        let duration = Self.validPositive(rawDuration)
+        let distance = Self.validPositive(workout.estimatedDistanceMeters)
+
+        // A training session with no structured blocks is still executable as
+        // one manual/whole-workout step. This guarantees Start can never mean
+        // Complete merely because persistence contains no child rows.
+        steps = [
+            ExecutableWorkoutStep(
+                id: "fallback-\(workout.id.uuidString)",
+                sourceStepID: workout.id,
+                kind: .work,
+                title: workout.title,
+                instructions: workout.goal.isEmpty ? nil : workout.goal,
+                durationSeconds: duration,
+                distanceMeters: duration == nil ? distance : nil,
+                targetIntensity: nil,
+                repetition: nil,
+                repetitionCount: nil
+            )
+        ]
     }
 
     @MainActor
@@ -95,13 +126,18 @@ struct WorkoutExecutionPlan: Equatable, Sendable {
                 kind: step.kind,
                 title: step.title,
                 instructions: step.instructions,
-                durationSeconds: step.durationSeconds,
-                distanceMeters: step.distanceMeters,
+                durationSeconds: validPositive(step.durationSeconds),
+                distanceMeters: validPositive(step.distanceMeters),
                 targetIntensity: step.targetIntensity,
                 repetition: repetition,
                 repetitionCount: repetitionCount
             )
         )
+    }
+
+    private static func validPositive(_ value: Double?) -> Double? {
+        guard let value, value.isFinite, value > 0 else { return nil }
+        return value
     }
 }
 

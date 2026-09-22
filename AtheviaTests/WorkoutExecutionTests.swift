@@ -146,6 +146,79 @@ struct WorkoutExecutionTests {
         #expect(engine.result?.elapsedSeconds == 45)
     }
 
+
+    @Test("Workout-level duration creates an executable fallback step")
+    func workoutLevelDurationDoesNotAutoComplete() {
+        let workout = PlannedWorkout(
+            date: .now,
+            discipline: .running,
+            title: "Easy Run",
+            prescribedDurationSeconds: 600
+        )
+        let plan = WorkoutExecutionPlan(workout: workout)
+        var engine = WorkoutExecutionEngine(plan: plan)
+
+        #expect(plan.steps.count == 1)
+        #expect(plan.steps.first?.durationSeconds == 600)
+
+        engine.start()
+        #expect(engine.phase == .running)
+
+        engine.advance(by: 1)
+        #expect(engine.phase == .running)
+        #expect(engine.elapsedSeconds == 1)
+    }
+
+
+    @Test("Zero-duration structured steps do not auto-complete")
+    func zeroDurationStepBecomesManual() {
+        let workout = PlannedWorkout(
+            date: .now,
+            discipline: .running,
+            title: "Broken Duration",
+            steps: [
+                WorkoutStep(
+                    order: 0,
+                    kind: .work,
+                    title: "Run",
+                    durationSeconds: 0
+                )
+            ]
+        )
+        let plan = WorkoutExecutionPlan(workout: workout)
+        var engine = WorkoutExecutionEngine(plan: plan)
+
+        #expect(plan.steps.count == 1)
+        #expect(plan.steps.first?.durationSeconds == nil)
+
+        engine.start()
+        engine.advance(by: 5)
+
+        #expect(engine.phase == .running)
+        #expect(engine.elapsedSeconds == 5)
+    }
+
+    @Test("Unstructured workout without totals stays manual until user completes it")
+    func emptyPrescriptionStaysManual() {
+        let workout = PlannedWorkout(
+            date: .now,
+            discipline: .running,
+            title: "Free Run"
+        )
+        let plan = WorkoutExecutionPlan(workout: workout)
+        var engine = WorkoutExecutionEngine(plan: plan)
+
+        #expect(plan.steps.count == 1)
+        #expect(plan.steps.first?.durationSeconds == nil)
+        #expect(plan.steps.first?.distanceMeters == nil)
+
+        engine.start()
+        engine.advance(by: 5)
+
+        #expect(engine.phase == .running)
+        #expect(engine.elapsedSeconds == 5)
+    }
+
     private func plan(_ steps: WorkoutStep...) -> WorkoutExecutionPlan {
         WorkoutExecutionPlan(
             workout: PlannedWorkout(

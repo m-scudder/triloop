@@ -33,7 +33,12 @@ struct WatchWorkoutTransferTests {
         let payload = WatchWorkoutListPayload(
             generatedAt: Date(timeIntervalSince1970: 1_700_000_100),
             weekStart: Date(timeIntervalSince1970: 1_699_900_000),
-            workouts: [workout]
+            workouts: [workout],
+            coaching: WatchCoachingSettingsPayload(
+                enabled: true,
+                countdowns: false,
+                volume: 0.65
+            )
         )
 
         let encoder = JSONEncoder()

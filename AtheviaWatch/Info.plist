@@ -28,6 +28,7 @@
 	<true/>
 	<key>WKBackgroundModes</key>
 	<array>
+		<string>audio</string>
 		<string>workout-processing</string>
 	</array>
 	<key>WKCompanionAppBundleIdentifier</key>

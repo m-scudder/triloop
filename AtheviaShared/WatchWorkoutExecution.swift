@@ -1,5 +1,44 @@
 import Foundation
 
+struct WatchWorkoutStartConfiguration: Codable, Equatable, Sendable {
+    enum Environment: String, Codable, CaseIterable, Identifiable, Sendable {
+        case indoor
+        case outdoor
+        case pool
+        case openWater
+
+        var id: String { rawValue }
+
+        var displayName: String {
+            switch self {
+            case .indoor: "Indoor"
+            case .outdoor: "Outdoor"
+            case .pool: "Pool"
+            case .openWater: "Open Water"
+            }
+        }
+    }
+
+    var environment: Environment
+    var poolLengthMeters: Double?
+
+    static func defaultValue(for discipline: WatchWorkoutDiscipline) -> Self {
+        switch discipline {
+        case .running, .cycling:
+            Self(environment: .outdoor, poolLengthMeters: nil)
+        case .swimming:
+            Self(environment: .pool, poolLengthMeters: 25)
+        }
+    }
+
+    var displayName: String {
+        if environment == .pool, let poolLengthMeters {
+            return "\(Int(poolLengthMeters.rounded())) m Pool"
+        }
+        return environment.displayName
+    }
+}
+
 struct WatchExecutableWorkoutStep: Equatable, Identifiable, Sendable {
     let id: String
     let sourceStepID: UUID
@@ -77,6 +116,22 @@ struct WatchWorkoutExecutionPlan: Equatable, Sendable {
     }
 }
 
+struct WatchWorkoutExecutionSnapshot: Codable, Equatable, Sendable {
+    enum Phase: String, Codable, Equatable, Sendable {
+        case ready
+        case running
+        case paused
+        case finished
+    }
+
+    let workoutID: UUID
+    let phase: Phase
+    let currentIndex: Int
+    let elapsedSeconds: TimeInterval
+    let stepElapsedSeconds: TimeInterval
+    let stepDistanceMeters: Double
+}
+
 struct WatchWorkoutExecutionEngine: Equatable, Sendable {
     enum Phase: Equatable, Sendable {
         case ready
@@ -125,8 +180,64 @@ struct WatchWorkoutExecutionEngine: Equatable, Sendable {
         return nil
     }
 
+    var completedStepCount: Int {
+        min(currentIndex, plan.steps.count)
+    }
+
+    var prescriptionCompletionRatio: Double {
+        guard !plan.steps.isEmpty else { return 1 }
+
+        let completed = Double(completedStepCount)
+        let partial = currentStep == nil ? 0 : (stepProgress ?? 0)
+        return min(max((completed + partial) / Double(plan.steps.count), 0), 1)
+    }
+
     init(workout: WatchWorkoutPayload) {
         plan = WatchWorkoutExecutionPlan(workout: workout)
+    }
+
+    init(
+        workout: WatchWorkoutPayload,
+        snapshot: WatchWorkoutExecutionSnapshot
+    ) {
+        plan = WatchWorkoutExecutionPlan(workout: workout)
+
+        guard snapshot.workoutID == workout.id else { return }
+
+        currentIndex = min(max(snapshot.currentIndex, 0), plan.steps.count)
+        elapsedSeconds = max(snapshot.elapsedSeconds, 0)
+        stepElapsedSeconds = max(snapshot.stepElapsedSeconds, 0)
+        stepDistanceMeters = max(snapshot.stepDistanceMeters, 0)
+
+        if currentIndex >= plan.steps.count {
+            phase = .finished
+            return
+        }
+
+        phase = switch snapshot.phase {
+        case .ready: .ready
+        case .running: .running
+        case .paused: .paused
+        case .finished: .finished
+        }
+    }
+
+    var snapshot: WatchWorkoutExecutionSnapshot {
+        let snapshotPhase: WatchWorkoutExecutionSnapshot.Phase = switch phase {
+        case .ready: .ready
+        case .running: .running
+        case .paused: .paused
+        case .finished: .finished
+        }
+
+        return WatchWorkoutExecutionSnapshot(
+            workoutID: plan.workoutID,
+            phase: snapshotPhase,
+            currentIndex: currentIndex,
+            elapsedSeconds: elapsedSeconds,
+            stepElapsedSeconds: stepElapsedSeconds,
+            stepDistanceMeters: stepDistanceMeters
+        )
     }
 
     mutating func start() {

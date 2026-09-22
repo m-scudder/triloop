@@ -158,6 +158,12 @@ extension PlannedWorkout {
     /// how each is prescribed. Returns 1 when there is nothing to compare against,
     /// since a session that happened is better evidence than no evidence.
     func completionRatio(for imported: ImportedWorkout) -> Double {
+        if imported.plannedWorkoutID == id,
+           let adherence = imported.prescriptionCompletion,
+           adherence.isFinite {
+            return min(max(adherence, 0), 1)
+        }
+
         let ratio: Double?
 
         if discipline == .swimming, let target = estimatedDistanceMeters, target > 0 {

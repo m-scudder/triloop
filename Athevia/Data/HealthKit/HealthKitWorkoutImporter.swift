@@ -382,8 +382,29 @@ final class HealthKitWorkoutImporter: HealthDataProviding, @unchecked Sendable {
             metrics: Self.recordedMetrics(of: workout, sport: sport),
             plannedWorkoutID: (workout.metadata?[AtheviaWorkoutMetadata.plannedWorkoutIDKey] as? String)
                 .flatMap(UUID.init(uuidString:)),
+            prescriptionCompletion: Self.metadataDouble(
+                workout.metadata?[AtheviaWorkoutMetadata.prescriptionCompletionKey]
+            ),
+            completedPrescriptionSteps: Self.metadataInt(
+                workout.metadata?[AtheviaWorkoutMetadata.completedStepsKey]
+            ),
+            totalPrescriptionSteps: Self.metadataInt(
+                workout.metadata?[AtheviaWorkoutMetadata.totalStepsKey]
+            ),
             source: workout.sourceRevision.source.bundleIdentifier
         )
+    }
+
+    private static func metadataDouble(_ value: Any?) -> Double? {
+        if let number = value as? NSNumber { return number.doubleValue }
+        if let value = value as? Double { return value }
+        return nil
+    }
+
+    private static func metadataInt(_ value: Any?) -> Int? {
+        if let number = value as? NSNumber { return number.intValue }
+        if let value = value as? Int { return value }
+        return nil
     }
 
     /// Sport-specific sensor values, taken only where they mean something.
