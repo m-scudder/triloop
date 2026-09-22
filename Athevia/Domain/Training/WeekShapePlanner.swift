@@ -24,12 +24,12 @@ struct WeekShape: Equatable, Sendable {
 
 /// Places a week's sessions on the days the athlete can actually train.
 ///
-/// Deterministic: the same schedule and frequencies always produce the same
-/// week. Availability is an input to *scheduling* only — it never changes what
-/// the engine decided to prescribe.
+/// Deterministic: the same schedule and selected sports always produce the same
+/// week. An available day is a plan slot; selected sports are balanced across
+/// those slots and recovery fills any slot that should not carry another run.
 struct WeekShapePlanner: Sendable {
     /// Running is the only high-impact sport here, so it is the only one given
-    /// a hard no-consecutive-days rule.
+    /// a hard no-consecutive-days rule where the available shape allows it.
     var highImpact: Set<Sport> = [.running]
 
     func plan(
@@ -40,11 +40,23 @@ struct WeekShapePlanner: Sendable {
         var placed: [Weekday: Sport] = [:]
         var unplaced: [Sport: Int] = [:]
 
-        // Longest session first: it fits the fewest days, so it must claim one
-        // before a shorter session takes the only day long enough for it.
+        let fillsEveryAvailableDay =
+            frequencies.reduce(0) { $0 + max($1.sessions, 0) } >= schedule.availableDays.count
+
+        // When all available days are being filled, place running first so its
+        // recovery spacing is protected before low-impact sports consume the
+        // separating days. Otherwise keep the longest-session-first behaviour.
         let ordered = frequencies
             .filter { $0.sessions > 0 }
             .sorted { lhs, rhs in
+                if fillsEveryAvailableDay {
+                    let leftHighImpact = highImpact.contains(lhs.sport)
+                    let rightHighImpact = highImpact.contains(rhs.sport)
+                    if leftHighImpact != rightHighImpact {
+                        return leftHighImpact && !rightHighImpact
+                    }
+                }
+
                 let left = durations[lhs.sport] ?? 0
                 let right = durations[rhs.sport] ?? 0
                 if left != right { return left > right }
@@ -106,8 +118,8 @@ struct WeekShapePlanner: Sendable {
             return !sameSport.contains { abs($0.offsetFromMonday - day.offsetFromMonday) < 2 }
         }
 
-        // Falling back to `free` keeps a cramped schedule viable: two runs on
-        // consecutive days is worse than spacing, but better than one run.
+        // Falling back to free keeps a cramped schedule viable when there is no
+        // other way to place what was prescribed.
         let pool = allowed.isEmpty ? free : allowed
 
         return pool.max { lhs, rhs in
@@ -127,18 +139,82 @@ struct WeekShapePlanner: Sendable {
 }
 
 extension WeekShapePlanner {
-    /// What the athlete asked for, capped by the days they have.
+    /// Builds the weekly sport mix from selected sports and available days.
     ///
-    /// Stated intent, not a quota: the planner still schedules fewer sessions
-    /// when the week cannot hold them, and reports the shortfall.
+    /// Availability defines the number of plan slots. The old per-sport
+    /// sessions-per-week values are intentionally ignored here; onboarding no
+    /// longer asks for frequency. Extra slots favour lower-impact sports before
+    /// running. When running is the only sport, only non-consecutive available
+    /// days receive runs and the remaining available slots become recovery.
     static func frequencies(
         from preferences: [SportPreference],
         schedule: AthleteSchedule
     ) -> [SportFrequency] {
-        let days = schedule.availableDays.count
+        frequencies(
+            for: preferences.filter(\.isTrained).map(\.sport),
+            schedule: schedule
+        )
+    }
 
-        return preferences
-            .filter(\.isTrained)
-            .map { SportFrequency(sport: $0.sport, sessions: min($0.sessionsPerWeek, days)) }
+    static func frequencies(
+        for sports: [Sport],
+        schedule: AthleteSchedule
+    ) -> [SportFrequency] {
+        let selected = Sport.allCases.filter { sports.contains($0) }
+        let slots = schedule.availableDays.count
+
+        guard slots > 0, !selected.isEmpty else { return [] }
+
+        if selected == [.running] {
+            return [
+                SportFrequency(
+                    sport: .running,
+                    sessions: safeRunningSessions(in: schedule)
+                )
+            ]
+        }
+
+        var counts = Dictionary(uniqueKeysWithValues: selected.map { ($0, 0) })
+        var remaining = slots
+
+        // Every selected sport gets represented before additional days are
+        // distributed.
+        for sport in selected where remaining > 0 {
+            counts[sport, default: 0] += 1
+            remaining -= 1
+        }
+
+        // Lower-impact sports receive an odd spare slot before running.
+        let allocationOrder: [Sport] = [.swimming, .cycling, .running]
+            .filter { selected.contains($0) }
+
+        while remaining > 0 {
+            for sport in allocationOrder where remaining > 0 {
+                counts[sport, default: 0] += 1
+                remaining -= 1
+            }
+        }
+
+        return selected.compactMap { sport in
+            guard let count = counts[sport], count > 0 else { return nil }
+            return SportFrequency(sport: sport, sessions: count)
+        }
+    }
+
+    private static func safeRunningSessions(in schedule: AthleteSchedule) -> Int {
+        var count = 0
+        var previousRunOffset: Int?
+
+        for day in schedule.availableDays.map(\.weekday) {
+            if let previousRunOffset,
+               day.offsetFromMonday - previousRunOffset < 2 {
+                continue
+            }
+
+            count += 1
+            previousRunOffset = day.offsetFromMonday
+        }
+
+        return count
     }
 }
