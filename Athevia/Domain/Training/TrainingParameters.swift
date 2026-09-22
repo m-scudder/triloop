@@ -82,6 +82,42 @@ extension TrainingParameters {
         static let restHeadroomSeconds: TimeInterval = 15
     }
 
+
+    /// Caps time-based sessions to the athlete's stated daily training window.
+    ///
+    /// Ability decides the starting prescription; availability decides how much
+    /// of that prescription can actually be scheduled on a day. Warm-up and
+    /// cooldown are preserved, and the main work is shortened to fit.
+    func capped(toTrainingMinutes minutes: Int?) -> TrainingParameters {
+        guard let minutes, minutes > 0 else { return self }
+
+        let cap = TimeInterval(minutes * 60)
+        var next = self
+
+        let runWorkBudget = max(
+            cap - next.runWarmUpSeconds - next.runCooldownSeconds,
+            0
+        )
+
+        if next.runIsContinuous {
+            next.runContinuousSeconds = min(next.runContinuousSeconds, runWorkBudget)
+        } else {
+            let repeatSeconds = next.runIntervalSeconds + next.runWalkSeconds
+            if repeatSeconds > 0 {
+                let maxRepeats = Int((runWorkBudget / repeatSeconds).rounded(.down))
+                next.runRepeatCount = min(next.runRepeatCount, max(maxRepeats, 1))
+            }
+        }
+
+        let rideWorkBudget = max(
+            cap - next.rideWarmUpSeconds - next.rideCooldownSeconds,
+            0
+        )
+        next.rideWorkSeconds = min(next.rideWorkSeconds, rideWorkBudget)
+
+        return next
+    }
+
     func applying(_ adjustment: TrainingAdjustment, to sport: Sport) -> TrainingParameters {
         var next = self
 
