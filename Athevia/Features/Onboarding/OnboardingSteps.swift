@@ -1,41 +1,50 @@
 import SwiftUI
+import Combine
 
-/// First screen. The Run / Swim / Cycle carousel will replace the temporary
-/// static sport row after its visual direction is reviewed.
+/// First screen. A minimal, auto-playing Run / Swim / Cycle carousel.
 struct WelcomeStepView: View {
     var isUpgrade: Bool
     let start: () -> Void
 
+    @State private var selectedSport = 0
+
+    private let sports = [
+        "onboarding_run",
+        "onboarding_swim",
+        "onboarding_cycle"
+    ]
+
+    private let carouselTimer = Timer.publish(
+        every: 3.5,
+        on: .main,
+        in: .common
+    ).autoconnect()
+
     var body: some View {
         OnboardingStep(primaryTitle: "Build My Plan", primary: start) {
-            VStack(alignment: .leading, spacing: 28) {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("ATHEVIA")
-                        .font(.largeTitle.weight(.bold))
-                    Text("Training that adapts to you.")
-                        .font(.title3)
-                        .foregroundStyle(.secondary)
+            TabView(selection: $selectedSport) {
+                ForEach(Array(sports.enumerated()), id: \.offset) { index, assetName in
+                    Image(assetName)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 520)
+                        .clipShape(
+                            RoundedRectangle(
+                                cornerRadius: 28,
+                                style: .continuous
+                            )
+                        )
+                        .tag(index)
+                        .accessibilityHidden(true)
                 }
-                .padding(.top, 40)
-
-                LazyVGrid(
-                    columns: [GridItem(.adaptive(minimum: 100), alignment: .leading)],
-                    alignment: .leading,
-                    spacing: 12
-                ) {
-                    Label("RUN", systemImage: "figure.run")
-                    Label("SWIM", systemImage: "figure.pool.swim")
-                    Label("BIKE", systemImage: "figure.outdoor.cycle")
+            }
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            .frame(height: 520)
+            .onReceive(carouselTimer) { _ in
+                withAnimation(.easeInOut(duration: 0.5)) {
+                    selectedSport = (selectedSport + 1) % sports.count
                 }
-                .font(.caption.weight(.semibold))
-
-                if isUpgrade {
-                    Text("Your training history stays exactly as it is.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-
-                Spacer(minLength: 0)
             }
         }
     }
