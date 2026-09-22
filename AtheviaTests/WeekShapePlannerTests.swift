@@ -60,15 +60,18 @@ struct WeekShapePlannerTests {
         #expect(shape.disciplines[Weekday.wednesday.offsetFromMonday] == .rest)
     }
 
-    @Test("Available days are not filled just because they exist")
-    func availableDaysAreNotAllFilled() {
+    @Test("Available days define the number of training slots")
+    func availableDaysAreFilled() {
         let shape = planner.plan(
             schedule: everyDay,
-            frequencies: WeekShapePlanner.frequencies(from: preferences(run: 2, swim: 2, cycle: 2), schedule: everyDay)
+            frequencies: WeekShapePlanner.frequencies(
+                from: preferences(run: 2, swim: 2, cycle: 2),
+                schedule: everyDay
+            )
         )
 
-        #expect(shape.disciplines.filter(\.isTrainingSession).count == 6)
-        #expect(shape.disciplines.contains(.rest))
+        #expect(shape.disciplines.filter(\.isTrainingSession).count == 7)
+        #expect(shape.disciplines.contains(.rest) == false)
     }
 
     @Test("Runs are spaced rather than stacked on consecutive days")
@@ -157,8 +160,8 @@ struct WeekShapePlannerTests {
         #expect(first == second)
     }
 
-    @Test("Stated frequency is capped by the days available")
-    func frequencyIsCappedByDays() {
+    @Test("Selected sports split the available days")
+    func selectedSportsSplitAvailableDays() {
         let plan = schedule([.tuesday, .thursday])
 
         let frequencies = WeekShapePlanner.frequencies(
@@ -166,9 +169,34 @@ struct WeekShapePlannerTests {
             schedule: plan
         )
 
-        #expect(frequencies.first { $0.sport == .running }?.sessions == 2)
-        #expect(frequencies.first { $0.sport == .swimming }?.sessions == 2)
+        #expect(frequencies.first { $0.sport == .running }?.sessions == 1)
+        #expect(frequencies.first { $0.sport == .swimming }?.sessions == 1)
         #expect(frequencies.contains { $0.sport == .cycling } == false)
+    }
+
+    @Test("Six Run and Cycle days split three and three")
+    func runCycleSixDaySplit() {
+        let plan = schedule([.tuesday, .wednesday, .thursday, .friday, .saturday, .sunday])
+
+        let frequencies = WeekShapePlanner.frequencies(
+            from: preferences(run: 1, cycle: 1),
+            schedule: plan
+        )
+
+        #expect(frequencies.first { $0.sport == .running }?.sessions == 3)
+        #expect(frequencies.first { $0.sport == .cycling }?.sessions == 3)
+    }
+
+    @Test("Running only uses non-consecutive available days")
+    func runningOnlyLeavesRecoverySlots() {
+        let plan = schedule([.monday, .tuesday, .wednesday, .thursday, .friday, .saturday])
+
+        let frequencies = WeekShapePlanner.frequencies(
+            from: preferences(run: 1),
+            schedule: plan
+        )
+
+        #expect(frequencies.first { $0.sport == .running }?.sessions == 3)
     }
 
     @Test("A sport the athlete does not want is never scheduled")
