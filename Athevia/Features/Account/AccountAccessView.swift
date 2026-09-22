@@ -196,6 +196,14 @@ struct AccountAccessView: View {
         do {
             let hasLocalData = try LocalTrainingStoreState.hasUserData(modelContext)
 
+            // Start Over is an explicit request for a new local training
+            // timeline. It must survive relaunch without the persisted account
+            // immediately restoring the pre-reset cloud backup.
+            if TrainingResetBoundary.isFreshStartPending {
+                onReady(session, false)
+                return
+            }
+
             // A persisted authenticated session keeps using the local working
             // copy. A fresh interactive sign-in always rehydrates from that
             // account's latest backup so data from a previous signed-out user
