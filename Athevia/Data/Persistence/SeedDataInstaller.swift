@@ -12,6 +12,7 @@ import SwiftData
 /// imported back into the fresh plan after relaunch.
 enum TrainingResetBoundary {
     private static let key = "trainingResetAt"
+    private static let pendingFreshStartKey = "trainingResetPendingFreshStart"
 
     static var latest: Date? {
         get {
@@ -29,9 +30,25 @@ enum TrainingResetBoundary {
         }
     }
 
+    static var isFreshStartPending: Bool {
+        UserDefaults.standard.bool(forKey: pendingFreshStartKey)
+    }
+
     static func mark(_ date: Date = .now) {
         latest = date
+        UserDefaults.standard.set(true, forKey: pendingFreshStartKey)
     }
+
+    static func completeFreshStart() {
+        UserDefaults.standard.set(false, forKey: pendingFreshStartKey)
+    }
+
+    #if DEBUG
+    static func clearForTesting() {
+        latest = nil
+        UserDefaults.standard.removeObject(forKey: pendingFreshStartKey)
+    }
+    #endif
 }
 
 @MainActor
