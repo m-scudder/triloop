@@ -21,6 +21,7 @@ struct WorkoutImportService {
         var foundSomething: Bool { matched > 0 || unrecognised > 0 }
     }
 
+    @MainActor
     @discardableResult
     func importWorkouts(for plan: WeeklyPlan) async throws -> Outcome {
         // A session can start on the last day and finish after midnight.
