@@ -368,7 +368,12 @@ struct TodayView: View {
     private func syncWatchState() async {
         let scheduled = await scheduler.scheduledWorkouts()
         scheduledWorkoutIDs = Set(scheduled.map(\.id))
-        finishedOnWatch = Set(scheduled.filter(\.isComplete).map(\.id))
+        let activePhoneWorkoutID = PhoneWorkoutExecutionState.activeWorkoutID
+        finishedOnWatch = Set(
+            scheduled
+                .filter { $0.isComplete && $0.id != activePhoneWorkoutID }
+                .map(\.id)
+        )
     }
 
     private func send(_ workout: PlannedWorkout) {
