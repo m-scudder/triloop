@@ -474,9 +474,11 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
                 : .outdoor
 
         case .swimming:
+            // Swimming has its own location model. Do not also set the generic
+            // indoor/outdoor location type; pool/open-water and lap length are
+            // the configuration HealthKit uses for swim sensor collection.
             switch startConfiguration.environment {
             case .pool:
-                configuration.locationType = .indoor
                 configuration.swimmingLocationType = .pool
                 let meters = normalizedPoolLength(
                     startConfiguration.poolLengthMeters
@@ -487,16 +489,19 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
                 )
 
             case .openWater:
-                configuration.locationType = .outdoor
                 configuration.swimmingLocationType = .openWater
+                configuration.lapLength = nil
 
             case .indoor:
-                configuration.locationType = .indoor
                 configuration.swimmingLocationType = .pool
+                configuration.lapLength = HKQuantity(
+                    unit: HKUnit.meter(),
+                    doubleValue: 25
+                )
 
             case .outdoor:
-                configuration.locationType = .outdoor
                 configuration.swimmingLocationType = .openWater
+                configuration.lapLength = nil
             }
         }
 
