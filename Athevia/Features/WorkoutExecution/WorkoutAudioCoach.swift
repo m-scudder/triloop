@@ -14,6 +14,7 @@ final class WorkoutAudioCoach: NSObject, ObservableObject, AVAudioPlayerDelegate
     var onFinished: (() -> Void)?
 
     private var player: AVAudioPlayer?
+    private let immediateSynthesizer = AVSpeechSynthesizer()
     private var directory: URL?
     private var windows: [ClosedRange<TimeInterval>] = []
     private var duckTimer: Timer?
@@ -21,6 +22,7 @@ final class WorkoutAudioCoach: NSObject, ObservableObject, AVAudioPlayerDelegate
     private(set) var timeline: WorkoutCoachingTimeline?
     var position: TimeInterval { player?.currentTime ?? 0 }
     var isPrepared: Bool { player != nil }
+    var isSpeakingImmediateCue: Bool { immediateSynthesizer.isSpeaking }
 
     override init() {
         super.init()
@@ -28,6 +30,85 @@ final class WorkoutAudioCoach: NSObject, ObservableObject, AVAudioPlayerDelegate
         center.addObserver(self, selector: #selector(interrupted(_:)), name: AVAudioSession.interruptionNotification, object: nil)
         center.addObserver(self, selector: #selector(routeChanged(_:)), name: AVAudioSession.routeChangeNotification, object: nil)
         center.addObserver(self, selector: #selector(mediaReset), name: AVAudioSession.mediaServicesWereResetNotification, object: nil)
+    }
+
+    func announceImmediately(
+        step: ExecutableWorkoutStep,
+        volume: Float
+    ) {
+        let text = immediateText(for: step)
+        guard !text.isEmpty else { return }
+
+        do {
+            try configureImmediateSession()
+            try AVAudioSession.sharedInstance().setActive(true)
+        } catch {
+            message = "Spoken guidance could not start yet. The timer will continue normally."
+            return
+        }
+
+        immediateSynthesizer.stopSpeaking(at: .immediate)
+
+        let utterance = AVSpeechUtterance(string: text)
+        utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
+        utterance.rate = AVSpeechUtteranceDefaultSpeechRate
+        utterance.volume = min(max(volume, 0.1), 1)
+        immediateSynthesizer.speak(utterance)
+        message = nil
+    }
+
+    func announceImmediateCountdown(
+        nextStep: ExecutableWorkoutStep?,
+        volume: Float
+    ) {
+        var text = "Ten seconds remaining."
+        if let nextStep {
+            text += " Next: \(nextStep.title)."
+        } else {
+            text += " Then your workout is complete."
+        }
+
+        do {
+            try configureImmediateSession()
+            try AVAudioSession.sharedInstance().setActive(true)
+        } catch {
+            return
+        }
+
+        immediateSynthesizer.stopSpeaking(at: .immediate)
+
+        let utterance = AVSpeechUtterance(string: text)
+        utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
+        utterance.rate = AVSpeechUtteranceDefaultSpeechRate
+        utterance.volume = min(max(volume, 0.1), 1)
+        immediateSynthesizer.speak(utterance)
+    }
+
+    func waitForImmediateCueToFinish() async throws {
+        while immediateSynthesizer.isSpeaking {
+            try Task.checkCancellation()
+            try await Task.sleep(for: .milliseconds(50))
+        }
+    }
+
+    func safeJoinPosition(_ requestedPosition: TimeInterval) -> TimeInterval {
+        guard let player else { return requestedPosition }
+
+        let requested = min(
+            max(requestedPosition, 0),
+            max(player.duration - 0.05, 0)
+        )
+
+        if let activeWindow = windows.first(where: {
+            $0.lowerBound <= requested && requested <= $0.upperBound
+        }) {
+            return min(
+                activeWindow.upperBound + 0.05,
+                max(player.duration - 0.05, 0)
+            )
+        }
+
+        return requested
     }
 
     func prepare(plan: WorkoutExecutionPlan, countdowns: Bool, volume: Float) async throws {
@@ -78,7 +159,11 @@ final class WorkoutAudioCoach: NSObject, ObservableObject, AVAudioPlayerDelegate
     }
 
     func pause() {
-        guard player != nil else { return }
+        immediateSynthesizer.pauseSpeaking(at: .immediate)
+        guard player != nil else {
+            isPlaying = false
+            return
+        }
         player?.pause()
         isPlaying = false
         duckTimer?.invalidate()
@@ -104,6 +189,7 @@ final class WorkoutAudioCoach: NSObject, ObservableObject, AVAudioPlayerDelegate
     }
 
     func stop() {
+        immediateSynthesizer.stopSpeaking(at: .immediate)
         pause()
         player?.stop()
         player = nil
@@ -112,6 +198,55 @@ final class WorkoutAudioCoach: NSObject, ObservableObject, AVAudioPlayerDelegate
         directory = nil
         onPause = nil
         onFinished = nil
+    }
+
+    private func immediateText(for step: ExecutableWorkoutStep) -> String {
+        var parts = [step.title + "."]
+
+        if let duration = step.durationSeconds {
+            if duration >= 10 {
+                parts.append(WorkoutCoachingTimeline.spokenDuration(duration) + ".")
+            }
+        } else if let distance = step.distanceMeters {
+            if distance >= 1000 {
+                parts.append(
+                    String(format: "%.1f kilometres.", distance / 1000)
+                )
+            } else {
+                parts.append("\(Int(distance.rounded())) metres.")
+            }
+        }
+
+        if let repetition = step.repetitionLabel {
+            parts.append(repetition + ".")
+        }
+
+        if let intensity = step.targetIntensity {
+            parts.append(intensity.displayName + " effort.")
+        }
+
+        // On short sets the title/duration is the useful part; long
+        // instructions can consume most of the interval before work begins.
+        if let duration = step.durationSeconds,
+           duration >= 30,
+           let instructions = step.instructions,
+           !instructions.isEmpty {
+            parts.append(String(instructions.prefix(160)))
+        }
+
+        return parts.joined(separator: " ")
+    }
+
+    private func configureImmediateSession() throws {
+        try AVAudioSession.sharedInstance().setCategory(
+            .playback,
+            mode: .voicePrompt,
+            options: [
+                .mixWithOthers,
+                .duckOthers,
+                .interruptSpokenAudioAndMixWithOthers
+            ]
+        )
     }
 
     private func shouldDuck(at time: TimeInterval) -> Bool {
