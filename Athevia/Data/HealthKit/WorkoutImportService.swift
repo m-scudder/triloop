@@ -36,9 +36,19 @@ struct WorkoutImportService {
         // import cannot attach a result and destroy the active player subtree.
         guard !PhoneWorkoutExecutionState.isActive else { return Outcome() }
 
+        let effectiveCutoff: Date? = {
+            let planCutoff = plan.generationReasonCode == .initialAssessment
+                ? plan.generatedAt
+                : nil
+
+            return [importCutoff, planCutoff]
+                .compactMap { $0 }
+                .max()
+        }()
+
         let eligible = activities.filter { activity in
-            guard let importCutoff else { return true }
-            return activity.startDate >= importCutoff
+            guard let effectiveCutoff else { return true }
+            return activity.startDate >= effectiveCutoff
         }
 
         var known = Set(try context.fetch(FetchDescriptor<ImportedWorkoutSummary>()).map(\.healthKitUUID))
