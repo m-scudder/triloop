@@ -97,6 +97,35 @@ struct WorkoutImportServiceTests {
         #expect(try context.fetch(FetchDescriptor<ImportedWorkoutSummary>()).count == 2)
     }
 
+    @Test("Workouts from before Start Over are not re-imported")
+    func resetBoundaryBlocksOldHealthWorkouts() async throws {
+        let context = try makeContext()
+        let plan = seededPlan(in: context)
+
+        let oldWorkout = activity(.running, on: 0)
+        let newWorkout = activity(.swimming, on: 1, distance: 300)
+        let boundary = day(1, hour: 0)
+
+        var importer = service(context, [oldWorkout, newWorkout])
+        importer.importCutoff = boundary
+
+        let outcome = try await importer.importWorkouts(for: plan)
+
+        #expect(outcome.matched == 1)
+        #expect(outcome.unrecognised == 0)
+        #expect(outcome.alreadyKnown == 0)
+
+        let run = try #require(plan.orderedWorkouts.first { $0.discipline == .running })
+        let swim = try #require(plan.orderedWorkouts.first { $0.discipline == .swimming })
+
+        #expect(run.isCompleted == false)
+        #expect(run.importedSummary == nil)
+        #expect(swim.isCompleted)
+        #expect(swim.importedSummary?.healthKitUUID == newWorkout.healthKitUUID)
+        #expect(try context.fetch(FetchDescriptor<ImportedWorkoutSummary>()).count == 1)
+        #expect(plan.trainingSessions.filter { $0.origin == .imported }.isEmpty)
+    }
+
     @Test("Activities that match nothing are reported, not attached")
     func unrecognisedActivitiesAreReported() async throws {
         let context = try makeContext()
