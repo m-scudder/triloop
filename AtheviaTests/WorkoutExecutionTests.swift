@@ -146,6 +146,29 @@ struct WorkoutExecutionTests {
         #expect(engine.result?.elapsedSeconds == 45)
     }
 
+
+    @Test("Workout-level duration creates an executable fallback step")
+    func workoutLevelDurationDoesNotAutoComplete() {
+        let workout = PlannedWorkout(
+            date: .now,
+            discipline: .running,
+            title: "Easy Run",
+            prescribedDurationSeconds: 600
+        )
+        let plan = WorkoutExecutionPlan(workout: workout)
+        var engine = WorkoutExecutionEngine(plan: plan)
+
+        #expect(plan.steps.count == 1)
+        #expect(plan.steps.first?.durationSeconds == 600)
+
+        engine.start()
+        #expect(engine.phase == .running)
+
+        engine.advance(by: 1)
+        #expect(engine.phase == .running)
+        #expect(engine.elapsedSeconds == 1)
+    }
+
     private func plan(_ steps: WorkoutStep...) -> WorkoutExecutionPlan {
         WorkoutExecutionPlan(
             workout: PlannedWorkout(
