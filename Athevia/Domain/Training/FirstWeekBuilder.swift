@@ -32,12 +32,6 @@ struct FirstWeekBuilder: Sendable {
     ) throws -> WeeklyPlan {
         guard setup.canGeneratePlan else { throw BuildFailure.scheduleUnusable }
 
-        let parameters = resolver.resolve(
-            baseline: setup.baseline,
-            goal: setup.goal,
-            poolLengthMeters: poolLengthMeters
-        )
-
         let start = calendar.startOfDay(for: startDate)
         let firstWeekday = Weekday(date: start, calendar: calendar) ?? .monday
         let monday = calendar.date(byAdding: .day, value: -firstWeekday.offsetFromMonday, to: start) ?? start
@@ -47,10 +41,17 @@ struct FirstWeekBuilder: Sendable {
         // that failed to fit.
         let available = remaining(setup.schedule, from: firstWeekday)
 
+        let parameters = resolver.resolve(
+            baseline: setup.baseline,
+            goal: setup.goal,
+            poolLengthMeters: poolLengthMeters
+        )
+        .capped(toTrainingMinutes: trainingMinuteCap(in: available))
+
         let shape = planner.plan(
             schedule: available,
             frequencies: WeekShapePlanner.frequencies(from: setup.preferences, schedule: available),
-            durations: durations(from: parameters, preferences: setup.preferences)
+            durations: durations(from: parameters)
         )
 
         guard shape.isViable else { throw BuildFailure.noSessionsFit }
@@ -60,8 +61,19 @@ struct FirstWeekBuilder: Sendable {
                 return nil
             }
             // Days already gone by the time setup finished are rest, not a
-            // session the athlete silently failed to do.
-            let discipline = weekday < firstWeekday ? Discipline.rest : shape.disciplines[weekday.offsetFromMonday]
+            // session the athlete silently failed to do. Every remaining day
+            // the athlete marked available receives either training or a
+            // recovery session.
+            let discipline: Discipline
+            if weekday < firstWeekday {
+                discipline = .rest
+            } else {
+                let planned = shape.disciplines[weekday.offsetFromMonday]
+                discipline = planned == .rest && available.isAvailable(on: weekday)
+                    ? .recovery
+                    : planned
+            }
+
             return PrescribedSessions.session(discipline, on: date, parameters: parameters)
         }
 
@@ -89,22 +101,23 @@ struct FirstWeekBuilder: Sendable {
         )
     }
 
-    /// How long a session is expected to run, so a day too short for it is not
-    /// offered. The athlete's stated length wins where it is longer than the
-    /// prescription, since that is the time they actually need to set aside.
-    private func durations(
-        from parameters: TrainingParameters,
-        preferences: [SportPreference]
-    ) -> [Sport: TimeInterval] {
+    /// How long the generated session actually runs. The old per-sport
+    /// "typical duration" value no longer overrides the single daily time
+    /// answer collected during onboarding.
+    private func durations(from parameters: TrainingParameters) -> [Sport: TimeInterval] {
         let reference = Date.now
 
         return Sport.allCases.reduce(into: [:]) { totals, sport in
-            let prescribed = PrescribedSessions
+            totals[sport] = PrescribedSessions
                 .session(sport.discipline, on: reference, parameters: parameters)
                 .estimatedDurationSeconds ?? 0
-            let stated = preferences.first { $0.sport == sport }?.typicalSeconds ?? 0
-            totals[sport] = max(prescribed, stated)
         }
+    }
+
+    /// New onboarding uses one time limit for every training day. Taking the
+    /// smallest stated value also keeps legacy profiles with mixed limits safe.
+    private func trainingMinuteCap(in schedule: AthleteSchedule) -> Int? {
+        schedule.availableDays.compactMap(\.maxDurationMinutes).min()
     }
 
     private func reason(for setup: AthleteSetup, shape: WeekShape) -> String {
