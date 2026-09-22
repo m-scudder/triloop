@@ -288,10 +288,25 @@ struct TodayView: View {
 
     private var presentation: TodayPresentation {
         guard isResolved else { return .loading }
-        return TodayPresentationBuilder.build(
+
+        let resolved = TodayPresentationBuilder.build(
             plan: plans.currentPlan(),
             finishedOnWatch: finishedOnWatch
         )
+
+        if let activeID = PhoneWorkoutExecutionState.activeWorkoutID,
+           workout(activeID) != nil {
+            // Keep the subtree that owns the phone player's fullScreenCover
+            // alive for the duration of execution. Background imports, Watch
+            // refreshes, or other model updates must not replace it mid-run.
+            return TodayPresentation(
+                state: .upcoming(workoutID: activeID),
+                next: resolved.next,
+                alsoCompletedToday: resolved.alsoCompletedToday
+            )
+        }
+
+        return resolved
     }
 
     private func workout(_ id: UUID) -> PlannedWorkout? {
