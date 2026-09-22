@@ -24,36 +24,46 @@ final class AtheviaUITests: XCTestCase {
     func testConsolidatedOnboardingCreatesFirstWeek() throws {
         let app = onboardingApp()
         app.launch()
+
         XCTAssertTrue(app.buttons["Build My Plan"].waitForExistence(timeout: 10))
         attachScreenshot(app, name: "Onboarding welcome")
         app.buttons["Build My Plan"].tap()
+
         XCTAssertTrue(app.staticTexts["What are you training for?"].exists)
         app.buttons["Continue"].tap()
+
         XCTAssertTrue(app.staticTexts["Where are you starting?"].exists)
         app.buttons["startingPoint.running"].tap()
+
         let runChoice = app.buttons["I can run continuously for around 10 minutes"]
         reveal(runChoice, in: app)
         runChoice.tap()
         app.buttons["explanation.done"].tap()
+
         XCTAssertTrue(app.staticTexts["10 min continuous"].exists)
         attachScreenshot(app, name: "Onboarding starting point")
         app.buttons["Continue"].tap()
+
         XCTAssertTrue(app.staticTexts["When can you train?"].exists)
         XCTAssertFalse(app.buttons["Continue"].isEnabled)
         app.buttons["Monday"].tap()
         app.buttons["Wednesday"].tap()
+        XCTAssertFalse(app.buttons["Continue"].isEnabled)
+        app.buttons["60 min"].tap()
         XCTAssertTrue(app.buttons["Continue"].isEnabled)
+
         attachScreenshot(app, name: "Onboarding schedule")
         app.buttons["Continue"].tap()
-        XCTAssertTrue(app.staticTexts["Anything we should consider?"].exists)
-        app.buttons["Continue"].tap()
+
         XCTAssertTrue(app.staticTexts["Connect your training"].exists)
-        let skip = app.buttons["Not Now"]
-        reveal(skip, in: app)
-        skip.tap()
+        let seeWeek = app.buttons["See My Week"]
+        reveal(seeWeek, in: app)
+        seeWeek.tap()
+
         XCTAssertTrue(app.staticTexts["Your first week"].waitForExistence(timeout: 5))
         let start = app.buttons["Start My Plan"]
         XCTAssertTrue(start.isEnabled)
+
         attachScreenshot(app, name: "Onboarding first week")
         start.tap()
         XCTAssertTrue(app.tabBars.buttons["Home"].waitForExistence(timeout: 10))

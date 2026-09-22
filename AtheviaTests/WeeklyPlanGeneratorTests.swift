@@ -56,7 +56,8 @@ struct WeeklyPlanGeneratorTests {
         #expect(week2.trainingSessions.filter { $0.discipline == .running }.count == 2)
         #expect(week2.trainingSessions.filter { $0.discipline == .swimming }.count == 2)
         #expect(week2.trainingSessions.filter { $0.discipline == .cycling }.count == 2)
-        #expect(week2.orderedWorkouts.contains { $0.discipline == .rest })
+        #expect(week2.orderedWorkouts.contains { $0.discipline == .rest } == false)
+        #expect(week2.orderedWorkouts.filter { $0.discipline == .recovery }.count == 1)
         #expect(week2.status == .active)
     }
 
@@ -150,9 +151,10 @@ struct WeeklyPlanGeneratorTests {
         let week2 = nextWeek(after: week1)
         let recovery = week2.orderedWorkouts.filter { $0.discipline == .recovery }
 
-        // Two runs were pulled, so two recovery days replace them.
-        #expect(recovery.count == 2)
-        #expect(week2.orderedWorkouts.contains { $0.discipline == .rest })
+        // The two pulled runs plus the otherwise-unused available day are
+        // recovery now; an available day is never silently changed to Rest.
+        #expect(recovery.count == 3)
+        #expect(week2.orderedWorkouts.contains { $0.discipline == .rest } == false)
         #expect(week2.orderedWorkouts.contains { $0.discipline == .swimming })
     }
 
@@ -187,8 +189,9 @@ struct WeeklyPlanGeneratorTests {
         )
 
         #expect(week3.trainingSessions.isEmpty == false)
-        #expect(week3.trainingSessions.filter { $0.discipline == .running }.count == 2)
-        #expect(week3.trainingSessions.filter { $0.discipline == .swimming }.count == 1)
+        #expect(week3.trainingSessions.filter { $0.discipline == .running }.count == 3)
+        #expect(week3.trainingSessions.filter { $0.discipline == .swimming }.count == 4)
+        #expect(week3.orderedWorkouts.contains { $0.discipline == .rest } == false)
     }
     @Test("Generation records why the week looks the way it does")
     func generationReasonIsRecorded() {
@@ -428,7 +431,8 @@ struct TrainingFrequencyRecoveryTests {
         let week2 = generator().generate(after: week1, analysis: WeeklyAnalyser().analyse(week1))
 
         #expect(sessions(week2, .running) == 3)
-        #expect(sessions(week2, .swimming) == 2)
+        #expect(sessions(week2, .swimming) == 4)
+        #expect(week2.orderedWorkouts.contains { $0.discipline == .rest } == false)
     }
 
     @Test("Availability still caps what can be asked for")
@@ -445,15 +449,16 @@ struct TrainingFrequencyRecoveryTests {
         #expect(week2.trainingSessions.count <= 2)
     }
 
-    @Test("Doing more than asked for is not undone")
-    func extraVolumeIsKept() {
+    @Test("Availability defines the next week's frequency")
+    func availabilityDefinesFrequency() {
         let plan = WeeklyPlan(
             weekNumber: 2,
             startDate: monday(),
             endDate: day(6),
             parameters: TrainingParameters()
         )
-        // Four runs, one more than the athlete said they wanted.
+        // Historical frequency no longer controls the next week; selected
+        // sports are redistributed across the available plan slots.
         for offset in 0..<7 {
             let discipline: Discipline = offset < 4 ? .running : .rest
             plan.workouts.append(
@@ -463,6 +468,8 @@ struct TrainingFrequencyRecoveryTests {
 
         let next = generator().generate(after: plan, analysis: WeeklyAnalyser().analyse(plan))
 
-        #expect(sessions(next, .running) == 4)
+        #expect(sessions(next, .running) == 3)
+        #expect(sessions(next, .swimming) == 4)
+        #expect(next.orderedWorkouts.contains { $0.discipline == .rest } == false)
     }
 }

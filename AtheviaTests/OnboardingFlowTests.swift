@@ -6,9 +6,9 @@ import Testing
 
 @MainActor
 struct OnboardingFlowTests {
-    @Test func flowHasSevenScreens() {
+    @Test func flowHasSixScreens() {
         let flow = AthleteSetup.Stage.onboardingFlow
-        #expect(flow == [.welcome, .goal, .running, .days, .safety, .health, .preview])
+        #expect(flow == [.welcome, .goal, .running, .days, .health, .preview])
         for index in 0..<(flow.count - 1) {
             #expect(flow[index].next == flow[index + 1])
             #expect(flow[index + 1].previous == flow[index])
@@ -29,31 +29,40 @@ struct OnboardingFlowTests {
         profile.setup = AthleteSetup(stage: .commitment)
         context.insert(profile)
         try context.save()
+
         let model = OnboardingModel(context: context)
         #expect(model.stage == .days)
         #expect(!model.setup.preferences.isEmpty)
         #expect(!model.canAdvance)
+
         model.toggleDay(.monday)
         model.toggleDay(.wednesday)
+        model.toggleDay(.friday)
+        model.setSharedMaxDuration(60)
+
         #expect(model.canAdvance)
         model.advance()
-        #expect(OnboardingModel(context: context).stage == .safety)
+        #expect(OnboardingModel(context: context).stage == .health)
     }
 
     @Test func baselineAndPoolAnswersSurviveResume() throws {
         let container = try AtheviaModelContainer.make(inMemory: true)
         let model = OnboardingModel(context: ModelContext(container))
         model.jump(to: .swimming)
+        model.toggleSport(.swimming)
         model.choose(running: .continuous20To30Minutes)
         model.choose(swimming: .continuous100)
         model.choose(cycling: .fortyFiveToSixty)
         model.setPoolLength(50)
+
         let resumed = OnboardingModel(context: ModelContext(container))
         #expect(resumed.stage == .running)
         #expect(resumed.setup.baseline.running == .continuous20To30Minutes)
         #expect(resumed.setup.baseline.swimming == .continuous100)
         #expect(resumed.setup.baseline.cycling == .fortyFiveToSixty)
         #expect(resumed.poolLengthMeters == 50)
+        #expect(resumed.isSportSelected(.swimming))
+
         resumed.setPoolLength(0)
         #expect(!resumed.canAdvance)
     }
@@ -62,47 +71,95 @@ struct OnboardingFlowTests {
         let container = try AtheviaModelContainer.make(inMemory: true)
         let context = ModelContext(container)
         let model = OnboardingModel(context: context)
+
         model.advance()
         #expect(model.stage == .goal)
+
         model.advance()
         #expect(model.stage == .running)
+
+        model.toggleSport(.running)
+        model.choose(running: .continuous10Minutes)
         model.advance()
         #expect(model.stage == .days)
-        for weekday in Weekday.trainingWeek { model.toggleDay(weekday) }
-        model.advance()
-        #expect(model.stage == .safety)
+
+        model.toggleDay(.monday)
+        model.toggleDay(.wednesday)
+        model.setSharedMaxDuration(60)
         model.advance()
         #expect(model.stage == .health)
+
         model.advance()
         #expect(model.stage == .preview)
         #expect(model.preview?.orderedWorkouts.count == 7)
         #expect(try context.fetchCount(FetchDescriptor<WeeklyPlan>()) == 0)
+
         let resumed = OnboardingModel(context: ModelContext(container))
         #expect(resumed.stage == .preview)
         resumed.buildPreview()
         #expect(resumed.preview != nil)
         resumed.start()
+
         #expect(try context.fetchCount(FetchDescriptor<WeeklyPlan>()) == 1)
         #expect(OnboardingModel(context: ModelContext(container)).setup.isComplete)
     }
 
-    @Test func returningToScheduleKeepsCustomCommitment() throws {
+    @Test func scheduleUsesOneSharedDurationAndSelectedSports() throws {
         let context = ModelContext(try AtheviaModelContainer.make(inMemory: true))
         let model = OnboardingModel(context: context)
+
+        model.jump(to: .running)
+        model.toggleSport(.running)
+        model.toggleSport(.cycling)
         model.jump(to: .days)
-        model.setSessions(1, for: .running)
-        model.setSessions(0, for: .swimming)
-        model.setTypicalMinutes(60, for: .cycling)
+
+        model.toggleDay(.monday)
+        model.toggleDay(.tuesday)
+        model.toggleDay(.thursday)
+        model.toggleDay(.saturday)
+        model.setSharedMaxDuration(60)
+
+        #expect(model.sharedTrainingMinutes == 60)
+        #expect(model.setup.schedule.days.allSatisfy { $0.maxDurationMinutes == 60 })
+        #expect(model.canAdvance)
+
+        model.advance()
+
+        #expect(model.stage == .health)
+        #expect(model.setup.preferences.first(where: { $0.sport == .running })?.isTrained == true)
+        #expect(model.setup.preferences.first(where: { $0.sport == .cycling })?.isTrained == true)
+        #expect(model.setup.preferences.first(where: { $0.sport == .swimming })?.isTrained != true)
+
+        let frequencies = WeekShapePlanner.frequencies(
+            from: model.setup.preferences,
+            schedule: model.setup.schedule
+        )
+        #expect(frequencies.first(where: { $0.sport == .running })?.sessions == 2)
+        #expect(frequencies.first(where: { $0.sport == .cycling })?.sessions == 2)
+    }
+
+    @Test func returningToScheduleRequiresGoingForwardAgain() throws {
+        let context = ModelContext(try AtheviaModelContainer.make(inMemory: true))
+        let model = OnboardingModel(context: context)
+
+        model.jump(to: .running)
+        model.toggleSport(.running)
+        model.jump(to: .days)
         model.toggleDay(.tuesday)
         model.toggleDay(.saturday)
-        model.setMaxDuration(90, on: .saturday)
-        let preferences = model.setup.preferences
+        model.setSharedMaxDuration(90)
         model.advance()
-        model.goBack()
+
+        #expect(model.stage == .health)
+        model.advance()
+        #expect(model.stage == .preview)
+
+        model.jump(to: .days)
         #expect(model.stage == .days)
-        #expect(model.setup.preferences == preferences)
+        #expect(model.sharedTrainingMinutes == 90)
         #expect(model.setup.schedule.availability(on: .saturday).maxDurationMinutes == 90)
-        for sport in Sport.allCases { model.setSessions(0, for: sport) }
-        #expect(!model.canAdvance)
+
+        model.advance()
+        #expect(model.stage == .health)
     }
 }

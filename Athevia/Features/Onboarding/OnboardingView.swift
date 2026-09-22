@@ -38,22 +38,21 @@ struct OnboardingView: View {
         switch model.stage {
         case .welcome:
             WelcomeStepView(isUpgrade: model.isUpgrade, start: model.advance)
+
         case .about, .goal:
             GoalStepView(model: model)
+
         case .running, .swimming, .cycling, .pool:
             StartingPointStepView(model: model)
+
         case .days, .commitment:
             TrainingDaysStepView(model: model)
-        case .health, .watch:
+
+        case .health, .watch, .safety:
             ConnectionsStepView(model: model)
+
         case .preview, .complete:
             PlanPreviewStepView(model: model)
-        case .safety:
-            OnboardingStep(primary: model.advance) {
-                OnboardingHeader(title: "Anything we should consider?", subtitle: "Keep training comfortable.")
-                Text("Do not train through pain or warning symptoms. Stop if you feel unwell; seek medical advice for severe or persistent symptoms.")
-                Text("Report effort, pain and recovery after each session so Athevia can adjust what comes next.")
-            }
         }
     }
 

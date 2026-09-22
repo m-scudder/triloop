@@ -4,20 +4,17 @@ import UIKit
 
 /// Account entry for launch.
 ///
-/// Existing installations are handled safely: local training is never replaced
-/// by cloud data. A clean install with a cloud backup is offered restore before
-/// onboarding can create competing local data.
+/// Athevia keeps one authenticated training context on the device. Explicit
+/// sign-in replaces any stale signed-out local data with the latest backup for
+/// that account before training access is restored.
 struct AccountAccessView: View {
     let authentication: AuthenticationCoordinator
     let backup: BackupCoordinator
     let onReady: (AccountSession, Bool) -> Void
-    let onContinueOffline: () -> Void
 
     @Environment(\.modelContext) private var modelContext
-    @State private var restoreCandidate: BackupEnvelope?
     @State private var accountError: String?
     @State private var isCheckingBackup = false
-    @State private var hasLocalTraining = false
 
     var body: some View {
         ZStack {
@@ -48,10 +45,9 @@ struct AccountAccessView: View {
             }
         }
         .task {
-            hasLocalTraining = (try? LocalTrainingStoreState.hasUserData(modelContext)) == true
             await authentication.refresh()
             if case .signedIn(let session) = authentication.state {
-                await resolveAfterSignIn(session, seedLocalBackup: false)
+                await resolveAfterSignIn(session, replaceLocalData: false)
             }
         }
     }
@@ -82,29 +78,9 @@ struct AccountAccessView: View {
 
             Spacer(minLength: 44)
 
-            VStack(spacing: 14) {
-                AppleSignInButtonView { credential in
-                    let session = try await authentication.signInWithApple(credential)
-                    await resolveAfterSignIn(session, seedLocalBackup: true)
-                }
-
-                if hasLocalTraining {
-                    Button("Continue on this iPhone") {
-                        onContinueOffline()
-                    }
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.secondary)
-                    .padding(.vertical, 6)
-                }
-
-                Text(hasLocalTraining
-                     ? "Your existing training stays on this iPhone. Sign in whenever you want cloud backup and restore."
-                     : "Your training stays on this iPhone first. Signing in adds cloud backup and restore.")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-                    .multilineTextAlignment(.center)
-                    .lineSpacing(2)
-                    .frame(maxWidth: 360)
+            AppleSignInButtonView { credential in
+                let session = try await authentication.signInWithApple(credential)
+                await resolveAfterSignIn(session, replaceLocalData: true)
             }
             .frame(maxWidth: 420)
 
@@ -136,11 +112,9 @@ struct AccountAccessView: View {
     private func signedInContent(_ session: AccountSession) -> some View {
         if isCheckingBackup {
             statusContent(
-                title: "Checking your training",
-                detail: "Looking for your latest backup…"
+                title: "Syncing your training",
+                detail: "Loading your latest backup…"
             )
-        } else if let restoreCandidate {
-            restoreContent(restoreCandidate, session: session)
         } else if let accountError {
             failureContent(accountError)
         } else {
@@ -167,76 +141,6 @@ struct AccountAccessView: View {
                 .controlSize(.regular)
         }
         .padding(28)
-    }
-
-    private func restoreContent(_ envelope: BackupEnvelope, session: AccountSession) -> some View {
-        VStack(spacing: 0) {
-            Spacer(minLength: 28)
-
-            VStack(spacing: 14) {
-                Image(systemName: "icloud.and.arrow.down.fill")
-                    .font(.system(size: 42, weight: .medium))
-                    .symbolRenderingMode(.hierarchical)
-                    .frame(width: 82, height: 82)
-                    .background(.fill.tertiary, in: .circle)
-                    .accessibilityHidden(true)
-
-                Text("Welcome back")
-                    .font(.largeTitle.weight(.bold))
-
-                Text("We found your latest Athevia backup.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer(minLength: 34)
-
-            Card {
-                VStack(alignment: .leading, spacing: 18) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        SectionEyebrow(text: "Last backup")
-                        Text(envelope.createdAt.formatted(date: .abbreviated, time: .shortened))
-                            .font(.body.weight(.medium))
-                    }
-
-                    Divider()
-
-                    HStack(alignment: .top, spacing: 12) {
-                        StatTile(
-                            value: "\(envelope.snapshot.plans.count)",
-                            label: envelope.snapshot.plans.count == 1 ? "Training week" : "Training weeks"
-                        )
-
-                        StatTile(
-                            value: "\(completedWorkoutCount(envelope))",
-                            label: "Completed"
-                        )
-                    }
-                }
-            }
-            .frame(maxWidth: 420)
-
-            Spacer(minLength: 28)
-
-            VStack(spacing: 12) {
-                Button("Restore my training") {
-                    restore(session)
-                }
-                .buttonStyle(PrimaryActionButtonStyle())
-
-                Button("Sign Out", role: .cancel) {
-                    Task { try? await authentication.signOut() }
-                }
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(.secondary)
-                .padding(.vertical, 6)
-            }
-            .frame(maxWidth: 420)
-
-            Spacer(minLength: 20)
-        }
-        .padding(.horizontal, 24)
-        .padding(.vertical, 20)
     }
 
     private func failureContent(_ message: String) -> some View {
@@ -266,27 +170,16 @@ struct AccountAccessView: View {
 
             Spacer()
 
-            VStack(spacing: 12) {
-                Button("Try Again") {
-                    Task {
-                        accountError = nil
-                        await authentication.refresh()
-                        if case .signedIn(let session) = authentication.state {
-                            await resolveAfterSignIn(session, seedLocalBackup: false)
-                        }
+            Button("Try Again") {
+                Task {
+                    accountError = nil
+                    await authentication.refresh()
+                    if case .signedIn(let session) = authentication.state {
+                        await resolveAfterSignIn(session, replaceLocalData: false)
                     }
-                }
-                .buttonStyle(PrimaryActionButtonStyle())
-
-                if hasLocalTraining {
-                    Button("Continue on this iPhone") {
-                        onContinueOffline()
-                    }
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.secondary)
-                    .padding(.vertical, 6)
                 }
             }
+            .buttonStyle(PrimaryActionButtonStyle())
             .frame(maxWidth: 420)
         }
         .padding(.horizontal, 24)
@@ -296,57 +189,47 @@ struct AccountAccessView: View {
     @MainActor
     private func resolveAfterSignIn(
         _ session: AccountSession,
-        seedLocalBackup: Bool
+        replaceLocalData: Bool
     ) async {
         accountError = nil
 
         do {
-            if try LocalTrainingStoreState.hasUserData(modelContext) {
-                // Existing install: never replace its local store. The automatic
-                // backup scheduler will attach this local history to the account.
-                restoreCandidate = nil
-                onReady(session, seedLocalBackup)
+            let hasLocalData = try LocalTrainingStoreState.hasUserData(modelContext)
+
+            // Start Over is an explicit request for a new local training
+            // timeline. It must survive relaunch without the persisted account
+            // immediately restoring the pre-reset cloud backup.
+            if TrainingResetBoundary.isFreshStartPending {
+                onReady(session, false)
+                return
+            }
+
+            // A persisted authenticated session keeps using the local working
+            // copy. A fresh interactive sign-in always rehydrates from that
+            // account's latest backup so data from a previous signed-out user
+            // cannot leak into the new session.
+            if !replaceLocalData, hasLocalData {
+                onReady(session, false)
                 return
             }
 
             isCheckingBackup = true
             defer { isCheckingBackup = false }
 
-            if let cloud = try await backup.latestBackup(accountID: session.userID) {
-                restoreCandidate = cloud
-            } else {
-                onReady(session, false)
+            let cloud = try await backup.latestBackup(accountID: session.userID)
+
+            if replaceLocalData, hasLocalData {
+                try LocalTrainingStoreState.removeUserData(modelContext)
             }
+
+            if let cloud {
+                try BackupRestoreService().restore(cloud.snapshot, into: modelContext)
+            }
+
+            onReady(session, false)
         } catch {
             accountError = error.localizedDescription
         }
-    }
-
-    private func restore(_ session: AccountSession) {
-        isCheckingBackup = true
-        Task { @MainActor in
-            defer { isCheckingBackup = false }
-            do {
-                guard try await backup.restoreLatest(
-                    accountID: session.userID,
-                    into: modelContext
-                ) != nil else {
-                    accountError = "The backup is no longer available."
-                    return
-                }
-                restoreCandidate = nil
-                onReady(session, false)
-            } catch {
-                accountError = error.localizedDescription
-            }
-        }
-    }
-
-    private func completedWorkoutCount(_ envelope: BackupEnvelope) -> Int {
-        envelope.snapshot.plans
-            .flatMap(\.workouts)
-            .filter { $0.status == .completed }
-            .count
     }
 }
 
@@ -356,5 +239,19 @@ enum LocalTrainingStoreState {
         try context.fetchCount(FetchDescriptor<AthleteProfile>()) > 0
             || context.fetchCount(FetchDescriptor<WeeklyPlan>()) > 0
             || context.fetchCount(FetchDescriptor<StoredWorkoutTemplate>()) > 0
+    }
+
+    @MainActor
+    static func removeUserData(_ context: ModelContext) throws {
+        for plan in try context.fetch(FetchDescriptor<WeeklyPlan>()) {
+            context.delete(plan)
+        }
+        for template in try context.fetch(FetchDescriptor<StoredWorkoutTemplate>()) {
+            context.delete(template)
+        }
+        for profile in try context.fetch(FetchDescriptor<AthleteProfile>()) {
+            context.delete(profile)
+        }
+        try context.save()
     }
 }

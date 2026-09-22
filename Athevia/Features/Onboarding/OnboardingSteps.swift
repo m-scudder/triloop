@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// First screen. One idea and one action.
+/// First screen.
 struct WelcomeStepView: View {
     var isUpgrade: Bool
     let start: () -> Void
@@ -17,16 +17,16 @@ struct WelcomeStepView: View {
                 }
                 .padding(.top, 40)
 
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), alignment: .leading)], alignment: .leading, spacing: 12) {
+                LazyVGrid(
+                    columns: [GridItem(.adaptive(minimum: 100), alignment: .leading)],
+                    alignment: .leading,
+                    spacing: 12
+                ) {
                     Label("RUN", systemImage: "figure.run")
                     Label("SWIM", systemImage: "figure.pool.swim")
                     Label("BIKE", systemImage: "figure.outdoor.cycle")
                 }
                 .font(.caption.weight(.semibold))
-
-                Text("We build your week.\nYou train.\nAthevia adjusts what comes next.")
-                    .font(.title3)
-                    .fixedSize(horizontal: false, vertical: true)
 
                 if isUpgrade {
                     Text("Your training history stays exactly as it is.")
@@ -167,11 +167,19 @@ struct PoolStepView: View {
             )
 
             VStack(spacing: 10) {
-                OptionCard(title: "25 m", detail: "The most common pool", isSelected: model.poolLengthMeters == 25) {
+                OptionCard(
+                    title: "25 m",
+                    detail: "The most common pool",
+                    isSelected: model.poolLengthMeters == 25
+                ) {
                     isEditingCustom = false
                     model.setPoolLength(25)
                 }
-                OptionCard(title: "50 m", detail: "Olympic length", isSelected: model.poolLengthMeters == 50) {
+                OptionCard(
+                    title: "50 m",
+                    detail: "Olympic length",
+                    isSelected: model.poolLengthMeters == 50
+                ) {
                     isEditingCustom = false
                     model.setPoolLength(50)
                 }
@@ -197,7 +205,8 @@ struct PoolStepView: View {
                     .padding(14)
                     .background(.background.secondary, in: .rect(cornerRadius: 14))
 
-                    if !customLength.isEmpty, Double(customLength).map({ !PoolLength.isValid($0) }) ?? true {
+                    if !customLength.isEmpty,
+                       Double(customLength).map({ !PoolLength.isValid($0) }) ?? true {
                         Text("Enter a length between \(Int(PoolLength.permittedRange.lowerBound)) and \(Int(PoolLength.permittedRange.upperBound)) metres.")
                             .font(.footnote)
                             .foregroundStyle(.orange)

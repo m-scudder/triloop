@@ -5,6 +5,52 @@ import SwiftData
 ///
 /// Never installed automatically: a real athlete's first week comes from
 /// onboarding, and a seeded week would collide with it.
+/// Persists the moment the athlete deliberately started over.
+///
+/// SwiftData is erased during a reset, but Apple Health is not. Keeping this
+/// boundary outside SwiftData prevents pre-reset Health workouts from being
+/// imported back into the fresh plan after relaunch.
+enum TrainingResetBoundary {
+    private static let key = "trainingResetAt"
+    private static let pendingFreshStartKey = "trainingResetPendingFreshStart"
+
+    static var latest: Date? {
+        get {
+            guard let seconds = UserDefaults.standard.object(forKey: key) as? Double else {
+                return nil
+            }
+            return Date(timeIntervalSince1970: seconds)
+        }
+        set {
+            if let newValue {
+                UserDefaults.standard.set(newValue.timeIntervalSince1970, forKey: key)
+            } else {
+                UserDefaults.standard.removeObject(forKey: key)
+            }
+        }
+    }
+
+    static var isFreshStartPending: Bool {
+        UserDefaults.standard.bool(forKey: pendingFreshStartKey)
+    }
+
+    static func mark(_ date: Date = .now) {
+        latest = date
+        UserDefaults.standard.set(true, forKey: pendingFreshStartKey)
+    }
+
+    static func completeFreshStart() {
+        UserDefaults.standard.set(false, forKey: pendingFreshStartKey)
+    }
+
+    #if DEBUG
+    static func clearForTesting() {
+        latest = nil
+        UserDefaults.standard.removeObject(forKey: pendingFreshStartKey)
+    }
+    #endif
+}
+
 @MainActor
 enum SeedDataInstaller {
 
@@ -30,7 +76,11 @@ enum SeedDataInstaller {
 
     /// Clears everything, profile included, so the next launch starts at
     /// onboarding rather than resuming a half-configured athlete.
-    static func eraseAll(in context: ModelContext) {
+    static func eraseAll(in context: ModelContext, at date: Date = .now) {
+        // HealthKit survives an app reset. Record the boundary before deleting
+        // local data so automatic import cannot resurrect earlier activities.
+        TrainingResetBoundary.mark(date)
+
         for model in AtheviaSchema.models {
             try? context.delete(model: model)
         }

@@ -5,7 +5,10 @@ import SwiftUI
 struct WeeklyPlanOverviewView: View {
     let plan: WeeklyPlan
 
-    private var sessions: [PlannedWorkout] { plan.trainingSessions }
+    /// This card describes the plan, not every activity recorded this week.
+    /// Extra Health workouts remain in history/analytics but must not inflate
+    /// the planned-session denominator or sport mix shown on Home.
+    private var sessions: [PlannedWorkout] { plan.prescribedTrainingSessions }
 
     private var completedCount: Int {
         sessions.filter(\.isCompleted).count

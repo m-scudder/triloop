@@ -46,6 +46,9 @@ final class OnboardingModel {
 
         let plans = (try? context.fetchCount(FetchDescriptor<WeeklyPlan>())) ?? 0
         isUpgrade = existing != nil && plans > 0
+
+        // Older saved onboarding states could arrive at the schedule screen
+        // before sport selection existed. Preserve a usable resume path.
         if stage == .days, setup.preferences.isEmpty {
             setup.preferences = SportPreference.defaults(for: setup.baseline)
         }
@@ -53,11 +56,40 @@ final class OnboardingModel {
 
     var stage: AthleteSetup.Stage { setup.stage.consolidated }
 
+    var selectedSports: [Sport] {
+        Sport.allCases.filter(isSportSelected)
+    }
+
+    var minimumTrainingDays: Int {
+        max(2, selectedSports.count)
+    }
+
+    /// One shared availability cap is applied to every day. A nil value means
+    /// the athlete has not answered the time question yet, or is resuming a
+    /// legacy schedule with mixed per-day limits.
+    var sharedTrainingMinutes: Int? {
+        let values = setup.schedule.days.compactMap(\.maxDurationMinutes)
+        guard values.count == setup.schedule.days.count,
+              let first = values.first,
+              values.allSatisfy({ $0 == first }) else {
+            return nil
+        }
+        return first
+    }
+
     var canAdvance: Bool {
         switch stage {
-        case .days: setup.canGeneratePlan
-        case .running: PoolLength.isValid(poolLengthMeters)
-        default: true
+        case .running:
+            guard !selectedSports.isEmpty else { return false }
+            return !isSportSelected(.swimming) || PoolLength.isValid(poolLengthMeters)
+
+        case .days:
+            return setup.canGeneratePlan
+                && sharedTrainingMinutes != nil
+                && setup.schedule.availableDays.count >= minimumTrainingDays
+
+        default:
+            return true
         }
     }
 
@@ -75,11 +107,13 @@ final class OnboardingModel {
 
     func choose(running: RunningBaseline) {
         setup.baseline.running = running
+        refreshSelectedPreference(for: .running)
         persist()
     }
 
     func choose(swimming: SwimmingBaseline) {
         setup.baseline.swimming = swimming
+        refreshSelectedPreference(for: .swimming)
         persist()
     }
 
@@ -90,6 +124,25 @@ final class OnboardingModel {
 
     func choose(cycling: CyclingBaseline) {
         setup.baseline.cycling = cycling
+        refreshSelectedPreference(for: .cycling)
+        persist()
+    }
+
+    func isSportSelected(_ sport: Sport) -> Bool {
+        setup.preferences.first(where: { $0.sport == sport })?.isTrained == true
+    }
+
+    func toggleSport(_ sport: Sport) {
+        let index = preferenceIndex(for: sport)
+
+        if setup.preferences[index].isTrained {
+            setup.preferences[index].sessionsPerWeek = 0
+        } else {
+            let opening = openingPreference(for: sport)
+            setup.preferences[index].sessionsPerWeek = 1
+            setup.preferences[index].typicalMinutes = opening.typicalMinutes
+        }
+
         persist()
     }
 
@@ -111,17 +164,27 @@ final class OnboardingModel {
         persist()
     }
 
+    func setSharedMaxDuration(_ minutes: Int) {
+        var days = setup.schedule.days
+        for index in days.indices {
+            days[index].maxDurationMinutes = minutes
+        }
+        setup.schedule = AthleteSchedule(days: days)
+        persist()
+    }
+
     func setSessions(_ count: Int, for sport: Sport) {
-        update(sport) { $0.sessionsPerWeek = min(max(count, 0), SportPreference.permittedSessions.upperBound) }
+        let index = preferenceIndex(for: sport)
+        setup.preferences[index].sessionsPerWeek = min(
+            max(count, 0),
+            SportPreference.permittedSessions.upperBound
+        )
+        persist()
     }
 
     func setTypicalMinutes(_ minutes: Int, for sport: Sport) {
-        update(sport) { $0.typicalMinutes = minutes }
-    }
-
-    private func update(_ sport: Sport, _ change: (inout SportPreference) -> Void) {
-        guard let index = setup.preferences.firstIndex(where: { $0.sport == sport }) else { return }
-        change(&setup.preferences[index])
+        let index = preferenceIndex(for: sport)
+        setup.preferences[index].typicalMinutes = minutes
         persist()
     }
 
@@ -134,14 +197,8 @@ final class OnboardingModel {
 
     func advance() {
         guard canAdvance else { return }
+
         setup.stage = stage.next
-
-        // Seeded from the baselines the moment the athlete reaches the step, so
-        // they adjust a sensible starting position rather than three zeroes.
-        if setup.stage == .days, setup.preferences.isEmpty {
-            setup.preferences = SportPreference.defaults(for: setup.baseline)
-        }
-
         persist()
 
         if setup.stage == .preview { buildPreview() }
@@ -154,9 +211,12 @@ final class OnboardingModel {
 
     func jump(to stage: AthleteSetup.Stage) {
         setup.stage = stage.consolidated
+        preview = nil
+
         if setup.stage == .days, setup.preferences.isEmpty {
             setup.preferences = SportPreference.defaults(for: setup.baseline)
         }
+
         persist()
     }
 
@@ -215,9 +275,9 @@ final class OnboardingModel {
             )
             preview?.generationReasonCode = existing == nil ? .initialAssessment : .profileChanged
         } catch FirstWeekBuilder.BuildFailure.scheduleUnusable {
-            failure = "Pick at least two days you can train on, and a sport for each."
+            failure = "Pick at least two days you can train and at least one sport."
         } catch FirstWeekBuilder.BuildFailure.noSessionsFit {
-            failure = "None of your sessions fit the time you have available. Try allowing more time on a day, or adding another day."
+            failure = "The selected sessions do not fit your available time. Choose a longer training window or another day."
         } catch {
             failure = "Could not build your first week: \(error.localizedDescription)"
         }
@@ -250,11 +310,49 @@ final class OnboardingModel {
 
         context.insert(preview)
         persist()
+
+        if failure == nil {
+            TrainingResetBoundary.completeFreshStart()
+        }
     }
 
     private func latestPlan() -> WeeklyPlan? {
         let descriptor = FetchDescriptor<WeeklyPlan>(sortBy: [SortDescriptor(\.startDate)])
         return (try? context.fetch(descriptor))?.last
+    }
+
+    // MARK: - Sport selection
+
+    /// Frequency is derived later from the selected sports and available days.
+    /// A positive stored value only marks that the sport is selected.
+    private func preferenceIndex(for sport: Sport) -> Int {
+        if let index = setup.preferences.firstIndex(where: { $0.sport == sport }) {
+            return index
+        }
+
+        setup.preferences.append(
+            SportPreference(
+                sport: sport,
+                sessionsPerWeek: 0,
+                typicalMinutes: openingPreference(for: sport).typicalMinutes
+            )
+        )
+        return setup.preferences.count - 1
+    }
+
+    private func openingPreference(for sport: Sport) -> SportPreference {
+        SportPreference.defaults(for: setup.baseline)
+            .first(where: { $0.sport == sport })
+            ?? SportPreference(sport: sport, sessionsPerWeek: 1, typicalMinutes: 45)
+    }
+
+    private func refreshSelectedPreference(for sport: Sport) {
+        guard let index = setup.preferences.firstIndex(where: { $0.sport == sport }),
+              setup.preferences[index].isTrained else {
+            return
+        }
+
+        setup.preferences[index].typicalMinutes = openingPreference(for: sport).typicalMinutes
     }
 
     // MARK: - Persistence
