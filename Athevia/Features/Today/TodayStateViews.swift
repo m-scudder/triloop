@@ -98,7 +98,13 @@ struct TodayWorkoutView: View {
         .task(id: scenePhase) {
             if scenePhase == .active { watch.refresh() }
         }
-        .fullScreenCover(isPresented: $showsPlayer, onDismiss: savePendingResult) {
+        .fullScreenCover(
+            isPresented: $showsPlayer,
+            onDismiss: {
+                savePendingResult()
+                PhoneWorkoutExecutionState.end(workout.id)
+            }
+        ) {
             WorkoutPlayerView(
                 workout: workout,
                 onFinish: { result in
@@ -109,13 +115,18 @@ struct TodayWorkoutView: View {
             )
         }
         .alert("GPS access is off", isPresented: $showsLocationIssue) {
-            Button("Continue Without GPS") { showsPlayer = true }
+            Button("Continue Without GPS") {
+                PhoneWorkoutExecutionState.begin(workout.id)
+                showsPlayer = true
+            }
             Button("Open Settings") {
                 if let url = URL(string: UIApplication.openSettingsURLString) {
                     UIApplication.shared.open(url)
                 }
             }
-            Button("Cancel", role: .cancel) {}
+            Button("Cancel", role: .cancel) {
+                PhoneWorkoutExecutionState.end(workout.id)
+            }
         } message: {
             Text("Athevia needs location access to record distance, pace and route for this workout. You can still run the workout timer without GPS.")
         }
@@ -126,6 +137,7 @@ struct TodayWorkoutView: View {
     /// system permission sheet unseen. Swimming never requests GPS.
     private func beginPhoneWorkout() {
         guard workout.discipline == .running || workout.discipline == .cycling else {
+            PhoneWorkoutExecutionState.begin(workout.id)
             showsPlayer = true
             return
         }
@@ -133,6 +145,7 @@ struct TodayWorkoutView: View {
         locationPermission.request { result in
             switch result {
             case .allowed:
+                PhoneWorkoutExecutionState.begin(workout.id)
                 showsPlayer = true
             case .denied, .unavailable:
                 showsLocationIssue = true
