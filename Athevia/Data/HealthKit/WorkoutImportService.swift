@@ -27,6 +27,11 @@ struct WorkoutImportService {
         let end = calendar.date(byAdding: .day, value: 1, to: plan.endDate) ?? plan.endDate
         let activities = try await provider.workouts(from: plan.startDate, to: end)
 
+        // The fetch above can outlive the tap that starts a phone workout.
+        // Re-check ownership after awaiting HealthKit so an already in-flight
+        // import cannot attach a result and destroy the active player subtree.
+        guard !PhoneWorkoutExecutionState.isActive else { return Outcome() }
+
         var known = Set(try context.fetch(FetchDescriptor<ImportedWorkoutSummary>()).map(\.healthKitUUID))
         let fresh = activities.filter { known.insert($0.healthKitUUID).inserted }
 
