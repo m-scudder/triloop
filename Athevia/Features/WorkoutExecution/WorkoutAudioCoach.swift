@@ -84,6 +84,16 @@ final class WorkoutAudioCoach: NSObject, ObservableObject, AVAudioPlayerDelegate
         immediateSynthesizer.speak(utterance)
     }
 
+    func waitForImmediateCueToStart() async throws {
+        // Give live TTS first access to the speech service before the file
+        // renderer begins synthesizing the background programme.
+        for _ in 0..<10 {
+            try Task.checkCancellation()
+            if immediateSynthesizer.isSpeaking { return }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+    }
+
     func waitForImmediateCueToFinish() async throws {
         while immediateSynthesizer.isSpeaking {
             try Task.checkCancellation()
@@ -140,6 +150,10 @@ final class WorkoutAudioCoach: NSObject, ObservableObject, AVAudioPlayerDelegate
     @discardableResult
     func play() -> Bool {
         guard let player else { return false }
+
+        // The rendered programme takes over from live bootstrap TTS. Never
+        // allow both to speak the same cue at once.
+        immediateSynthesizer.stopSpeaking(at: .immediate)
         do {
             try configureSession(duck: shouldDuck(at: position))
             try AVAudioSession.sharedInstance().setActive(true)
