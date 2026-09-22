@@ -193,9 +193,9 @@ struct DeveloperToolsView: View {
             }
 
             Section {
-                Button("Start over — erase everything", role: .destructive) {
+                Button("Start over — reset Athevia", role: .destructive) {
                     SeedDataInstaller.eraseAll(in: modelContext)
-                    message = "Everything erased. Relaunch to go through setup."
+                    message = "Athevia data erased. Relaunch to go through setup."
                 }
 
                 Button("Reset seed data", role: .destructive) {
@@ -203,7 +203,7 @@ struct DeveloperToolsView: View {
                     message = "Seed reinstalled."
                 }
             } footer: {
-                Text("Erasing clears the athlete profile too, so the app returns to first-run setup. Resetting reinstalls the fixed week one without touching setup.")
+                Text("Start Over clears Athevia's local profile and training data. Apple Health is not deleted; workouts from before the reset are ignored when the fresh plan imports. Resetting reinstalls the fixed week one without touching setup.")
             }
         }
         .navigationTitle("Developer")
