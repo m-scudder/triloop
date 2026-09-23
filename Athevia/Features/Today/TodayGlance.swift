@@ -49,12 +49,12 @@ enum TodayGlanceBuilder {
                 value: prescribed.isEmpty
                     ? "\(training.count(where: \.isCompleted))"
                     : "\(plan.completedPrescribedTrainingSessions.count) / \(prescribed.count)",
-                label: prescribed.isEmpty ? "Sessions" : "Plan Sessions"
+                label: prescribed.isEmpty ? "Workouts" : "Plan workouts"
             ),
             GlanceTile(
                 slot: .training,
                 value: TrainingFormatter.totalDuration(seconds: trainingSeconds(of: reported)),
-                label: "Reported Training"
+                label: "Logged training"
             )
         ]
 
@@ -118,7 +118,7 @@ enum TodayGlanceBuilder {
         guard let share = plan.adherenceShare else { return nil }
         let percent = Int((share * 100).rounded())
 
-        return GlanceTile(slot: .adherence, value: "\(percent)%", label: "Adherence")
+        return GlanceTile(slot: .adherence, value: "\(percent)%", label: "Plan completed")
     }
 
     /// The honest filler: the week has not yet produced the figure.
