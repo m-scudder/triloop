@@ -246,3 +246,71 @@ struct EffortBar: View {
         .accessibilityLabel("Target effort \(TrainingFormatter.rpe(range)) out of \(RPEScale.maximum)")
     }
 }
+
+
+struct AtheviaToggleStyle: ToggleStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.16)) {
+                configuration.isOn.toggle()
+            }
+        } label: {
+            HStack(spacing: 12) {
+                configuration.label
+                    .foregroundStyle(.primary)
+                Spacer(minLength: 12)
+                ZStack(alignment: configuration.isOn ? .trailing : .leading) {
+                    Capsule()
+                        .fill(configuration.isOn ? Color.green : Color(uiColor: .tertiarySystemFill))
+                        .frame(width: 50, height: 30)
+                    Circle()
+                        .fill(Color.white)
+                        .frame(width: 24, height: 24)
+                        .shadow(color: .black.opacity(0.12), radius: 1.5, y: 1)
+                        .padding(3)
+                }
+                .accessibilityHidden(true)
+            }
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityValue(configuration.isOn ? "On" : "Off")
+    }
+}
+
+struct AtheviaProgressOverlay: ViewModifier {
+    let message: String?
+
+    func body(content: Content) -> some View {
+        content
+            .disabled(message != nil)
+            .overlay {
+                if let message {
+                    ZStack {
+                        Color.black.opacity(0.18)
+                            .ignoresSafeArea()
+                        VStack(spacing: 14) {
+                            ProgressView()
+                                .controlSize(.large)
+                            Text(message)
+                                .font(.subheadline.weight(.semibold))
+                                .multilineTextAlignment(.center)
+                        }
+                        .padding(.horizontal, 26)
+                        .padding(.vertical, 22)
+                        .background(.regularMaterial, in: .rect(cornerRadius: 16))
+                        .shadow(radius: 12, y: 4)
+                        .padding(32)
+                    }
+                    .transition(.opacity)
+                }
+            }
+            .animation(.easeInOut(duration: 0.16), value: message)
+    }
+}
+
+extension View {
+    func atheviaProgress(_ message: String?) -> some View {
+        modifier(AtheviaProgressOverlay(message: message))
+    }
+}
