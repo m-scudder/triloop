@@ -153,10 +153,16 @@ struct SettingsView: View {
             Button {
                 showsAccountSettings = true
             } label: {
-                SettingsNavigationRow(
+                SettingsStatusRow(
                     title: "Backup",
                     systemImage: "person.crop.circle",
-                    value: accountStatusText(authentication)
+                    value: accountStatusText(authentication),
+                    isConnected: {
+                        if case .signedIn = authentication.state {
+                            return true
+                        }
+                        return false
+                    }()
                 )
             }
             .buttonStyle(.plain)
