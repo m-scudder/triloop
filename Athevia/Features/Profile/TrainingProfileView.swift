@@ -508,9 +508,9 @@ struct TrainingProfileView: View {
     }
 
     @ViewBuilder
-    private func abilityGrid<Value: Hashable>(
+    private func abilityGrid<Value: Hashable, Content: View>(
         _ values: [Value],
-        @ViewBuilder content: @escaping (Value) -> some View
+        @ViewBuilder content: @escaping (Value) -> Content
     ) -> some View {
         LazyVGrid(
             columns: [GridItem(.flexible()), GridItem(.flexible())],
