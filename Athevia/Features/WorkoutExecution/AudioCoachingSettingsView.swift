@@ -15,7 +15,9 @@ struct AudioCoachingSettingsView: View {
         Form {
             Section {
                 Toggle("Spoken workout guidance", isOn: $enabled)
+                    .toggleStyle(AtheviaToggleStyle())
                 Toggle("Ten-second countdowns", isOn: $countdowns)
+                    .toggleStyle(AtheviaToggleStyle())
                     .disabled(!enabled)
 
                 VStack(alignment: .leading, spacing: 10) {

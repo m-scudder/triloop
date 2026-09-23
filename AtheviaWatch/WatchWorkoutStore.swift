@@ -23,7 +23,9 @@ final class WatchWorkoutStore: NSObject, ObservableObject {
         locallyCompletedWorkoutIDs = Self.loadCompletedWorkoutIDs()
         #if DEBUG
         #if targetEnvironment(simulator)
-        payload = cached.workouts.isEmpty ? WatchSimulatorFixture.payload() : cached
+        payload = cached.workouts.isEmpty && Self.shouldUseSimulatorFixture
+            ? WatchSimulatorFixture.payload()
+            : cached
         #else
         payload = cached
         #endif
@@ -96,6 +98,17 @@ final class WatchWorkoutStore: NSObject, ObservableObject {
             forKey: Self.completedKey
         )
     }
+
+    #if DEBUG
+    #if targetEnvironment(simulator)
+    /// Simulator fixtures are opt-in so an intentional phone reset can be
+    /// validated as truly empty. Enable with the launch argument
+    /// `--athevia-watch-fixture` when standalone Watch development needs data.
+    private static var shouldUseSimulatorFixture: Bool {
+        ProcessInfo.processInfo.arguments.contains("--athevia-watch-fixture")
+    }
+    #endif
+    #endif
 
     private static func loadCompletedWorkoutIDs() -> Set<UUID> {
         let values = UserDefaults.standard.stringArray(forKey: completedKey) ?? []

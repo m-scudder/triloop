@@ -11,6 +11,7 @@ struct AccountAccessView: View {
     let authentication: AuthenticationCoordinator
     let backup: BackupCoordinator
     let onReady: (AccountSession, Bool) -> Void
+    let onContinueLocally: () -> Void
 
     @Environment(\.modelContext) private var modelContext
     @State private var accountError: String?
@@ -45,6 +46,22 @@ struct AccountAccessView: View {
             }
         }
         .task {
+            let hasLocalData = (try? LocalTrainingStoreState.hasUserData(modelContext)) == true
+            let canResumeOffline = hasLocalData || TrainingResetBoundary.isFreshStartPending
+
+            if canResumeOffline {
+                if let session = await authentication.resumeCachedSession() {
+                    // Existing authenticated training remains immediately usable
+                    // even when the network is unavailable.
+                    onReady(session, false)
+                } else {
+                    // Local-first users do not need an account merely to reopen
+                    // training that already belongs to this device.
+                    onContinueLocally()
+                }
+                return
+            }
+
             await authentication.refresh()
             if case .signedIn(let session) = authentication.state {
                 await resolveAfterSignIn(session, replaceLocalData: false)
@@ -78,11 +95,24 @@ struct AccountAccessView: View {
 
             Spacer(minLength: 44)
 
-            AppleSignInButtonView { credential in
-                let session = try await authentication.signInWithApple(credential)
-                await resolveAfterSignIn(session, replaceLocalData: true)
+            VStack(spacing: 12) {
+                AppleSignInButtonView { credential in
+                    let session = try await authentication.signInWithApple(credential)
+                    await resolveAfterSignIn(session, replaceLocalData: true)
+                }
+                .frame(maxWidth: 420)
+
+                Button("Continue without an account") {
+                    onContinueLocally()
+                }
+                .font(.subheadline.weight(.medium))
+
+                Text("Your training stays on this iPhone. You can connect an account later in Settings to enable cloud backup.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 360)
             }
-            .frame(maxWidth: 420)
 
             Spacer(minLength: 24)
         }
@@ -92,20 +122,21 @@ struct AccountAccessView: View {
 
     private var disciplineMark: some View {
         HStack(spacing: 10) {
-            disciplineSymbol("figure.run")
-            disciplineSymbol("bicycle")
-            disciplineSymbol("figure.pool.swim")
+            disciplineSymbol("figure.run", tint: Discipline.running.tint)
+            disciplineSymbol("bicycle", tint: Discipline.cycling.tint)
+            disciplineSymbol("figure.pool.swim", tint: Discipline.swimming.tint)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Running, cycling and swimming")
     }
 
-    private func disciplineSymbol(_ name: String) -> some View {
+    private func disciplineSymbol(_ name: String, tint: Color) -> some View {
         Image(systemName: name)
             .font(.system(size: 23, weight: .semibold))
             .symbolRenderingMode(.monochrome)
+            .foregroundStyle(tint)
             .frame(width: 58, height: 58)
-            .background(.fill.tertiary, in: .circle)
+            .background(tint.opacity(0.12), in: .circle)
     }
 
     @ViewBuilder
@@ -156,7 +187,7 @@ struct AccountAccessView: View {
                     .accessibilityHidden(true)
 
                 VStack(spacing: 8) {
-                    Text("Account unavailable")
+                    Text("Cloud unavailable")
                         .font(.title2.weight(.semibold))
 
                     Text(message)
@@ -170,17 +201,28 @@ struct AccountAccessView: View {
 
             Spacer()
 
-            Button("Try Again") {
-                Task {
-                    accountError = nil
-                    await authentication.refresh()
-                    if case .signedIn(let session) = authentication.state {
-                        await resolveAfterSignIn(session, replaceLocalData: false)
+            VStack(spacing: 12) {
+                Button("Try Again") {
+                    Task {
+                        accountError = nil
+                        await authentication.refresh()
+                        if case .signedIn(let session) = authentication.state {
+                            await resolveAfterSignIn(session, replaceLocalData: false)
+                        }
                     }
                 }
+                .buttonStyle(PrimaryActionButtonStyle())
+                .frame(maxWidth: 420)
+
+                Button(
+                    (try? LocalTrainingStoreState.hasUserData(modelContext)) == true
+                        ? "Use training on this iPhone"
+                        : "Continue without an account"
+                ) {
+                    onContinueLocally()
+                }
+                .font(.subheadline.weight(.medium))
             }
-            .buttonStyle(PrimaryActionButtonStyle())
-            .frame(maxWidth: 420)
         }
         .padding(.horizontal, 24)
         .padding(.vertical, 28)

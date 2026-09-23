@@ -49,7 +49,7 @@ struct WeekReviewView: View {
                     .disabled(!analysis.isReadyForNextWeek)
 
                     if !analysis.isReadyForNextWeek {
-                        Text("Available once every session this week has been reported on.")
+                        Text("Available once every completed session this week has a report.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
@@ -96,7 +96,7 @@ struct WeekReviewView: View {
                     StatTile(value: volume(for: sport), label: sport.sport == .swimming ? "Distance" : "Duration")
                     StatTile(
                         value: sport.averageRPE.map { $0.formatted(.number.precision(.fractionLength(0...1))) } ?? "Not reported",
-                        label: "Avg RPE"
+                        label: "Avg effort"
                     )
                     StatTile(value: DecisionExplanation.painValue(for: sport), label: "Pain")
                 }

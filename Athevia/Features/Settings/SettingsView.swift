@@ -4,6 +4,8 @@ import SwiftUI
 struct SettingsView: View {
     var authentication: AuthenticationCoordinator?
     var backup: BackupCoordinator?
+    var onLocalDataWillErase: () -> Void = {}
+    var onLocalDataDidErase: () -> Void = {}
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.healthProvider) private var health
@@ -22,7 +24,9 @@ struct SettingsView: View {
     @State private var showsNotificationSettings = false
     @State private var showsAudioCoachingSettings = false
     @State private var showsDeleteConfirmation = false
+    @State private var showsEraseLocalConfirmation = false
     @State private var accountMessage: String?
+    @State private var progressMessage: String?
 
     @AppStorage("automaticallyScheduleWorkouts") private var automaticallySchedule = true
     @AppStorage("automaticallyImportWorkouts") private var automaticallyImport = true
@@ -66,14 +70,10 @@ struct SettingsView: View {
                 case .watch:
                     WatchAppSetupView(
                         watch: watch,
-                        currentPlan: plans.currentPlan()
-                    )
-                case .workoutScheduling:
-                    WorkoutSchedulingSetupView(
-                        isSupported: scheduler.isSupported,
-                        authorization: watchAuthorization,
+                        currentPlan: plans.currentPlan(),
+                        schedulingAuthorization: watchAuthorization,
                         isWorking: isWorking,
-                        requestAuthorization: connectWatch
+                        requestSchedulingAuthorization: connectWatch
                     )
                 }
             }
@@ -95,18 +95,29 @@ struct SettingsView: View {
                     )
                 }
             }
-            .confirmationDialog(
-                "Delete your Athevia account?",
-                isPresented: $showsDeleteConfirmation,
-                titleVisibility: .visible
+            .alert(
+                "Erase Athevia data from this iPhone?",
+                isPresented: $showsEraseLocalConfirmation
             ) {
-                Button("Delete Account & Cloud Data", role: .destructive) {
+                Button("Erase Local Athevia Data", role: .destructive) {
+                    eraseLocalData()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This removes Athevia training data from this iPhone and clears Athevia workouts from the paired Watch. Apple Health workouts are not deleted.")
+            }
+            .alert(
+                "Delete your Athevia account?",
+                isPresented: $showsDeleteConfirmation
+            ) {
+                Button("Delete Account & All Athevia Data", role: .destructive) {
                     deleteAccount()
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("This permanently deletes your Athevia account and cloud backups. Training stored locally on this iPhone is not deleted.")
+                Text("This permanently deletes your Athevia account, cloud backups, and Athevia training data stored on this iPhone. Apple Health workouts are not deleted.")
             }
+            .atheviaProgress(progressMessage)
             .alert(
                 "Account",
                 isPresented: Binding(
@@ -154,7 +165,7 @@ struct SettingsView: View {
                 showsAccountSettings = true
             } label: {
                 SettingsStatusRow(
-                    title: "Backup",
+                    title: "Cloud Backup",
                     systemImage: "person.crop.circle",
                     value: accountStatusText(authentication),
                     isConnected: {
@@ -216,27 +227,13 @@ struct SettingsView: View {
                 activeConnection = .watch
             } label: {
                 SettingsStatusRow(
-                    title: "Athevia Watch",
+                    title: "Apple Watch",
                     systemImage: "applewatch",
-                    value: watch.isAtheviaWatchInstalled ? "Installed" : "Not installed",
+                    value: watch.isAtheviaWatchInstalled ? "Connected" : "App not installed",
                     isConnected: watch.isAtheviaWatchInstalled
                 )
             }
             .buttonStyle(.plain)
-
-            if watch.canSchedule {
-                Button {
-                    activeConnection = .workoutScheduling
-                } label: {
-                    SettingsStatusRow(
-                        title: "Workout scheduling",
-                        systemImage: "calendar.badge.clock",
-                        value: watchStatusText,
-                        isConnected: watchAuthorization == .authorized
-                    )
-                }
-                .buttonStyle(.plain)
-            }
         }
     }
 
@@ -245,13 +242,13 @@ struct SettingsView: View {
         Toggle(isOn: $automaticallyImport) {
             Label("Auto Import Workout", systemImage: "arrow.down.circle")
         }
-        .tint(.green)
+        .toggleStyle(AtheviaToggleStyle())
 
         if watch.isPairedWatch && watch.canSchedule {
             Toggle(isOn: $automaticallySchedule) {
                 Label("Send workouts to Watch", systemImage: "applewatch")
             }
-            .tint(.green)
+            .toggleStyle(AtheviaToggleStyle())
         }
 
         Button { importThisWeek() } label: {
@@ -287,27 +284,40 @@ struct SettingsView: View {
 
     @ViewBuilder
     private var accountActions: some View {
-        if let authentication, let backup,
-           case .signedIn(let session) = authentication.state {
-            Button {
-                signOut(session, authentication: authentication, backup: backup)
-            } label: {
-                Label {
-                    Text("Sign Out")
-                } icon: {
-                    Image(systemName: "rectangle.portrait.and.arrow.right")
-                        .font(.subheadline)
-                        .frame(width: 20)
+        if let authentication, let backup {
+            switch authentication.state {
+            case .signedIn(let session):
+                Button {
+                    signOut(session, authentication: authentication, backup: backup)
+                } label: {
+                    Label {
+                        Text("Sign Out")
+                    } icon: {
+                        Image(systemName: "rectangle.portrait.and.arrow.right")
+                            .font(.subheadline)
+                            .frame(width: 20)
+                    }
                 }
-            }
-            .disabled(isWorking)
+                .disabled(isWorking)
 
-            Button(role: .destructive) {
-                showsDeleteConfirmation = true
-            } label: {
-                Label("Delete Account", systemImage: "trash")
+                Button(role: .destructive) {
+                    showsDeleteConfirmation = true
+                } label: {
+                    Label("Delete Account", systemImage: "trash")
+                }
+                .disabled(isWorking)
+
+            case .signedOut, .failed:
+                Button(role: .destructive) {
+                    showsEraseLocalConfirmation = true
+                } label: {
+                    Label("Erase Athevia Data", systemImage: "trash")
+                }
+                .disabled(isWorking)
+
+            case .checking, .signingIn:
+                EmptyView()
             }
-            .disabled(isWorking)
         }
     }
 
@@ -369,7 +379,7 @@ struct SettingsView: View {
         case .checking, .signingIn:
             "Checking…"
         case .signedOut:
-            "Not signed in"
+            "On this iPhone"
         case .failed:
             "Needs attention"
         }
@@ -395,16 +405,6 @@ struct SettingsView: View {
         case .notDetermined: "Not connected"
         case .denied: "Denied"
         case .authorized: "Connected"
-        }
-    }
-
-    private var watchStatusText: String {
-        guard scheduler.isSupported else { return "Unavailable" }
-        switch watchAuthorization {
-        case .authorized: return "Allowed"
-        case .denied: return "Not allowed"
-        case .restricted: return "Not available"
-        case .notDetermined: return "Not set up"
         }
     }
 
@@ -440,45 +440,110 @@ struct SettingsView: View {
         }
     }
 
+    private func eraseLocalData() {
+        isWorking = true
+        progressMessage = "Erasing Athevia data…"
+        onLocalDataWillErase()
+
+        Task { @MainActor in
+            // RootView keeps the data-bound tab hierarchy unmounted until the
+            // destructive SwiftData transaction and external cleanup finish.
+            await Task.yield()
+            defer {
+                isWorking = false
+                progressMessage = nil
+                onLocalDataDidErase()
+            }
+            await clearSignedOutAccountData()
+        }
+    }
+
     private func signOut(
         _ session: AccountSession,
         authentication: AuthenticationCoordinator,
         backup: BackupCoordinator
     ) {
         isWorking = true
+        progressMessage = "Signing out…"
         Task { @MainActor in
-            defer { isWorking = false }
-            do {
-                _ = try await backup.backup(
-                    accountID: session.userID,
-                    from: modelContext
-                )
-                try await authentication.signOut()
-                try LocalTrainingStoreState.removeUserData(modelContext)
-            } catch {
-                accountMessage = "Sign out was not completed: \(error.localizedDescription)"
+            defer {
+                isWorking = false
+                progressMessage = nil
             }
+
+            await AccountExitFlow.signOut(
+                finalBackup: {
+                    _ = try await backup.backup(
+                        accountID: session.userID,
+                        from: modelContext
+                    )
+                },
+                remoteSignOut: {
+                    try await authentication.signOut()
+                },
+                localSignOutFallback: {
+                    authentication.completeLocalSignOut()
+                },
+                cleanup: {
+                    await clearSignedOutAccountData()
+                }
+            )
         }
     }
 
     private func deleteAccount() {
         guard let authentication else { return }
         isWorking = true
+        progressMessage = "Deleting account…"
         Task { @MainActor in
-            defer { isWorking = false }
+            defer {
+                isWorking = false
+                progressMessage = nil
+            }
+
             do {
                 try await authentication.deleteAccount()
             } catch {
-                accountMessage = error.localizedDescription
+                accountMessage = "Account deletion was not completed: \(error.localizedDescription)"
+                return
             }
+
+            await clearSignedOutAccountData()
+        }
+    }
+
+    private func clearSignedOutAccountData() async {
+        var localCleanupError: Error?
+
+        do {
+            try LocalTrainingStoreState.removeUserData(modelContext)
+        } catch {
+            localCleanupError = error
+        }
+
+        // Account-specific reminders and Watch payloads must not survive into
+        // the next signed-in account on the same iPhone/Watch pair.
+        await TrainingNotificationManager.shared.removeAllOwnedPendingRequests()
+        _ = WatchAppPlanSync.sync(nil)
+
+        if scheduler.isSupported {
+            await scheduler.removeAllScheduled()
+        }
+
+        if let localCleanupError {
+            accountMessage = "Athevia could not erase all local training data: \(localCleanupError.localizedDescription). Please reinstall the app before using another account."
         }
     }
 
     private func importThisWeek() {
         guard let plan = plans.currentPlan() else { return }
         isWorking = true
+        progressMessage = "Importing workouts…"
         Task {
-            defer { isWorking = false }
+            defer {
+                isWorking = false
+                progressMessage = nil
+            }
             do {
                 let service = WorkoutImportService(context: modelContext, provider: health)
                 let outcome = try await service.importWorkouts(for: plan)
@@ -563,7 +628,6 @@ private struct NotificationSettingsSheetView: View {
 private enum ConnectionDestination: String, Identifiable {
     case health
     case watch
-    case workoutScheduling
 
     var id: String { rawValue }
 }
@@ -626,70 +690,6 @@ private struct HealthConnectionSetupView: View {
     }
 }
 
-private struct WorkoutSchedulingSetupView: View {
-    let isSupported: Bool
-    let authorization: WorkoutSchedulingAuthorization
-    let isWorking: Bool
-    let requestAuthorization: () -> Void
-
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            List {
-                Section {
-                    ConnectionSheetStatusRow(
-                        title: "Workout scheduling",
-                        systemImage: "calendar.badge.clock",
-                        status: statusText,
-                        isConnected: authorization == .authorized
-                    )
-                }
-
-                Section {
-                    if !isSupported || authorization == .restricted {
-                        Text("Workout scheduling is not available on this device.")
-                            .foregroundStyle(.secondary)
-                    } else {
-                        Button {
-                            requestAuthorization()
-                        } label: {
-                            Label(
-                                authorization == .authorized ? "Re-check permission" : "Allow workout scheduling",
-                                systemImage: authorization == .authorized ? "arrow.clockwise" : "calendar.badge.clock"
-                            )
-                        }
-                        .disabled(isWorking)
-                    }
-                }
-            }
-            .navigationTitle("Workout scheduling")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
-        }
-        .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
-    }
-
-    private var statusText: String {
-        guard isSupported else { return "Unavailable" }
-        switch authorization {
-        case .authorized:
-            return "Allowed"
-        case .denied:
-            return "Not allowed"
-        case .restricted:
-            return "Not available"
-        case .notDetermined:
-            return "Not set up"
-        }
-    }
-}
-
 private struct ConnectionSheetStatusRow: View {
     let title: String
     let systemImage: String
@@ -725,6 +725,9 @@ private struct ConnectionSheetStatusRow: View {
 private struct WatchAppSetupView: View {
     @ObservedObject var watch: WatchAvailability
     let currentPlan: WeeklyPlan?
+    let schedulingAuthorization: WorkoutSchedulingAuthorization
+    let isWorking: Bool
+    let requestSchedulingAuthorization: () -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var statusMessage: String?
@@ -734,22 +737,73 @@ private struct WatchAppSetupView: View {
             List {
                 Section {
                     ConnectionSheetStatusRow(
-                        title: "Athevia Watch",
+                        title: "Apple Watch",
                         systemImage: "applewatch",
+                        status: watch.isPairedWatch ? "Paired" : "Not paired",
+                        isConnected: watch.isPairedWatch
+                    )
+
+                    ConnectionSheetStatusRow(
+                        title: "Athevia Watch app",
+                        systemImage: "app.badge.checkmark",
                         status: watch.isAtheviaWatchInstalled ? "Installed" : "Not installed",
                         isConnected: watch.isAtheviaWatchInstalled
                     )
+
+                    if watch.canSchedule {
+                        ConnectionSheetStatusRow(
+                            title: "Workout scheduling",
+                            systemImage: "calendar.badge.clock",
+                            status: schedulingStatusText,
+                            isConnected: schedulingAuthorization == .authorized
+                        )
+                    }
+                } header: {
+                    Text("Status")
+                }
+
+                if watch.canSchedule {
+                    Section {
+                        Button {
+                            requestSchedulingAuthorization()
+                        } label: {
+                            Label(
+                                schedulingAuthorization == .authorized
+                                    ? "Re-check scheduling permission"
+                                    : "Allow workout scheduling",
+                                systemImage: schedulingAuthorization == .authorized
+                                    ? "arrow.clockwise"
+                                    : "calendar.badge.clock"
+                            )
+                        }
+                        .disabled(isWorking)
+                    } header: {
+                        Text("Apple Workout Scheduling")
+                    } footer: {
+                        Text("This lets Athevia place structured sessions in Apple's Workout app. It is separate from the Athevia Watch app.")
+                    }
                 }
 
                 if watch.isAtheviaWatchInstalled {
-                    Section("Workout Sync") {
-                        Label("Your current training week syncs automatically.", systemImage: "checkmark.circle.fill")
+                    Section {
+                        Label(
+                            "Your current training week syncs automatically.",
+                            systemImage: "checkmark.circle.fill"
+                        )
+
+                        if let lastQueuedAt = WatchAppPlanSync.lastQueuedAt {
+                            LabeledContent(
+                                "Last sent",
+                                value: TrainingFormatter.shortDateTime(lastQueuedAt, includeYear: false)
+                            )
+                            .font(.subheadline)
+                        }
 
                         Button {
                             let queued = WatchAppPlanSync.sync(currentPlan)
                             let count = currentPlan?.trainingSessions.count ?? 0
                             statusMessage = queued
-                                ? "Queued \(count) workout\(count == 1 ? "" : "s") for your Apple Watch."
+                                ? "Sent \(count) workout\(count == 1 ? "" : "s") to the Watch sync queue."
                                 : "Athevia could not prepare the current week for Watch sync."
                         } label: {
                             Label("Sync Current Week Now", systemImage: "arrow.triangle.2.circlepath")
@@ -760,15 +814,13 @@ private struct WatchAppSetupView: View {
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
                         }
-                    }
-
-                    Section {
-                        Text("After syncing, workouts remain available in the Athevia Watch app even when your iPhone is not nearby.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
+                    } header: {
+                        Text("Athevia Workout Sync")
+                    } footer: {
+                        Text("“Last sent” means the latest plan was queued by this iPhone. Delivery completes when the Watch connection is available.")
                     }
                 } else {
-                    Section("Install from your iPhone") {
+                    Section {
                         installationStep(
                             number: 1,
                             title: "Open the Watch app",
@@ -777,7 +829,7 @@ private struct WatchAppSetupView: View {
                         installationStep(
                             number: 2,
                             title: "Open My Watch",
-                            detail: "Scroll to the Available Apps section."
+                            detail: "Scroll to Available Apps."
                         )
                         installationStep(
                             number: 3,
@@ -787,8 +839,10 @@ private struct WatchAppSetupView: View {
                         installationStep(
                             number: 4,
                             title: "Return to Athevia",
-                            detail: "Your workouts will sync automatically once installation is detected."
+                            detail: "Your current week will sync automatically."
                         )
+                    } header: {
+                        Text("Install Athevia Watch")
                     }
 
                     Section {
@@ -806,26 +860,29 @@ private struct WatchAppSetupView: View {
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
                         }
-                    } footer: {
-                        Text("If Automatic App Install is enabled in the Watch app, Athevia may already install automatically.")
                     }
                 }
             }
-            .navigationTitle("Athevia Watch")
+            .navigationTitle("Apple Watch")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") {
-                        dismiss()
-                    }
+                    Button("Done") { dismiss() }
                 }
             }
-            .onAppear {
-                watch.refresh()
-            }
+            .onAppear { watch.refresh() }
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
+    }
+
+    private var schedulingStatusText: String {
+        switch schedulingAuthorization {
+        case .authorized: "Allowed"
+        case .denied: "Not allowed"
+        case .restricted: "Not available"
+        case .notDetermined: "Not set up"
+        }
     }
 
     private func installationStep(

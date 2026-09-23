@@ -7,10 +7,10 @@ enum TrainingConceptExplanation: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .rpe: "Perceived Effort"
+        case .rpe: "Effort"
         case .trainingLoad: "Training Load"
         case .intensity: "Intensity"
-        case .adherence: "Adherence"
+        case .adherence: "Plan Completion"
         case .hrv: "Heart Rate Variability"
         case .restingHeartRate: "Resting Heart Rate"
         case .recovery: "Recovery"
@@ -21,10 +21,10 @@ enum TrainingConceptExplanation: String, CaseIterable, Identifiable {
 
     var definition: String {
         switch self {
-        case .rpe: "RPE is your perceived effort on a scale from 1 to 10, from very easy to maximal."
+        case .rpe: "Effort is how hard the workout felt to you on a scale from 1 to 10, from very easy to maximal."
         case .trainingLoad: "Training load combines workout duration and intensity to describe training stress."
         case .intensity: "Intensity describes how hard you trained. Reported effort and available heart-rate evidence describe different parts of the session."
-        case .adherence: "Adherence compares completed training with the prescription. It is not a fitness score."
+        case .adherence: "Plan completion compares workouts completed with the workouts that were scheduled. It is not a fitness score."
         case .hrv: "HRV measures variation in the time between heartbeats. Your own trend is more useful than comparison with another athlete."
         case .restingHeartRate: "Resting heart rate is the number of heartbeats per minute while at rest."
         case .recovery: "Recovery describes how you are responding to recent training, using the signals available."
@@ -38,7 +38,7 @@ enum TrainingConceptExplanation: String, CaseIterable, Identifiable {
         case .rpe: "Athevia uses your report with completion, pain and recovery to assess the session."
         case .trainingLoad: "Compare sessions and weeks using the same load method. Missing evidence is not zero load."
         case .intensity: "The result identifies its evidence source. Without heart-rate data, Athevia cannot confirm heart-rate intensity."
-        case .adherence: "Check the displayed period and evidence source. Unmatched activity and missing reports can limit the comparison."
+        case .adherence: "Check the displayed period. Workouts Athevia cannot match to the plan may not be included."
         case .hrv, .restingHeartRate: "Athevia compares available readings with your history. Missing readings do not establish normal recovery."
         case .recovery: "Review symptoms and your check-in alongside recorded signals. A metric does not override a pain or recovery warning."
         case .sportBalance: "Use the displayed duration or session counts to compare sports within the selected period."

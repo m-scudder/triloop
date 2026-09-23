@@ -1,4 +1,3 @@
-#if DEBUG
 import Foundation
 
 /// One workout exactly as HealthKit holds it, before Athevia's opinions apply.
@@ -35,4 +34,3 @@ struct HealthWorkoutRecord: Identifiable, Equatable, Sendable {
 protocol HealthHistoryReading: Sendable {
     func workoutHistory(from startDate: Date, to endDate: Date) async throws -> [HealthWorkoutRecord]
 }
-#endif

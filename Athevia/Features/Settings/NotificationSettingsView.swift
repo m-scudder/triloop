@@ -28,6 +28,7 @@ struct NotificationSettingsView: View {
                     Button("Open iOS Settings") { openSystemSettings() }
                 case .authorized:
                     Toggle("Training notifications", isOn: $enabled)
+                        .toggleStyle(AtheviaToggleStyle())
                 }
             } footer: {
                 Text("Athevia asks only after you choose to enable reminders.")
@@ -36,6 +37,7 @@ struct NotificationSettingsView: View {
             if authorization == .authorized && enabled {
                 Section("Training days") {
                     Toggle("Workout reminders", isOn: $workoutReminders)
+                        .toggleStyle(AtheviaToggleStyle())
                     if workoutReminders {
                         DatePicker(
                             "Reminder time",
@@ -47,7 +49,9 @@ struct NotificationSettingsView: View {
 
                 Section("Training loop") {
                     Toggle("Report reminders", isOn: $feedbackReminders)
+                        .toggleStyle(AtheviaToggleStyle())
                     Toggle("Next week ready", isOn: $planReady)
+                        .toggleStyle(AtheviaToggleStyle())
                 }
             }
         }

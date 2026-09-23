@@ -40,10 +40,9 @@ struct TrainingProfileView: View {
         } message: {
             Text(message ?? "")
         }
-        .confirmationDialog(
+        .alert(
             "Rebuild the days still ahead?",
-            isPresented: $isConfirmingReassessment,
-            titleVisibility: .visible
+            isPresented: $isConfirmingReassessment
         ) {
             Button("Rebuild upcoming days") { reassess() }
             Button("Cancel", role: .cancel) {}
@@ -88,6 +87,12 @@ struct TrainingProfileView: View {
 
     private var historySection: some View {
         Section("Workout History") {
+            NavigationLink {
+                WorkoutHistoryView()
+            } label: {
+                Label("Apple Health History", systemImage: "heart.text.square")
+            }
+
             if historyPlans.isEmpty {
                 HStack(spacing: 10) {
                     Image(systemName: "clock.arrow.circlepath")
@@ -220,17 +225,17 @@ struct TrainingProfileView: View {
 
     private var planSection: some View {
         Section {
-            Button("Update upcoming days") { reshape() }
+            Button("Reschedule upcoming workouts") { reshape() }
                 .disabled(plans.currentPlan() == nil)
 
-            Button("Rebuild from what I can do now") {
+            Button("Rebuild upcoming workouts") {
                 isConfirmingReassessment = true
             }
             .disabled(plans.currentPlan() == nil)
         } header: {
             Text("Plan")
         } footer: {
-            Text("Update moves sessions still ahead onto days you can train. Rebuild also recalculates those sessions from your current ability.")
+            Text("Reschedule moves future workouts onto the days you can train. Rebuild also recalculates those workouts using your current ability.")
         }
     }
 
@@ -328,6 +333,7 @@ struct TrainingProfileView: View {
             Section {
                 ForEach(Weekday.trainingWeek, id: \.self) { weekday in
                     Toggle(weekday.displayName, isOn: dayBinding(weekday))
+                        .toggleStyle(AtheviaToggleStyle())
                 }
             } header: {
                 Text("Days you can train")
@@ -387,6 +393,7 @@ struct TrainingProfileView: View {
         Form {
             Section {
                 Toggle("Use my age for zones", isOn: usesBirthDate)
+                    .toggleStyle(AtheviaToggleStyle())
 
                 if setup.birthDate != nil {
                     DatePicker(
@@ -692,7 +699,7 @@ private struct WeeklyHistoryRow: View {
 
             if let adherence = plan.adherenceShare {
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text("Adherence")
+                    Text("Plan completed")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
 

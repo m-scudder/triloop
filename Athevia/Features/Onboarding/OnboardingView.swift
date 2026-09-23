@@ -58,7 +58,7 @@ struct OnboardingView: View {
 
     @ToolbarContentBuilder
     private func toolbar(_ model: OnboardingModel) -> some ToolbarContent {
-        if model.stage != .welcome {
+        if model.stage != AthleteSetup.Stage.onboardingFlow.first {
             ToolbarItem(placement: .topBarLeading) {
                 Button {
                     model.goBack()

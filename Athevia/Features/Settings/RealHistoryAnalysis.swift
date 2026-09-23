@@ -1,4 +1,3 @@
-#if DEBUG
 import Foundation
 
 /// Turns real Health workouts into intelligence inputs.
@@ -125,4 +124,3 @@ enum RealHistoryAnalysis {
             }
     }
 }
-#endif

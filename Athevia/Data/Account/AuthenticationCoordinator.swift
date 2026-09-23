@@ -25,6 +25,15 @@ final class AuthenticationCoordinator {
         self.service = service
     }
 
+    /// Resumes the locally cached identity without contacting the network.
+    /// Used only when this device already owns local training data, so an
+    /// offline launch never skips account isolation on a fresh install.
+    func resumeCachedSession() async -> AccountSession? {
+        guard let session = await service.cachedSession() else { return nil }
+        state = .signedIn(session)
+        return session
+    }
+
     func refresh() async {
         state = .checking
         do {
@@ -61,6 +70,13 @@ final class AuthenticationCoordinator {
         }
     }
 
+    /// Explicit local sign-out fallback used when the remote provider cannot
+    /// be reached. The app must stop treating the cached account as active even
+    /// though server-side token revocation can only be retried when online.
+    func completeLocalSignOut() {
+        state = .signedOut
+    }
+
     func deleteAccount() async throws {
         do {
             try await service.deleteAccount()
@@ -69,5 +85,31 @@ final class AuthenticationCoordinator {
             state = .failed(error.localizedDescription)
             throw error
         }
+    }
+}
+
+
+/// Orchestrates the security-sensitive order of operations when leaving an account.
+///
+/// The final backup is intentionally best-effort: connectivity must not prevent
+/// an explicit sign-out. Remote token revocation is attempted first, but local
+/// account data is always cleared so the previous account cannot remain visible.
+@MainActor
+enum AccountExitFlow {
+    static func signOut(
+        finalBackup: @MainActor () async throws -> Void,
+        remoteSignOut: @MainActor () async throws -> Void,
+        localSignOutFallback: @MainActor () -> Void,
+        cleanup: @MainActor () async -> Void
+    ) async {
+        try? await finalBackup()
+
+        do {
+            try await remoteSignOut()
+        } catch {
+            localSignOutFallback()
+        }
+
+        await cleanup()
     }
 }

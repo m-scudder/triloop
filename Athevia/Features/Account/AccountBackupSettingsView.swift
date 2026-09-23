@@ -10,6 +10,9 @@ struct AccountBackupSettingsView: View {
     @State private var latestBackup: BackupEnvelope?
     @State private var isWorking = false
     @State private var message: String?
+    @State private var pendingCloudBackup: BackupEnvelope?
+    @State private var signedInSession: AccountSession?
+    @State private var progressMessage: String?
 
     var body: some View {
         List {
@@ -30,15 +33,20 @@ struct AccountBackupSettingsView: View {
                 }
 
             case .signedOut, .failed:
-                AppleSignInButtonView { credential in
-                    _ = try await authentication.signInWithApple(credential)
-                    await refreshBackup()
+                Section {
+                    AppleSignInButtonView { credential in
+                        let session = try await authentication.signInWithApple(credential)
+                        await resolveNewlyConnectedAccount(session)
+                    }
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+                } footer: {
+                    Text("Connect an account to back up training from this iPhone.")
                 }
-                .listRowInsets(EdgeInsets())
-                .listRowBackground(Color.clear)
             }
         }
         .navigationTitle("Backup")
+        .atheviaProgress(progressMessage)
         .navigationBarTitleDisplayMode(.inline)
         .task {
             if case .checking = authentication.state {
@@ -47,6 +55,25 @@ struct AccountBackupSettingsView: View {
             if case .signedIn = authentication.state {
                 await refreshBackup()
             }
+        }
+        .alert(
+            "Cloud training already exists",
+            isPresented: Binding(
+                get: { pendingCloudBackup != nil },
+                set: { if !$0 { pendingCloudBackup = nil } }
+            )
+        ) {
+            Button("Keep This iPhone") {
+                keepLocalTraining()
+            }
+            Button("Restore Cloud Training", role: .destructive) {
+                restoreCloudTraining()
+            }
+            Button("Cancel", role: .cancel) {
+                cancelCloudDecision()
+            }
+        } message: {
+            Text("Choose which training history should become active on this iPhone. Keeping this iPhone will back up the local training and replace the existing cloud backup.")
         }
         .alert(
             "Cloud Backup",
@@ -84,10 +111,92 @@ struct AccountBackupSettingsView: View {
         }
     }
 
+    @MainActor
+    private func resolveNewlyConnectedAccount(_ session: AccountSession) async {
+        isWorking = true
+        progressMessage = "Connecting cloud backup…"
+        defer {
+            isWorking = false
+            progressMessage = nil
+        }
+
+        do {
+            let hasLocalData = try LocalTrainingStoreState.hasUserData(modelContext)
+            let cloud = try await backup.latestBackup(accountID: session.userID)
+
+            guard hasLocalData else {
+                if let cloud {
+                    try BackupRestoreService().restore(cloud.snapshot, into: modelContext)
+                    latestBackup = cloud
+                }
+                return
+            }
+
+            guard let cloud else {
+                latestBackup = try await backup.backup(
+                    accountID: session.userID,
+                    from: modelContext
+                )
+                message = "Cloud backup is now connected."
+                return
+            }
+
+            pendingCloudBackup = cloud
+            signedInSession = session
+        } catch {
+            message = "Could not connect cloud backup: \(error.localizedDescription)"
+        }
+    }
+
+    private func cancelCloudDecision() {
+        pendingCloudBackup = nil
+        signedInSession = nil
+        progressMessage = "Disconnecting account…"
+
+        Task { @MainActor in
+            defer { progressMessage = nil }
+            try? await authentication.signOut()
+        }
+    }
+
+    private func keepLocalTraining() {
+        guard let session = signedInSession else { return }
+        pendingCloudBackup = nil
+        signedInSession = nil
+        backUpNow(session)
+    }
+
+    private func restoreCloudTraining() {
+        guard let cloud = pendingCloudBackup else { return }
+        pendingCloudBackup = nil
+        signedInSession = nil
+
+        isWorking = true
+        progressMessage = "Restoring cloud training…"
+        Task { @MainActor in
+            defer {
+                isWorking = false
+                progressMessage = nil
+            }
+            do {
+                try LocalTrainingStoreState.removeUserData(modelContext)
+                try BackupRestoreService().restore(cloud.snapshot, into: modelContext)
+                latestBackup = cloud
+                message = "Cloud training restored on this iPhone."
+            } catch {
+                message = "Could not restore cloud training: \(error.localizedDescription)"
+            }
+        }
+    }
+
     private func backUpNow(_ session: AccountSession) {
         isWorking = true
+        progressMessage = "Backing up training…"
         Task { @MainActor in
-            defer { isWorking = false }
+            defer {
+                isWorking = false
+                progressMessage = nil
+            }
             do {
                 latestBackup = try await backup.backup(
                     accountID: session.userID,

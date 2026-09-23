@@ -1,4 +1,3 @@
-#if DEBUG
 import SwiftData
 import SwiftUI
 
@@ -135,4 +134,3 @@ struct HealthWorkoutDetailView: View {
         }
     }
 }
-#endif
