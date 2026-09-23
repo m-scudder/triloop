@@ -1,10 +1,10 @@
 import Foundation
 
-/// What the athlete is training towards.
+/// Coarse compatibility goal consumed by the existing adaptive engine.
 ///
-/// Deliberately coarse for now: these influence how conservatively training
-/// starts and how a plan explains itself, not event-specific periodisation.
-/// Race distances and training blocks belong to a later phase.
+/// New athlete intent is stored in TrainingObjective. This enum remains stable
+/// so existing profiles, first-week resolution and weekly progression keep
+/// their established contract until the journey layer is added above them.
 enum TrainingGoal: String, Codable, CaseIterable, Sendable {
     case generalFitness
     case firstTriathlon
