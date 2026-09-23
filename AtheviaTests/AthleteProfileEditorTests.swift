@@ -106,4 +106,65 @@ struct AthleteProfileEditorTests {
         #expect(result.reasons == [.goal, .runningBaseline])
         #expect(result.isTrainingImpacting)
     }
+
+    @Test("Changing event distance is reported without pretending the objective kind changed")
+    func changingEvent() {
+        var original = setup()
+        original.objective = .event(
+            sport: .running,
+            distance: EventDistance(kind: .run5K)
+        )
+        var updated = original
+        updated.objective = .event(
+            sport: .running,
+            distance: EventDistance(kind: .run10K)
+        )
+
+        #expect(AthleteProfileEditor.impact(from: original, to: updated).reasons == [.event])
+    }
+
+    @Test("Changing only the event date is reported separately")
+    func changingEventDate() {
+        let calendar = Calendar(identifier: .gregorian)
+        let first = calendar.date(from: DateComponents(year: 2026, month: 12, day: 1))
+        let second = calendar.date(from: DateComponents(year: 2026, month: 12, day: 15))
+
+        var original = setup()
+        original.objective = .event(
+            sport: .running,
+            distance: EventDistance(kind: .run5K),
+            eventDate: first
+        )
+        var updated = original
+        updated.objective.event?.eventDate = second
+
+        #expect(AthleteProfileEditor.impact(from: original, to: updated).reasons == [.eventDate])
+    }
+
+    @Test("Changing target intent is a training-impacting event edit")
+    func changingTargetIntent() {
+        var original = setup()
+        original.objective = .event(
+            sport: .triathlon,
+            distance: EventDistance(kind: .triathlonSprint),
+            targetIntent: .complete
+        )
+        var updated = original
+        updated.objective.event?.targetIntent = .performance
+
+        #expect(AthleteProfileEditor.impact(from: original, to: updated).reasons == [.targetIntent])
+    }
+
+    @Test("Clearing an event changes the training objective")
+    func clearingEvent() {
+        var original = setup()
+        original.objective = .event(
+            sport: .running,
+            distance: EventDistance(kind: .run5K)
+        )
+        var updated = original
+        updated.objective = TrainingObjective(kind: .generalFitness)
+
+        #expect(AthleteProfileEditor.impact(from: original, to: updated).reasons == [.goal])
+    }
 }
