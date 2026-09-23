@@ -738,7 +738,7 @@ private struct WatchAppSetupView: View {
                 }
 
                 if watch.canSchedule {
-                    Section("Apple Workout Scheduling") {
+                    Section {
                         Button {
                             requestSchedulingAuthorization()
                         } label: {
@@ -752,13 +752,15 @@ private struct WatchAppSetupView: View {
                             )
                         }
                         .disabled(isWorking)
+                    } header: {
+                        Text("Apple Workout Scheduling")
                     } footer: {
                         Text("This lets Athevia place structured sessions in Apple's Workout app. It is separate from the Athevia Watch app.")
                     }
                 }
 
                 if watch.isAtheviaWatchInstalled {
-                    Section("Athevia Workout Sync") {
+                    Section {
                         Label(
                             "Your current training week syncs automatically.",
                             systemImage: "checkmark.circle.fill"
@@ -787,6 +789,8 @@ private struct WatchAppSetupView: View {
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
                         }
+                    } header: {
+                        Text("Athevia Workout Sync")
                     } footer: {
                         Text("“Last sent” means the latest plan was queued by this iPhone. Delivery completes when the Watch connection is available.")
                     }
