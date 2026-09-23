@@ -160,8 +160,22 @@ struct TrainingProfileView: View {
                 ProfileNavigationRow(
                     title: "Goal",
                     systemImage: "scope",
-                    value: setup.goal.displayName
+                    value: setup.objective.displayName
                 )
+            }
+
+            if let event = setup.objective.event {
+                NavigationLink {
+                    goalEditor
+                } label: {
+                    ProfileNavigationRow(
+                        title: "Event date",
+                        systemImage: "calendar",
+                        value: event.eventDate.map {
+                            TrainingFormatter.shortDate($0, includeYear: true)
+                        } ?? "Not set"
+                    )
+                }
             }
 
             NavigationLink {
@@ -275,12 +289,26 @@ struct TrainingProfileView: View {
                     columns: [GridItem(.flexible()), GridItem(.flexible())],
                     spacing: 8
                 ) {
-                    ForEach(TrainingGoal.allCases, id: \.self) { goal in
+                    ForEach(TrainingObjectiveKind.allCases, id: \.self) { kind in
                         AtheviaChoiceChip(
-                            title: goal.displayName,
-                            isSelected: setup.goal == goal
+                            title: kind.displayName,
+                            isSelected: setup.objective.kind == kind
                         ) {
-                            update { $0.goal = goal }
+                            update { current in
+                                if kind == .event {
+                                    if current.objective.kind != .event || current.objective.event == nil {
+                                        let sport: EventSport = selectedTrainingSports.count == Sport.allCases.count
+                                            ? .triathlon
+                                            : EventSport(trainingSport: selectedTrainingSports.first ?? .running) ?? .running
+                                        current.objective = .event(
+                                            sport: sport,
+                                            distance: EventDistance.defaultForSport(sport)
+                                        )
+                                    }
+                                } else {
+                                    current.objective = TrainingObjective(kind: kind)
+                                }
+                            }
                         }
                     }
                 }
@@ -288,7 +316,21 @@ struct TrainingProfileView: View {
             } header: {
                 Text("What are you training for?")
             } footer: {
-                Text(setup.goal.detail)
+                Text(setup.objective.kind.detail)
+            }
+
+            if setup.objective.kind == .event {
+                Section {
+                    EventGoalFields(
+                        objective: setup.objective,
+                        selectedSports: selectedTrainingSports,
+                        minimumDate: Calendar.current.startOfDay(for: .now),
+                        showsTargetIntent: true
+                    ) { objective in
+                        update { $0.objective = objective }
+                    }
+                    .padding(.vertical, 4)
+                }
             }
         }
         .navigationTitle("Goal")
@@ -470,10 +512,13 @@ struct TrainingProfileView: View {
     }
 
     private var trainedSports: String {
-        preferences
-            .filter(\.isTrained)
-            .map { $0.sport.displayName }
+        selectedTrainingSports
+            .map(\.displayName)
             .joined(separator: " · ")
+    }
+
+    private var selectedTrainingSports: [Sport] {
+        preferences.filter(\.isTrained).map(\.sport)
     }
 
     private var trainingMixSummary: String {
