@@ -45,6 +45,17 @@ struct AccountAccessView: View {
             }
         }
         .task {
+            let hasLocalData = (try? LocalTrainingStoreState.hasUserData(modelContext)) == true
+            let canResumeOffline = hasLocalData || TrainingResetBoundary.isFreshStartPending
+
+            if canResumeOffline,
+               let session = await authentication.resumeCachedSession() {
+                // Existing local training remains immediately usable even when
+                // the network is unavailable. Cloud operations can retry later.
+                onReady(session, false)
+                return
+            }
+
             await authentication.refresh()
             if case .signedIn(let session) = authentication.state {
                 await resolveAfterSignIn(session, replaceLocalData: false)
