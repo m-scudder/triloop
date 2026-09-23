@@ -121,11 +121,12 @@ private struct WatchWorkoutRow: View {
         HStack(spacing: 10) {
             ZStack {
                 Circle()
-                    .fill(workout.discipline.listTint.opacity(0.22))
+                    .fill(Color.white.opacity(0.12))
 
                 Image(systemName: workout.discipline.symbolName)
                     .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(workout.discipline.listTint)
+                    .symbolRenderingMode(.monochrome)
+                    .foregroundStyle(.white)
             }
             .frame(width: 34, height: 34)
 
@@ -143,7 +144,7 @@ private struct WatchWorkoutRow: View {
                     } else if isCompleted {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.caption)
-                            .foregroundStyle(workout.discipline.listTint)
+                            .foregroundStyle(.green)
                     }
                 }
 
@@ -170,15 +171,3 @@ private struct WatchWorkoutRow: View {
     }
 }
 
-private extension WatchWorkoutDiscipline {
-    var listTint: Color {
-        switch self {
-        case .running:
-            .orange
-        case .cycling:
-            .green
-        case .swimming:
-            .blue
-        }
-    }
-}
