@@ -13,10 +13,7 @@ struct TrainingDaysStepView: View {
 
     var body: some View {
         OnboardingStep(isPrimaryEnabled: model.canAdvance, primary: model.advance) {
-            OnboardingHeader(
-                title: "Build around your week",
-                subtitle: "Choose what you want from training and when you can realistically fit it in."
-            )
+            OnboardingHeader(title: "Build around your week")
 
             VStack(alignment: .leading, spacing: 10) {
                 SectionEyebrow(text: "Goal")
@@ -31,10 +28,6 @@ struct TrainingDaysStepView: View {
                         }
                     }
                 }
-
-                Text(model.setup.goal.detail)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
 
             VStack(alignment: .leading, spacing: 10) {
@@ -78,16 +71,8 @@ struct TrainingDaysStepView: View {
                         displayedComponents: .date
                     )
                     .datePickerStyle(.compact)
-
-                    Text("The first plan starts from this date. After that, Athevia continues with normal Monday–Sunday training weeks.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                 }
             }
-
-            Text("Athevia assigns the workout mix and recovery automatically.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
 
             if model.setup.schedule.availableDays.count < model.minimumTrainingDays {
                 Label(
