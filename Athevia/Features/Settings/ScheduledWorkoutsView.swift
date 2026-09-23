@@ -36,7 +36,7 @@ struct ScheduledWorkoutsView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(entry.displayName ?? "Untitled workout")
                             .font(.subheadline.weight(.medium))
-                        Text(entry.date?.formatted(date: .abbreviated, time: .shortened) ?? "No date")
+                        Text(entry.date.map { TrainingFormatter.shortDateTime($0) } ?? "No date")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         // Drives Today's "finished, waiting to sync" state.
