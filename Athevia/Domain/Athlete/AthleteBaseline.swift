@@ -46,7 +46,7 @@ enum SwimmingBaseline: String, Codable, CaseIterable, Sendable {
 
     var displayName: String {
         switch self {
-        case .none: "Not yet able to swim continuously"
+        case .none: "Not swimming yet"
         case .continuous25: "25 m"
         case .continuous50: "50 m"
         case .continuous100: "100 m"
