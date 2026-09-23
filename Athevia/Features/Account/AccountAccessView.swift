@@ -122,20 +122,21 @@ struct AccountAccessView: View {
 
     private var disciplineMark: some View {
         HStack(spacing: 10) {
-            disciplineSymbol("figure.run")
-            disciplineSymbol("bicycle")
-            disciplineSymbol("figure.pool.swim")
+            disciplineSymbol("figure.run", tint: Discipline.running.tint)
+            disciplineSymbol("bicycle", tint: Discipline.cycling.tint)
+            disciplineSymbol("figure.pool.swim", tint: Discipline.swimming.tint)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Running, cycling and swimming")
     }
 
-    private func disciplineSymbol(_ name: String) -> some View {
+    private func disciplineSymbol(_ name: String, tint: Color) -> some View {
         Image(systemName: name)
             .font(.system(size: 23, weight: .semibold))
             .symbolRenderingMode(.monochrome)
+            .foregroundStyle(tint)
             .frame(width: 58, height: 58)
-            .background(.fill.tertiary, in: .circle)
+            .background(tint.opacity(0.12), in: .circle)
     }
 
     @ViewBuilder
