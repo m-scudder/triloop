@@ -249,7 +249,7 @@ struct WorkoutHistoryView: View {
             LabeledContent("Other activities", value: "\(records.count(where: { !$0.isTrainedByAthevia }))")
 
             if let earliest = records.map(\.start).min() {
-                LabeledContent("Earliest", value: earliest.formatted(date: .abbreviated, time: .omitted))
+                LabeledContent("Earliest", value: TrainingFormatter.shortDate(earliest, includeYear: true))
             }
 
             let withHeartRate = records.count(where: { $0.averageHeartRate != nil })
@@ -362,7 +362,7 @@ private struct HistoryRow: View {
                 Text(record.activityName)
                     .font(.subheadline.weight(.medium))
                 Spacer()
-                Text(record.start.formatted(date: .abbreviated, time: .shortened))
+                Text(TrainingFormatter.shortDateTime(record.start, includeYear: true))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
