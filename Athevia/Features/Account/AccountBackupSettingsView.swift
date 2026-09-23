@@ -38,7 +38,7 @@ struct AccountBackupSettingsView: View {
                 .listRowBackground(Color.clear)
             }
         }
-        .navigationTitle("Account & Backup")
+        .navigationTitle("Backup")
         .navigationBarTitleDisplayMode(.inline)
         .task {
             if case .checking = authentication.state {

@@ -154,7 +154,7 @@ struct SettingsView: View {
                 showsAccountSettings = true
             } label: {
                 SettingsNavigationRow(
-                    title: "Account & Backup",
+                    title: "Backup",
                     systemImage: "person.crop.circle",
                     value: accountStatusText(authentication)
                 )
