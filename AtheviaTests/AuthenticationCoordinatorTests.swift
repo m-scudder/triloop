@@ -79,13 +79,16 @@ struct AuthenticationCoordinatorTests {
         enum TestError: Error { case backup }
         var events: [String] = []
 
-        try await AccountExitFlow.signOut(
+        await AccountExitFlow.signOut(
             finalBackup: {
                 events.append("backup")
                 throw TestError.backup
             },
             remoteSignOut: {
                 events.append("sign-out")
+            },
+            localSignOutFallback: {
+                events.append("local-fallback")
             },
             cleanup: {
                 events.append("cleanup")
@@ -95,32 +98,28 @@ struct AuthenticationCoordinatorTests {
         #expect(events == ["backup", "sign-out", "cleanup"])
     }
 
-    @Test("Authentication sign out failure does not erase local data")
-    func signOutFailureDoesNotCleanup() async {
+    @Test("Authentication sign out failure falls back locally and still cleans up")
+    func signOutFailureUsesLocalFallbackAndCleanup() async {
         enum TestError: Error { case signOut }
         var events: [String] = []
 
-        do {
-            try await AccountExitFlow.signOut(
-                finalBackup: {
-                    events.append("backup")
-                },
-                remoteSignOut: {
-                    events.append("sign-out")
-                    throw TestError.signOut
-                },
-                cleanup: {
-                    events.append("cleanup")
-                }
-            )
-            Issue.record("Expected sign out failure")
-        } catch TestError.signOut {
-            // Expected.
-        } catch {
-            Issue.record("Unexpected error: \(error)")
-        }
+        await AccountExitFlow.signOut(
+            finalBackup: {
+                events.append("backup")
+            },
+            remoteSignOut: {
+                events.append("sign-out")
+                throw TestError.signOut
+            },
+            localSignOutFallback: {
+                events.append("local-fallback")
+            },
+            cleanup: {
+                events.append("cleanup")
+            }
+        )
 
-        #expect(events == ["backup", "sign-out"])
+        #expect(events == ["backup", "sign-out", "local-fallback", "cleanup"])
     }
 }
 
