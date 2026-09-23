@@ -315,6 +315,7 @@ struct TrainingProfileView: View {
                             updateObjectiveDraft(next)
                         }
                         .accessibilityIdentifier("objective.\(kind.rawValue)")
+                        .frame(minHeight: 44)
                     }
                 }
                 .padding(.vertical, 4)
