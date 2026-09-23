@@ -54,15 +54,14 @@ struct AccountBackupSettingsView: View {
                 await refreshBackup()
             }
         }
-        .confirmationDialog(
+        .alert(
             "Cloud training already exists",
             isPresented: Binding(
                 get: { pendingCloudBackup != nil },
                 set: { if !$0 { pendingCloudBackup = nil } }
-            ),
-            titleVisibility: .visible
+            )
         ) {
-            Button("Keep This iPhone & Back It Up") {
+            Button("Keep This iPhone") {
                 keepLocalTraining()
             }
             Button("Restore Cloud Training", role: .destructive) {
@@ -72,7 +71,7 @@ struct AccountBackupSettingsView: View {
                 cancelCloudDecision()
             }
         } message: {
-            Text("Choose which training history should become active on this iPhone. This avoids silently replacing local or cloud data.")
+            Text("Choose which training history should become active on this iPhone. Keeping this iPhone will back up the local training and replace the existing cloud backup.")
         }
         .alert(
             "Cloud Backup",
