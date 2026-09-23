@@ -71,3 +71,22 @@ final class AuthenticationCoordinator {
         }
     }
 }
+
+
+/// Orchestrates the security-sensitive order of operations when leaving an account.
+///
+/// The final backup is intentionally best-effort: a connectivity failure must not
+/// prevent sign-out. Local account data is only cleared after the authentication
+/// provider confirms that the local session has been signed out.
+@MainActor
+enum AccountExitFlow {
+    static func signOut(
+        finalBackup: @MainActor () async throws -> Void,
+        remoteSignOut: @MainActor () async throws -> Void,
+        cleanup: @MainActor () async -> Void
+    ) async throws {
+        try? await finalBackup()
+        try await remoteSignOut()
+        await cleanup()
+    }
+}
