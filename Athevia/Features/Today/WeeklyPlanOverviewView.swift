@@ -98,7 +98,7 @@ struct WeeklyPlanOverviewView: View {
 
         return HStack(spacing: 6) {
             Image(systemName: sport.discipline.symbolName)
-                .foregroundStyle(.primary)
+                .foregroundStyle(sport.discipline.tint)
             VStack(alignment: .leading, spacing: 1) {
                 Text(sport.discipline.displayName)
                     .font(.caption.weight(.medium))
