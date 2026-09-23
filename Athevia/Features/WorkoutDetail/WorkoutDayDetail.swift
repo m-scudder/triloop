@@ -554,9 +554,9 @@ struct WorkoutDayDetail: View {
         HStack(alignment: .top, spacing: 14) {
             Image(systemName: workout.discipline.symbolName)
                 .font(.title3)
-                .foregroundStyle(.primary)
+                .foregroundStyle(workout.discipline.tint)
                 .frame(width: 52, height: 52)
-                .background(.fill.tertiary, in: .circle)
+                .background(workout.discipline.tint.opacity(0.14), in: .circle)
 
             VStack(alignment: .leading, spacing: 2) {
                 HStack(alignment: .firstTextBaseline, spacing: 7) {
