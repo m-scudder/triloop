@@ -7,6 +7,7 @@ import SwiftUI
 /// schedule management, so there is no extra workout-detail navigation step.
 struct PlanView: View {
     @Query(sort: \WeeklyPlan.startDate) private var plans: [WeeklyPlan]
+    @Query private var profiles: [AthleteProfile]
 
     @State private var selection: Date = .now
     @State private var isPresentingCalendar = false
@@ -50,6 +51,15 @@ struct PlanView: View {
                     )
                 } else {
                     VStack(spacing: 0) {
+                        if let objective = profiles.first?.setup?.objective,
+                           objective.event?.eventDate != nil {
+                            EventCountdownView(objective: objective)
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 10)
+
+                            Divider()
+                        }
+
                         DateStrip(workouts: allWorkouts, selection: $selection)
 
                         Divider()
