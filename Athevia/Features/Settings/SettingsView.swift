@@ -250,7 +250,6 @@ struct SettingsView: View {
             Toggle(isOn: $automaticallySchedule) {
                 Label("Send workouts to Watch", systemImage: "applewatch")
             }
-            .controlSize(.small)
         }
 
         Button { importThisWeek() } label: {
