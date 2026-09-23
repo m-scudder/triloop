@@ -1,7 +1,7 @@
 import SwiftUI
 
 extension Discipline {
-    /// Sport hue for charts and training surfaces. Icons stay neutral.
+    /// Vivid hue for sport identity across glyphs, bars and training surfaces.
     var tint: Color {
         switch self {
         case .running: Color(red: 1.00, green: 0.42, blue: 0.16)
@@ -42,7 +42,7 @@ extension Discipline {
     }
 }
 
-/// Rounded neutral sport glyph used consistently across Today, Plan and Detail.
+/// Rounded sport-coloured glyph used consistently across Today, Plan and Detail.
 struct DisciplineBadge: View {
     let discipline: Discipline
     var size: CGFloat = 40
@@ -51,9 +51,9 @@ struct DisciplineBadge: View {
         Image(systemName: discipline.symbolName)
             .font(.system(size: size * 0.45, weight: .semibold))
             .symbolRenderingMode(.monochrome)
-            .foregroundStyle(.primary)
+            .foregroundStyle(discipline.tint)
             .frame(width: size, height: size)
-            .background(.fill.tertiary, in: .rect(cornerRadius: size * 0.28))
+            .background(discipline.tint.opacity(0.18), in: .rect(cornerRadius: size * 0.28))
             .accessibilityHidden(true)
     }
 }
