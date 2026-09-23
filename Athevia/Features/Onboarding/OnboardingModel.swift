@@ -44,7 +44,7 @@ final class OnboardingModel {
         profile = existing
         setup = existing?.setup ?? AthleteSetup()
         poolLengthMeters = existing?.poolLengthMeters ?? 25
-        selectedStartDate = calendar.startOfDay(for: .now)
+        selectedStartDate = calendar.startOfDay(for: setup.planStartDate ?? .now)
 
         let plans = (try? context.fetchCount(FetchDescriptor<WeeklyPlan>())) ?? 0
         isUpgrade = existing != nil && plans > 0
@@ -235,7 +235,9 @@ final class OnboardingModel {
     func choose(startDate: Date) {
         guard canChooseStartDate else { return }
         selectedStartDate = max(calendar.startOfDay(for: startDate), minimumStartDate)
-        buildPreview()
+        setup.planStartDate = selectedStartDate
+        preview = nil
+        persist()
     }
 
     /// If the chosen date falls after every available training day in that
