@@ -66,7 +66,7 @@ struct TrainingDaysStepView: View {
                 .frame(maxWidth: .infinity, minHeight: 46)
                 .background(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(isOn ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.fill.tertiary))
+                        .fill(isOn ? AnyShapeStyle(Color.blue) : AnyShapeStyle(.fill.tertiary))
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -91,7 +91,7 @@ struct TrainingDaysStepView: View {
                 .frame(maxWidth: .infinity, minHeight: 44)
                 .background(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(isSelected ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.fill.tertiary))
+                        .fill(isSelected ? AnyShapeStyle(Color.blue) : AnyShapeStyle(.fill.tertiary))
                 )
                 .foregroundStyle(isSelected ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
         }
