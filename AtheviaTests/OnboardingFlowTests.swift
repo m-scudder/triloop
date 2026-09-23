@@ -98,6 +98,36 @@ struct OnboardingFlowTests {
         #expect(OnboardingModel(context: ModelContext(container)).setup.isComplete)
     }
 
+    @Test func selectedStartDateSurvivesResumeAndDrivesPreview() throws {
+        let container = try AtheviaModelContainer.make(inMemory: true)
+        let context = ModelContext(container)
+        let model = OnboardingModel(context: context)
+
+        model.toggleSport(.running)
+        model.choose(running: .continuous10Minutes)
+        model.advance()
+
+        model.toggleDay(.sunday)
+        model.toggleDay(.monday)
+        model.setSharedMaxDuration(60)
+
+        let calendar = Calendar.current
+        let sunday = calendar.nextDate(
+            after: .now,
+            matching: DateComponents(weekday: 1),
+            matchingPolicy: .nextTimePreservingSmallerComponents
+        ) ?? .now
+
+        model.choose(startDate: sunday)
+
+        let resumed = OnboardingModel(context: ModelContext(container))
+        #expect(calendar.isDate(resumed.selectedStartDate, inSameDayAs: sunday))
+
+        resumed.advance()
+        let preview = try #require(resumed.preview)
+        #expect(preview.trainingSessions.allSatisfy { $0.date >= calendar.startOfDay(for: sunday) })
+    }
+
     @Test func scheduleUsesOneSharedDurationAndSelectedSports() throws {
         let context = ModelContext(try AtheviaModelContainer.make(inMemory: true))
         let model = OnboardingModel(context: context)
