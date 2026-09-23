@@ -271,13 +271,20 @@ struct TrainingProfileView: View {
     private var goalEditor: some View {
         Form {
             Section {
-                Picker("Goal", selection: binding(\.goal)) {
+                LazyVGrid(
+                    columns: [GridItem(.flexible()), GridItem(.flexible())],
+                    spacing: 8
+                ) {
                     ForEach(TrainingGoal.allCases, id: \.self) { goal in
-                        Text(goal.displayName).tag(goal)
+                        AtheviaChoiceChip(
+                            title: goal.displayName,
+                            isSelected: setup.goal == goal
+                        ) {
+                            update { $0.goal = goal }
+                        }
                     }
                 }
-                .pickerStyle(.inline)
-                .labelsHidden()
+                .padding(.vertical, 4)
             } header: {
                 Text("What are you training for?")
             } footer: {
@@ -290,38 +297,58 @@ struct TrainingProfileView: View {
 
     private var abilityEditor: some View {
         Form {
-            Section("Running") {
-                Picker("Running", selection: binding(\.baseline.running)) {
-                    ForEach(RunningBaseline.allCases, id: \.self) {
-                        Text($0.displayName).tag($0)
-                    }
-                }
-                .labelsHidden()
-                .pickerStyle(.inline)
-            }
-
-            Section("Swimming") {
-                Picker("Swimming", selection: binding(\.baseline.swimming)) {
-                    ForEach(SwimmingBaseline.allCases, id: \.self) {
-                        Text($0.displayName).tag($0)
-                    }
-                }
-
-                Picker("Stroke", selection: binding(\.baseline.stroke)) {
-                    ForEach(SwimStroke.allCases, id: \.self) {
-                        Text($0.displayName).tag($0)
+            if preferences.first(where: { $0.sport == .running })?.isTrained == true {
+                Section("Running") {
+                    abilityGrid(RunningBaseline.allCases) { baseline in
+                        AtheviaChoiceChip(
+                            title: runningAbilityLabel(baseline),
+                            isSelected: setup.baseline.running == baseline,
+                            tint: Discipline.running.tint
+                        ) {
+                            update { $0.baseline.running = baseline }
+                        }
                     }
                 }
             }
 
-            Section("Cycling") {
-                Picker("Cycling", selection: binding(\.baseline.cycling)) {
-                    ForEach(CyclingBaseline.allCases, id: \.self) {
-                        Text($0.displayName).tag($0)
+            if preferences.first(where: { $0.sport == .swimming })?.isTrained == true {
+                Section("Swimming") {
+                    abilityGrid(SwimmingBaseline.allCases) { baseline in
+                        AtheviaChoiceChip(
+                            title: baseline.displayName,
+                            isSelected: setup.baseline.swimming == baseline,
+                            tint: Discipline.swimming.tint
+                        ) {
+                            update { $0.baseline.swimming = baseline }
+                        }
+                    }
+
+                    HStack(spacing: 8) {
+                        ForEach(SwimStroke.allCases, id: \.self) { stroke in
+                            AtheviaChoiceChip(
+                                title: stroke.displayName,
+                                isSelected: setup.baseline.stroke == stroke,
+                                tint: Discipline.swimming.tint
+                            ) {
+                                update { $0.baseline.stroke = stroke }
+                            }
+                        }
                     }
                 }
-                .labelsHidden()
-                .pickerStyle(.inline)
+            }
+
+            if preferences.first(where: { $0.sport == .cycling })?.isTrained == true {
+                Section("Cycling") {
+                    abilityGrid(CyclingBaseline.allCases) { baseline in
+                        AtheviaChoiceChip(
+                            title: cyclingAbilityLabel(baseline),
+                            isSelected: setup.baseline.cycling == baseline,
+                            tint: Discipline.cycling.tint
+                        ) {
+                            update { $0.baseline.cycling = baseline }
+                        }
+                    }
+                }
             }
         }
         .navigationTitle("Current Ability")
@@ -331,10 +358,12 @@ struct TrainingProfileView: View {
     private var availabilityEditor: some View {
         Form {
             Section {
-                ForEach(Weekday.trainingWeek, id: \.self) { weekday in
-                    Toggle(weekday.displayName, isOn: dayBinding(weekday))
-                        .toggleStyle(AtheviaToggleStyle())
+                HStack(spacing: 6) {
+                    ForEach(Weekday.trainingWeek, id: \.self) { weekday in
+                        profileDayChip(weekday)
+                    }
                 }
+                .padding(.vertical, 4)
             } header: {
                 Text("Days you can train")
             } footer: {
@@ -476,6 +505,62 @@ struct TrainingProfileView: View {
 
     private var isStandardPool: Bool {
         profile.poolLengthMeters == 25 || profile.poolLengthMeters == 50
+    }
+
+    @ViewBuilder
+    private func abilityGrid<Value: Hashable>(
+        _ values: [Value],
+        @ViewBuilder content: @escaping (Value) -> some View
+    ) -> some View {
+        LazyVGrid(
+            columns: [GridItem(.flexible()), GridItem(.flexible())],
+            spacing: 8
+        ) {
+            ForEach(values, id: \.self) { value in
+                content(value)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func profileDayChip(_ weekday: Weekday) -> some View {
+        let selected = setup.schedule.isAvailable(on: weekday)
+
+        return Button {
+            dayBinding(weekday).wrappedValue.toggle()
+        } label: {
+            Text(weekday.initial)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(selected ? Color.white : Color.primary)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .background(
+                    selected ? Color.blue : Color(uiColor: .tertiarySystemFill),
+                    in: .rect(cornerRadius: 11)
+                )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(weekday.displayName)
+        .accessibilityAddTraits(selected ? [.isSelected] : [])
+    }
+
+    private func runningAbilityLabel(_ baseline: RunningBaseline) -> String {
+        switch baseline {
+        case .none: "Not running yet"
+        case .runWalk: "Run / walk"
+        case .continuous10Minutes: "10 min"
+        case .continuous20To30Minutes: "20–30 min"
+        case .regular5K: "5 km+"
+        }
+    }
+
+    private func cyclingAbilityLabel(_ baseline: CyclingBaseline) -> String {
+        switch baseline {
+        case .under20: "< 20 min"
+        case .twentyToThirty: "20–30 min"
+        case .thirtyToFortyFive: "30–45 min"
+        case .fortyFiveToSixty: "45–60 min"
+        case .sixtyPlus: "60+ min"
+        }
     }
 
     // MARK: - Bindings
