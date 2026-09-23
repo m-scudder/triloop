@@ -245,7 +245,6 @@ struct SettingsView: View {
         Toggle(isOn: $automaticallyImport) {
             Label("Auto Import Workout", systemImage: "arrow.down.circle")
         }
-        .controlSize(.small)
 
         if watch.isPairedWatch && watch.canSchedule {
             Toggle(isOn: $automaticallySchedule) {
