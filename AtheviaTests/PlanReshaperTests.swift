@@ -268,4 +268,58 @@ struct PlanReshaperTests {
 
         #expect(week.orderedWorkouts.map(\.discipline) == before)
     }
+
+    @Test("Changing an event during an active week never mutates completed training")
+    func eventChangePreservesCompletedHistory() throws {
+        let container = try AtheviaModelContainer.make(inMemory: true)
+        let context = container.mainContext
+        let week = plan()
+        context.insert(week)
+
+        let completed = try #require(week.workout(on: monday(), calendar: calendar))
+        completed.recordCompletion(with: FeedbackDraft(rpe: 4, painScore: 0))
+        let completedTitle = completed.title
+        let completedDuration = completed.prescribedDurationSeconds
+        let completedAt = completed.completedAt
+
+        let profile = AthleteProfile(
+            name: "Athlete",
+            trainingStartDate: monday(),
+            setup: AthleteSetup(
+                objective: .event(
+                    sport: .running,
+                    distance: EventDistance(kind: .run5K)
+                ),
+                baseline: AthleteBaseline(running: .regular5K),
+                schedule: .everyDay(),
+                preferences: [
+                    SportPreference(sport: .running, sessionsPerWeek: 3)
+                ],
+                stage: .complete,
+                completedAt: .now
+            )
+        )
+        context.insert(profile)
+        try context.save()
+
+        var changed = try #require(profile.setup)
+        changed.objective = .event(
+            sport: .running,
+            distance: EventDistance(kind: .run10K)
+        )
+        profile.setup = changed
+
+        let rebuilt = try PlanStore(context: context).reassess(
+            week,
+            poolLengthMeters: 25,
+            asOf: monday()
+        )
+
+        #expect(rebuilt > 0)
+        #expect(completed.title == completedTitle)
+        #expect(completed.prescribedDurationSeconds == completedDuration)
+        #expect(completed.completedAt == completedAt)
+        #expect(completed.feedback?.rpe == 4)
+        #expect(completed.isCompleted)
+    }
 }
