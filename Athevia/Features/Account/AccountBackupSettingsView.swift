@@ -69,8 +69,7 @@ struct AccountBackupSettingsView: View {
                 restoreCloudTraining()
             }
             Button("Cancel", role: .cancel) {
-                pendingCloudBackup = nil
-                signedInSession = nil
+                cancelCloudDecision()
             }
         } message: {
             Text("Choose which training history should become active on this iPhone. This avoids silently replacing local or cloud data.")
@@ -141,6 +140,15 @@ struct AccountBackupSettingsView: View {
             signedInSession = session
         } catch {
             message = "Could not connect cloud backup: \(error.localizedDescription)"
+        }
+    }
+
+    private func cancelCloudDecision() {
+        pendingCloudBackup = nil
+        signedInSession = nil
+
+        Task {
+            try? await authentication.signOut()
         }
     }
 
