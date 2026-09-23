@@ -184,4 +184,63 @@ struct OnboardingFlowTests {
         model.advance()
         #expect(model.stage == .preview)
     }
+
+    @Test func eventMustMatchSelectedTrainingSportsBeforePreview() throws {
+        let context = ModelContext(try AtheviaModelContainer.make(inMemory: true))
+        let model = OnboardingModel(context: context)
+
+        model.toggleSport(.running)
+        model.advance()
+        model.toggleDay(.monday)
+        model.toggleDay(.wednesday)
+        model.setSharedMaxDuration(45)
+
+        model.choose(
+            objective: .event(
+                sport: .triathlon,
+                distance: EventDistance(kind: .triathlonSprint)
+            )
+        )
+
+        #expect(!model.canAdvance)
+        #expect(model.objectiveValidationIssues.contains(.missingTrainingSport(.swimming)))
+        #expect(model.objectiveValidationIssues.contains(.missingTrainingSport(.cycling)))
+
+        model.choose(
+            objective: .event(
+                sport: .running,
+                distance: EventDistance(kind: .run5K)
+            )
+        )
+
+        #expect(model.objectiveValidationIssues.isEmpty)
+        #expect(model.canAdvance)
+    }
+
+    @Test func pastEventDateCannotAdvanceToPreview() throws {
+        let context = ModelContext(try AtheviaModelContainer.make(inMemory: true))
+        let model = OnboardingModel(context: context)
+
+        model.toggleSport(.running)
+        model.advance()
+        model.toggleDay(.monday)
+        model.toggleDay(.wednesday)
+        model.setSharedMaxDuration(45)
+
+        let yesterday = Calendar.current.date(
+            byAdding: .day,
+            value: -1,
+            to: Calendar.current.startOfDay(for: .now)
+        ) ?? .now
+        model.choose(
+            objective: .event(
+                sport: .running,
+                distance: EventDistance(kind: .run5K),
+                eventDate: yesterday
+            )
+        )
+
+        #expect(!model.canAdvance)
+        #expect(model.objectiveValidationIssues.contains(.eventDateInPast))
+    }
 }
