@@ -100,12 +100,12 @@ struct SettingsView: View {
                 isPresented: $showsDeleteConfirmation,
                 titleVisibility: .visible
             ) {
-                Button("Delete Account & Cloud Data", role: .destructive) {
+                Button("Delete Account & All Athevia Data", role: .destructive) {
                     deleteAccount()
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("This permanently deletes your Athevia account and cloud backups. Training stored locally on this iPhone is not deleted.")
+                Text("This permanently deletes your Athevia account, cloud backups, and Athevia training data stored on this iPhone. Apple Health workouts are not deleted.")
             }
             .alert(
                 "Account",
@@ -466,10 +466,19 @@ struct SettingsView: View {
         isWorking = true
         Task { @MainActor in
             defer { isWorking = false }
+
             do {
                 try await authentication.deleteAccount()
             } catch {
-                accountMessage = error.localizedDescription
+                accountMessage = "Account deletion was not completed: \(error.localizedDescription)"
+                return
+            }
+
+            do {
+                try LocalTrainingStoreState.removeUserData(modelContext)
+                await TrainingNotificationManager.shared.removeAllOwnedPendingRequests()
+            } catch {
+                accountMessage = "Your account and cloud backups were deleted, but Athevia could not erase all local training data. Please reinstall the app before using another account."
             }
         }
     }
