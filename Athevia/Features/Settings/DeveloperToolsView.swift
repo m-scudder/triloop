@@ -194,13 +194,11 @@ struct DeveloperToolsView: View {
 
             Section {
                 Button("Start over — reset Athevia", role: .destructive) {
-                    SeedDataInstaller.eraseAll(in: modelContext)
-                    message = "Athevia data erased. Relaunch to go through setup."
+                    Task { await startOver() }
                 }
 
                 Button("Reset seed data", role: .destructive) {
-                    SeedDataInstaller.reset(in: modelContext)
-                    message = "Seed reinstalled."
+                    Task { await resetSeedData() }
                 }
             } footer: {
                 Text("Start Over clears Athevia's local profile and training data. Apple Health is not deleted; workouts from before the reset are ignored when the fresh plan imports. Resetting reinstalls the fixed week one without touching setup.")
@@ -212,6 +210,39 @@ struct DeveloperToolsView: View {
             Button("OK", role: .cancel) { message = nil }
         } message: {
             Text(message ?? "")
+        }
+    }
+
+
+    private func startOver() async {
+        await clearExternalTrainingState()
+        SeedDataInstaller.eraseAll(in: modelContext)
+        message = "Athevia data erased. Relaunch to go through setup."
+    }
+
+    private func resetSeedData() async {
+        await clearExternalTrainingState()
+        SeedDataInstaller.reset(in: modelContext)
+
+        let freshPlans = (try? modelContext.fetch(
+            FetchDescriptor<WeeklyPlan>(sortBy: [SortDescriptor(\.startDate)])
+        )) ?? []
+        let freshPlan = freshPlans.currentPlan()
+
+        _ = WatchAppPlanSync.sync(freshPlan)
+        await WatchScheduleSync.sync(freshPlan)
+        await TrainingNotificationManager.shared.synchronize(plans: freshPlans)
+
+        message = "Seed reinstalled and synced as the only active training week."
+    }
+
+    private func clearExternalTrainingState() async {
+        await TrainingNotificationManager.shared.removeAllOwnedPendingRequests()
+        _ = WatchAppPlanSync.sync(nil)
+
+        let scheduler = WorkoutKitScheduler()
+        if scheduler.isSupported {
+            await scheduler.removeAllScheduled()
         }
     }
 
