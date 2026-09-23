@@ -29,15 +29,15 @@ struct AthleteSetup: Codable, Equatable, Sendable {
         case complete
         case safety
 
-        static let onboardingFlow: [Stage] = [.running, .goal, .days, .health, .preview]
+        static let onboardingFlow: [Stage] = [.running, .days, .preview]
 
         var consolidated: Stage {
             switch self {
             case .welcome: .running
-            case .about: .goal
+            case .about, .goal: .days
             case .swimming, .cycling, .pool: .running
             case .commitment: .days
-            case .watch, .safety: .health
+            case .health, .watch, .safety: .preview
             default: self
             }
         }
