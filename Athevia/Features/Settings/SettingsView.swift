@@ -34,12 +34,12 @@ struct SettingsView: View {
         NavigationStack {
             List {
                 profileSection
-                accountSection
                 trainingSection
                 notificationsSection
                 connectionsSection
                 automationSection
                 developerSection
+                accountSection
                 accountActions
                 versionFooter
             }
@@ -176,7 +176,7 @@ struct SettingsView: View {
             SettingsNavigationRow(
                 title: "Audio coaching",
                 systemImage: "speaker.wave.2",
-                value: "Runs & rides"
+                value: nil
             )
         }
         .buttonStyle(.plain)
@@ -186,10 +186,11 @@ struct SettingsView: View {
         Button {
             showsNotificationSettings = true
         } label: {
-            SettingsNavigationRow(
+            SettingsStatusRow(
                 title: "Notifications",
                 systemImage: "bell",
-                value: notificationStatusText
+                value: notificationStatusText,
+                isConnected: notificationStatus == .authorized && notificationsEnabled
             )
         }
         .buttonStyle(.plain)
@@ -242,13 +243,15 @@ struct SettingsView: View {
     @ViewBuilder
     private var automationSection: some View {
         Toggle(isOn: $automaticallyImport) {
-            Label("Import workouts automatically", systemImage: "arrow.down.circle")
+            Label("Auto Import Workout", systemImage: "arrow.down.circle")
         }
+        .controlSize(.small)
 
         if watch.isPairedWatch && watch.canSchedule {
             Toggle(isOn: $automaticallySchedule) {
                 Label("Send workouts to Watch", systemImage: "applewatch")
             }
+            .controlSize(.small)
         }
 
         Button { importThisWeek() } label: {
@@ -846,7 +849,7 @@ private struct WatchAppSetupView: View {
 private struct SettingsNavigationRow: View {
     let title: String
     let systemImage: String
-    let value: String
+    let value: String?
 
     var body: some View {
         HStack(spacing: 12) {
@@ -855,9 +858,11 @@ private struct SettingsNavigationRow: View {
 
             Spacer(minLength: 12)
 
-            Text(value)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+            if let value, !value.isEmpty {
+                Text(value)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 }
