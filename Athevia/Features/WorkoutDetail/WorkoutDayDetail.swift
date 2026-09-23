@@ -332,7 +332,7 @@ struct WorkoutDayDetail: View {
                     Button("Move Workout") {
                         do {
                             try PlanStore(context: modelContext).moveWorkout(workout, to: moveDate)
-                            actionMessage = "Workout moved to \(workout.date.formatted(date: .abbreviated, time: .omitted))."
+                            actionMessage = "Workout moved to \(TrainingFormatter.shortDate(workout.date))."
                             isMoving = false
                             Task { await WatchScheduleSync.sync(plan) }
                         } catch {
