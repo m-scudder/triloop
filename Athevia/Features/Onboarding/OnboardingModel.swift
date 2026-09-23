@@ -41,10 +41,12 @@ final class OnboardingModel {
         self.calendar = calendar
 
         let existing = try? context.fetch(FetchDescriptor<AthleteProfile>()).first
+        let initialSetup = existing?.setup ?? AthleteSetup()
+
         profile = existing
-        setup = existing?.setup ?? AthleteSetup()
+        setup = initialSetup
         poolLengthMeters = existing?.poolLengthMeters ?? 25
-        selectedStartDate = calendar.startOfDay(for: setup.planStartDate ?? .now)
+        selectedStartDate = calendar.startOfDay(for: initialSetup.planStartDate ?? .now)
 
         let plans = (try? context.fetchCount(FetchDescriptor<WeeklyPlan>())) ?? 0
         isUpgrade = existing != nil && plans > 0
