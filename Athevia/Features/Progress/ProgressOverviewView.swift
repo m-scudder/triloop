@@ -156,9 +156,9 @@ struct ProgressOverviewView: View {
                         HStack(spacing: 14) {
                             Image(systemName: state.sport.discipline.symbolName)
                                 .font(.headline)
-                                .foregroundStyle(.primary)
+                                .foregroundStyle(state.sport.discipline.tint)
                                 .frame(width: 38, height: 38)
-                                .background(.fill.tertiary, in: .circle)
+                                .background(state.sport.discipline.tint.opacity(0.12), in: .circle)
 
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(state.sport.displayName)
