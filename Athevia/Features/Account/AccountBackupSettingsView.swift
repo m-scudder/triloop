@@ -14,11 +14,18 @@ struct AccountBackupSettingsView: View {
 
     var body: some View {
         List {
-            Section("Account") {
-                switch authentication.state {
-                case .signedIn(let session):
-                    LabeledContent("Apple", value: session.email ?? "Signed in")
+            switch authentication.state {
+            case .signedIn(let session):
+                Section {
+                    LabeledContent("Backup", value: lastBackupText)
 
+                    Button("Back Up Now") {
+                        backUpNow(session)
+                    }
+                    .disabled(isWorking)
+                }
+
+                Section {
                     Button("Sign Out") {
                         signOut(session)
                     }
@@ -28,37 +35,25 @@ struct AccountBackupSettingsView: View {
                         showsDeleteConfirmation = true
                     }
                     .disabled(isWorking)
+                }
 
-                case .checking, .signingIn:
+            case .checking, .signingIn:
+                Section {
                     HStack {
-                        Text("Apple")
+                        Text("Account")
                         Spacer()
                         ProgressView()
                     }
+                }
 
-                case .signedOut, .failed:
+            case .signedOut, .failed:
+                Section {
                     AppleSignInButtonView { credential in
                         _ = try await authentication.signInWithApple(credential)
                         await refreshBackup()
                     }
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
-                }
-            }
-
-            if case .signedIn(let session) = authentication.state {
-                Section {
-                    LabeledContent("Status", value: backupStatus)
-                    LabeledContent("Last Backup", value: lastBackupText)
-
-                    Button("Back Up Now") {
-                        backUpNow(session)
-                    }
-                    .disabled(isWorking)
-                } header: {
-                    Text("Cloud Backup")
-                } footer: {
-                    Text("Your latest backup is restored automatically after you sign in.")
                 }
             }
         }
@@ -93,21 +88,6 @@ struct AccountBackupSettingsView: View {
             Button("OK", role: .cancel) { message = nil }
         } message: {
             Text(message ?? "")
-        }
-    }
-
-    private var backupStatus: String {
-        switch backup.state {
-        case .idle:
-            latestBackup == nil ? "Not backed up" : "Safe"
-        case .backingUp:
-            "Backing up…"
-        case .backedUp:
-            "Safe"
-        case .restoring:
-            "Restoring…"
-        case .failed:
-            "Pending"
         }
     }
 
