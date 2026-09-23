@@ -22,6 +22,7 @@ struct SettingsView: View {
     @State private var showsNotificationSettings = false
     @State private var showsAudioCoachingSettings = false
     @State private var showsDeleteConfirmation = false
+    @State private var showsEraseLocalConfirmation = false
     @State private var accountMessage: String?
 
     @AppStorage("automaticallyScheduleWorkouts") private var automaticallySchedule = true
@@ -90,6 +91,18 @@ struct SettingsView: View {
                         backup: backup
                     )
                 }
+            }
+            .confirmationDialog(
+                "Erase Athevia data from this iPhone?",
+                isPresented: $showsEraseLocalConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Erase Local Athevia Data", role: .destructive) {
+                    eraseLocalData()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This removes Athevia training data from this iPhone and clears Athevia workouts from the paired Watch. Apple Health workouts are not deleted.")
             }
             .confirmationDialog(
                 "Delete your Athevia account?",
@@ -269,27 +282,40 @@ struct SettingsView: View {
 
     @ViewBuilder
     private var accountActions: some View {
-        if let authentication, let backup,
-           case .signedIn(let session) = authentication.state {
-            Button {
-                signOut(session, authentication: authentication, backup: backup)
-            } label: {
-                Label {
-                    Text("Sign Out")
-                } icon: {
-                    Image(systemName: "rectangle.portrait.and.arrow.right")
-                        .font(.subheadline)
-                        .frame(width: 20)
+        if let authentication, let backup {
+            switch authentication.state {
+            case .signedIn(let session):
+                Button {
+                    signOut(session, authentication: authentication, backup: backup)
+                } label: {
+                    Label {
+                        Text("Sign Out")
+                    } icon: {
+                        Image(systemName: "rectangle.portrait.and.arrow.right")
+                            .font(.subheadline)
+                            .frame(width: 20)
+                    }
                 }
-            }
-            .disabled(isWorking)
+                .disabled(isWorking)
 
-            Button(role: .destructive) {
-                showsDeleteConfirmation = true
-            } label: {
-                Label("Delete Account", systemImage: "trash")
+                Button(role: .destructive) {
+                    showsDeleteConfirmation = true
+                } label: {
+                    Label("Delete Account", systemImage: "trash")
+                }
+                .disabled(isWorking)
+
+            case .signedOut, .failed:
+                Button(role: .destructive) {
+                    showsEraseLocalConfirmation = true
+                } label: {
+                    Label("Erase Athevia Data", systemImage: "trash")
+                }
+                .disabled(isWorking)
+
+            case .checking, .signingIn:
+                EmptyView()
             }
-            .disabled(isWorking)
         }
     }
 
@@ -419,6 +445,14 @@ struct SettingsView: View {
             } catch {
                 healthStatus = await health.authorizationStatus
             }
+        }
+    }
+
+    private func eraseLocalData() {
+        isWorking = true
+        Task { @MainActor in
+            defer { isWorking = false }
+            await clearSignedOutAccountData()
         }
     }
 
