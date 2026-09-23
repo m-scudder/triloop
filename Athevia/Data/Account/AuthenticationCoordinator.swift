@@ -70,6 +70,13 @@ final class AuthenticationCoordinator {
         }
     }
 
+    /// Explicit local sign-out fallback used when the remote provider cannot
+    /// be reached. The app must stop treating the cached account as active even
+    /// though server-side token revocation can only be retried when online.
+    func completeLocalSignOut() {
+        state = .signedOut
+    }
+
     func deleteAccount() async throws {
         do {
             try await service.deleteAccount()
@@ -84,18 +91,25 @@ final class AuthenticationCoordinator {
 
 /// Orchestrates the security-sensitive order of operations when leaving an account.
 ///
-/// The final backup is intentionally best-effort: a connectivity failure must not
-/// prevent sign-out. Local account data is only cleared after the authentication
-/// provider confirms that the local session has been signed out.
+/// The final backup is intentionally best-effort: connectivity must not prevent
+/// an explicit sign-out. Remote token revocation is attempted first, but local
+/// account data is always cleared so the previous account cannot remain visible.
 @MainActor
 enum AccountExitFlow {
     static func signOut(
         finalBackup: @MainActor () async throws -> Void,
         remoteSignOut: @MainActor () async throws -> Void,
+        localSignOutFallback: @MainActor () -> Void,
         cleanup: @MainActor () async -> Void
-    ) async throws {
+    ) async {
         try? await finalBackup()
-        try await remoteSignOut()
+
+        do {
+            try await remoteSignOut()
+        } catch {
+            localSignOutFallback()
+        }
+
         await cleanup()
     }
 }
