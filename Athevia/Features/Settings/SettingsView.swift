@@ -245,11 +245,13 @@ struct SettingsView: View {
         Toggle(isOn: $automaticallyImport) {
             Label("Auto Import Workout", systemImage: "arrow.down.circle")
         }
+        .tint(.green)
 
         if watch.isPairedWatch && watch.canSchedule {
             Toggle(isOn: $automaticallySchedule) {
                 Label("Send workouts to Watch", systemImage: "applewatch")
             }
+            .tint(.green)
         }
 
         Button { importThisWeek() } label: {
@@ -290,7 +292,13 @@ struct SettingsView: View {
             Button {
                 signOut(session, authentication: authentication, backup: backup)
             } label: {
-                Label("Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
+                Label {
+                    Text("Sign Out")
+                } icon: {
+                    Image(systemName: "rectangle.portrait.and.arrow.right")
+                        .font(.subheadline)
+                        .frame(width: 20)
+                }
             }
             .disabled(isWorking)
 
