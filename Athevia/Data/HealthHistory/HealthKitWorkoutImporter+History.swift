@@ -79,6 +79,20 @@ private extension HKWorkout {
         return nil
     }
 
+    var historySwimmingLengthCount: Int? {
+        guard workoutActivityType == .swimming,
+              let distanceMeters = historyDistanceMeters,
+              let lapLength = metadata?[HKMetadataKeyLapLength] as? HKQuantity else {
+            return nil
+        }
+
+        let lapMeters = lapLength.doubleValue(for: .meter())
+        guard lapMeters > 0 else { return nil }
+
+        let lengths = Int((distanceMeters / lapMeters).rounded())
+        return lengths > 0 ? lengths : nil
+    }
+
     var historyAverageHeartRate: Double? {
         statistics(for: HKQuantityType(.heartRate))?
             .averageQuantity()?
