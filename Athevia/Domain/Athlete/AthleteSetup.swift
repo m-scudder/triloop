@@ -145,7 +145,11 @@ struct AthleteSetup: Codable, Equatable, Sendable {
         let defaults = AthleteSetup()
 
         func value<T: Decodable>(_ key: CodingKeys, _ fallback: T) -> T {
-            (try? container.decodeIfPresent(T.self, forKey: key)) as? T ?? fallback
+            do {
+                return try container.decodeIfPresent(T.self, forKey: key) ?? fallback
+            } catch {
+                return fallback
+            }
         }
 
         let legacyGoal = value(.goal, defaults.goal)
