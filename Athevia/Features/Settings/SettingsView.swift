@@ -448,16 +448,22 @@ struct SettingsView: View {
         isWorking = true
         Task { @MainActor in
             defer { isWorking = false }
+
+            // A final cloud revision is useful, but a network/backup failure must
+            // never trap someone in an account they explicitly asked to leave.
+            try? await backup.backup(
+                accountID: session.userID,
+                from: modelContext
+            )
+
             do {
-                _ = try await backup.backup(
-                    accountID: session.userID,
-                    from: modelContext
-                )
                 try await authentication.signOut()
-                try LocalTrainingStoreState.removeUserData(modelContext)
             } catch {
                 accountMessage = "Sign out was not completed: \(error.localizedDescription)"
+                return
             }
+
+            await clearSignedOutAccountData()
         }
     }
 
@@ -474,12 +480,30 @@ struct SettingsView: View {
                 return
             }
 
-            do {
-                try LocalTrainingStoreState.removeUserData(modelContext)
-                await TrainingNotificationManager.shared.removeAllOwnedPendingRequests()
-            } catch {
-                accountMessage = "Your account and cloud backups were deleted, but Athevia could not erase all local training data. Please reinstall the app before using another account."
-            }
+            await clearSignedOutAccountData()
+        }
+    }
+
+    private func clearSignedOutAccountData() async {
+        var localCleanupError: Error?
+
+        do {
+            try LocalTrainingStoreState.removeUserData(modelContext)
+        } catch {
+            localCleanupError = error
+        }
+
+        // Account-specific reminders and Watch payloads must not survive into
+        // the next signed-in account on the same iPhone/Watch pair.
+        await TrainingNotificationManager.shared.removeAllOwnedPendingRequests()
+        _ = WatchAppPlanSync.sync(nil)
+
+        if scheduler.isSupported {
+            await scheduler.removeAllScheduled()
+        }
+
+        if let localCleanupError {
+            accountMessage = "Athevia signed out, but some local training data could not be erased: \(localCleanupError.localizedDescription). Please reinstall the app before using another account."
         }
     }
 
