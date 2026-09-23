@@ -27,7 +27,7 @@ struct WatchWorkoutListView: View {
                                     )
                                 }
                                 .listRowBackground(
-                                    active.discipline.listTint.opacity(0.24)
+                                    Color.white.opacity(0.12)
                                 )
                             }
                         }
@@ -105,8 +105,8 @@ struct WatchWorkoutListView: View {
             )
         }
         .listRowBackground(
-            workout.discipline.listTint.opacity(
-                store.isCompleted(workout) ? 0.09 : 0.16
+            Color.white.opacity(
+                store.isCompleted(workout) ? 0.05 : 0.09
             )
         )
     }
