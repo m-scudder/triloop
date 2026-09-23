@@ -235,12 +235,12 @@ struct StartingPointStepView: View {
                     .multilineTextAlignment(.leading)
                 Spacer(minLength: 8)
                 Image(systemName: selected ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(selected ? Color.accentColor : .secondary)
+                    .foregroundStyle(selected ? Color.blue : .secondary)
             }
             .padding(.horizontal, 12)
             .frame(maxWidth: .infinity, minHeight: 44)
             .background(
-                selected ? Color.accentColor.opacity(0.10) : Color.clear,
+                selected ? Color.blue.opacity(0.12) : Color.clear,
                 in: .rect(cornerRadius: 10)
             )
         }
@@ -269,7 +269,7 @@ struct StartingPointStepView: View {
             .foregroundStyle(selected ? Color.white : Color.primary)
             .frame(maxWidth: .infinity, minHeight: 42)
             .background(
-                selected ? Color.accentColor : Color.secondary.opacity(0.10),
+                selected ? Color.blue : Color.secondary.opacity(0.10),
                 in: .rect(cornerRadius: 10)
             )
     }
@@ -303,7 +303,7 @@ struct StartingPointStepView: View {
     private func chooseConservativeDefault(for sport: Sport) {
         switch sport {
         case .running:
-            model.choose(running: .none)
+            model.choose(running: .runWalk)
         case .swimming:
             model.choose(swimming: .none)
         case .cycling:
