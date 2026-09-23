@@ -50,9 +50,10 @@ struct DisciplineBadge: View {
     var body: some View {
         Image(systemName: discipline.symbolName)
             .font(.system(size: size * 0.45, weight: .semibold))
-            .foregroundStyle(discipline.tint)
+            .symbolRenderingMode(.monochrome)
+            .foregroundStyle(.primary)
             .frame(width: size, height: size)
-            .background(discipline.tint.opacity(0.18), in: .rect(cornerRadius: size * 0.28))
+            .background(.fill.tertiary, in: .rect(cornerRadius: size * 0.28))
             .accessibilityHidden(true)
     }
 }
