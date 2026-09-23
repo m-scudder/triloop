@@ -1,4 +1,3 @@
-#if DEBUG
 import Foundation
 import HealthKit
 
@@ -134,4 +133,3 @@ extension HKWorkoutActivityType {
         }
     }
 }
-#endif
