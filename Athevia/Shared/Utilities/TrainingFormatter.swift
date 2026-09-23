@@ -41,6 +41,48 @@ enum TrainingFormatter {
         return "\(start.formatted(startFormat)) – \(end.formatted(.dateTime.day().month(.abbreviated)))"
     }
 
+    static func shortDate(_ date: Date, includeYear: Bool = false) -> String {
+        if includeYear {
+            return date.formatted(
+                .dateTime
+                    .weekday(.abbreviated)
+                    .day()
+                    .month(.abbreviated)
+                    .year()
+            )
+        }
+
+        return date.formatted(
+            .dateTime
+                .weekday(.abbreviated)
+                .day()
+                .month(.abbreviated)
+        )
+    }
+
+    static func shortDateTime(_ date: Date, includeYear: Bool = false) -> String {
+        if includeYear {
+            return date.formatted(
+                .dateTime
+                    .weekday(.abbreviated)
+                    .day()
+                    .month(.abbreviated)
+                    .year()
+                    .hour()
+                    .minute()
+            )
+        }
+
+        return date.formatted(
+            .dateTime
+                .weekday(.abbreviated)
+                .day()
+                .month(.abbreviated)
+                .hour()
+                .minute()
+        )
+    }
+
     static func weekdayAbbreviation(for date: Date) -> String {
         date.formatted(.dateTime.weekday(.abbreviated))
     }
