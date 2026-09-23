@@ -128,7 +128,7 @@ struct FirstWeekBuilder: Sendable {
             .map { "\($0.value) × \($0.key.displayName.lowercased())" }
             .joined(separator: ", ")
 
-        let opening = "Built from your \(setup.goal.displayName.lowercased()) goal and what you can do today"
+        let opening = "Built from your \(setup.objective.displayName.lowercased()) goal and what you can do today"
         guard !sports.isEmpty else { return opening + "." }
 
         let unfitted = shape.fittedEverything
