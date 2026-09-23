@@ -104,21 +104,23 @@ struct TrainingObjectiveTests {
         #expect(restored.event?.distance?.components.runMeters == 6_000)
     }
 
-    @Test("Invalid custom distances are recoverable validation issues")
+    @Test("Zero and negative custom distances are recoverable validation issues")
     func invalidCustomDistance() {
-        let objective = TrainingObjective.event(
-            sport: .running,
-            distance: .custom(for: .running, runMeters: 0)
-        )
+        for meters in [0.0, -100.0] {
+            let objective = TrainingObjective.event(
+                sport: .running,
+                distance: .custom(for: .running, runMeters: meters)
+            )
 
-        let issues = TrainingObjectiveValidator.issues(
-            for: objective,
-            selectedSports: [.running],
-            asOf: date(2026, 9, 24),
-            calendar: calendar
-        )
+            let issues = TrainingObjectiveValidator.issues(
+                for: objective,
+                selectedSports: [.running],
+                asOf: date(2026, 9, 24),
+                calendar: calendar
+            )
 
-        #expect(issues.contains(.invalidEventDistance))
+            #expect(issues.contains(.invalidEventDistance))
+        }
     }
 
     @Test("Event distance must belong to the selected event sport")
