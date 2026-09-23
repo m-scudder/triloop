@@ -25,8 +25,8 @@ struct PlanPreviewStepView: View {
                     description: Text(failure)
                 )
             } else if let plan = model.preview {
-                if model.canStartNow {
-                    startPicker
+                if model.canChooseStartDate {
+                    startDatePicker
                 }
 
                 week(plan)
@@ -39,20 +39,27 @@ struct PlanPreviewStepView: View {
         .task { if model.preview == nil { model.buildPreview() } }
     }
 
-    /// Starting today gives a short week rather than backdating sessions the
-    /// athlete never had the chance to do.
-    private var startPicker: some View {
-        Picker(
-            "Start",
-            selection: Binding(
-                get: { model.startChoice },
-                set: { model.choose(start: $0) }
-            )
-        ) {
-            Text("Start this week").tag(OnboardingModel.StartChoice.now)
-            Text("Start Monday").tag(OnboardingModel.StartChoice.nextMonday)
+    private var startDatePicker: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 8) {
+                SectionEyebrow(text: "Start training")
+
+                DatePicker(
+                    "Start date",
+                    selection: Binding(
+                        get: { model.selectedStartDate },
+                        set: { model.choose(startDate: $0) }
+                    ),
+                    in: model.minimumStartDate...,
+                    displayedComponents: .date
+                )
+                .datePickerStyle(.compact)
+
+                Text("Your first plan uses the selected date, then future weeks continue Monday to Sunday.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
-        .pickerStyle(.segmented)
     }
 
     /// Weeks always run Monday to Sunday, so the useful thing to state is when
