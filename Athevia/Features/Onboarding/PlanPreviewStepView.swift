@@ -68,7 +68,7 @@ struct PlanPreviewStepView: View {
 
         if calendar.isDateInToday(first) { return "First session today" }
         if calendar.isDateInTomorrow(first) { return "First session tomorrow" }
-        return "First session \(first.formatted(.dateTime.weekday(.wide).day().month(.wide)))"
+        return "First session \(TrainingFormatter.shortDate(first))"
     }
 
     private func week(_ plan: WeeklyPlan) -> some View {
@@ -105,7 +105,7 @@ struct PlanPreviewStepView: View {
     }
 
     private func weekday(of date: Date) -> String {
-        date.formatted(.dateTime.weekday(.wide))
+        TrainingFormatter.weekdayAbbreviation(for: date)
     }
 
     private func detail(_ workout: PlannedWorkout) -> String {
