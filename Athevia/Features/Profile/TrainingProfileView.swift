@@ -40,10 +40,9 @@ struct TrainingProfileView: View {
         } message: {
             Text(message ?? "")
         }
-        .confirmationDialog(
+        .alert(
             "Rebuild the days still ahead?",
-            isPresented: $isConfirmingReassessment,
-            titleVisibility: .visible
+            isPresented: $isConfirmingReassessment
         ) {
             Button("Rebuild upcoming days") { reassess() }
             Button("Cancel", role: .cancel) {}
@@ -334,6 +333,7 @@ struct TrainingProfileView: View {
             Section {
                 ForEach(Weekday.trainingWeek, id: \.self) { weekday in
                     Toggle(weekday.displayName, isOn: dayBinding(weekday))
+                        .toggleStyle(AtheviaToggleStyle())
                 }
             } header: {
                 Text("Days you can train")
@@ -393,6 +393,7 @@ struct TrainingProfileView: View {
         Form {
             Section {
                 Toggle("Use my age for zones", isOn: usesBirthDate)
+                    .toggleStyle(AtheviaToggleStyle())
 
                 if setup.birthDate != nil {
                     DatePicker(
