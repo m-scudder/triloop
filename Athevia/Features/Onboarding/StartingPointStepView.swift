@@ -39,59 +39,67 @@ struct StartingPointStepView: View {
         let expanded = selected && expandedSport == sport
 
         VStack(spacing: 0) {
-            Button {
-                if selected {
-                    model.toggleSport(sport)
-                    if expandedSport == sport {
-                        expandedSport = nil
-                    }
-                } else {
-                    model.toggleSport(sport)
-                    prepareDetails(for: sport)
-                    expandedSport = sport
-                }
-            } label: {
-                HStack(spacing: 12) {
-                    Image(systemName: selected ? "checkmark.circle.fill" : "circle")
-                        .font(.title3)
-                        .foregroundStyle(selected ? sport.discipline.tint : .secondary)
-
-                    DisciplineBadge(discipline: sport.discipline, size: 38)
-
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(sport.displayName)
-                            .font(.headline)
-                            .foregroundStyle(.primary)
-                        Text(selected ? summary(sport) : "Tap to include")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    Spacer(minLength: 8)
-
+            HStack(spacing: 0) {
+                Button {
                     if selected {
+                        model.toggleSport(sport)
+                        if expandedSport == sport {
+                            expandedSport = nil
+                        }
+                    } else {
+                        model.toggleSport(sport)
+                        prepareDetails(for: sport)
+                        expandedSport = sport
+                    }
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                            .font(.title3)
+                            .foregroundStyle(
+                                selected
+                                    ? AnyShapeStyle(sport.discipline.tint)
+                                    : AnyShapeStyle(.secondary)
+                            )
+
+                        DisciplineBadge(discipline: sport.discipline, size: 38)
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(sport.displayName)
+                                .font(.headline)
+                                .foregroundStyle(.primary)
+                            Text(selected ? summary(sport) : "Tap to include")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Spacer(minLength: 8)
+                    }
+                    .padding(14)
+                    .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("startingPoint.\(sport.rawValue)")
+                .accessibilityLabel("\(sport.displayName), \(selected ? "selected" : "not selected")")
+                .accessibilityAddTraits(selected ? [.isSelected] : [])
+
+                if selected {
+                    Button {
+                        if expanded {
+                            expandedSport = nil
+                        } else {
+                            prepareDetails(for: sport)
+                            expandedSport = sport
+                        }
+                    } label: {
                         Image(systemName: expanded ? "chevron.up" : "chevron.down")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
-                            .padding(10)
-                            .contentShape(.rect)
-                            .onTapGesture {
-                                if expanded {
-                                    expandedSport = nil
-                                } else {
-                                    prepareDetails(for: sport)
-                                    expandedSport = sport
-                                }
-                            }
+                            .frame(width: 48, height: 48)
                     }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(expanded ? "Hide \(sport.displayName) setup" : "Edit \(sport.displayName) setup")
                 }
-                .padding(14)
-                .contentShape(.rect)
             }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("startingPoint.\(sport.rawValue)")
-            .accessibilityLabel("\(sport.displayName), \(selected ? "selected" : "not selected")")
-            .accessibilityAddTraits(selected ? [.isSelected] : [])
 
             if expanded {
                 Divider()
