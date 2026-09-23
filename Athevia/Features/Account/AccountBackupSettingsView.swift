@@ -64,9 +64,9 @@ struct AccountBackupSettingsView: View {
     private var lastBackupText: String {
         switch backup.state {
         case .backedUp(_, let date):
-            date.formatted(date: .abbreviated, time: .shortened)
+            TrainingFormatter.shortDateTime(date, includeYear: true)
         default:
-            latestBackup?.createdAt.formatted(date: .abbreviated, time: .shortened) ?? "Never"
+            latestBackup.map { TrainingFormatter.shortDateTime($0.createdAt, includeYear: true) } ?? "Never"
         }
     }
 
