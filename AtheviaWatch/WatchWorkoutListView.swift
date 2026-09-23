@@ -161,7 +161,14 @@ private struct WatchWorkoutRow: View {
     }
 
     private var subtitle: String {
-        var values = [workout.date.formatted(.dateTime.weekday(.abbreviated))]
+        var values = [
+            workout.date.formatted(
+                .dateTime
+                    .weekday(.abbreviated)
+                    .day()
+                    .month(.abbreviated)
+            )
+        ]
         if let duration = workout.estimatedDurationSeconds {
             values.append(duration.atheviaWatchDurationText)
         } else if let distance = workout.estimatedDistanceMeters {
