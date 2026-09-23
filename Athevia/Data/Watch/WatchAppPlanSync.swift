@@ -4,6 +4,11 @@ import SwiftData
 @MainActor
 enum WatchAppPlanSync {
     static let contextKey = "athevia.workout-list.v1"
+    private static let lastQueuedAtKey = "athevia.watch.last-queued-at"
+
+    static var lastQueuedAt: Date? {
+        UserDefaults.standard.object(forKey: lastQueuedAtKey) as? Date
+    }
 
     @discardableResult
     static func sync(_ plan: WeeklyPlan?) -> Bool {
@@ -11,6 +16,7 @@ enum WatchAppPlanSync {
         do {
             let data = try JSONEncoder.atheviaWatch.encode(payload)
             WatchAvailability.shared.updateWatchAppContext([contextKey: data])
+            UserDefaults.standard.set(Date.now, forKey: lastQueuedAtKey)
             return true
         } catch {
             return false
