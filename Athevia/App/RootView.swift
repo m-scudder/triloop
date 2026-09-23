@@ -45,6 +45,9 @@ struct RootView: View {
                         if seedLocalBackup {
                             seedAutomaticBackup(for: session)
                         }
+                    },
+                    onContinueLocally: {
+                        accountReady = true
                     }
                 )
             } else {
