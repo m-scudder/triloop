@@ -29,6 +29,9 @@ struct AppleAuthenticationCredential: Equatable, Sendable {
 }
 
 protocol AuthenticationService: Sendable {
+    /// Returns only the locally cached auth session. This must not require
+    /// network access or token refresh.
+    func cachedSession() async -> AccountSession?
     func currentSession() async throws -> AccountSession?
     func signInWithApple(_ credential: AppleAuthenticationCredential) async throws -> AccountSession
     func signOut() async throws
@@ -46,6 +49,7 @@ enum AuthenticationServiceError: LocalizedError, Equatable {
 /// Used until the Supabase client is configured. Keeping an explicit adapter
 /// means we can build and test backup/restore without fake production secrets.
 actor UnconfiguredAuthenticationService: AuthenticationService {
+    func cachedSession() async -> AccountSession? { nil }
     func currentSession() async throws -> AccountSession? { nil }
 
     func signInWithApple(_ credential: AppleAuthenticationCredential) async throws -> AccountSession {
