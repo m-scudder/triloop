@@ -220,17 +220,17 @@ struct TrainingProfileView: View {
 
     private var planSection: some View {
         Section {
-            Button("Update upcoming days") { reshape() }
+            Button("Reschedule upcoming workouts") { reshape() }
                 .disabled(plans.currentPlan() == nil)
 
-            Button("Rebuild from what I can do now") {
+            Button("Rebuild upcoming workouts") {
                 isConfirmingReassessment = true
             }
             .disabled(plans.currentPlan() == nil)
         } header: {
             Text("Plan")
         } footer: {
-            Text("Update moves sessions still ahead onto days you can train. Rebuild also recalculates those sessions from your current ability.")
+            Text("Reschedule moves future workouts onto the days you can train. Rebuild also recalculates those workouts using your current ability.")
         }
     }
 
@@ -692,7 +692,7 @@ private struct WeeklyHistoryRow: View {
 
             if let adherence = plan.adherenceShare {
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text("Adherence")
+                    Text("Plan completed")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
 
