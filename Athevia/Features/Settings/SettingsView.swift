@@ -449,21 +449,24 @@ struct SettingsView: View {
         Task { @MainActor in
             defer { isWorking = false }
 
-            // A final cloud revision is useful, but a network/backup failure must
-            // never trap someone in an account they explicitly asked to leave.
-            try? await backup.backup(
-                accountID: session.userID,
-                from: modelContext
-            )
-
             do {
-                try await authentication.signOut()
+                try await AccountExitFlow.signOut(
+                    finalBackup: {
+                        _ = try await backup.backup(
+                            accountID: session.userID,
+                            from: modelContext
+                        )
+                    },
+                    remoteSignOut: {
+                        try await authentication.signOut()
+                    },
+                    cleanup: {
+                        await clearSignedOutAccountData()
+                    }
+                )
             } catch {
                 accountMessage = "Sign out was not completed: \(error.localizedDescription)"
-                return
             }
-
-            await clearSignedOutAccountData()
         }
     }
 
