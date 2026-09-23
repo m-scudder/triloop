@@ -57,7 +57,17 @@ struct AthleteSetup: Codable, Equatable, Sendable {
         }
     }
 
-    var goal: TrainingGoal
+    /// Structured source of truth for why the athlete is training.
+    var objective: TrainingObjective
+
+    /// Compatibility adapter for the existing adaptive engine. Phase A does
+    /// not change how workload progression works; event-aware periodisation is
+    /// layered above it in Phase B.
+    var goal: TrainingGoal {
+        get { objective.legacyGoal }
+        set { objective = TrainingObjective(legacyGoal: newValue) }
+    }
+
     var baseline: AthleteBaseline
     /// Anchors heart-rate zones. Optional because zones report Unavailable
     /// rather than guessing when the athlete would rather not say.
@@ -73,6 +83,7 @@ struct AthleteSetup: Codable, Equatable, Sendable {
 
     init(
         goal: TrainingGoal = .generalFitness,
+        objective: TrainingObjective? = nil,
         baseline: AthleteBaseline = AthleteBaseline(),
         birthDate: Date? = nil,
         schedule: AthleteSchedule = .empty,
@@ -81,7 +92,7 @@ struct AthleteSetup: Codable, Equatable, Sendable {
         stage: Stage = .welcome,
         completedAt: Date? = nil
     ) {
-        self.goal = goal
+        self.objective = objective ?? TrainingObjective(legacyGoal: goal)
         self.baseline = baseline
         self.birthDate = birthDate
         self.schedule = schedule
@@ -92,6 +103,34 @@ struct AthleteSetup: Codable, Equatable, Sendable {
     }
 
     var isComplete: Bool { stage == .complete && completedAt != nil }
+
+    var selectedSports: [Sport] {
+        preferences.filter(\.isTrained).map(\.sport)
+    }
+
+    func objectiveValidationIssues(
+        asOf date: Date = .now,
+        calendar: Calendar = .current
+    ) -> [TrainingObjectiveValidationIssue] {
+        TrainingObjectiveValidator.issues(
+            for: objective,
+            selectedSports: selectedSports,
+            asOf: date,
+            calendar: calendar
+        )
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case objective
+        case goal
+        case baseline
+        case birthDate
+        case schedule
+        case planStartDate
+        case preferences
+        case stage
+        case completedAt
+    }
 
     /// Enough information to build a week. Checked before generation so an
     /// interrupted setup can never produce a plan from half an assessment.
@@ -109,7 +148,9 @@ struct AthleteSetup: Codable, Equatable, Sendable {
             (try? container.decodeIfPresent(T.self, forKey: key)) as? T ?? fallback
         }
 
-        goal = value(.goal, defaults.goal)
+        let legacyGoal = value(.goal, defaults.goal)
+        objective = (try? container.decodeIfPresent(TrainingObjective.self, forKey: .objective))
+            ?? TrainingObjective(legacyGoal: legacyGoal)
         baseline = value(.baseline, defaults.baseline)
         birthDate = (try? container.decodeIfPresent(Date.self, forKey: .birthDate)) ?? nil
         schedule = value(.schedule, defaults.schedule)
@@ -117,5 +158,21 @@ struct AthleteSetup: Codable, Equatable, Sendable {
         preferences = value(.preferences, defaults.preferences)
         stage = value(.stage, defaults.stage)
         completedAt = (try? container.decodeIfPresent(Date.self, forKey: .completedAt)) ?? nil
+    }
+
+    /// Write both the structured objective and its coarse adapter. Keeping the
+    /// legacy key makes backups and older fixtures readable while the new
+    /// objective remains the authoritative representation.
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(objective, forKey: .objective)
+        try container.encode(goal, forKey: .goal)
+        try container.encode(baseline, forKey: .baseline)
+        try container.encodeIfPresent(birthDate, forKey: .birthDate)
+        try container.encode(schedule, forKey: .schedule)
+        try container.encodeIfPresent(planStartDate, forKey: .planStartDate)
+        try container.encode(preferences, forKey: .preferences)
+        try container.encode(stage, forKey: .stage)
+        try container.encodeIfPresent(completedAt, forKey: .completedAt)
     }
 }
