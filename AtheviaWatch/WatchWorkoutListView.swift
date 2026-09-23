@@ -27,7 +27,7 @@ struct WatchWorkoutListView: View {
                                     )
                                 }
                                 .listRowBackground(
-                                    Color.white.opacity(0.12)
+                                    active.discipline.sportTint.opacity(0.24)
                                 )
                             }
                         }
@@ -105,8 +105,8 @@ struct WatchWorkoutListView: View {
             )
         }
         .listRowBackground(
-            Color.white.opacity(
-                store.isCompleted(workout) ? 0.05 : 0.09
+            workout.discipline.sportTint.opacity(
+                store.isCompleted(workout) ? 0.09 : 0.16
             )
         )
     }
@@ -121,12 +121,12 @@ private struct WatchWorkoutRow: View {
         HStack(spacing: 10) {
             ZStack {
                 Circle()
-                    .fill(Color.white.opacity(0.12))
+                    .fill(workout.discipline.sportTint.opacity(0.22))
 
                 Image(systemName: workout.discipline.symbolName)
                     .font(.system(size: 17, weight: .semibold))
                     .symbolRenderingMode(.monochrome)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(workout.discipline.sportTint)
             }
             .frame(width: 34, height: 34)
 
@@ -178,3 +178,16 @@ private struct WatchWorkoutRow: View {
     }
 }
 
+
+extension WatchWorkoutDiscipline {
+    var sportTint: Color {
+        switch self {
+        case .running:
+            .orange
+        case .cycling:
+            .green
+        case .swimming:
+            .blue
+        }
+    }
+}
