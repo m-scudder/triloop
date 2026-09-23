@@ -26,6 +26,7 @@ struct SettingsView: View {
     @State private var showsDeleteConfirmation = false
     @State private var showsEraseLocalConfirmation = false
     @State private var accountMessage: String?
+    @State private var progressMessage: String?
 
     @AppStorage("automaticallyScheduleWorkouts") private var automaticallySchedule = true
     @AppStorage("automaticallyImportWorkouts") private var automaticallyImport = true
@@ -116,6 +117,7 @@ struct SettingsView: View {
             } message: {
                 Text("This permanently deletes your Athevia account, cloud backups, and Athevia training data stored on this iPhone. Apple Health workouts are not deleted.")
             }
+            .atheviaProgress(progressMessage)
             .alert(
                 "Account",
                 isPresented: Binding(
@@ -240,13 +242,13 @@ struct SettingsView: View {
         Toggle(isOn: $automaticallyImport) {
             Label("Auto Import Workout", systemImage: "arrow.down.circle")
         }
-        .tint(.green)
+        .toggleStyle(AtheviaToggleStyle())
 
         if watch.isPairedWatch && watch.canSchedule {
             Toggle(isOn: $automaticallySchedule) {
                 Label("Send workouts to Watch", systemImage: "applewatch")
             }
-            .tint(.green)
+            .toggleStyle(AtheviaToggleStyle())
         }
 
         Button { importThisWeek() } label: {
@@ -440,6 +442,7 @@ struct SettingsView: View {
 
     private func eraseLocalData() {
         isWorking = true
+        progressMessage = "Erasing Athevia data…"
         onLocalDataWillErase()
 
         Task { @MainActor in
@@ -448,6 +451,7 @@ struct SettingsView: View {
             await Task.yield()
             defer {
                 isWorking = false
+                progressMessage = nil
                 onLocalDataDidErase()
             }
             await clearSignedOutAccountData()
@@ -460,8 +464,12 @@ struct SettingsView: View {
         backup: BackupCoordinator
     ) {
         isWorking = true
+        progressMessage = "Signing out…"
         Task { @MainActor in
-            defer { isWorking = false }
+            defer {
+                isWorking = false
+                progressMessage = nil
+            }
 
             await AccountExitFlow.signOut(
                 finalBackup: {
@@ -486,8 +494,12 @@ struct SettingsView: View {
     private func deleteAccount() {
         guard let authentication else { return }
         isWorking = true
+        progressMessage = "Deleting account…"
         Task { @MainActor in
-            defer { isWorking = false }
+            defer {
+                isWorking = false
+                progressMessage = nil
+            }
 
             do {
                 try await authentication.deleteAccount()
@@ -526,8 +538,12 @@ struct SettingsView: View {
     private func importThisWeek() {
         guard let plan = plans.currentPlan() else { return }
         isWorking = true
+        progressMessage = "Importing workouts…"
         Task {
-            defer { isWorking = false }
+            defer {
+                isWorking = false
+                progressMessage = nil
+            }
             do {
                 let service = WorkoutImportService(context: modelContext, provider: health)
                 let outcome = try await service.importWorkouts(for: plan)
