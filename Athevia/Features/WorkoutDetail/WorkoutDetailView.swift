@@ -11,7 +11,7 @@ struct WorkoutDetailView: View {
 
     var body: some View {
         WorkoutDayDetail(workout: workout, scheduler: scheduler)
-            .navigationTitle(workout.date.formatted(.dateTime.weekday(.wide).day().month(.abbreviated)))
+            .navigationTitle(TrainingFormatter.shortDate(workout.date))
             .navigationBarTitleDisplayMode(.inline)
     }
 }

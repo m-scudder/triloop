@@ -332,7 +332,7 @@ struct WorkoutDayDetail: View {
                     Button("Move Workout") {
                         do {
                             try PlanStore(context: modelContext).moveWorkout(workout, to: moveDate)
-                            actionMessage = "Workout moved to \(workout.date.formatted(date: .abbreviated, time: .omitted))."
+                            actionMessage = "Workout moved to \(TrainingFormatter.shortDate(workout.date))."
                             isMoving = false
                             Task { await WatchScheduleSync.sync(plan) }
                         } catch {
@@ -554,9 +554,9 @@ struct WorkoutDayDetail: View {
         HStack(alignment: .top, spacing: 14) {
             Image(systemName: workout.discipline.symbolName)
                 .font(.title3)
-                .foregroundStyle(.primary)
+                .foregroundStyle(workout.discipline.tint)
                 .frame(width: 52, height: 52)
-                .background(.fill.tertiary, in: .circle)
+                .background(workout.discipline.tint.opacity(0.14), in: .circle)
 
             VStack(alignment: .leading, spacing: 2) {
                 HStack(alignment: .firstTextBaseline, spacing: 7) {

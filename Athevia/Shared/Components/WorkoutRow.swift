@@ -67,7 +67,7 @@ struct WorkoutRow: View {
     }
 
     private var accessibilityLabel: String {
-        var parts = [workout.date.formatted(.dateTime.weekday(.wide)), workout.title]
+        var parts = [TrainingFormatter.weekdayAbbreviation(for: workout.date), workout.title]
         if let summary = WorkoutSummaryText.make(for: workout) { parts.append(summary) }
         if isToday { parts.append("Today") }
         if workout.awaitingFeedback {

@@ -60,7 +60,7 @@ private struct WorkoutShareCard: View {
                             .font(.system(size: isStory ? 58 : 46, weight: .bold))
                             .lineLimit(2)
                             .minimumScaleFactor(0.65)
-                        Text(snapshot.date.formatted(.dateTime.day().month(.abbreviated).year()))
+                        Text(TrainingFormatter.shortDate(snapshot.date, includeYear: true))
                             .font(.system(size: 26, weight: .medium))
                             .foregroundStyle(.white.opacity(0.75))
                     }

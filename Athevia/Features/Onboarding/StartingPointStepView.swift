@@ -123,7 +123,7 @@ struct StartingPointStepView: View {
                 HStack(spacing: 12) {
                     Image(systemName: selected ? "checkmark.circle.fill" : "circle")
                         .font(.title3)
-                        .foregroundStyle(selected ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+                        .foregroundStyle(selected ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
                         .accessibilityHidden(true)
 
                     DisciplineBadge(discipline: sport.discipline, size: 38)
@@ -246,7 +246,7 @@ struct StartingPointStepView: View {
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 8)
             Image(systemName: selected ? "checkmark.circle.fill" : "circle")
-                .foregroundStyle(selected ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+                .foregroundStyle(selected ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
                 .accessibilityHidden(true)
         }
         .frame(minHeight: 44)

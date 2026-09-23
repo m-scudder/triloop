@@ -255,7 +255,7 @@ struct TrainingProfileView: View {
 
                 LabeledContent(
                     "Training since",
-                    value: profile.trainingStartDate.formatted(date: .abbreviated, time: .omitted)
+                    value: TrainingFormatter.shortDate(profile.trainingStartDate, includeYear: true)
                 )
             }
         }

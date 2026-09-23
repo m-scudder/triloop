@@ -58,7 +58,7 @@ struct HealthWorkoutDetailView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(record.start.formatted(date: .complete, time: .shortened))
+            Text(TrainingFormatter.shortDateTime(record.start, includeYear: true))
                 .font(.headline)
 
             if let source = record.sourceName {

@@ -122,7 +122,7 @@ struct WatchWorkoutPlayerView: View {
                     controlButton(
                         title: "Next",
                         systemImage: "forward.end.fill",
-                        tint: .blue,
+                        tint: .white,
                         disabled: manager.currentStep == nil
                     ) {
                         manager.completeCurrentStep()

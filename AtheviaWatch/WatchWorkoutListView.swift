@@ -27,7 +27,7 @@ struct WatchWorkoutListView: View {
                                     )
                                 }
                                 .listRowBackground(
-                                    active.discipline.listTint.opacity(0.24)
+                                    active.discipline.sportTint.opacity(0.24)
                                 )
                             }
                         }
@@ -105,7 +105,7 @@ struct WatchWorkoutListView: View {
             )
         }
         .listRowBackground(
-            workout.discipline.listTint.opacity(
+            workout.discipline.sportTint.opacity(
                 store.isCompleted(workout) ? 0.09 : 0.16
             )
         )
@@ -121,11 +121,12 @@ private struct WatchWorkoutRow: View {
         HStack(spacing: 10) {
             ZStack {
                 Circle()
-                    .fill(workout.discipline.listTint.opacity(0.22))
+                    .fill(workout.discipline.sportTint.opacity(0.22))
 
                 Image(systemName: workout.discipline.symbolName)
                     .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(workout.discipline.listTint)
+                    .symbolRenderingMode(.monochrome)
+                    .foregroundStyle(workout.discipline.sportTint)
             }
             .frame(width: 34, height: 34)
 
@@ -143,7 +144,7 @@ private struct WatchWorkoutRow: View {
                     } else if isCompleted {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.caption)
-                            .foregroundStyle(workout.discipline.listTint)
+                            .foregroundStyle(.green)
                     }
                 }
 
@@ -160,7 +161,14 @@ private struct WatchWorkoutRow: View {
     }
 
     private var subtitle: String {
-        var values = [workout.date.formatted(.dateTime.weekday(.abbreviated))]
+        var values = [
+            workout.date.formatted(
+                .dateTime
+                    .weekday(.abbreviated)
+                    .day()
+                    .month(.abbreviated)
+            )
+        ]
         if let duration = workout.estimatedDurationSeconds {
             values.append(duration.atheviaWatchDurationText)
         } else if let distance = workout.estimatedDistanceMeters {
@@ -170,8 +178,9 @@ private struct WatchWorkoutRow: View {
     }
 }
 
-private extension WatchWorkoutDiscipline {
-    var listTint: Color {
+
+extension WatchWorkoutDiscipline {
+    var sportTint: Color {
         switch self {
         case .running:
             .orange

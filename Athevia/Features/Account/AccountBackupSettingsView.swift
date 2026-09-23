@@ -10,59 +10,36 @@ struct AccountBackupSettingsView: View {
     @State private var latestBackup: BackupEnvelope?
     @State private var isWorking = false
     @State private var message: String?
-    @State private var showsDeleteConfirmation = false
 
     var body: some View {
         List {
-            Section("Account") {
-                switch authentication.state {
-                case .signedIn(let session):
-                    LabeledContent("Apple", value: session.email ?? "Signed in")
+            switch authentication.state {
+            case .signedIn(let session):
+                LabeledContent("Backup", value: lastBackupText)
 
-                    Button("Sign Out") {
-                        signOut(session)
-                    }
-                    .disabled(isWorking)
-
-                    Button("Delete Account", role: .destructive) {
-                        showsDeleteConfirmation = true
-                    }
-                    .disabled(isWorking)
-
-                case .checking, .signingIn:
-                    HStack {
-                        Text("Apple")
-                        Spacer()
-                        ProgressView()
-                    }
-
-                case .signedOut, .failed:
-                    AppleSignInButtonView { credential in
-                        _ = try await authentication.signInWithApple(credential)
-                        await refreshBackup()
-                    }
-                    .listRowInsets(EdgeInsets())
-                    .listRowBackground(Color.clear)
+                Button("Back Up Now") {
+                    backUpNow(session)
                 }
-            }
+                .disabled(isWorking)
 
-            if case .signedIn(let session) = authentication.state {
-                Section {
-                    LabeledContent("Status", value: backupStatus)
-                    LabeledContent("Last Backup", value: lastBackupText)
-
-                    Button("Back Up Now") {
-                        backUpNow(session)
-                    }
-                    .disabled(isWorking)
-                } header: {
-                    Text("Cloud Backup")
-                } footer: {
-                    Text("Your latest backup is restored automatically after you sign in.")
+            case .checking, .signingIn:
+                HStack {
+                    Text("Account")
+                    Spacer()
+                    ProgressView()
                 }
+
+            case .signedOut, .failed:
+                AppleSignInButtonView { credential in
+                    _ = try await authentication.signInWithApple(credential)
+                    await refreshBackup()
+                }
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
             }
         }
-        .navigationTitle("Account & Backup")
+        .navigationTitle("Backup")
+        .navigationBarTitleDisplayMode(.inline)
         .task {
             if case .checking = authentication.state {
                 await authentication.refresh()
@@ -70,18 +47,6 @@ struct AccountBackupSettingsView: View {
             if case .signedIn = authentication.state {
                 await refreshBackup()
             }
-        }
-        .confirmationDialog(
-            "Delete your Athevia account?",
-            isPresented: $showsDeleteConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("Delete Account & Cloud Data", role: .destructive) {
-                deleteAccount()
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This permanently deletes your Athevia account and cloud backups. Training stored locally on this iPhone is not deleted.")
         }
         .alert(
             "Cloud Backup",
@@ -96,27 +61,12 @@ struct AccountBackupSettingsView: View {
         }
     }
 
-    private var backupStatus: String {
-        switch backup.state {
-        case .idle:
-            latestBackup == nil ? "Not backed up" : "Safe"
-        case .backingUp:
-            "Backing up…"
-        case .backedUp:
-            "Safe"
-        case .restoring:
-            "Restoring…"
-        case .failed:
-            "Pending"
-        }
-    }
-
     private var lastBackupText: String {
         switch backup.state {
         case .backedUp(_, let date):
-            date.formatted(date: .abbreviated, time: .shortened)
+            TrainingFormatter.shortDateTime(date, includeYear: true)
         default:
-            latestBackup?.createdAt.formatted(date: .abbreviated, time: .shortened) ?? "Never"
+            latestBackup.map { TrainingFormatter.shortDateTime($0.createdAt, includeYear: true) } ?? "Never"
         }
     }
 
@@ -150,37 +100,4 @@ struct AccountBackupSettingsView: View {
         }
     }
 
-    private func deleteAccount() {
-        isWorking = true
-        Task { @MainActor in
-            defer { isWorking = false }
-            do {
-                try await authentication.deleteAccount()
-                latestBackup = nil
-            } catch {
-                message = error.localizedDescription
-            }
-        }
-    }
-
-    private func signOut(_ session: AccountSession) {
-        isWorking = true
-        Task { @MainActor in
-            defer { isWorking = false }
-            do {
-                // Preserve all local changes before removing the signed-in
-                // working copy. If backup fails, sign-out is cancelled rather
-                // than silently discarding training.
-                latestBackup = try await backup.backup(
-                    accountID: session.userID,
-                    from: modelContext
-                )
-                try await authentication.signOut()
-                try LocalTrainingStoreState.removeUserData(modelContext)
-                latestBackup = nil
-            } catch {
-                message = "Sign out was not completed: \(error.localizedDescription)"
-            }
-        }
-    }
 }

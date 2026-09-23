@@ -43,7 +43,7 @@ struct HealthStepView: View {
                     HStack(alignment: .top, spacing: 14) {
                         Image(systemName: use.symbol)
                             .font(.body)
-                            .foregroundStyle(.tint)
+                            .foregroundStyle(.primary)
                             .frame(width: 26)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(use.title).font(.subheadline.weight(.medium))
