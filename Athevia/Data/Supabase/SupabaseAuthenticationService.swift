@@ -8,6 +8,14 @@ actor SupabaseAuthenticationService: AuthenticationService {
         self.client = client
     }
 
+    func cachedSession() async -> AccountSession? {
+        guard let session = client.auth.currentSession else { return nil }
+        return AccountSession(
+            userID: session.user.id.uuidString,
+            email: session.user.email
+        )
+    }
+
     func currentSession() async throws -> AccountSession? {
         guard client.auth.currentSession != nil else { return nil }
         let session = try await client.auth.session
