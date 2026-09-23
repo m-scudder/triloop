@@ -418,23 +418,26 @@ enum TrainingObjectiveValidator {
         guard objective.kind == .event, let event = objective.event else { return [] }
 
         var issues: [TrainingObjectiveValidationIssue] = []
-        let selected = Set(selectedSports)
-
-        for sport in event.sport.requiredTrainingSports where !selected.contains(sport) {
-            issues.append(.missingTrainingSport(sport))
-        }
-
-        if let distance = event.distance {
-            if distance.kind.sport != event.sport {
-                issues.append(.eventDistanceSportMismatch)
-            } else if !distance.components.isValid(for: event.sport) {
-                issues.append(.invalidEventDistance)
-            }
-        }
 
         if let eventDate = event.eventDate,
            calendar.startOfDay(for: eventDate) < calendar.startOfDay(for: date) {
             issues.append(.eventDateInPast)
+        }
+
+        // Legacy firstTriathlon profiles know the event sport but not yet the
+        // structured distance. Keep that state valid so upgrading never forces
+        // re-onboarding. New event creation always supplies a distance.
+        guard let distance = event.distance else { return issues }
+
+        let selected = Set(selectedSports)
+        for sport in event.sport.requiredTrainingSports where !selected.contains(sport) {
+            issues.append(.missingTrainingSport(sport))
+        }
+
+        if distance.kind.sport != event.sport {
+            issues.append(.eventDistanceSportMismatch)
+        } else if !distance.components.isValid(for: event.sport) {
+            issues.append(.invalidEventDistance)
         }
 
         return issues
