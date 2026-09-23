@@ -18,7 +18,7 @@ struct FeedbackSheet: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(workout.title)
                             .font(.subheadline.weight(.medium))
-                        Text(workout.date.formatted(.dateTime.weekday(.wide).day().month(.abbreviated).year()))
+                        Text(TrainingFormatter.shortDate(workout.date, includeYear: true))
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
