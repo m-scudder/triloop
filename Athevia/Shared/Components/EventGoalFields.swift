@@ -40,6 +40,7 @@ struct EventGoalFields: View {
                         ) {
                             select(sport)
                         }
+                        .accessibilityIdentifier("event.sport.\(sport.rawValue)")
                     }
                 }
             }
@@ -56,6 +57,7 @@ struct EventGoalFields: View {
                                 current.distance = EventDistance(kind: kind)
                             }
                         }
+                        .accessibilityIdentifier("event.distance.\(kind.rawValue)")
                     }
                 }
 
@@ -67,6 +69,7 @@ struct EventGoalFields: View {
             section(title: "When is it?") {
                 Toggle("Add event date", isOn: hasDate)
                     .toggleStyle(AtheviaToggleStyle())
+                    .accessibilityIdentifier("event.date.toggle")
 
                 if event.eventDate != nil {
                     DatePicker(
@@ -76,6 +79,7 @@ struct EventGoalFields: View {
                         displayedComponents: .date
                     )
                     .datePickerStyle(.compact)
+                    .accessibilityIdentifier("event.date.picker")
                 }
             }
 
@@ -90,6 +94,7 @@ struct EventGoalFields: View {
                             ) {
                                 updateEvent { $0.targetIntent = intent }
                             }
+                            .accessibilityIdentifier("event.intent.\(intent.rawValue)")
                         }
                     }
                 }
