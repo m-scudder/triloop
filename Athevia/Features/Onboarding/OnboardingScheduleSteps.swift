@@ -26,6 +26,7 @@ struct TrainingDaysStepView: View {
                         ) {
                             model.choose(objectiveKind: kind)
                         }
+                        .accessibilityIdentifier("objective.\(kind.rawValue)")
                     }
                 }
 
