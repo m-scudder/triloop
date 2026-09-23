@@ -35,9 +35,10 @@ struct TrainingDaysStepView: View {
                         objective: model.setup.objective,
                         selectedSports: model.selectedSports,
                         minimumDate: model.minimumStartDate,
-                        showsTargetIntent: true,
-                        onChange: model.choose(objective:)
-                    )
+                        showsTargetIntent: true
+                    ) { objective in
+                        model.choose(objective: objective)
+                    }
                     .padding(.top, 4)
                 }
             }
