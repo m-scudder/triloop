@@ -3,6 +3,9 @@ import Foundation
 /// Why an edit reaches beyond the profile.
 enum ProfileEditReason: String, Equatable, CaseIterable, Sendable {
     case goal
+    case event
+    case eventDate
+    case targetIntent
     case runningBaseline
     case swimmingBaseline
     case swimStroke
@@ -13,6 +16,9 @@ enum ProfileEditReason: String, Equatable, CaseIterable, Sendable {
     var displayName: String {
         switch self {
         case .goal: "Training goal"
+        case .event: "Event"
+        case .eventDate: "Event date"
+        case .targetIntent: "Event target"
         case .runningBaseline: "Running ability"
         case .swimmingBaseline: "Swimming ability"
         case .swimStroke: "Stroke"
@@ -53,7 +59,23 @@ enum AthleteProfileEditor {
     static func impact(from old: AthleteSetup, to new: AthleteSetup) -> ProfileEditImpact {
         var reasons: [ProfileEditReason] = []
 
-        if old.goal != new.goal { reasons.append(.goal) }
+        if old.objective.kind != new.objective.kind {
+            reasons.append(.goal)
+        } else if old.objective.kind == .event {
+            let oldEvent = old.objective.event
+            let newEvent = new.objective.event
+
+            if oldEvent?.sport != newEvent?.sport || oldEvent?.distance != newEvent?.distance {
+                reasons.append(.event)
+            }
+            if oldEvent?.eventDate != newEvent?.eventDate {
+                reasons.append(.eventDate)
+            }
+            if oldEvent?.targetIntent != newEvent?.targetIntent {
+                reasons.append(.targetIntent)
+            }
+        }
+
         if old.baseline.running != new.baseline.running { reasons.append(.runningBaseline) }
         if old.baseline.swimming != new.baseline.swimming { reasons.append(.swimmingBaseline) }
         if old.baseline.stroke != new.baseline.stroke { reasons.append(.swimStroke) }
