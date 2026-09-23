@@ -455,24 +455,23 @@ struct SettingsView: View {
         Task { @MainActor in
             defer { isWorking = false }
 
-            do {
-                try await AccountExitFlow.signOut(
-                    finalBackup: {
-                        _ = try await backup.backup(
-                            accountID: session.userID,
-                            from: modelContext
-                        )
-                    },
-                    remoteSignOut: {
-                        try await authentication.signOut()
-                    },
-                    cleanup: {
-                        await clearSignedOutAccountData()
-                    }
-                )
-            } catch {
-                accountMessage = "Sign out was not completed: \(error.localizedDescription)"
-            }
+            await AccountExitFlow.signOut(
+                finalBackup: {
+                    _ = try await backup.backup(
+                        accountID: session.userID,
+                        from: modelContext
+                    )
+                },
+                remoteSignOut: {
+                    try await authentication.signOut()
+                },
+                localSignOutFallback: {
+                    authentication.completeLocalSignOut()
+                },
+                cleanup: {
+                    await clearSignedOutAccountData()
+                }
+            )
         }
     }
 
