@@ -245,7 +245,7 @@ struct SettingsView: View {
             Label("Import workouts automatically", systemImage: "arrow.down.circle")
         }
 
-        if watch.canSchedule {
+        if watch.isPairedWatch && watch.canSchedule {
             Toggle(isOn: $automaticallySchedule) {
                 Label("Send workouts to Watch", systemImage: "applewatch")
             }
