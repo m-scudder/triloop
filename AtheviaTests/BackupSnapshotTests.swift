@@ -11,7 +11,7 @@ struct BackupSnapshotTests {
         ModelContext(try AtheviaModelContainer.make(inMemory: true))
     }
 
-    @Test("Snapshot round-trips profile, plan, report, recovery and GPS route")
+    @Test("Snapshot preserves training data while redacting GPS route and free-text notes")
     func snapshotRoundTrip() throws {
         let context = try makeContext()
         let profile = AthleteProfile(
@@ -112,7 +112,18 @@ struct BackupSnapshotTests {
         #expect(decoded.plans[0].workouts[0].feedback?.rpe == 4)
         #expect(decoded.plans[0].workouts[0].recoveryCheckIn?.soreness == .mild)
         #expect(decoded.plans[0].workouts[0].steps[0].children.count == 2)
-        #expect(decoded.plans[0].workouts[0].importedSummary?.metrics?.route == [routePoint])
+        #expect(decoded.plans[0].workouts[0].importedSummary?.metrics?.route.isEmpty == true)
+
+        let encodedText = String(decoding: encoded, as: UTF8.self)
+        #expect(!encodedText.contains("Smooth"))
+        #expect(!encodedText.contains("17.385"))
+        #expect(!encodedText.contains("78.4867"))
+
+        let restoredContext = try makeContext()
+        try BackupRestoreService().restore(decoded, into: restoredContext)
+        let restoredWorkouts = try restoredContext.fetch(FetchDescriptor<PlannedWorkout>())
+        #expect(restoredWorkouts.first?.feedback?.notes == "")
+        #expect(restoredWorkouts.first?.importedSummary?.metrics?.route.isEmpty == true)
     }
 
     @Test("Restore rebuilds the relationships into an empty store")
