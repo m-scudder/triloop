@@ -60,38 +60,6 @@ struct AuthenticationCoordinatorTests {
 
         #expect(coordinator.state == .signedOut)
     }
-}
-
-private actor AuthenticationServiceStub: AuthenticationService {
-    private var session: AccountSession?
-    private let signInResult: AccountSession?
-    private(set) var lastCredential: AppleAuthenticationCredential?
-    private(set) var didDeleteAccount = false
-
-    init(session: AccountSession? = nil, signInResult: AccountSession? = nil) {
-        self.session = session
-        self.signInResult = signInResult
-    }
-
-    func currentSession() async throws -> AccountSession? {
-        session
-    }
-
-    func signInWithApple(_ credential: AppleAuthenticationCredential) async throws -> AccountSession {
-        lastCredential = credential
-        let result = signInResult ?? AccountSession(userID: "stub-user")
-        session = result
-        return result
-    }
-
-    func signOut() async throws {
-        session = nil
-    }
-
-    func deleteAccount() async throws {
-        didDeleteAccount = true
-        session = nil
-    }
 
     @Test("Backup failure does not prevent sign out or cleanup")
     func backupFailureDoesNotBlockSignOut() async throws {
@@ -141,5 +109,38 @@ private actor AuthenticationServiceStub: AuthenticationService {
 
         #expect(events == ["backup", "sign-out"])
     }
+}
+
+private actor AuthenticationServiceStub: AuthenticationService {
+    private var session: AccountSession?
+    private let signInResult: AccountSession?
+    private(set) var lastCredential: AppleAuthenticationCredential?
+    private(set) var didDeleteAccount = false
+
+    init(session: AccountSession? = nil, signInResult: AccountSession? = nil) {
+        self.session = session
+        self.signInResult = signInResult
+    }
+
+    func currentSession() async throws -> AccountSession? {
+        session
+    }
+
+    func signInWithApple(_ credential: AppleAuthenticationCredential) async throws -> AccountSession {
+        lastCredential = credential
+        let result = signInResult ?? AccountSession(userID: "stub-user")
+        session = result
+        return result
+    }
+
+    func signOut() async throws {
+        session = nil
+    }
+
+    func deleteAccount() async throws {
+        didDeleteAccount = true
+        session = nil
+    }
+
 
 }
