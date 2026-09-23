@@ -51,6 +51,8 @@ struct RootView: View {
                 localApp
             }
         }
+        .symbolRenderingMode(.monochrome)
+        .tint(Color.primary)
         .onChange(of: backupFingerprint) { _, _ in
             scheduleAutomaticBackupIfNeeded()
         }
