@@ -25,10 +25,6 @@ struct PlanPreviewStepView: View {
                     description: Text(failure)
                 )
             } else if let plan = model.preview {
-                if model.canChooseStartDate {
-                    startDatePicker
-                }
-
                 week(plan)
             } else {
                 ProgressView()
@@ -37,29 +33,6 @@ struct PlanPreviewStepView: View {
             }
         }
         .task { if model.preview == nil { model.buildPreview() } }
-    }
-
-    private var startDatePicker: some View {
-        Card {
-            VStack(alignment: .leading, spacing: 8) {
-                SectionEyebrow(text: "Start training")
-
-                DatePicker(
-                    "Start date",
-                    selection: Binding(
-                        get: { model.selectedStartDate },
-                        set: { model.choose(startDate: $0) }
-                    ),
-                    in: model.minimumStartDate...,
-                    displayedComponents: .date
-                )
-                .datePickerStyle(.compact)
-
-                Text("Your first plan uses the selected date, then future weeks continue Monday to Sunday.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        }
     }
 
     /// Weeks always run Monday to Sunday, so the useful thing to state is when
