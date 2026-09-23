@@ -92,4 +92,54 @@ private actor AuthenticationServiceStub: AuthenticationService {
         didDeleteAccount = true
         session = nil
     }
+
+    @Test("Backup failure does not prevent sign out or cleanup")
+    func backupFailureDoesNotBlockSignOut() async throws {
+        enum TestError: Error { case backup }
+        var events: [String] = []
+
+        try await AccountExitFlow.signOut(
+            finalBackup: {
+                events.append("backup")
+                throw TestError.backup
+            },
+            remoteSignOut: {
+                events.append("sign-out")
+            },
+            cleanup: {
+                events.append("cleanup")
+            }
+        )
+
+        #expect(events == ["backup", "sign-out", "cleanup"])
+    }
+
+    @Test("Authentication sign out failure does not erase local data")
+    func signOutFailureDoesNotCleanup() async {
+        enum TestError: Error { case signOut }
+        var events: [String] = []
+
+        do {
+            try await AccountExitFlow.signOut(
+                finalBackup: {
+                    events.append("backup")
+                },
+                remoteSignOut: {
+                    events.append("sign-out")
+                    throw TestError.signOut
+                },
+                cleanup: {
+                    events.append("cleanup")
+                }
+            )
+            Issue.record("Expected sign out failure")
+        } catch TestError.signOut {
+            // Expected.
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+
+        #expect(events == ["backup", "sign-out"])
+    }
+
 }
