@@ -268,7 +268,7 @@ struct WorkoutHistoryView: View {
                     Text(entry.name)
                     if entry.trained {
                         Image(systemName: "checkmark.seal.fill")
-                            .foregroundStyle(.tint)
+                            .foregroundStyle(.primary)
                             .accessibilityLabel("Trained by Athevia")
                     }
                     Spacer()
