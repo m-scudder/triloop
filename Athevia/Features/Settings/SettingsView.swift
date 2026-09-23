@@ -735,7 +735,7 @@ private struct WatchAppSetupView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("Status") {
+                Section {
                     ConnectionSheetStatusRow(
                         title: "Apple Watch",
                         systemImage: "applewatch",
@@ -758,6 +758,8 @@ private struct WatchAppSetupView: View {
                             isConnected: schedulingAuthorization == .authorized
                         )
                     }
+                } header: {
+                    Text("Status")
                 }
 
                 if watch.canSchedule {
@@ -818,7 +820,7 @@ private struct WatchAppSetupView: View {
                         Text("“Last sent” means the latest plan was queued by this iPhone. Delivery completes when the Watch connection is available.")
                     }
                 } else {
-                    Section("Install Athevia Watch") {
+                    Section {
                         installationStep(
                             number: 1,
                             title: "Open the Watch app",
@@ -839,6 +841,8 @@ private struct WatchAppSetupView: View {
                             title: "Return to Athevia",
                             detail: "Your current week will sync automatically."
                         )
+                    } header: {
+                        Text("Install Athevia Watch")
                     }
 
                     Section {
