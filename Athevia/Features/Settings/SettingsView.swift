@@ -510,10 +510,14 @@ private struct WorkoutSchedulingSetupView: View {
     private var statusText: String {
         guard isSupported else { return "Unavailable" }
         switch authorization {
-        case .authorized: "Allowed"
-        case .denied: "Not allowed"
-        case .restricted: "Not available"
-        case .notDetermined: "Not set up"
+        case .authorized:
+            return "Allowed"
+        case .denied:
+            return "Not allowed"
+        case .restricted:
+            return "Not available"
+        case .notDetermined:
+            return "Not set up"
         }
     }
 }
