@@ -4,6 +4,7 @@ import SwiftUI
 struct SettingsView: View {
     var authentication: AuthenticationCoordinator?
     var backup: BackupCoordinator?
+    var onLocalDataWillErase: () -> Void = {}
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.healthProvider) private var health
@@ -92,10 +93,9 @@ struct SettingsView: View {
                     )
                 }
             }
-            .confirmationDialog(
+            .alert(
                 "Erase Athevia data from this iPhone?",
-                isPresented: $showsEraseLocalConfirmation,
-                titleVisibility: .visible
+                isPresented: $showsEraseLocalConfirmation
             ) {
                 Button("Erase Local Athevia Data", role: .destructive) {
                     eraseLocalData()
@@ -104,10 +104,9 @@ struct SettingsView: View {
             } message: {
                 Text("This removes Athevia training data from this iPhone and clears Athevia workouts from the paired Watch. Apple Health workouts are not deleted.")
             }
-            .confirmationDialog(
+            .alert(
                 "Delete your Athevia account?",
-                isPresented: $showsDeleteConfirmation,
-                titleVisibility: .visible
+                isPresented: $showsDeleteConfirmation
             ) {
                 Button("Delete Account & All Athevia Data", role: .destructive) {
                     deleteAccount()
@@ -440,7 +439,12 @@ struct SettingsView: View {
 
     private func eraseLocalData() {
         isWorking = true
+        onLocalDataWillErase()
+
         Task { @MainActor in
+            // Let RootView remove Settings from the hierarchy before deleting
+            // the SwiftData objects its queries are currently rendering.
+            await Task.yield()
             defer { isWorking = false }
             await clearSignedOutAccountData()
         }
