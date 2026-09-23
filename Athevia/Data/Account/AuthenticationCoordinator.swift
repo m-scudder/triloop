@@ -25,6 +25,15 @@ final class AuthenticationCoordinator {
         self.service = service
     }
 
+    /// Resumes the locally cached identity without contacting the network.
+    /// Used only when this device already owns local training data, so an
+    /// offline launch never skips account isolation on a fresh install.
+    func resumeCachedSession() async -> AccountSession? {
+        guard let session = await service.cachedSession() else { return nil }
+        state = .signedIn(session)
+        return session
+    }
+
     func refresh() async {
         state = .checking
         do {
