@@ -506,7 +506,7 @@ struct SettingsView: View {
         }
 
         if let localCleanupError {
-            accountMessage = "Athevia signed out, but some local training data could not be erased: \(localCleanupError.localizedDescription). Please reinstall the app before using another account."
+            accountMessage = "Athevia could not erase all local training data: \(localCleanupError.localizedDescription). Please reinstall the app before using another account."
         }
     }
 
