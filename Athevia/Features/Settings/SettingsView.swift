@@ -17,10 +17,8 @@ struct SettingsView: View {
     @State private var notificationStatus: TrainingNotificationAuthorization = .notDetermined
     @State private var importMessage: String?
     @State private var isWorking = false
-    @State private var scheduledWorkouts: [ScheduledWorkoutSummary] = []
     @State private var watchAuthorization: WorkoutSchedulingAuthorization = .notDetermined
-    @State private var permissionMessage: String?
-    @State private var showsWatchAppSetup = false
+    @State private var activeConnection: ConnectionDestination?
 
     @AppStorage("automaticallyScheduleWorkouts") private var automaticallySchedule = true
     @AppStorage("automaticallyImportWorkouts") private var automaticallyImport = true
@@ -36,8 +34,8 @@ struct SettingsView: View {
                 trainingSection
                 connectionsSection
                 automationSection
-                aboutSection
                 developerSection
+                versionFooter
             }
             .navigationTitle("Settings")
             .task(id: scenePhase) {
@@ -51,22 +49,27 @@ struct SettingsView: View {
             } message: {
                 Text(importMessage ?? "")
             }
-            .sheet(isPresented: $showsWatchAppSetup) {
-                WatchAppSetupView(
-                    watch: watch,
-                    currentPlan: plans.currentPlan()
-                )
-            }
-            .alert(
-                "Permissions",
-                isPresented: Binding(
-                    get: { permissionMessage != nil },
-                    set: { if !$0 { permissionMessage = nil } }
-                )
-            ) {
-                Button("OK", role: .cancel) { permissionMessage = nil }
-            } message: {
-                Text(permissionMessage ?? "")
+            .sheet(item: $activeConnection) { connection in
+                switch connection {
+                case .health:
+                    HealthConnectionSetupView(
+                        status: healthStatus,
+                        isWorking: isWorking,
+                        connect: connectHealth
+                    )
+                case .watch:
+                    WatchAppSetupView(
+                        watch: watch,
+                        currentPlan: plans.currentPlan()
+                    )
+                case .workoutScheduling:
+                    WorkoutSchedulingSetupView(
+                        isSupported: scheduler.isSupported,
+                        authorization: watchAuthorization,
+                        isWorking: isWorking,
+                        requestAuthorization: connectWatch
+                    )
+                }
             }
         }
     }
@@ -143,12 +146,15 @@ struct SettingsView: View {
     }
 
     private var connectionsSection: some View {
-        Section {
-            Button { connectHealth() } label: {
+        Section("Connections") {
+            Button {
+                activeConnection = .health
+            } label: {
                 SettingsStatusRow(
                     title: "Apple Health",
                     systemImage: "heart",
-                    value: healthStatusText
+                    value: healthStatusText,
+                    isConnected: healthStatus == .authorized
                 )
             }
             .buttonStyle(.plain)
@@ -156,46 +162,37 @@ struct SettingsView: View {
 
             if watch.isPairedWatch {
                 Button {
-                    showsWatchAppSetup = true
+                    activeConnection = .watch
                 } label: {
                     SettingsStatusRow(
                         title: "Athevia Watch",
                         systemImage: "applewatch",
-                        value: watch.isAtheviaWatchInstalled ? "Installed" : "Not installed"
+                        value: watch.isAtheviaWatchInstalled ? "Installed" : "Not installed",
+                        isConnected: watch.isAtheviaWatchInstalled
                     )
                 }
                 .buttonStyle(.plain)
 
                 if watch.canSchedule {
-                    Button { connectWatch() } label: {
+                    Button {
+                        activeConnection = .workoutScheduling
+                    } label: {
                         SettingsStatusRow(
                             title: "Workout scheduling",
                             systemImage: "calendar.badge.clock",
-                            value: watchStatusText
+                            value: watchStatusText,
+                            isConnected: watchAuthorization == .authorized
                         )
                     }
                     .buttonStyle(.plain)
-                    .disabled(isWorking || !scheduler.isSupported || watchAuthorization == .restricted)
-
-                    NavigationLink("Apple Workout schedule") {
-                        ScheduledWorkoutsView(
-                            isSupported: scheduler.isSupported,
-                            authorization: watchAuthorization,
-                            entries: scheduledWorkouts,
-                            refresh: refreshSchedule
-                        )
-                    }
+                    .disabled(!scheduler.isSupported || watchAuthorization == .restricted)
                 }
             }
-        } header: {
-            Text("Connections")
-        } footer: {
-            Text(connectionsFooterText)
         }
     }
 
     private var automationSection: some View {
-        Section {
+        Section("Automation") {
             Toggle(isOn: $automaticallyImport) {
                 Label("Import workouts automatically", systemImage: "arrow.down.circle")
             }
@@ -210,17 +207,22 @@ struct SettingsView: View {
                 Label("Import completed workouts now", systemImage: "arrow.clockwise")
             }
             .disabled(isWorking || healthStatus != .authorized || plans.isEmpty)
-        } header: {
-            Text("Automation")
-        } footer: {
-            Text(automationFooterText)
         }
     }
 
-    private var aboutSection: some View {
-        Section("About") {
-            LabeledContent("Storage", value: storageStatusText)
-            LabeledContent("Version", value: appVersion)
+    private var versionFooter: some View {
+        Section {
+            VStack(spacing: 3) {
+                Text("Athevia")
+                    .font(.headline.weight(.semibold))
+                Text("v\(appVersion)")
+                    .font(.caption)
+            }
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 20)
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
         }
     }
 
@@ -283,13 +285,7 @@ struct SettingsView: View {
         defer { isWorking = false }
         healthStatus = await health.authorizationStatus
         watchAuthorization = await scheduler.authorizationState()
-        scheduledWorkouts = await scheduler.scheduledWorkouts()
         notificationStatus = await TrainingNotificationManager.shared.authorizationStatus()
-    }
-
-    private func refreshSchedule() async {
-        watchAuthorization = await scheduler.authorizationState()
-        scheduledWorkouts = await scheduler.scheduledWorkouts()
     }
 
     private func accountStatusText(_ authentication: AuthenticationCoordinator) -> String {
@@ -303,14 +299,6 @@ struct SettingsView: View {
         case .failed:
             "Needs attention"
         }
-    }
-
-    private var storageStatusText: String {
-        guard let authentication else { return "On this device" }
-        if case .signedIn = authentication.state {
-            return "Device + backup"
-        }
-        return "On this device"
     }
 
     private var appVersion: String {
@@ -346,26 +334,6 @@ struct SettingsView: View {
         }
     }
 
-    private var connectionsFooterText: String {
-        if watch.isPairedWatch && !watch.isAtheviaWatchInstalled {
-            return "Your Apple Watch is paired. Install Athevia on it to view and start workouts from your wrist."
-        }
-        if watch.isAtheviaWatchInstalled {
-            return "Athevia Watch is installed. Your current training week syncs automatically."
-        }
-        return "Tap a connection to grant or re-check its permission."
-    }
-
-    private var automationFooterText: String {
-        if watch.isAtheviaWatchInstalled {
-            return "Athevia keeps the current week available in the Athevia Watch app and imports completed workouts from Apple Health."
-        }
-        if watch.canSchedule {
-            return "Athevia can match completed workouts from Apple Health and keep workouts available in Apple's Workout app."
-        }
-        return "Athevia can match completed workouts from Apple Health."
-    }
-
     private var notificationStatusText: String {
         switch notificationStatus {
         case .notDetermined: "Not set up"
@@ -379,21 +347,7 @@ struct SettingsView: View {
         isWorking = true
         Task {
             defer { isWorking = false }
-            let before = watchAuthorization
             watchAuthorization = await scheduler.requestAuthorization()
-
-            permissionMessage = switch watchAuthorization {
-            case .authorized:
-                "Workout scheduling is allowed."
-            case .restricted:
-                "The system will not allow scheduling on this device."
-            case .denied where before == .denied:
-                "iOS did not show a prompt because the answer is already recorded. Reinstalling Athevia clears it."
-            case .denied:
-                "Workout scheduling was declined."
-            case .notDetermined:
-                "No response from the system. Check that your Watch is unlocked and nearby."
-            }
         }
     }
 
@@ -404,14 +358,10 @@ struct SettingsView: View {
             do {
                 try await health.requestAuthorization()
                 healthStatus = await health.authorizationStatus
-
-                permissionMessage = healthStatus == .authorized
-                    ? "Apple Health has been asked already. To change what Athevia can read, open the Health app, tap your profile picture, then Apps, then Athevia."
-                    : "Apple Health did not grant access. Open the Health app, tap your profile picture, then Apps, then Athevia."
             } catch HealthDataError.unavailableOnThisDevice {
-                permissionMessage = "Apple Health is not available on this device."
+                healthStatus = .unavailable
             } catch {
-                permissionMessage = "Could not connect to Apple Health."
+                healthStatus = await health.authorizationStatus
             }
         }
     }
@@ -443,6 +393,163 @@ struct SettingsView: View {
     }
 }
 
+
+private enum ConnectionDestination: String, Identifiable {
+    case health
+    case watch
+    case workoutScheduling
+
+    var id: String { rawValue }
+}
+
+private struct HealthConnectionSetupView: View {
+    let status: HealthAuthorizationStatus
+    let isWorking: Bool
+    let connect: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    ConnectionSheetStatusRow(
+                        title: "Apple Health",
+                        systemImage: "heart",
+                        status: statusText,
+                        isConnected: status == .authorized
+                    )
+                }
+
+                Section {
+                    if status == .unavailable {
+                        Text("Apple Health is not available on this device.")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Button {
+                            connect()
+                        } label: {
+                            Label(
+                                status == .authorized ? "Re-check connection" : "Connect Apple Health",
+                                systemImage: status == .authorized ? "arrow.clockwise" : "heart"
+                            )
+                        }
+                        .disabled(isWorking)
+                    }
+                }
+            }
+            .navigationTitle("Apple Health")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+
+    private var statusText: String {
+        switch status {
+        case .unavailable: "Not available"
+        case .notDetermined: "Not connected"
+        case .denied: "Denied"
+        case .authorized: "Connected"
+        }
+    }
+}
+
+private struct WorkoutSchedulingSetupView: View {
+    let isSupported: Bool
+    let authorization: WorkoutSchedulingAuthorization
+    let isWorking: Bool
+    let requestAuthorization: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    ConnectionSheetStatusRow(
+                        title: "Workout scheduling",
+                        systemImage: "calendar.badge.clock",
+                        status: statusText,
+                        isConnected: authorization == .authorized
+                    )
+                }
+
+                Section {
+                    if !isSupported || authorization == .restricted {
+                        Text("Workout scheduling is not available on this device.")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Button {
+                            requestAuthorization()
+                        } label: {
+                            Label(
+                                authorization == .authorized ? "Re-check permission" : "Allow workout scheduling",
+                                systemImage: authorization == .authorized ? "arrow.clockwise" : "calendar.badge.clock"
+                            )
+                        }
+                        .disabled(isWorking)
+                    }
+                }
+            }
+            .navigationTitle("Workout scheduling")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+
+    private var statusText: String {
+        guard isSupported else { return "Unavailable" }
+        switch authorization {
+        case .authorized: "Allowed"
+        case .denied: "Not allowed"
+        case .restricted: "Not available"
+        case .notDetermined: "Not set up"
+        }
+    }
+}
+
+private struct ConnectionSheetStatusRow: View {
+    let title: String
+    let systemImage: String
+    let status: String
+    let isConnected: Bool
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Image(systemName: systemImage)
+                .font(.title2)
+                .frame(width: 42, height: 42)
+                .background(.fill.tertiary, in: .circle)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.headline)
+                HStack(spacing: 5) {
+                    if isConnected {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                    }
+                    Text(status)
+                        .foregroundStyle(isConnected ? Color.green : Color.secondary)
+                }
+                .font(.subheadline)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
 
 
 private struct WatchAppSetupView: View {
@@ -557,6 +664,7 @@ private struct WatchAppSetupView: View {
             }
         }
         .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
     }
 
     private func installationStep(
@@ -606,6 +714,7 @@ private struct SettingsStatusRow: View {
     let title: String
     let systemImage: String
     let value: String
+    let isConnected: Bool
 
     var body: some View {
         HStack(spacing: 12) {
@@ -614,9 +723,15 @@ private struct SettingsStatusRow: View {
 
             Spacer(minLength: 12)
 
-            Text(value)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+            if isConnected {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                    .accessibilityLabel("Connected")
+            } else {
+                Text(value)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
         }
         .contentShape(.rect)
     }
