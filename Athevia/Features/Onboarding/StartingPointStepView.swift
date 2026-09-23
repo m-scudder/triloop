@@ -13,10 +13,7 @@ struct StartingPointStepView: View {
 
     var body: some View {
         OnboardingStep(isPrimaryEnabled: model.canAdvance, primary: model.advance) {
-            OnboardingHeader(
-                title: "Where are you starting?",
-                subtitle: "Pick your sports. Adjust the starting point only if the default does not fit you."
-            )
+            OnboardingHeader(title: "Where are you starting?")
 
             VStack(spacing: 12) {
                 ForEach(Sport.allCases, id: \.self) { sport in
@@ -64,10 +61,12 @@ struct StartingPointStepView: View {
                             .font(.headline)
                             .foregroundStyle(.primary)
 
-                        Text(selected ? summary(sport) : "Tap to include")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(2)
+                        if selected {
+                            Text(summary(sport))
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(2)
+                        }
                     }
 
                     Spacer(minLength: 8)
