@@ -14,6 +14,8 @@ struct MetricCard: View {
             HStack(spacing: 6) {
                 Image(systemName: metric.symbol)
                     .font(.caption)
+                    .symbolRenderingMode(.monochrome)
+                    .foregroundStyle(.primary)
                 Text(metric.title)
                     .font(.caption.weight(.semibold))
                 Spacer(minLength: 0)
