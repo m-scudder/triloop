@@ -186,7 +186,7 @@ struct AccountAccessView: View {
                     .accessibilityHidden(true)
 
                 VStack(spacing: 8) {
-                    Text("Account unavailable")
+                    Text("Cloud unavailable")
                         .font(.title2.weight(.semibold))
 
                     Text(message)
@@ -213,12 +213,14 @@ struct AccountAccessView: View {
                 .buttonStyle(PrimaryActionButtonStyle())
                 .frame(maxWidth: 420)
 
-                if (try? LocalTrainingStoreState.hasUserData(modelContext)) == true {
-                    Button("Use training on this iPhone") {
-                        onContinueLocally()
-                    }
-                    .font(.subheadline.weight(.medium))
+                Button(
+                    (try? LocalTrainingStoreState.hasUserData(modelContext)) == true
+                        ? "Use training on this iPhone"
+                        : "Continue without an account"
+                ) {
+                    onContinueLocally()
                 }
+                .font(.subheadline.weight(.medium))
             }
         }
         .padding(.horizontal, 24)
