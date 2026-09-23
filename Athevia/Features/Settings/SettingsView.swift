@@ -1,6 +1,5 @@
 import SwiftData
 import SwiftUI
-import UIKit
 
 struct SettingsView: View {
     var authentication: AuthenticationCoordinator?
@@ -158,7 +157,7 @@ struct SettingsView: View {
                 )
             }
             .buttonStyle(.plain)
-            .disabled(isWorking || healthStatus == .unavailable)
+            .disabled(isWorking)
 
             if watch.isPairedWatch {
                 Button {
@@ -185,7 +184,6 @@ struct SettingsView: View {
                         )
                     }
                     .buttonStyle(.plain)
-                    .disabled(!scheduler.isSupported || watchAuthorization == .restricted)
                 }
             }
         }
@@ -563,21 +561,12 @@ private struct WatchAppSetupView: View {
         NavigationStack {
             List {
                 Section {
-                    HStack(spacing: 14) {
-                        Image(systemName: "applewatch")
-                            .font(.title2)
-                            .frame(width: 42, height: 42)
-                            .background(.fill.tertiary, in: .circle)
-
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("Athevia Watch")
-                                .font(.headline)
-                            Text(watch.isAtheviaWatchInstalled ? "Installed" : "Not installed")
-                                .font(.subheadline)
-                                .foregroundStyle(watch.isAtheviaWatchInstalled ? Color.green : Color.secondary)
-                        }
-                    }
-                    .padding(.vertical, 4)
+                    ConnectionSheetStatusRow(
+                        title: "Athevia Watch",
+                        systemImage: "applewatch",
+                        status: watch.isAtheviaWatchInstalled ? "Installed" : "Not installed",
+                        isConnected: watch.isAtheviaWatchInstalled
+                    )
                 }
 
                 if watch.isAtheviaWatchInstalled {
