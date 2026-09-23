@@ -150,6 +150,8 @@ struct WatchWorkoutDetailView: View {
         VStack(alignment: .leading, spacing: 5) {
             Image(systemName: workout.discipline.symbolName)
                 .font(.title2)
+                .symbolRenderingMode(.monochrome)
+                .foregroundStyle(workout.discipline.sportTint)
 
             Text(workout.title)
                 .font(.title3.weight(.semibold))
