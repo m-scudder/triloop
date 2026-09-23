@@ -104,7 +104,14 @@ struct RootView: View {
                 ProgressOverviewView()
             }
             Tab("Settings", systemImage: "gearshape", value: RootTab.settings) {
-                SettingsView(authentication: authentication, backup: backup)
+                SettingsView(
+                    authentication: authentication,
+                    backup: backup,
+                    onLocalDataWillErase: {
+                        selectedTab = .home
+                        accountReady = false
+                    }
+                )
             }
         }
         .task(id: automaticallyImport) {
