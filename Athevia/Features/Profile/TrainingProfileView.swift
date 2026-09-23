@@ -310,6 +310,7 @@ struct TrainingProfileView: View {
                                 }
                             }
                         }
+                        .accessibilityIdentifier("objective.\(kind.rawValue)")
                     }
                 }
                 .padding(.vertical, 4)
