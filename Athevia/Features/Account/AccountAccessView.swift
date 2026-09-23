@@ -103,7 +103,7 @@ struct AccountAccessView: View {
     private func disciplineSymbol(_ name: String) -> some View {
         Image(systemName: name)
             .font(.system(size: 23, weight: .semibold))
-            .symbolRenderingMode(.hierarchical)
+            .symbolRenderingMode(.monochrome)
             .frame(width: 58, height: 58)
             .background(.fill.tertiary, in: .circle)
     }
@@ -150,7 +150,7 @@ struct AccountAccessView: View {
             VStack(spacing: 18) {
                 Image(systemName: "exclamationmark.icloud.fill")
                     .font(.system(size: 42, weight: .medium))
-                    .symbolRenderingMode(.hierarchical)
+                    .symbolRenderingMode(.monochrome)
                     .frame(width: 82, height: 82)
                     .background(.fill.tertiary, in: .circle)
                     .accessibilityHidden(true)
