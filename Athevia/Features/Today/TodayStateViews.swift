@@ -28,7 +28,7 @@ struct TodayWorkoutView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Label(workout.discipline.displayName, systemImage: workout.discipline.symbolName)
                     .font(.subheadline.weight(.medium))
-                    .foregroundStyle(workout.discipline.tint)
+                    .foregroundStyle(.primary)
 
                 Text(workout.title)
                     .font(.largeTitle.weight(.semibold))
