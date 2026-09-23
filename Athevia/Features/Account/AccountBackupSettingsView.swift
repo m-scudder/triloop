@@ -12,6 +12,7 @@ struct AccountBackupSettingsView: View {
     @State private var message: String?
     @State private var pendingCloudBackup: BackupEnvelope?
     @State private var signedInSession: AccountSession?
+    @State private var progressMessage: String?
 
     var body: some View {
         List {
@@ -45,6 +46,7 @@ struct AccountBackupSettingsView: View {
             }
         }
         .navigationTitle("Backup")
+        .atheviaProgress(progressMessage)
         .navigationBarTitleDisplayMode(.inline)
         .task {
             if case .checking = authentication.state {
@@ -112,7 +114,11 @@ struct AccountBackupSettingsView: View {
     @MainActor
     private func resolveNewlyConnectedAccount(_ session: AccountSession) async {
         isWorking = true
-        defer { isWorking = false }
+        progressMessage = "Connecting cloud backup…"
+        defer {
+            isWorking = false
+            progressMessage = nil
+        }
 
         do {
             let hasLocalData = try LocalTrainingStoreState.hasUserData(modelContext)
@@ -145,8 +151,10 @@ struct AccountBackupSettingsView: View {
     private func cancelCloudDecision() {
         pendingCloudBackup = nil
         signedInSession = nil
+        progressMessage = "Disconnecting account…"
 
-        Task {
+        Task { @MainActor in
+            defer { progressMessage = nil }
             try? await authentication.signOut()
         }
     }
@@ -164,8 +172,12 @@ struct AccountBackupSettingsView: View {
         signedInSession = nil
 
         isWorking = true
+        progressMessage = "Restoring cloud training…"
         Task { @MainActor in
-            defer { isWorking = false }
+            defer {
+                isWorking = false
+                progressMessage = nil
+            }
             do {
                 try LocalTrainingStoreState.removeUserData(modelContext)
                 try BackupRestoreService().restore(cloud.snapshot, into: modelContext)
@@ -179,8 +191,12 @@ struct AccountBackupSettingsView: View {
 
     private func backUpNow(_ session: AccountSession) {
         isWorking = true
+        progressMessage = "Backing up training…"
         Task { @MainActor in
-            defer { isWorking = false }
+            defer {
+                isWorking = false
+                progressMessage = nil
+            }
             do {
                 latestBackup = try await backup.backup(
                     accountID: session.userID,
