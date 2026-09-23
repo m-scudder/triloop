@@ -18,6 +18,7 @@ struct SettingsView: View {
     @State private var isWorking = false
     @State private var watchAuthorization: WorkoutSchedulingAuthorization = .notDetermined
     @State private var activeConnection: ConnectionDestination?
+    @State private var showsNotificationSettings = false
 
     @AppStorage("automaticallyScheduleWorkouts") private var automaticallySchedule = true
     @AppStorage("automaticallyImportWorkouts") private var automaticallyImport = true
@@ -31,6 +32,7 @@ struct SettingsView: View {
                 profileSection
                 accountSection
                 trainingSection
+                notificationsSection
                 connectionsSection
                 automationSection
                 developerSection
@@ -69,6 +71,13 @@ struct SettingsView: View {
                         requestAuthorization: connectWatch
                     )
                 }
+            }
+            .sheet(isPresented: $showsNotificationSettings, onDismiss: {
+                Task {
+                    notificationStatus = await TrainingNotificationManager.shared.authorizationStatus()
+                }
+            }) {
+                NotificationSettingsSheetView()
             }
         }
     }
@@ -132,8 +141,13 @@ struct SettingsView: View {
                     value: "Runs & rides"
                 )
             }
-            NavigationLink {
-                NotificationSettingsView()
+        }
+    }
+
+    private var notificationsSection: some View {
+        Section {
+            Button {
+                showsNotificationSettings = true
             } label: {
                 SettingsNavigationRow(
                     title: "Notifications",
@@ -141,6 +155,7 @@ struct SettingsView: View {
                     value: notificationStatusText
                 )
             }
+            .buttonStyle(.plain)
         }
     }
 
@@ -391,6 +406,24 @@ struct SettingsView: View {
     }
 }
 
+
+
+private struct NotificationSettingsSheetView: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            NotificationSettingsView()
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { dismiss() }
+                    }
+                }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+}
 
 private enum ConnectionDestination: String, Identifiable {
     case health
