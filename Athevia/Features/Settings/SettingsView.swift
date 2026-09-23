@@ -150,7 +150,7 @@ struct SettingsView: View {
                 showsAccountSettings = true
             } label: {
                 SettingsStatusRow(
-                    title: "Backup",
+                    title: "Cloud Backup",
                     systemImage: "person.crop.circle",
                     value: accountStatusText(authentication),
                     isConnected: {
@@ -351,7 +351,7 @@ struct SettingsView: View {
         case .checking, .signingIn:
             "Checking…"
         case .signedOut:
-            "Not signed in"
+            "On this iPhone"
         case .failed:
             "Needs attention"
         }
@@ -639,70 +639,6 @@ private struct HealthConnectionSetupView: View {
         case .notDetermined: "Not connected"
         case .denied: "Denied"
         case .authorized: "Connected"
-        }
-    }
-}
-
-private struct WorkoutSchedulingSetupView: View {
-    let isSupported: Bool
-    let authorization: WorkoutSchedulingAuthorization
-    let isWorking: Bool
-    let requestAuthorization: () -> Void
-
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            List {
-                Section {
-                    ConnectionSheetStatusRow(
-                        title: "Workout scheduling",
-                        systemImage: "calendar.badge.clock",
-                        status: statusText,
-                        isConnected: authorization == .authorized
-                    )
-                }
-
-                Section {
-                    if !isSupported || authorization == .restricted {
-                        Text("Workout scheduling is not available on this device.")
-                            .foregroundStyle(.secondary)
-                    } else {
-                        Button {
-                            requestAuthorization()
-                        } label: {
-                            Label(
-                                authorization == .authorized ? "Re-check permission" : "Allow workout scheduling",
-                                systemImage: authorization == .authorized ? "arrow.clockwise" : "calendar.badge.clock"
-                            )
-                        }
-                        .disabled(isWorking)
-                    }
-                }
-            }
-            .navigationTitle("Workout scheduling")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
-        }
-        .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
-    }
-
-    private var statusText: String {
-        guard isSupported else { return "Unavailable" }
-        switch authorization {
-        case .authorized:
-            return "Allowed"
-        case .denied:
-            return "Not allowed"
-        case .restricted:
-            return "Not available"
-        case .notDetermined:
-            return "Not set up"
         }
     }
 }
