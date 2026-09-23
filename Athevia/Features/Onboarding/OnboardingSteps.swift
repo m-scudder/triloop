@@ -22,9 +22,9 @@ struct WelcomeStepView: View {
                     alignment: .leading,
                     spacing: 12
                 ) {
-                    Label("RUN", systemImage: "figure.run")
-                    Label("SWIM", systemImage: "figure.pool.swim")
-                    Label("BIKE", systemImage: "figure.outdoor.cycle")
+                    sportLabel("RUN", systemImage: "figure.run", tint: Discipline.running.tint)
+                    sportLabel("SWIM", systemImage: "figure.pool.swim", tint: Discipline.swimming.tint)
+                    sportLabel("BIKE", systemImage: "figure.outdoor.cycle", tint: Discipline.cycling.tint)
                 }
                 .font(.caption.weight(.semibold))
 
@@ -36,6 +36,17 @@ struct WelcomeStepView: View {
 
                 Spacer(minLength: 0)
             }
+        }
+    }
+
+    private func sportLabel(_ title: String, systemImage: String, tint: Color) -> some View {
+        Label {
+            Text(title)
+                .foregroundStyle(.primary)
+        } icon: {
+            Image(systemName: systemImage)
+                .symbolRenderingMode(.monochrome)
+                .foregroundStyle(tint)
         }
     }
 }
