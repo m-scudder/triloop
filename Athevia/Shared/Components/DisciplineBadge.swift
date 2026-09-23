@@ -1,7 +1,7 @@
 import SwiftUI
 
 extension Discipline {
-    /// Vivid hue for glyphs, bars and tinted backgrounds.
+    /// Sport hue for charts and training surfaces. Icons stay neutral.
     var tint: Color {
         switch self {
         case .running: Color(red: 1.00, green: 0.42, blue: 0.16)
@@ -42,7 +42,7 @@ extension Discipline {
     }
 }
 
-/// Rounded, tinted sport glyph used consistently across Today, Plan and Detail.
+/// Rounded neutral sport glyph used consistently across Today, Plan and Detail.
 struct DisciplineBadge: View {
     let discipline: Discipline
     var size: CGFloat = 40
