@@ -1,0 +1,11 @@
+title = "Athevia Gitleaks configuration"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Supabase publishable client keys are designed to be embedded in public clients"
+regexTarget = "match"
+regexes = [
+  '''sb_publishable_[A-Za-z0-9_-]+'''
+]
