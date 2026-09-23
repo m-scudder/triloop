@@ -66,14 +66,10 @@ struct SettingsView: View {
                 case .watch:
                     WatchAppSetupView(
                         watch: watch,
-                        currentPlan: plans.currentPlan()
-                    )
-                case .workoutScheduling:
-                    WorkoutSchedulingSetupView(
-                        isSupported: scheduler.isSupported,
-                        authorization: watchAuthorization,
+                        currentPlan: plans.currentPlan(),
+                        schedulingAuthorization: watchAuthorization,
                         isWorking: isWorking,
-                        requestAuthorization: connectWatch
+                        requestSchedulingAuthorization: connectWatch
                     )
                 }
             }
@@ -216,27 +212,13 @@ struct SettingsView: View {
                 activeConnection = .watch
             } label: {
                 SettingsStatusRow(
-                    title: "Athevia Watch",
+                    title: "Apple Watch",
                     systemImage: "applewatch",
-                    value: watch.isAtheviaWatchInstalled ? "Installed" : "Not installed",
+                    value: watch.isAtheviaWatchInstalled ? "Connected" : "App not installed",
                     isConnected: watch.isAtheviaWatchInstalled
                 )
             }
             .buttonStyle(.plain)
-
-            if watch.canSchedule {
-                Button {
-                    activeConnection = .workoutScheduling
-                } label: {
-                    SettingsStatusRow(
-                        title: "Workout scheduling",
-                        systemImage: "calendar.badge.clock",
-                        value: watchStatusText,
-                        isConnected: watchAuthorization == .authorized
-                    )
-                }
-                .buttonStyle(.plain)
-            }
         }
     }
 
@@ -599,7 +581,6 @@ private struct NotificationSettingsSheetView: View {
 private enum ConnectionDestination: String, Identifiable {
     case health
     case watch
-    case workoutScheduling
 
     var id: String { rawValue }
 }
@@ -761,6 +742,9 @@ private struct ConnectionSheetStatusRow: View {
 private struct WatchAppSetupView: View {
     @ObservedObject var watch: WatchAvailability
     let currentPlan: WeeklyPlan?
+    let schedulingAuthorization: WorkoutSchedulingAuthorization
+    let isWorking: Bool
+    let requestSchedulingAuthorization: () -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var statusMessage: String?
@@ -768,18 +752,57 @@ private struct WatchAppSetupView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section {
+                Section("Status") {
                     ConnectionSheetStatusRow(
-                        title: "Athevia Watch",
+                        title: "Apple Watch",
                         systemImage: "applewatch",
+                        status: watch.isPairedWatch ? "Paired" : "Not paired",
+                        isConnected: watch.isPairedWatch
+                    )
+
+                    ConnectionSheetStatusRow(
+                        title: "Athevia Watch app",
+                        systemImage: "app.badge.checkmark",
                         status: watch.isAtheviaWatchInstalled ? "Installed" : "Not installed",
                         isConnected: watch.isAtheviaWatchInstalled
                     )
+
+                    if watch.canSchedule {
+                        ConnectionSheetStatusRow(
+                            title: "Workout scheduling",
+                            systemImage: "calendar.badge.clock",
+                            status: schedulingStatusText,
+                            isConnected: schedulingAuthorization == .authorized
+                        )
+                    }
+                }
+
+                if watch.canSchedule {
+                    Section("Apple Workout Scheduling") {
+                        Button {
+                            requestSchedulingAuthorization()
+                        } label: {
+                            Label(
+                                schedulingAuthorization == .authorized
+                                    ? "Re-check scheduling permission"
+                                    : "Allow workout scheduling",
+                                systemImage: schedulingAuthorization == .authorized
+                                    ? "arrow.clockwise"
+                                    : "calendar.badge.clock"
+                            )
+                        }
+                        .disabled(isWorking)
+                    } footer: {
+                        Text("This lets Athevia place structured sessions in Apple's Workout app. It is separate from the Athevia Watch app.")
+                    }
                 }
 
                 if watch.isAtheviaWatchInstalled {
-                    Section("Workout Sync") {
-                        Label("Your current training week syncs automatically.", systemImage: "checkmark.circle.fill")
+                    Section("Athevia Workout Sync") {
+                        Label(
+                            "Your current training week syncs automatically.",
+                            systemImage: "checkmark.circle.fill"
+                        )
 
                         Button {
                             let queued = WatchAppPlanSync.sync(currentPlan)
@@ -796,15 +819,11 @@ private struct WatchAppSetupView: View {
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
                         }
-                    }
-
-                    Section {
-                        Text("After syncing, workouts remain available in the Athevia Watch app even when your iPhone is not nearby.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
+                    } footer: {
+                        Text("Synced workouts remain available in the Athevia Watch app even when your iPhone is not nearby.")
                     }
                 } else {
-                    Section("Install from your iPhone") {
+                    Section("Install Athevia Watch") {
                         installationStep(
                             number: 1,
                             title: "Open the Watch app",
@@ -813,7 +832,7 @@ private struct WatchAppSetupView: View {
                         installationStep(
                             number: 2,
                             title: "Open My Watch",
-                            detail: "Scroll to the Available Apps section."
+                            detail: "Scroll to Available Apps."
                         )
                         installationStep(
                             number: 3,
@@ -823,7 +842,7 @@ private struct WatchAppSetupView: View {
                         installationStep(
                             number: 4,
                             title: "Return to Athevia",
-                            detail: "Your workouts will sync automatically once installation is detected."
+                            detail: "Your current week will sync automatically."
                         )
                     }
 
@@ -842,26 +861,29 @@ private struct WatchAppSetupView: View {
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
                         }
-                    } footer: {
-                        Text("If Automatic App Install is enabled in the Watch app, Athevia may already install automatically.")
                     }
                 }
             }
-            .navigationTitle("Athevia Watch")
+            .navigationTitle("Apple Watch")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") {
-                        dismiss()
-                    }
+                    Button("Done") { dismiss() }
                 }
             }
-            .onAppear {
-                watch.refresh()
-            }
+            .onAppear { watch.refresh() }
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
+    }
+
+    private var schedulingStatusText: String {
+        switch schedulingAuthorization {
+        case .authorized: "Allowed"
+        case .denied: "Not allowed"
+        case .restricted: "Not available"
+        case .notDetermined: "Not set up"
+        }
     }
 
     private func installationStep(
