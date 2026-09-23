@@ -12,10 +12,10 @@ final class AtheviaUITests: XCTestCase {
         app.launch()
 
         let homeTab = app.tabBars.buttons["Home"]
-        let setUpButton = app.buttons["Build My Plan"]
+        let setupHeading = app.staticTexts["Where are you starting?"]
 
         XCTAssertTrue(
-            homeTab.waitForExistence(timeout: 10) || setUpButton.waitForExistence(timeout: 10),
+            homeTab.waitForExistence(timeout: 10) || setupHeading.waitForExistence(timeout: 10),
             "Launch showed neither the training tabs nor onboarding."
         )
     }
