@@ -359,7 +359,7 @@ struct TodayNextView: View {
     private var relativeDay: String {
         let calendar = Calendar.current
         if calendar.isDateInTomorrow(next.date) { return "Tomorrow" }
-        return next.date.formatted(.dateTime.weekday(.wide))
+        return TrainingFormatter.weekdayAbbreviation(for: next.date)
     }
 }
 
