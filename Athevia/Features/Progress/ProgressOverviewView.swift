@@ -158,7 +158,7 @@ struct ProgressOverviewView: View {
                                 .font(.headline)
                                 .foregroundStyle(.primary)
                                 .frame(width: 38, height: 38)
-                                .background(state.sport.discipline.tint.opacity(0.12), in: .circle)
+                                .background(.fill.tertiary, in: .circle)
 
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(state.sport.displayName)
