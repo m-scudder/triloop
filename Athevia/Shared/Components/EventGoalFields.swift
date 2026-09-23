@@ -41,6 +41,7 @@ struct EventGoalFields: View {
                             select(sport)
                         }
                         .accessibilityIdentifier("event.sport.\(sport.rawValue)")
+                        .frame(minHeight: 44)
                     }
                 }
             }
@@ -58,6 +59,7 @@ struct EventGoalFields: View {
                             }
                         }
                         .accessibilityIdentifier("event.distance.\(kind.rawValue)")
+                        .frame(minHeight: 44)
                     }
                 }
 
@@ -70,6 +72,7 @@ struct EventGoalFields: View {
                 Toggle("Add event date", isOn: hasDate)
                     .toggleStyle(AtheviaToggleStyle())
                     .accessibilityIdentifier("event.date.toggle")
+                    .frame(minHeight: 44)
 
                 if event.eventDate != nil {
                     DatePicker(
@@ -95,6 +98,7 @@ struct EventGoalFields: View {
                                 updateEvent { $0.targetIntent = intent }
                             }
                             .accessibilityIdentifier("event.intent.\(intent.rawValue)")
+                            .frame(minHeight: 44)
                         }
                     }
                 }
@@ -292,6 +296,7 @@ private struct EventDistanceTextField: View {
                 .foregroundStyle(.secondary)
         }
         .onAppear(perform: syncText)
+        .frame(minHeight: 44)
         .onChange(of: meters) { _, _ in syncText() }
     }
 
