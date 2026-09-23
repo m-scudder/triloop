@@ -64,6 +64,27 @@ struct TrainingDaysStepView: View {
                 }
             }
 
+            if model.canChooseStartDate {
+                VStack(alignment: .leading, spacing: 10) {
+                    SectionEyebrow(text: "Start training")
+
+                    DatePicker(
+                        "Start date",
+                        selection: Binding(
+                            get: { model.selectedStartDate },
+                            set: { model.choose(startDate: $0) }
+                        ),
+                        in: model.minimumStartDate...,
+                        displayedComponents: .date
+                    )
+                    .datePickerStyle(.compact)
+
+                    Text("The first plan starts from this date. After that, Athevia continues with normal Monday–Sunday training weeks.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
             Text("Athevia assigns the workout mix and recovery automatically.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
