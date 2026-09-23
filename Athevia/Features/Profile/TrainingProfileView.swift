@@ -88,6 +88,12 @@ struct TrainingProfileView: View {
 
     private var historySection: some View {
         Section("Workout History") {
+            NavigationLink {
+                WorkoutHistoryView()
+            } label: {
+                Label("Apple Health History", systemImage: "heart.text.square")
+            }
+
             if historyPlans.isEmpty {
                 HStack(spacing: 10) {
                     Image(systemName: "clock.arrow.circlepath")
