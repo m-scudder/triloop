@@ -11,9 +11,6 @@ struct PlanPreviewStepView: View {
         OnboardingStep(
             primaryTitle: "Start My Plan",
             isPrimaryEnabled: model.preview != nil && !model.isWorking,
-            secondary: OnboardingSecondaryAction("Adjust Days") {
-                model.jump(to: .days)
-            },
             primary: model.start
         ) {
             OnboardingHeader(
