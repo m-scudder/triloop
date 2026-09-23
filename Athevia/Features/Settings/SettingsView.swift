@@ -19,6 +19,7 @@ struct SettingsView: View {
     @State private var watchAuthorization: WorkoutSchedulingAuthorization = .notDetermined
     @State private var activeConnection: ConnectionDestination?
     @State private var showsNotificationSettings = false
+    @State private var showsAudioCoachingSettings = false
 
     @AppStorage("automaticallyScheduleWorkouts") private var automaticallySchedule = true
     @AppStorage("automaticallyImportWorkouts") private var automaticallyImport = true
@@ -79,6 +80,9 @@ struct SettingsView: View {
             }) {
                 NotificationSettingsSheetView()
             }
+            .sheet(isPresented: $showsAudioCoachingSettings) {
+                AudioCoachingSettingsSheetView()
+            }
         }
     }
 
@@ -113,7 +117,7 @@ struct SettingsView: View {
     @ViewBuilder
     private var accountSection: some View {
         if let authentication, let backup {
-            Section("Account") {
+            Section {
                 NavigationLink {
                     AccountBackupSettingsView(
                         authentication: authentication,
@@ -131,9 +135,9 @@ struct SettingsView: View {
     }
 
     private var trainingSection: some View {
-        Section("Training") {
-            NavigationLink {
-                AudioCoachingSettingsView()
+        Section {
+            Button {
+                showsAudioCoachingSettings = true
             } label: {
                 SettingsNavigationRow(
                     title: "Audio coaching",
@@ -141,6 +145,7 @@ struct SettingsView: View {
                     value: "Runs & rides"
                 )
             }
+            .buttonStyle(.plain)
         }
     }
 
@@ -160,7 +165,7 @@ struct SettingsView: View {
     }
 
     private var connectionsSection: some View {
-        Section("Connections") {
+        Section {
             Button {
                 activeConnection = .health
             } label: {
@@ -205,7 +210,7 @@ struct SettingsView: View {
     }
 
     private var automationSection: some View {
-        Section("Automation") {
+        Section {
             Toggle(isOn: $automaticallyImport) {
                 Label("Import workouts automatically", systemImage: "arrow.down.circle")
             }
@@ -407,6 +412,23 @@ struct SettingsView: View {
 }
 
 
+
+private struct AudioCoachingSettingsSheetView: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            AudioCoachingSettingsView()
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { dismiss() }
+                    }
+                }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+}
 
 private struct NotificationSettingsSheetView: View {
     @Environment(\.dismiss) private var dismiss
