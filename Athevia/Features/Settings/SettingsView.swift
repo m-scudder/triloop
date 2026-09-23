@@ -5,6 +5,7 @@ struct SettingsView: View {
     var authentication: AuthenticationCoordinator?
     var backup: BackupCoordinator?
     var onLocalDataWillErase: () -> Void = {}
+    var onLocalDataDidErase: () -> Void = {}
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.healthProvider) private var health
@@ -442,10 +443,13 @@ struct SettingsView: View {
         onLocalDataWillErase()
 
         Task { @MainActor in
-            // Let RootView remove Settings from the hierarchy before deleting
-            // the SwiftData objects its queries are currently rendering.
+            // RootView keeps the data-bound tab hierarchy unmounted until the
+            // destructive SwiftData transaction and external cleanup finish.
             await Task.yield()
-            defer { isWorking = false }
+            defer {
+                isWorking = false
+                onLocalDataDidErase()
+            }
             await clearSignedOutAccountData()
         }
     }
