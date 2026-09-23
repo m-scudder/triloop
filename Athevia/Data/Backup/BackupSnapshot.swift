@@ -259,7 +259,6 @@ struct WorkoutFeedbackBackup: Codable, Sendable {
     let painLocations: [PainLocation]
     let recoveryFeeling: RecoveryFeeling
     let symptoms: [WarningSymptom]
-    let notes: String
     let createdAt: Date
 
     @MainActor
@@ -270,7 +269,6 @@ struct WorkoutFeedbackBackup: Codable, Sendable {
         painLocations = feedback.painLocations
         recoveryFeeling = feedback.recoveryFeeling
         symptoms = feedback.symptoms
-        notes = feedback.notes
         createdAt = feedback.createdAt
     }
 
@@ -283,7 +281,7 @@ struct WorkoutFeedbackBackup: Codable, Sendable {
             painLocations: painLocations,
             recoveryFeeling: recoveryFeeling,
             symptoms: symptoms,
-            notes: notes,
+            notes: "",
             createdAt: createdAt
         )
     }
@@ -356,7 +354,7 @@ struct ImportedWorkoutBackup: Codable, Sendable {
         swimmingLengths = summary.swimmingLengths
         swimmingStrokeCount = summary.swimmingStrokeCount
         longestContinuousSwimMeters = summary.longestContinuousSwimMeters
-        metrics = summary.metrics
+        metrics = summary.metrics?.cloudBackupSanitized
         source = summary.source
         importedAt = summary.importedAt
     }
@@ -420,6 +418,29 @@ struct StoredWorkoutTemplateBackup: Codable, Sendable {
             targetRPE: targetRPE,
             createdAt: createdAt,
             updatedAt: updatedAt
+        )
+    }
+}
+
+
+private extension RecordedMetrics {
+    /// Cloud backups retain aggregate workout metrics but never exact GPS points.
+    /// HealthKit remains the source of truth for route-level workout data.
+    var cloudBackupSanitized: RecordedMetrics {
+        RecordedMetrics(
+            averageCadence: averageCadence,
+            averageRunningSpeed: averageRunningSpeed,
+            averageRunningPower: averageRunningPower,
+            averageStrideLength: averageStrideLength,
+            averageGroundContactTime: averageGroundContactTime,
+            averageVerticalOscillation: averageVerticalOscillation,
+            averageCyclingSpeed: averageCyclingSpeed,
+            averageCyclingCadence: averageCyclingCadence,
+            averageCyclingPower: averageCyclingPower,
+            functionalThresholdPower: functionalThresholdPower,
+            workoutEffort: workoutEffort,
+            estimatedWorkoutEffort: estimatedWorkoutEffort,
+            route: []
         )
     }
 }
