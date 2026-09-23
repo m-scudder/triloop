@@ -315,7 +315,7 @@ final class TrainingNotificationManager {
         try? await center.add(request)
     }
 
-    private func removeAllOwnedPendingRequests() async {
+    func removeAllOwnedPendingRequests() async {
         let ids = await center.pendingNotificationRequests()
             .map(\.identifier)
             .filter { id in ownedPrefixes.contains { id.hasPrefix($0) } }
