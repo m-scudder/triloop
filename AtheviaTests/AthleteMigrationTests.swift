@@ -154,9 +154,55 @@ struct AthleteMigrationTests {
         let setup = try JSONDecoder().decode(AthleteSetup.self, from: stored)
 
         #expect(setup.goal == .firstTriathlon)
+        #expect(setup.objective.kind == .event)
+        #expect(setup.objective.event?.sport == .triathlon)
+        #expect(setup.objective.event?.distance == nil)
+        #expect(setup.objective.event?.eventDate == nil)
         #expect(setup.stage == .welcome)
         #expect(setup.completedAt == nil)
         #expect(setup.isComplete == false)
+    }
+
+    @Test("A structured event objective survives a store reopen")
+    func eventObjectivePersists() throws {
+        let container = try store()
+        let context = container.mainContext
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+        let raceDate = calendar.date(
+            from: DateComponents(year: 2026, month: 12, day: 15)
+        )
+
+        let profile = AthleteProfile(
+            name: "Athlete",
+            trainingStartDate: .now,
+            setup: AthleteSetup(
+                objective: .event(
+                    sport: .running,
+                    distance: EventDistance(kind: .run5K),
+                    eventDate: raceDate,
+                    targetIntent: .finishComfortably
+                ),
+                preferences: [
+                    SportPreference(sport: .running, sessionsPerWeek: 3)
+                ],
+                stage: .complete,
+                completedAt: .now
+            )
+        )
+        context.insert(profile)
+        try context.save()
+
+        let reopened = ModelContext(container)
+        let stored = try #require(
+            try reopened.fetch(FetchDescriptor<AthleteProfile>()).first?.setup
+        )
+
+        #expect(stored.objective.kind == .event)
+        #expect(stored.objective.event?.sport == .running)
+        #expect(stored.objective.event?.distance?.kind == .run5K)
+        #expect(stored.objective.event?.eventDate == raceDate)
+        #expect(stored.objective.event?.targetIntent == .finishComfortably)
     }
 
     @Test("A plan generation reason survives a reopen")
