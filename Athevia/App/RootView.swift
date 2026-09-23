@@ -22,6 +22,7 @@ struct RootView: View {
     @State private var selectedTab: RootTab = .home
     @State private var lastKnownHighestWeek: Int?
     @State private var accountReady = false
+    @State private var isErasingLocalData = false
     @AppStorage("automaticallyImportWorkouts") private var automaticallyImport = true
     @AppStorage("automaticallyScheduleWorkouts") private var automaticallySchedule = true
     @Environment(\.scenePhase) private var scenePhase
@@ -36,7 +37,9 @@ struct RootView: View {
 
     var body: some View {
         Group {
-            if let authentication, let backup, !accountReady {
+            if isErasingLocalData {
+                ProgressView("Resetting Athevia…")
+            } else if let authentication, let backup, !accountReady {
                 AccountAccessView(
                     authentication: authentication,
                     backup: backup,
@@ -108,8 +111,12 @@ struct RootView: View {
                     authentication: authentication,
                     backup: backup,
                     onLocalDataWillErase: {
+                        isErasingLocalData = true
                         selectedTab = .home
+                    },
+                    onLocalDataDidErase: {
                         accountReady = false
+                        isErasingLocalData = false
                     }
                 )
             }
