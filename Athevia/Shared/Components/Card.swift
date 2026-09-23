@@ -314,3 +314,41 @@ extension View {
         modifier(AtheviaProgressOverlay(message: message))
     }
 }
+
+
+/// Compact selectable control for low-friction choice groups.
+///
+/// Use this instead of pushing a short set of mutually exclusive options into
+/// another screen or sheet. The selected fill is explicit so it remains
+/// readable in both light and dark appearances.
+struct AtheviaChoiceChip: View {
+    let title: String
+    let isSelected: Bool
+    var tint: Color = .blue
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.subheadline.weight(.medium))
+                .multilineTextAlignment(.center)
+                .foregroundStyle(isSelected ? Color.white : Color.primary)
+                .frame(maxWidth: .infinity, minHeight: 42)
+                .padding(.horizontal, 8)
+                .background(
+                    isSelected ? tint : Color(uiColor: .tertiarySystemFill),
+                    in: .rect(cornerRadius: 11)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 11, style: .continuous)
+                        .strokeBorder(
+                            isSelected ? tint : Color.secondary.opacity(0.16),
+                            lineWidth: 0.5
+                        )
+                )
+                .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+    }
+}

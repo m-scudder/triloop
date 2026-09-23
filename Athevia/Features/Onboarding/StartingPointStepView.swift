@@ -2,17 +2,18 @@ import SwiftUI
 
 struct StartingPointStepView: View {
     @Bindable var model: OnboardingModel
-    @State private var expandedSport: Sport?
     @State private var poolText = ""
     @State private var customPoolSelected = false
     @FocusState private var isEditingPool: Bool
 
+    private let compactColumns = [
+        GridItem(.flexible()),
+        GridItem(.flexible())
+    ]
+
     var body: some View {
         OnboardingStep(isPrimaryEnabled: model.canAdvance, primary: model.advance) {
-            OnboardingHeader(
-                title: "Where are you starting?",
-                subtitle: "Choose your sports, then set your current starting point."
-            )
+            OnboardingHeader(title: "Where are you starting?")
 
             VStack(spacing: 12) {
                 ForEach(Sport.allCases, id: \.self) { sport in
@@ -26,7 +27,7 @@ struct StartingPointStepView: View {
                     .foregroundStyle(.secondary)
             } else if model.isSportSelected(.swimming),
                       !PoolLength.isValid(model.poolLengthMeters) {
-                Label("Choose a pool length.", systemImage: "info.circle")
+                Label("Choose a valid pool length.", systemImage: "info.circle")
                     .font(.footnote)
                     .foregroundStyle(.orange)
             }
@@ -36,83 +37,55 @@ struct StartingPointStepView: View {
     @ViewBuilder
     private func sportCard(_ sport: Sport) -> some View {
         let selected = model.isSportSelected(sport)
-        let expanded = selected && expandedSport == sport
 
-        VStack(spacing: 0) {
-            HStack(spacing: 0) {
-                Button {
-                    if selected {
-                        model.toggleSport(sport)
-                        if expandedSport == sport {
-                            expandedSport = nil
-                        }
-                    } else {
-                        model.toggleSport(sport)
-                        prepareDetails(for: sport)
-                        expandedSport = sport
-                    }
-                } label: {
-                    HStack(spacing: 12) {
-                        Image(systemName: selected ? "checkmark.circle.fill" : "circle")
-                            .font(.title3)
-                            .foregroundStyle(
-                                selected
-                                    ? AnyShapeStyle(sport.discipline.tint)
-                                    : AnyShapeStyle(.secondary)
-                            )
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                model.toggleSport(sport)
+                if !selected && sport == .swimming {
+                    preparePoolState()
+                }
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                        .font(.title3)
+                        .foregroundStyle(
+                            selected
+                                ? AnyShapeStyle(sport.discipline.tint)
+                                : AnyShapeStyle(.secondary)
+                        )
 
-                        DisciplineBadge(discipline: sport.discipline, size: 38)
+                    DisciplineBadge(discipline: sport.discipline, size: 38)
 
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(sport.displayName)
-                                .font(.headline)
-                                .foregroundStyle(.primary)
-                            Text(selected ? summary(sport) : "Tap to include")
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(sport.displayName)
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+
+                        if selected {
+                            Text(summary(sport))
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
+                                .lineLimit(2)
                         }
-
-                        Spacer(minLength: 8)
                     }
-                    .padding(14)
-                    .contentShape(.rect)
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("startingPoint.\(sport.rawValue)")
-                .accessibilityLabel("\(sport.displayName), \(selected ? "selected" : "not selected")")
-                .accessibilityAddTraits(selected ? [.isSelected] : [])
 
-                if selected {
-                    Button {
-                        if expanded {
-                            expandedSport = nil
-                        } else {
-                            prepareDetails(for: sport)
-                            expandedSport = sport
-                        }
-                    } label: {
-                        Image(systemName: expanded ? "chevron.up" : "chevron.down")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                            .frame(width: 48, height: 48)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(expanded ? "Hide \(sport.displayName) setup" : "Edit \(sport.displayName) setup")
+                    Spacer(minLength: 8)
                 }
+                .padding(14)
+                .contentShape(.rect)
             }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("startingPoint.\(sport.rawValue)")
+            .accessibilityLabel("\(sport.displayName), \(selected ? "selected" : "not selected")")
+            .accessibilityAddTraits(selected ? [.isSelected] : [])
 
-            if expanded {
+            if selected {
                 Divider()
                     .padding(.horizontal, 14)
 
-                VStack(alignment: .leading, spacing: 14) {
-                    SectionEyebrow(text: "Starting point")
+                VStack(alignment: .leading, spacing: 12) {
+                    SectionEyebrow(text: abilityTitle(for: sport))
                     baselineChoices(sport)
-
-                    Button(notSureTitle(for: sport)) {
-                        chooseConservativeDefault(for: sport)
-                    }
-                    .font(.subheadline.weight(.medium))
 
                     if sport == .swimming {
                         swimmingDetails
@@ -131,23 +104,70 @@ struct StartingPointStepView: View {
         )
     }
 
+    private func abilityTitle(for sport: Sport) -> String {
+        switch sport {
+        case .running: "Running now"
+        case .swimming: "Longest continuous swim"
+        case .cycling: "Comfortable ride"
+        }
+    }
+
+    @ViewBuilder
+    private func baselineChoices(_ sport: Sport) -> some View {
+        LazyVGrid(columns: compactColumns, spacing: 8) {
+            switch sport {
+            case .running:
+                ForEach(RunningBaseline.allCases, id: \.self) { baseline in
+                    AtheviaChoiceChip(
+                        title: shortLabel(baseline),
+                        isSelected: model.setup.baseline.running == baseline,
+                        tint: sport.discipline.tint
+                    ) {
+                        model.choose(running: baseline)
+                    }
+                }
+
+            case .swimming:
+                ForEach(SwimmingBaseline.allCases, id: \.self) { baseline in
+                    AtheviaChoiceChip(
+                        title: baseline.displayName,
+                        isSelected: model.setup.baseline.swimming == baseline,
+                        tint: sport.discipline.tint
+                    ) {
+                        model.choose(swimming: baseline)
+                    }
+                }
+
+            case .cycling:
+                ForEach(CyclingBaseline.allCases, id: \.self) { baseline in
+                    AtheviaChoiceChip(
+                        title: shortLabel(baseline),
+                        isSelected: model.setup.baseline.cycling == baseline,
+                        tint: sport.discipline.tint
+                    ) {
+                        model.choose(cycling: baseline)
+                    }
+                }
+            }
+        }
+    }
+
     @ViewBuilder
     private var swimmingDetails: some View {
         VStack(alignment: .leading, spacing: 10) {
-            SectionEyebrow(text: "Primary stroke")
+            SectionEyebrow(text: "Stroke")
 
-            Picker(
-                "Primary stroke",
-                selection: Binding(
-                    get: { model.setup.baseline.stroke },
-                    set: { model.choose(stroke: $0) }
-                )
-            ) {
-                ForEach(SwimStroke.allCases, id: \.self) {
-                    Text($0.displayName).tag($0)
+            HStack(spacing: 8) {
+                ForEach(SwimStroke.allCases, id: \.self) { stroke in
+                    AtheviaChoiceChip(
+                        title: stroke.displayName,
+                        isSelected: model.setup.baseline.stroke == stroke,
+                        tint: Discipline.swimming.tint
+                    ) {
+                        model.choose(stroke: stroke)
+                    }
                 }
             }
-            .pickerStyle(.segmented)
 
             SectionEyebrow(text: "Pool length")
 
@@ -155,15 +175,16 @@ struct StartingPointStepView: View {
                 poolChoice("25 m", meters: 25)
                 poolChoice("50 m", meters: 50)
 
-                Button {
-                    customPoolSelected.toggle()
+                AtheviaChoiceChip(
+                    title: "Other",
+                    isSelected: customPoolSelected,
+                    tint: Discipline.swimming.tint
+                ) {
+                    customPoolSelected = true
                     poolText = ""
-                    model.setPoolLength(customPoolSelected ? 0 : 25)
-                    isEditingPool = customPoolSelected
-                } label: {
-                    compactChoice("Other", selected: customPoolSelected)
+                    model.setPoolLength(0)
+                    isEditingPool = true
                 }
-                .buttonStyle(.plain)
             }
 
             if customPoolSelected {
@@ -175,112 +196,24 @@ struct StartingPointStepView: View {
                         let metres = (try? Double(value, format: .number)) ?? 0
                         model.setPoolLength(PoolLength.isValid(metres) ? metres : 0)
                     }
-
-                if !poolText.isEmpty,
-                   !PoolLength.isValid(model.poolLengthMeters) {
-                    Text("Enter a length between \(Int(PoolLength.permittedRange.lowerBound)) and \(Int(PoolLength.permittedRange.upperBound)) metres.")
-                        .font(.footnote)
-                        .foregroundStyle(.orange)
-                }
             }
         }
-    }
-
-    @ViewBuilder
-    private func baselineChoices(_ sport: Sport) -> some View {
-        VStack(spacing: 8) {
-            switch sport {
-            case .running:
-                ForEach(RunningBaseline.allCases, id: \.self) { baseline in
-                    baselineChoice(
-                        baseline.displayName,
-                        selected: model.setup.baseline.running == baseline
-                    ) {
-                        model.choose(running: baseline)
-                    }
-                }
-
-            case .swimming:
-                ForEach(SwimmingBaseline.allCases, id: \.self) { baseline in
-                    baselineChoice(
-                        baseline.displayName,
-                        selected: model.setup.baseline.swimming == baseline
-                    ) {
-                        model.choose(swimming: baseline)
-                    }
-                }
-
-            case .cycling:
-                ForEach(CyclingBaseline.allCases, id: \.self) { baseline in
-                    baselineChoice(
-                        baseline.displayName,
-                        selected: model.setup.baseline.cycling == baseline
-                    ) {
-                        model.choose(cycling: baseline)
-                    }
-                }
-            }
-        }
-    }
-
-    private func baselineChoice(
-        _ title: String,
-        selected: Bool,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            HStack {
-                Text(title)
-                    .foregroundStyle(.primary)
-                    .multilineTextAlignment(.leading)
-                Spacer(minLength: 8)
-                Image(systemName: selected ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(selected ? Color.blue : .secondary)
-            }
-            .padding(.horizontal, 12)
-            .frame(maxWidth: .infinity, minHeight: 44)
-            .background(
-                selected ? Color.blue.opacity(0.12) : Color.clear,
-                in: .rect(cornerRadius: 10)
-            )
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(selected ? [.isSelected] : [])
     }
 
     private func poolChoice(_ title: String, meters: Double) -> some View {
-        let selected = !customPoolSelected && model.poolLengthMeters == meters
-
-        return Button {
+        AtheviaChoiceChip(
+            title: title,
+            isSelected: !customPoolSelected && model.poolLengthMeters == meters,
+            tint: Discipline.swimming.tint
+        ) {
             customPoolSelected = false
+            poolText = ""
             isEditingPool = false
-            poolText = ""
             model.setPoolLength(meters)
-        } label: {
-            compactChoice(title, selected: selected)
         }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(selected ? [.isSelected] : [])
     }
 
-    private func compactChoice(_ title: String, selected: Bool) -> some View {
-        Text(title)
-            .font(.subheadline.weight(.medium))
-            .foregroundStyle(selected ? Color.white : Color.primary)
-            .frame(maxWidth: .infinity, minHeight: 42)
-            .background(
-                selected ? Color.blue : Color.secondary.opacity(0.10),
-                in: .rect(cornerRadius: 10)
-            )
-    }
-
-    private func prepareDetails(for sport: Sport) {
-        guard sport == .swimming else {
-            customPoolSelected = false
-            poolText = ""
-            return
-        }
-
+    private func preparePoolState() {
         customPoolSelected = PoolLength.isValid(model.poolLengthMeters)
             && model.poolLengthMeters != 25
             && model.poolLengthMeters != 50
@@ -289,44 +222,34 @@ struct StartingPointStepView: View {
             : ""
     }
 
-    private func notSureTitle(for sport: Sport) -> String {
-        switch sport {
-        case .running:
-            "Not sure — start with run/walk"
-        case .swimming:
-            "Not sure — start with supported practice"
-        case .cycling:
-            "Not sure — start with a short ride"
+    private func shortLabel(_ baseline: RunningBaseline) -> String {
+        switch baseline {
+        case .none: "Not running yet"
+        case .runWalk: "Run / walk"
+        case .continuous10Minutes: "10 min"
+        case .continuous20To30Minutes: "20–30 min"
+        case .regular5K: "5 km+"
         }
     }
 
-    private func chooseConservativeDefault(for sport: Sport) {
-        switch sport {
-        case .running:
-            model.choose(running: .runWalk)
-        case .swimming:
-            model.choose(swimming: .none)
-        case .cycling:
-            model.choose(cycling: .under20)
+    private func shortLabel(_ baseline: CyclingBaseline) -> String {
+        switch baseline {
+        case .under20: "< 20 min"
+        case .twentyToThirty: "20–30 min"
+        case .thirtyToFortyFive: "30–45 min"
+        case .fortyFiveToSixty: "45–60 min"
+        case .sixtyPlus: "60+ min"
         }
     }
 
     private func summary(_ sport: Sport) -> String {
         switch sport {
         case .running:
-            switch model.setup.baseline.running {
-            case .none: "Not currently running"
-            case .runWalk: "15–20 min run/walk"
-            case .continuous10Minutes: "10 min continuous"
-            case .continuous20To30Minutes: "20–30 min continuous"
-            case .regular5K: "Regularly running 5 km"
-            }
-
+            shortLabel(model.setup.baseline.running)
         case .swimming:
             model.setup.baseline.swimming.displayName
-
         case .cycling:
-            model.setup.baseline.cycling.displayName
+            shortLabel(model.setup.baseline.cycling)
         }
     }
 }

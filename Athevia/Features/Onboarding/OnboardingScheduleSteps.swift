@@ -1,19 +1,42 @@
 import SwiftUI
 
-/// Training availability stays intentionally small: choose the days once and
-/// one time window that applies to every selected training day.
+/// Collects the remaining plan inputs in one place: intent, available days,
+/// and the time ceiling that applies to each selected training day.
 struct TrainingDaysStepView: View {
     @Bindable var model: OnboardingModel
 
     private let durationOptions = [30, 45, 60, 90, 120]
+    private let goalColumns = [
+        GridItem(.flexible()),
+        GridItem(.flexible())
+    ]
 
     var body: some View {
         OnboardingStep(isPrimaryEnabled: model.canAdvance, primary: model.advance) {
-            OnboardingHeader(title: "When can you train?")
+            OnboardingHeader(title: "Build around your week")
 
-            HStack(spacing: 6) {
-                ForEach(Weekday.trainingWeek, id: \.self) { weekday in
-                    dayChip(weekday)
+            VStack(alignment: .leading, spacing: 10) {
+                SectionEyebrow(text: "Goal")
+
+                LazyVGrid(columns: goalColumns, spacing: 8) {
+                    ForEach(TrainingGoal.allCases, id: \.self) { goal in
+                        AtheviaChoiceChip(
+                            title: goal.displayName,
+                            isSelected: model.setup.goal == goal
+                        ) {
+                            model.choose(goal: goal)
+                        }
+                    }
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                SectionEyebrow(text: "Days you can train")
+
+                HStack(spacing: 6) {
+                    ForEach(Weekday.trainingWeek, id: \.self) { weekday in
+                        dayChip(weekday)
+                    }
                 }
             }
 
@@ -34,9 +57,22 @@ struct TrainingDaysStepView: View {
                 }
             }
 
-            Text("Athevia assigns sessions automatically.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            if model.canChooseStartDate {
+                VStack(alignment: .leading, spacing: 10) {
+                    SectionEyebrow(text: "Start training")
+
+                    DatePicker(
+                        "Start date",
+                        selection: Binding(
+                            get: { model.selectedStartDate },
+                            set: { model.choose(startDate: $0) }
+                        ),
+                        in: model.minimumStartDate...,
+                        displayedComponents: .date
+                    )
+                    .datePickerStyle(.compact)
+                }
+            }
 
             if model.setup.schedule.availableDays.count < model.minimumTrainingDays {
                 Label(
@@ -81,21 +117,11 @@ struct TrainingDaysStepView: View {
     }
 
     private func durationChip(_ minutes: Int) -> some View {
-        let isSelected = model.sharedTrainingMinutes == minutes
-
-        return Button {
+        AtheviaChoiceChip(
+            title: "\(minutes) min",
+            isSelected: model.sharedTrainingMinutes == minutes
+        ) {
             model.setSharedMaxDuration(minutes)
-        } label: {
-            Text("\(minutes) min")
-                .font(.subheadline.weight(.medium))
-                .frame(maxWidth: .infinity, minHeight: 44)
-                .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(isSelected ? AnyShapeStyle(Color.blue) : AnyShapeStyle(.fill.tertiary))
-                )
-                .foregroundStyle(isSelected ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
         }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
 }

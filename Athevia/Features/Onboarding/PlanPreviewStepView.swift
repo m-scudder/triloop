@@ -11,9 +11,6 @@ struct PlanPreviewStepView: View {
         OnboardingStep(
             primaryTitle: "Start My Plan",
             isPrimaryEnabled: model.preview != nil && !model.isWorking,
-            secondary: OnboardingSecondaryAction("Adjust Days") {
-                model.jump(to: .days)
-            },
             primary: model.start
         ) {
             OnboardingHeader(
@@ -28,10 +25,6 @@ struct PlanPreviewStepView: View {
                     description: Text(failure)
                 )
             } else if let plan = model.preview {
-                if model.canStartNow {
-                    startPicker
-                }
-
                 week(plan)
             } else {
                 ProgressView()
@@ -40,22 +33,6 @@ struct PlanPreviewStepView: View {
             }
         }
         .task { if model.preview == nil { model.buildPreview() } }
-    }
-
-    /// Starting today gives a short week rather than backdating sessions the
-    /// athlete never had the chance to do.
-    private var startPicker: some View {
-        Picker(
-            "Start",
-            selection: Binding(
-                get: { model.startChoice },
-                set: { model.choose(start: $0) }
-            )
-        ) {
-            Text("Start this week").tag(OnboardingModel.StartChoice.now)
-            Text("Start Monday").tag(OnboardingModel.StartChoice.nextMonday)
-        }
-        .pickerStyle(.segmented)
     }
 
     /// Weeks always run Monday to Sunday, so the useful thing to state is when
@@ -90,7 +67,7 @@ struct PlanPreviewStepView: View {
             DisciplineBadge(discipline: workout.discipline, size: 38)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(weekday(of: workout.date))
+                Text(dayAndDate(of: workout.date))
                     .font(.subheadline.weight(.medium))
                 Text(detail(workout))
                     .font(.caption)
@@ -104,8 +81,8 @@ struct PlanPreviewStepView: View {
         .accessibilityElement(children: .combine)
     }
 
-    private func weekday(of date: Date) -> String {
-        TrainingFormatter.weekdayAbbreviation(for: date)
+    private func dayAndDate(of date: Date) -> String {
+        "\(TrainingFormatter.weekdayAbbreviation(for: date)), \(TrainingFormatter.shortDate(date))"
     }
 
     private func detail(_ workout: PlannedWorkout) -> String {

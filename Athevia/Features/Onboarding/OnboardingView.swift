@@ -39,17 +39,14 @@ struct OnboardingView: View {
         case .welcome:
             WelcomeStepView(isUpgrade: model.isUpgrade, start: model.advance)
 
-        case .about, .goal:
-            GoalStepView(model: model)
-
         case .running, .swimming, .cycling, .pool:
             StartingPointStepView(model: model)
 
-        case .days, .commitment:
+        case .about, .goal, .days, .commitment:
             TrainingDaysStepView(model: model)
 
         case .health, .watch, .safety:
-            ConnectionsStepView(model: model)
+            PlanPreviewStepView(model: model)
 
         case .preview, .complete:
             PlanPreviewStepView(model: model)

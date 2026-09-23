@@ -558,9 +558,3 @@ private extension HKWorkout {
     }
 }
 
-#if DEBUG
-extension HKWorkout {
-    /// Bridges the file-private lap reading to the history tool.
-    var historySwimmingLengthCount: Int { swimmingLengths.count }
-}
-#endif

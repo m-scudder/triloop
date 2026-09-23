@@ -23,6 +23,7 @@ final class OnboardingModel {
     private(set) var failure: String?
     private(set) var preview: WeeklyPlan?
     private(set) var isWorking = false
+    private(set) var selectedStartDate: Date
 
     /// Populated when the athlete already has training history, which changes
     /// the flow from "set up" to "finish setting up".
@@ -40,9 +41,12 @@ final class OnboardingModel {
         self.calendar = calendar
 
         let existing = try? context.fetch(FetchDescriptor<AthleteProfile>()).first
+        let initialSetup = existing?.setup ?? AthleteSetup()
+
         profile = existing
-        setup = existing?.setup ?? AthleteSetup()
+        setup = initialSetup
         poolLengthMeters = existing?.poolLengthMeters ?? 25
+        selectedStartDate = calendar.startOfDay(for: initialSetup.planStartDate ?? .now)
 
         let plans = (try? context.fetchCount(FetchDescriptor<WeeklyPlan>())) ?? 0
         isUpgrade = existing != nil && plans > 0
@@ -222,40 +226,39 @@ final class OnboardingModel {
 
     // MARK: - Plan
 
-    /// When the athlete wants to begin.
-    enum StartChoice: Equatable, Identifiable {
-        /// Today, giving a short first week that still ends on the Sunday.
-        case now
-        /// The Monday coming, giving a full week.
-        case nextMonday
-
-        var id: Self { self }
+    var canChooseStartDate: Bool {
+        latestPlan() == nil
     }
 
-    private(set) var startChoice: StartChoice = .now
+    var minimumStartDate: Date {
+        calendar.startOfDay(for: .now)
+    }
 
-    /// Offered while the athlete still has a day they can train on this week.
-    ///
-    /// Counted from their own availability rather than from the calendar: an
-    /// athlete who rests at weekends has Friday as their last training day, and
-    /// that is exactly the day a weekday-number rule would throw away.
-    static func hasTrainingDayLeft(
-        in schedule: AthleteSchedule,
-        on date: Date,
+    func choose(startDate: Date) {
+        guard canChooseStartDate else { return }
+        selectedStartDate = max(calendar.startOfDay(for: startDate), minimumStartDate)
+        setup.planStartDate = selectedStartDate
+        preview = nil
+        persist()
+    }
+
+    /// If the chosen date falls after every available training day in that
+    /// calendar week, begin on the following Monday instead of generating an
+    /// empty first week. Otherwise the selected date remains the first active
+    /// day and earlier days in that Monday–Sunday week become Rest.
+    static func effectiveStartDate(
+        requested: Date,
+        schedule: AthleteSchedule,
         calendar: Calendar = .current
-    ) -> Bool {
-        guard let today = Weekday(date: date, calendar: calendar) else { return false }
-        return schedule.availableDays.contains { $0.weekday >= today }
-    }
+    ) -> Date {
+        let start = calendar.startOfDay(for: requested)
+        guard let weekday = Weekday(date: start, calendar: calendar) else { return start }
 
-    var canStartNow: Bool {
-        guard latestPlan() == nil else { return false }
-        return Self.hasTrainingDayLeft(in: setup.schedule, on: .now, calendar: calendar)
-    }
+        let hasTrainingDayLeft = schedule.availableDays.contains { $0.weekday >= weekday }
+        guard !hasTrainingDayLeft else { return start }
 
-    func choose(start: StartChoice) {
-        startChoice = start
-        buildPreview()
+        let daysUntilNextMonday = 7 - weekday.offsetFromMonday
+        return calendar.date(byAdding: .day, value: daysUntilNextMonday, to: start) ?? start
     }
 
     /// Built but not saved. The athlete sees the week before it becomes theirs.
@@ -284,18 +287,17 @@ final class OnboardingModel {
     }
 
     /// An athlete with history always continues the day after their last week.
-    /// Only a new athlete gets to choose, and only while the week has room left.
+    /// A new athlete chooses the date they want training to begin.
     private func startDate(after existing: WeeklyPlan?) -> Date {
         if let existing {
             return calendar.date(byAdding: .day, value: 1, to: existing.endDate) ?? existing.endDate
         }
 
-        let today = calendar.startOfDay(for: .now)
-        guard startChoice == .nextMonday || !canStartNow else { return today }
-
-        let weekday = Weekday(date: today, calendar: calendar) ?? .monday
-        guard weekday != .monday else { return today }
-        return calendar.date(byAdding: .day, value: 7 - weekday.offsetFromMonday, to: today) ?? today
+        return Self.effectiveStartDate(
+            requested: selectedStartDate,
+            schedule: setup.schedule,
+            calendar: calendar
+        )
     }
 
     /// Commits the plan and marks setup finished. Every previous week is kept;
