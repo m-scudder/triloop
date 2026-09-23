@@ -149,7 +149,7 @@ struct DateStrip: View {
         if isSkipped || sports.isEmpty {
             Image(systemName: isSkipped ? "slash.circle" : day.representative.discipline.symbolName)
                 .font(.footnote)
-                .foregroundStyle(isSelected ? .white : (isSkipped ? Color.secondary : Color.primary))
+                .foregroundStyle(isSelected ? .white : (isSkipped ? Color.secondary : day.representative.discipline.tint))
                 .frame(height: 16)
         } else {
             HStack(spacing: 2) {
@@ -157,7 +157,7 @@ struct DateStrip: View {
                     Image(systemName: sport.discipline.symbolName)
                         // Three glyphs have to fit the same tile as one.
                         .font(sports.count > 2 ? .caption2 : .footnote)
-                        .foregroundStyle(isSelected ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
+                        .foregroundStyle(isSelected ? AnyShapeStyle(.white) : AnyShapeStyle(sport.discipline.tint))
                 }
             }
             .frame(height: 16)
