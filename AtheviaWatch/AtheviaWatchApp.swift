@@ -12,6 +12,8 @@ struct AtheviaWatchApp: App {
     var body: some Scene {
         WindowGroup {
             WatchWorkoutListView()
+                .symbolRenderingMode(.monochrome)
+                .tint(Color.white)
                 .environmentObject(store)
                 .environmentObject(workoutSession)
                 .task {
