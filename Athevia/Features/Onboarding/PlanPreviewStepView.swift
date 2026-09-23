@@ -67,7 +67,7 @@ struct PlanPreviewStepView: View {
             DisciplineBadge(discipline: workout.discipline, size: 38)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(weekday(of: workout.date))
+                Text(dayAndDate(of: workout.date))
                     .font(.subheadline.weight(.medium))
                 Text(detail(workout))
                     .font(.caption)
@@ -81,8 +81,8 @@ struct PlanPreviewStepView: View {
         .accessibilityElement(children: .combine)
     }
 
-    private func weekday(of date: Date) -> String {
-        TrainingFormatter.weekdayAbbreviation(for: date)
+    private func dayAndDate(of date: Date) -> String {
+        "\(TrainingFormatter.weekdayAbbreviation(for: date)), \(TrainingFormatter.shortDate(date))"
     }
 
     private func detail(_ workout: PlannedWorkout) -> String {
