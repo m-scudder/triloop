@@ -740,11 +740,19 @@ private struct WatchAppSetupView: View {
                             systemImage: "checkmark.circle.fill"
                         )
 
+                        if let lastQueuedAt = WatchAppPlanSync.lastQueuedAt {
+                            LabeledContent(
+                                "Last sent",
+                                value: TrainingFormatter.shortDateTime(lastQueuedAt, includeYear: false)
+                            )
+                            .font(.subheadline)
+                        }
+
                         Button {
                             let queued = WatchAppPlanSync.sync(currentPlan)
                             let count = currentPlan?.trainingSessions.count ?? 0
                             statusMessage = queued
-                                ? "Queued \(count) workout\(count == 1 ? "" : "s") for your Apple Watch."
+                                ? "Sent \(count) workout\(count == 1 ? "" : "s") to the Watch sync queue."
                                 : "Athevia could not prepare the current week for Watch sync."
                         } label: {
                             Label("Sync Current Week Now", systemImage: "arrow.triangle.2.circlepath")
@@ -756,7 +764,7 @@ private struct WatchAppSetupView: View {
                                 .foregroundStyle(.secondary)
                         }
                     } footer: {
-                        Text("Synced workouts remain available in the Athevia Watch app even when your iPhone is not nearby.")
+                        Text("“Last sent” means the latest plan was queued by this iPhone. Delivery completes when the Watch connection is available.")
                     }
                 } else {
                     Section("Install Athevia Watch") {
