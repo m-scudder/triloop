@@ -406,16 +406,6 @@ struct SettingsView: View {
         }
     }
 
-    private var watchStatusText: String {
-        guard scheduler.isSupported else { return "Unavailable" }
-        switch watchAuthorization {
-        case .authorized: return "Allowed"
-        case .denied: return "Not allowed"
-        case .restricted: return "Not available"
-        case .notDetermined: return "Not set up"
-        }
-    }
-
     private var notificationStatusText: String {
         switch notificationStatus {
         case .notDetermined: "Not set up"
