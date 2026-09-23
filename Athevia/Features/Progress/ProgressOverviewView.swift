@@ -109,6 +109,7 @@ struct ProgressOverviewView: View {
             fourWeekSummary
 
             if let current, current.hasData {
+                progressInterpretation(current)
                 currentTraining(current)
             }
 
@@ -136,11 +137,75 @@ struct ProgressOverviewView: View {
                     )
                     summaryFigure(
                         recentAdherence.map { "\(Int(($0 * 100).rounded()))%" } ?? "—",
-                        caption: "Adherence"
+                        caption: "Plan completed"
                     )
                 }
             }
         }
+    }
+
+    private func progressInterpretation(_ current: CurrentTraining) -> some View {
+        let summary = interpretation(for: current)
+
+        return VStack(alignment: .leading, spacing: 10) {
+            SectionEyebrow(text: "What this means")
+
+            Card {
+                VStack(alignment: .leading, spacing: 6) {
+                    Label(summary.title, systemImage: summary.symbol)
+                        .font(.headline)
+
+                    Text(summary.detail)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+    }
+
+    private func interpretation(
+        for current: CurrentTraining
+    ) -> (title: String, detail: String, symbol: String) {
+        let statuses = current.states.compactMap(\.status)
+
+        if statuses.contains(.recoveryRequired) {
+            return (
+                "Recovery is leading the plan",
+                "At least one sport is paused from progression based on your recent reports. Follow the lighter sessions currently prescribed.",
+                "pause.circle"
+            )
+        }
+
+        if statuses.contains(.reduce) {
+            return (
+                "Athevia is easing training back",
+                "Recent sessions suggest at least one sport needs a lighter step. The current plan reduces demand before building again.",
+                "arrow.down.right.circle"
+            )
+        }
+
+        if statuses.contains(.maintain) {
+            return (
+                "Training is holding steady",
+                "Athevia is keeping at least one sport at its current level while it gathers more completed sessions and feedback.",
+                "arrow.right.circle"
+            )
+        }
+
+        if !statuses.isEmpty && statuses.allSatisfy({ $0 == .progress }) {
+            return (
+                "Training is building gradually",
+                "Your recent completed sessions support progression, so the current prescriptions are moving forward.",
+                "arrow.up.right.circle"
+            )
+        }
+
+        return (
+            "Keep completing and reporting sessions",
+            "A few more completed workouts and reports will give Athevia enough evidence to show how your training is changing.",
+            "chart.line.uptrend.xyaxis"
+        )
     }
 
     /// Current capability/prescription plus the most recent training direction.
