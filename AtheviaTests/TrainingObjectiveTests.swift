@@ -44,6 +44,14 @@ struct TrainingObjectiveTests {
         #expect(setup.objective.event?.sport == .triathlon)
         #expect(setup.objective.event?.distance == nil)
         #expect(setup.objective.event?.eventDate == nil)
+        #expect(
+            TrainingObjectiveValidator.issues(
+                for: setup.objective,
+                selectedSports: [.running],
+                asOf: date(2026, 9, 24),
+                calendar: calendar
+            ).isEmpty
+        )
     }
 
     @Test("Standard running distances carry actual metres")
