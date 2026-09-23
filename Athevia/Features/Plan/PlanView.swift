@@ -110,7 +110,7 @@ struct PlanView: View {
     }
 
     private var title: String {
-        selection.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated))
+        TrainingFormatter.shortDate(selection)
     }
 
     private var calendarSheet: some View {
