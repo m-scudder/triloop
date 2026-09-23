@@ -51,7 +51,7 @@ struct TodayView: View {
                 .padding(.bottom, 32)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .navigationTitle(Date.now.formatted(.dateTime.weekday(.wide).day().month(.abbreviated)))
+            .navigationTitle(TrainingFormatter.shortDate(.now))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) { profileButton }
