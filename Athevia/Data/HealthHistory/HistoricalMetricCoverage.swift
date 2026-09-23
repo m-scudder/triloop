@@ -1,4 +1,3 @@
-#if DEBUG
 import Foundation
 
 /// How many workouts actually carried a given metric.
@@ -120,4 +119,3 @@ extension HealthWorkoutRecord {
         return entries
     }
 }
-#endif
