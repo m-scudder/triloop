@@ -6,6 +6,19 @@ import Testing
 @Suite("Authentication coordinator")
 @MainActor
 struct AuthenticationCoordinatorTests {
+    @Test("Cached session can resume without a remote refresh")
+    func resumesCachedSession() async {
+        let expected = AccountSession(userID: "cached-user", email: "cached@example.com")
+        let service = AuthenticationServiceStub(session: expected)
+        let coordinator = AuthenticationCoordinator(service: service)
+
+        let session = await coordinator.resumeCachedSession()
+
+        #expect(session == expected)
+        #expect(coordinator.state == .signedIn(expected))
+        #expect(await service.currentSessionCalls == 0)
+    }
+
     @Test("Refresh restores an existing remote session")
     func restoresSession() async {
         let expected = AccountSession(userID: "user-1", email: "athlete@example.com")
@@ -116,14 +129,20 @@ private actor AuthenticationServiceStub: AuthenticationService {
     private let signInResult: AccountSession?
     private(set) var lastCredential: AppleAuthenticationCredential?
     private(set) var didDeleteAccount = false
+    private(set) var currentSessionCalls = 0
 
     init(session: AccountSession? = nil, signInResult: AccountSession? = nil) {
         self.session = session
         self.signInResult = signInResult
     }
 
-    func currentSession() async throws -> AccountSession? {
+    func cachedSession() async -> AccountSession? {
         session
+    }
+
+    func currentSession() async throws -> AccountSession? {
+        currentSessionCalls += 1
+        return session
     }
 
     func signInWithApple(_ credential: AppleAuthenticationCredential) async throws -> AccountSession {
