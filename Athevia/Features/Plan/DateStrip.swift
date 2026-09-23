@@ -189,7 +189,7 @@ struct DateStrip: View {
     }
 
     private func label(for day: Day) -> String {
-        let date = day.date.formatted(.dateTime.weekday(.wide).day().month(.wide))
+        let date = TrainingFormatter.shortDate(day.date)
         let titles = day.workouts.map(\.title).joined(separator: ", ")
         return "\(date), \(titles)\(stateLabel(for: day.representative))"
     }
