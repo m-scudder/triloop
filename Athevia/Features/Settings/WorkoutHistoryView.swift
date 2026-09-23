@@ -1,4 +1,3 @@
-#if DEBUG
 import SwiftData
 import SwiftUI
 
@@ -404,4 +403,3 @@ private struct HistoryRow: View {
         return parts.joined(separator: " · ")
     }
 }
-#endif
