@@ -33,6 +33,11 @@ struct TodayView: View {
                         WeeklyPlanOverviewView(plan: plan)
                     }
 
+                    if let objective = profiles.first?.setup?.objective,
+                       objective.event?.eventDate != nil {
+                        EventCountdownView(objective: objective)
+                    }
+
                     if let pending = pendingCheckIn {
                         if checkInLeads {
                             checkInCard(pending)
