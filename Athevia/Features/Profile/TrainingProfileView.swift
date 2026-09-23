@@ -163,6 +163,7 @@ struct TrainingProfileView: View {
                     value: setup.objective.displayName
                 )
             }
+            .accessibilityIdentifier("profile.goal")
 
             if let event = setup.objective.event {
                 NavigationLink {
