@@ -18,8 +18,11 @@ struct SettingsView: View {
     @State private var isWorking = false
     @State private var watchAuthorization: WorkoutSchedulingAuthorization = .notDetermined
     @State private var activeConnection: ConnectionDestination?
+    @State private var showsAccountSettings = false
     @State private var showsNotificationSettings = false
     @State private var showsAudioCoachingSettings = false
+    @State private var showsDeleteConfirmation = false
+    @State private var accountMessage: String?
 
     @AppStorage("automaticallyScheduleWorkouts") private var automaticallySchedule = true
     @AppStorage("automaticallyImportWorkouts") private var automaticallyImport = true
@@ -37,6 +40,7 @@ struct SettingsView: View {
                 connectionsSection
                 automationSection
                 developerSection
+                accountActions
                 versionFooter
             }
             .navigationTitle("Settings")
@@ -83,149 +87,168 @@ struct SettingsView: View {
             .sheet(isPresented: $showsAudioCoachingSettings) {
                 AudioCoachingSettingsSheetView()
             }
+            .sheet(isPresented: $showsAccountSettings) {
+                if let authentication, let backup {
+                    AccountBackupSettingsSheetView(
+                        authentication: authentication,
+                        backup: backup
+                    )
+                }
+            }
+            .confirmationDialog(
+                "Delete your Athevia account?",
+                isPresented: $showsDeleteConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Delete Account & Cloud Data", role: .destructive) {
+                    deleteAccount()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This permanently deletes your Athevia account and cloud backups. Training stored locally on this iPhone is not deleted.")
+            }
+            .alert(
+                "Account",
+                isPresented: Binding(
+                    get: { accountMessage != nil },
+                    set: { if !$0 { accountMessage = nil } }
+                )
+            ) {
+                Button("OK", role: .cancel) { accountMessage = nil }
+            } message: {
+                Text(accountMessage ?? "")
+            }
         }
     }
 
     @ViewBuilder
     private var profileSection: some View {
         if let profile = profiles.first {
-            Section {
-                NavigationLink {
-                    TrainingProfileView(profile: profile)
-                } label: {
-                    HStack(spacing: 14) {
-                        profileAvatar(profile)
+            NavigationLink {
+                TrainingProfileView(profile: profile)
+            } label: {
+                HStack(spacing: 14) {
+                    profileAvatar(profile)
 
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(profileDisplayName(profile))
-                                .font(.headline)
-                                .foregroundStyle(.primary)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(profileDisplayName(profile))
+                            .font(.headline)
+                            .foregroundStyle(.primary)
 
-                            Text(profileSummary(profile))
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(2)
-                        }
+                        Text(profileSummary(profile))
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
                     }
-                    .padding(.vertical, 6)
                 }
-                .accessibilityLabel("Training profile, \(profileDisplayName(profile))")
+                .padding(.vertical, 6)
             }
+            .accessibilityLabel("Training profile, \(profileDisplayName(profile))")
         }
     }
 
     @ViewBuilder
     private var accountSection: some View {
-        if let authentication, let backup {
-            Section {
-                NavigationLink {
-                    AccountBackupSettingsView(
-                        authentication: authentication,
-                        backup: backup
-                    )
-                } label: {
-                    SettingsNavigationRow(
-                        title: "Account & Backup",
-                        systemImage: "person.crop.circle",
-                        value: accountStatusText(authentication)
-                    )
-                }
+        if let authentication, backup != nil {
+            Button {
+                showsAccountSettings = true
+            } label: {
+                SettingsNavigationRow(
+                    title: "Account & Backup",
+                    systemImage: "person.crop.circle",
+                    value: accountStatusText(authentication)
+                )
             }
+            .buttonStyle(.plain)
         }
     }
 
     private var trainingSection: some View {
-        Section {
-            Button {
-                showsAudioCoachingSettings = true
-            } label: {
-                SettingsNavigationRow(
-                    title: "Audio coaching",
-                    systemImage: "speaker.wave.2",
-                    value: "Runs & rides"
-                )
-            }
-            .buttonStyle(.plain)
+        Button {
+            showsAudioCoachingSettings = true
+        } label: {
+            SettingsNavigationRow(
+                title: "Audio coaching",
+                systemImage: "speaker.wave.2",
+                value: "Runs & rides"
+            )
         }
+        .buttonStyle(.plain)
     }
 
     private var notificationsSection: some View {
-        Section {
-            Button {
-                showsNotificationSettings = true
-            } label: {
-                SettingsNavigationRow(
-                    title: "Notifications",
-                    systemImage: "bell",
-                    value: notificationStatusText
-                )
-            }
-            .buttonStyle(.plain)
+        Button {
+            showsNotificationSettings = true
+        } label: {
+            SettingsNavigationRow(
+                title: "Notifications",
+                systemImage: "bell",
+                value: notificationStatusText
+            )
         }
+        .buttonStyle(.plain)
     }
 
+    @ViewBuilder
     private var connectionsSection: some View {
-        Section {
+        Button {
+            activeConnection = .health
+        } label: {
+            SettingsStatusRow(
+                title: "Apple Health",
+                systemImage: "heart",
+                value: healthStatusText,
+                isConnected: healthStatus == .authorized
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(isWorking)
+
+        if watch.isPairedWatch {
             Button {
-                activeConnection = .health
+                activeConnection = .watch
             } label: {
                 SettingsStatusRow(
-                    title: "Apple Health",
-                    systemImage: "heart",
-                    value: healthStatusText,
-                    isConnected: healthStatus == .authorized
+                    title: "Athevia Watch",
+                    systemImage: "applewatch",
+                    value: watch.isAtheviaWatchInstalled ? "Installed" : "Not installed",
+                    isConnected: watch.isAtheviaWatchInstalled
                 )
             }
             .buttonStyle(.plain)
-            .disabled(isWorking)
 
-            if watch.isPairedWatch {
+            if watch.canSchedule {
                 Button {
-                    activeConnection = .watch
+                    activeConnection = .workoutScheduling
                 } label: {
                     SettingsStatusRow(
-                        title: "Athevia Watch",
-                        systemImage: "applewatch",
-                        value: watch.isAtheviaWatchInstalled ? "Installed" : "Not installed",
-                        isConnected: watch.isAtheviaWatchInstalled
+                        title: "Workout scheduling",
+                        systemImage: "calendar.badge.clock",
+                        value: watchStatusText,
+                        isConnected: watchAuthorization == .authorized
                     )
                 }
                 .buttonStyle(.plain)
-
-                if watch.canSchedule {
-                    Button {
-                        activeConnection = .workoutScheduling
-                    } label: {
-                        SettingsStatusRow(
-                            title: "Workout scheduling",
-                            systemImage: "calendar.badge.clock",
-                            value: watchStatusText,
-                            isConnected: watchAuthorization == .authorized
-                        )
-                    }
-                    .buttonStyle(.plain)
-                }
             }
         }
     }
 
+    @ViewBuilder
     private var automationSection: some View {
-        Section {
-            Toggle(isOn: $automaticallyImport) {
-                Label("Import workouts automatically", systemImage: "arrow.down.circle")
-            }
-
-            if watch.canSchedule {
-                Toggle(isOn: $automaticallySchedule) {
-                    Label("Send workouts to Watch", systemImage: "applewatch")
-                }
-            }
-
-            Button { importThisWeek() } label: {
-                Label("Import completed workouts now", systemImage: "arrow.clockwise")
-            }
-            .disabled(isWorking || healthStatus != .authorized || plans.isEmpty)
+        Toggle(isOn: $automaticallyImport) {
+            Label("Import workouts automatically", systemImage: "arrow.down.circle")
         }
+
+        if watch.canSchedule {
+            Toggle(isOn: $automaticallySchedule) {
+                Label("Send workouts to Watch", systemImage: "applewatch")
+            }
+        }
+
+        Button { importThisWeek() } label: {
+            Label("Import completed workouts now", systemImage: "arrow.clockwise")
+        }
+        .disabled(isWorking || healthStatus != .authorized || plans.isEmpty)
     }
 
     private var versionFooter: some View {
@@ -247,12 +270,30 @@ struct SettingsView: View {
     @ViewBuilder
     private var developerSection: some View {
         #if DEBUG
-        Section("Developer") {
-            NavigationLink("Simulate training") {
-                DeveloperToolsView()
-            }
+        NavigationLink("Simulate training") {
+            DeveloperToolsView()
         }
         #endif
+    }
+
+    @ViewBuilder
+    private var accountActions: some View {
+        if let authentication, let backup,
+           case .signedIn(let session) = authentication.state {
+            Button {
+                signOut(session, authentication: authentication, backup: backup)
+            } label: {
+                Label("Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
+            }
+            .disabled(isWorking)
+
+            Button(role: .destructive) {
+                showsDeleteConfirmation = true
+            } label: {
+                Label("Delete Account", systemImage: "trash")
+            }
+            .disabled(isWorking)
+        }
     }
 
     private func profileAvatar(_ profile: AthleteProfile) -> some View {
@@ -384,6 +425,40 @@ struct SettingsView: View {
         }
     }
 
+    private func signOut(
+        _ session: AccountSession,
+        authentication: AuthenticationCoordinator,
+        backup: BackupCoordinator
+    ) {
+        isWorking = true
+        Task { @MainActor in
+            defer { isWorking = false }
+            do {
+                _ = try await backup.backup(
+                    accountID: session.userID,
+                    from: modelContext
+                )
+                try await authentication.signOut()
+                try LocalTrainingStoreState.removeUserData(modelContext)
+            } catch {
+                accountMessage = "Sign out was not completed: \(error.localizedDescription)"
+            }
+        }
+    }
+
+    private func deleteAccount() {
+        guard let authentication else { return }
+        isWorking = true
+        Task { @MainActor in
+            defer { isWorking = false }
+            do {
+                try await authentication.deleteAccount()
+            } catch {
+                accountMessage = error.localizedDescription
+            }
+        }
+    }
+
     private func importThisWeek() {
         guard let plan = plans.currentPlan() else { return }
         isWorking = true
@@ -412,6 +487,29 @@ struct SettingsView: View {
 }
 
 
+
+private struct AccountBackupSettingsSheetView: View {
+    let authentication: AuthenticationCoordinator
+    let backup: BackupCoordinator
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            AccountBackupSettingsView(
+                authentication: authentication,
+                backup: backup
+            )
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+}
 
 private struct AudioCoachingSettingsSheetView: View {
     @Environment(\.dismiss) private var dismiss
