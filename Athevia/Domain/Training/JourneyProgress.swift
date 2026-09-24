@@ -226,7 +226,7 @@ struct JourneyProgressBuilder: Sendable {
         }
     }
 
-    private func milestones(
+    func milestones(
         setup: AthleteSetup,
         plans: [WeeklyPlan],
         asOf date: Date
