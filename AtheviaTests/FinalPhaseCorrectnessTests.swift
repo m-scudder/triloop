@@ -540,4 +540,152 @@ struct FinalPhaseCorrectnessTests {
         #expect(snapshot.capabilities.isEmpty)
         #expect(snapshot.journey.readiness.sports.isEmpty)
     }
+    @Test("Every phase selects appropriate run swim cycle and triathlon semantics")
+    func phaseMatrixIsOperational() {
+        let builder = PhaseWorkoutPrescriptionBuilder()
+        let parameters = TrainingParameters(
+            runIsContinuous: true,
+            runContinuousSeconds: 30 * 60,
+            swimRepeatDistanceMeters: 200,
+            swimRepeatCount: 4,
+            swimRestSeconds: 30,
+            swimPoolLengthMeters: 25,
+            rideWorkSeconds: 60 * 60
+        )
+        let triObjective = TrainingObjective.event(
+            sport: .triathlon,
+            distance: EventDistance(kind: .triathlonSprint),
+            eventDate: day(35)
+        )
+
+        for phase in TrainingPhase.allCases {
+            let journey = TrainingJourney(
+                phase: phase,
+                weeksRemaining: phase == .raceWeek ? 1 : 5,
+                readiness: .init(status: .building, sports: []),
+                weeklyObjectives: [],
+                sportPriorities: [
+                    .init(sport: .swimming, rank: 1, reason: "Test"),
+                    .init(sport: .cycling, rank: 2, reason: "Test"),
+                    .init(sport: .running, rank: 3, reason: "Test")
+                ]
+            )
+
+            let run = builder.workout(
+                sport: .running,
+                on: now,
+                parameters: parameters,
+                journey: journey,
+                objective: triObjective,
+                capability: nil,
+                sportOrdinal: 2
+            )
+            let swim = builder.workout(
+                sport: .swimming,
+                on: now,
+                parameters: parameters,
+                journey: journey,
+                objective: triObjective,
+                capability: nil,
+                sportOrdinal: 1
+            )
+            let cycle = builder.workout(
+                sport: .cycling,
+                on: now,
+                parameters: parameters,
+                journey: journey,
+                objective: triObjective,
+                capability: nil,
+                sportOrdinal: 0
+            )
+
+            if phase == .recovery {
+                #expect(run.discipline == .recovery)
+                #expect(swim.discipline == .recovery)
+                #expect(cycle.discipline == .recovery)
+            } else {
+                #expect(run.discipline == .running)
+                #expect(swim.discipline == .swimming)
+                #expect(cycle.discipline == .cycling)
+            }
+
+            switch phase {
+            case .foundation:
+                #expect(run.title == "Easy Continuous Run")
+                #expect(swim.title == "Endurance Swim")
+                #expect(cycle.title == "Easy Ride")
+            case .build:
+                #expect(run.title == "Easy Run")
+                #expect(swim.title == "Endurance Swim")
+                #expect(cycle.title == "Easy Ride")
+            case .specific:
+                #expect(run.title == "Race-Specific Steady Run")
+                #expect(swim.title == "Race-Distance Preparation")
+                #expect(cycle.title == "Race-Specific Steady Ride")
+            case .taper:
+                #expect(run.title == "Easy Run")
+                #expect(swim.title == "Easy Technique Swim")
+                #expect(cycle.title == "Easy Ride")
+            case .raceWeek:
+                #expect(run.title == "Race-Week Easy Run")
+                #expect(swim.title == "Race-Week Easy Swim")
+                #expect(cycle.title == "Race-Week Easy Ride")
+            case .recovery:
+                break
+            }
+
+            let triPolicy = MultisportTrainingPolicy()
+            if phase == .specific {
+                #expect(triPolicy.canScheduleBrick(
+                    journey: journey,
+                    objective: triObjective,
+                    schedule: .everyDay(),
+                    recoveringSports: []
+                ))
+            } else {
+                #expect(!triPolicy.canScheduleBrick(
+                    journey: journey,
+                    objective: triObjective,
+                    schedule: .everyDay(),
+                    recoveringSports: []
+                ))
+            }
+        }
+    }
+
+    @Test("Performance intent modestly changes only supported specific work")
+    func performanceIntentDoesNotBypassCapability() {
+        let builder = PhaseWorkoutPrescriptionBuilder()
+        let journey = TrainingJourney(
+            phase: .specific,
+            weeksRemaining: 4,
+            readiness: .init(status: .building, sports: []),
+            weeklyObjectives: [],
+            sportPriorities: []
+        )
+        let parameters = TrainingParameters(
+            runIsContinuous: true,
+            runContinuousSeconds: 35 * 60
+        )
+        let performance = TrainingObjective.event(
+            sport: .running,
+            distance: EventDistance(kind: .run10K),
+            eventDate: day(28),
+            targetIntent: .performance
+        )
+
+        let unsupported = builder.workout(
+            sport: .running,
+            on: now,
+            parameters: parameters,
+            journey: journey,
+            objective: performance,
+            capability: nil,
+            sportOrdinal: 2
+        )
+        let unsupportedWork = unsupported.orderedSteps.first { $0.kind == .work }
+        #expect(unsupportedWork?.targetIntensity != .hard)
+    }
+
+
 }
