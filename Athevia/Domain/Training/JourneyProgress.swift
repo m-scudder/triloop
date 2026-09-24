@@ -548,16 +548,18 @@ struct JourneyProgressBuilder: Sendable {
         _ sport: Sport,
         completed: [PlannedWorkout]
     ) -> [(date: Date, distance: Double)] {
-        var evidence = completed.compactMap { workout -> (Date, Double)? in
+        var evidence = completed.compactMap { workout -> (date: Date, distance: Double)? in
             guard workout.discipline.sport == sport,
                   let value = workout.importedSummary?.distanceMeters else { return nil }
-            return (achievedDate(workout), value)
+            return (date: achievedDate(workout), distance: value)
         }
         evidence += completed.flatMap { workout in
             (workout.importedSummary?.metrics?.multisportSegments ?? [])
                 .filter { $0.sport == sport }
                 .compactMap { segment in
-                    segment.distanceMeters.map { (achievedDate(workout), $0) }
+                    segment.distanceMeters.map {
+                        (date: achievedDate(workout), distance: $0)
+                    }
                 }
         }
         return evidence.sorted { $0.date < $1.date }
