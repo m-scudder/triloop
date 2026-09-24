@@ -12,6 +12,7 @@ enum ProfileEditReason: String, Equatable, CaseIterable, Sendable {
     case cyclingBaseline
     case availability
     case weeklyCommitment
+    case openWaterTraining
 
     var displayName: String {
         switch self {
@@ -25,6 +26,7 @@ enum ProfileEditReason: String, Equatable, CaseIterable, Sendable {
         case .cyclingBaseline: "Cycling ability"
         case .availability: "Training days"
         case .weeklyCommitment: "How often you train"
+        case .openWaterTraining: "Open-water training"
         }
     }
 }
@@ -86,6 +88,9 @@ enum AthleteProfileEditor {
         }
 
         if commitment(old) != commitment(new) { reasons.append(.weeklyCommitment) }
+        if old.openWaterTrainingConsent != new.openWaterTrainingConsent {
+            reasons.append(.openWaterTraining)
+        }
 
         // Date of birth only anchors heart-rate zones, and the stage the athlete
         // reached is bookkeeping. Neither changes what is prescribed.
