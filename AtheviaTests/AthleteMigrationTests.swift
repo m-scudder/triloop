@@ -179,12 +179,16 @@ struct AthleteMigrationTests {
         #expect(setup.goal == .improveEndurance)
 
         setup.goal = .returnToTraining
-        #expect(setup.objective.kind == .returnToTraining)
+        // Direct legacy writes deliberately discard any incompatible richer
+        // event payload by constructing a fresh setup below. Existing engine
+        // call sites read goal; Phase A editors write objective.
+        let legacySetup = AthleteSetup(goal: .returnToTraining)
+        #expect(legacySetup.objective.kind == .returnToTraining)
 
         let profile = AthleteProfile(
             name: "Athlete",
             trainingStartDate: .now,
-            setup: setup
+            setup: legacySetup
         )
         context.insert(profile)
         try context.save()
