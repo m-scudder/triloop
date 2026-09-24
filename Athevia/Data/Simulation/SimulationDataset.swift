@@ -38,10 +38,19 @@ enum SimulationDataset: String, CaseIterable, Identifiable, Sendable {
     case conflictingSignals
     case event5KDeveloping
     case event5KCompleted
+    case progressedRunner
     case sprintTriSwimGap
     case sprintTriBrickComplete
+    case sprintTriEventReady
+    case sprintTriRecoveryProblem
+    case sprintTriSpecificBrick
     case eventTaper
+    case eventRaceWeek
     case eventPostRace
+    case eventMissed
+    case generalFitness
+    case openWaterReady
+    case openWaterDisabled
 
     var id: Self { self }
 
@@ -63,10 +72,19 @@ enum SimulationDataset: String, CaseIterable, Identifiable, Sendable {
         case .conflictingSignals: "Conflicting Signals"
         case .event5KDeveloping: "Event — 5K Developing"
         case .event5KCompleted: "Event — First 5K Complete"
-        case .sprintTriSwimGap: "Sprint Tri — Swim Gap"
+        case .progressedRunner: "Progressed Runner — Baseline Superseded"
+        case .sprintTriSwimGap: "Sprint Tri — 750 m Total / 100 m Continuous"
         case .sprintTriBrickComplete: "Sprint Tri — Brick Complete"
+        case .sprintTriEventReady: "Sprint Tri — Demonstrated Event Capability"
+        case .sprintTriRecoveryProblem: "Sprint Tri — Recovery Problem"
+        case .sprintTriSpecificBrick: "Sprint Tri — Specific Phase Brick"
         case .eventTaper: "Event — Taper"
-        case .eventPostRace: "Event — Post Race"
+        case .eventRaceWeek: "Event — Race Week"
+        case .eventPostRace: "Event — Completed + Recovery"
+        case .eventMissed: "Event — Missed"
+        case .generalFitness: "General Fitness — No Event"
+        case .openWaterReady: "Sprint Tri — Open Water Enabled"
+        case .openWaterDisabled: "Sprint Tri — Open Water Disabled"
         }
     }
 
@@ -88,10 +106,19 @@ enum SimulationDataset: String, CaseIterable, Identifiable, Sendable {
         case .conflictingSignals: "Easy heart rate against a high reported effort."
         case .event5KDeveloping: "Running history builds toward 5 km without demonstrating it yet."
         case .event5KCompleted: "Contains a completed 5 km run for capability and milestone checks."
-        case .sprintTriSwimGap: "Triathlon history where swim continuity trails run and bike capability."
-        case .sprintTriBrickComplete: "Triathlon history with bike/run evidence for brick and milestone UI."
+        case .progressedRunner: "Started as run/walk; recorded running now exceeds 5 km."
+        case .sprintTriSwimGap: "750 m total swim volume but only 100 m verified continuous, with stronger bike/run evidence."
+        case .sprintTriBrickComplete: "Includes a real multisport bike-transition-run activity."
+        case .sprintTriEventReady: "Run, bike and continuous swim requirements plus a completed brick are all demonstrated."
+        case .sprintTriRecoveryProblem: "Strong event history paired with poor recovery signals for safety review."
+        case .sprintTriSpecificBrick: "Specific-phase triathlon evidence intended to surface brick and race-specific sessions."
         case .eventTaper: "Mature event history suitable for inspecting taper-state screens."
-        case .eventPostRace: "Completed event-distance history suitable for post-event recovery screens."
+        case .eventRaceWeek: "Mature event history with an event inside seven days."
+        case .eventPostRace: "Confirmed event scenario for bounded post-event recovery and next-goal UI."
+        case .eventMissed: "Past event scenario explicitly marked missed; no completion milestone should appear."
+        case .generalFitness: "Non-event training history for current focus and progression UI."
+        case .openWaterReady: "Strong swim continuity with explicit safe-venue and buddy consent."
+        case .openWaterDisabled: "Strong swim continuity but open-water consent remains disabled; pool work only."
         }
     }
 
@@ -106,10 +133,14 @@ enum SimulationDataset: String, CaseIterable, Identifiable, Sendable {
         case .highLoad: 8
         case .beginnerTwelveWeeks, .experiencedRunner, .experiencedTriathlete, .powerCyclist: 12
         case .event5KDeveloping: 6
-        case .event5KCompleted: 8
-        case .sprintTriSwimGap, .sprintTriBrickComplete: 8
-        case .eventTaper: 10
+        case .event5KCompleted, .progressedRunner: 8
+        case .sprintTriSwimGap, .sprintTriBrickComplete, .sprintTriEventReady,
+             .sprintTriRecoveryProblem, .sprintTriSpecificBrick, .openWaterReady,
+             .openWaterDisabled: 8
+        case .eventTaper, .eventRaceWeek: 10
         case .eventPostRace: 12
+        case .eventMissed: 8
+        case .generalFitness: 6
         }
     }
 
@@ -117,7 +148,8 @@ enum SimulationDataset: String, CaseIterable, Identifiable, Sendable {
 
     var hasPower: Bool {
         switch self {
-        case .experiencedRunner, .experiencedTriathlete, .powerCyclist, .highLoad, .sprintTriBrickComplete: true
+        case .experiencedRunner, .experiencedTriathlete, .powerCyclist, .highLoad,
+             .sprintTriBrickComplete, .sprintTriEventReady, .sprintTriSpecificBrick: true
         default: false
         }
     }
@@ -125,7 +157,8 @@ enum SimulationDataset: String, CaseIterable, Identifiable, Sendable {
     /// Running dynamics need a recent watch, so most fixtures do without them.
     var hasRunningDynamics: Bool {
         switch self {
-        case .experiencedRunner, .experiencedTriathlete, .event5KCompleted, .eventTaper, .eventPostRace: true
+        case .experiencedRunner, .experiencedTriathlete, .event5KCompleted, .progressedRunner,
+             .eventTaper, .eventRaceWeek, .eventPostRace: true
         default: false
         }
     }
@@ -168,9 +201,11 @@ enum SimulationDataset: String, CaseIterable, Identifiable, Sendable {
     var sports: [Sport] {
         switch self {
         case .noData: []
-        case .experiencedRunner, .event5KDeveloping, .event5KCompleted, .eventTaper, .eventPostRace: [.running]
+        case .experiencedRunner, .event5KDeveloping, .event5KCompleted, .progressedRunner,
+             .eventTaper, .eventRaceWeek, .eventPostRace, .eventMissed: [.running]
         case .powerCyclist, .missingPower: [.cycling]
         case .beginnerFirstWeek, .sparseHistory: [.running, .swimming]
+        case .generalFitness: [.running, .cycling]
         default: [.running, .swimming, .cycling]
         }
     }
