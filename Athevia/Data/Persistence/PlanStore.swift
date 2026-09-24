@@ -43,6 +43,13 @@ struct PlanStore {
         }
         configured.schedule = setup.schedule
         configured.preferences = setup.preferences
+        if setup.objective.kind == .event {
+            let recent = (try? context.fetch(
+                FetchDescriptor<WeeklyPlan>(sortBy: [SortDescriptor(\.startDate)])
+            )) ?? []
+            configured.journey = TrainingJourneyPlanner(calendar: configured.calendar)
+                .plan(setup: setup, recentPlans: Array(recent.suffix(4)))
+        }
         return configured
     }
 
