@@ -13,6 +13,9 @@ struct WeeklyPlanGenerator: Sendable {
     /// as quotas; availability defines the week's plan slots.
     var preferences: [SportPreference] = []
     var planner: WeekShapePlanner = WeekShapePlanner()
+    /// Optional event journey context supplied by PlanStore. Safety analysis
+    /// remains authoritative; this only redistributes non-recovery slots.
+    var journey: TrainingJourney?
     var calendar: Calendar = .current
 
     func generate(after plan: WeeklyPlan, analysis: WeeklyAnalysis) -> WeeklyPlan {
@@ -53,6 +56,12 @@ struct WeeklyPlanGenerator: Sendable {
                     .count { $0.discipline.sport == sport }
                 return count > 0 ? SportFrequency(sport: sport, sessions: count) : nil
             }
+        } else if let journey {
+            intendedFrequencies = WeekShapePlanner.frequencies(
+                for: selectedSports,
+                schedule: schedule,
+                priorities: journey.sportPriorities
+            )
         } else {
             intendedFrequencies = WeekShapePlanner.frequencies(
                 for: selectedSports,
