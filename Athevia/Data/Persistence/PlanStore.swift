@@ -270,4 +270,159 @@ struct PlanStore {
     ) throws -> ShiftOutcome {
         throw PlanReshaper.Failure.useSingleWorkoutMove
     }
+}    /// Rebuilds only unresolved future days from the athlete's *current*
+    /// capability, objective, event phase, priorities and schedule.
+    ///
+    /// The legacy resolver parameter is retained for source compatibility with
+    /// older tests/callers, but onboarding baseline is no longer allowed to
+    /// reset a progressed athlete's current week.
+    @discardableResult
+    func reassess(
+        _ plan: WeeklyPlan,
+        poolLengthMeters: Double,
+        resolver: any StartingParameterResolving = StartingParameterResolver(),
+        asOf now: Date = .now
+    ) throws -> Int {
+        _ = poolLengthMeters
+        _ = resolver
+        guard athleteSetup() != nil else { return 0 }
+
+        let calendar = generator.calendar
+        let boundary = calendar.startOfDay(for: now)
+        guard plan.status != .completed,
+              calendar.startOfDay(for: plan.endDate) >= boundary else {
+            return 0
+        }
+
+        let previousStart = calendar.date(
+            byAdding: .day,
+            value: -7,
+            to: plan.startDate
+        ) ?? plan.startDate
+        let previousEnd = calendar.date(
+            byAdding: .day,
+            value: -1,
+            to: plan.startDate
+        ) ?? plan.startDate
+
+        let seed = WeeklyPlan(
+            weekNumber: plan.weekNumber - 1,
+            startDate: previousStart,
+            endDate: previousEnd,
+            status: .completed,
+            parameters: plan.parameters,
+            workouts: []
+        )
+        let neutralAnalysis = WeeklyAnalysis(
+            weekNumber: seed.weekNumber,
+            startDate: seed.startDate,
+            endDate: seed.endDate,
+            plannedSessions: 0,
+            completedSessions: 0,
+            skippedSessions: 0,
+            sports: []
+        )
+        let candidate = configuredGenerator().generate(
+            after: seed,
+            analysis: neutralAnalysis
+        )
+
+        let futureExisting = plan.orderedWorkouts.filter {
+            calendar.startOfDay(for: $0.date) >= boundary
+        }
+        let rebuildable = futureExisting.filter {
+            reshaper.isUnrecorded($0) && $0.origin == .generated
+        }
+        let immutable = futureExisting.filter { workout in
+            !rebuildable.contains(where: { $0.id == workout.id })
+        }
+        let immutableDays = immutable.map { calendar.startOfDay(for: $0.date) }
+
+        for workout in rebuildable {
+            plan.workouts.removeAll { $0.id == workout.id }
+            context.delete(workout)
+        }
+
+        var inserted = 0
+        for workout in candidate.orderedWorkouts {
+            let day = calendar.startOfDay(for: workout.date)
+            guard day >= boundary,
+                  !immutableDays.contains(where: { calendar.isDate($0, inSameDayAs: day) }) else {
+                continue
+            }
+
+            candidate.workouts.removeAll { $0.id == workout.id }
+            plan.workouts.append(workout)
+            context.insert(workout)
+            inserted += 1
+        }
+
+        plan.parameters = candidate.parameters
+        plan.generationReason = "Upcoming training rebuilt from current capability and profile."
+        plan.generationReasonCode = .profileChanged
+        removeOccupiedRestDays(in: plan, asOf: now)
+        try context.save()
+        return inserted
+    }
+
+    func moveWorkout(_ workout: PlannedWorkout, to date: Date, asOf now: Date = .now) throws {
+        guard let plan = workout.plan else { throw PlanReshaper.Failure.workoutIsImmutable }
+        try reshaper.validateWeek(plan, on: date, asOf: now)
+        guard workout.discipline.isTrainingSession, reshaper.canEdit(workout, in: plan, asOf: now)
+        else { throw PlanReshaper.Failure.workoutIsImmutable }
+        guard let setup = athleteSetup() else { throw PlanReshaper.Failure.missingSchedule }
+        try reshaper.validatePlacement(workout, on: date, in: plan, schedule: setup.schedule, asOf: now)
+        workout.date = reshaper.calendar.startOfDay(for: date)
+        removeOccupiedRestDays(in: plan, asOf: now)
+        try context.save()
+    }
+
+    func skipWorkout(_ workout: PlannedWorkout, asOf now: Date = .now) throws {
+        guard let plan = workout.plan else { throw PlanReshaper.Failure.workoutIsImmutable }
+        try reshaper.validateWeek(plan, on: workout.date, asOf: now)
+        guard workout.discipline.isTrainingSession, reshaper.canEdit(workout, in: plan, asOf: now)
+        else { throw PlanReshaper.Failure.workoutIsImmutable }
+        workout.skip()
+        try context.save()
+    }
+
+    @discardableResult
+    func markDayUnavailable(_ weekday: Weekday, asOf now: Date = .now) throws -> Int {
+        guard let profile = try context.fetch(FetchDescriptor<AthleteProfile>()).first,
+              var setup = profile.setup else { throw PlanReshaper.Failure.missingSchedule }
+        setup.schedule = AthleteSchedule(days: Weekday.trainingWeek.map { day in
+            var availability = setup.schedule.availability(on: day)
+            if day == weekday { availability.isAvailable = false }
+            return availability
+        })
+        profile.setup = setup
+        var skipped = 0
+        for plan in try context.fetch(FetchDescriptor<WeeklyPlan>()) {
+            skipped += try reshapeWeek(plan, asOf: now).dropped
+        }
+        try context.save()
+        return skipped
+    }
+
+    private func removeOccupiedRestDays(in plan: WeeklyPlan, asOf now: Date) {
+        let placeholders = plan.workouts.filter { rest in
+            rest.discipline == .rest && reshaper.canEdit(rest, in: plan, asOf: now)
+                && plan.trainingSessions.contains {
+                    !$0.isSkipped && reshaper.calendar.isDate($0.date, inSameDayAs: rest.date)
+                }
+        }
+        for rest in placeholders {
+            plan.workouts.removeAll { $0.id == rest.id }
+            context.delete(rest)
+        }
+    }
+
+    @discardableResult
+    func shiftWeekForward(
+        _ plan: WeeklyPlan,
+        from date: Date,
+        calendar: Calendar = .current
+    ) throws -> ShiftOutcome {
+        throw PlanReshaper.Failure.useSingleWorkoutMove
+    }
 }
