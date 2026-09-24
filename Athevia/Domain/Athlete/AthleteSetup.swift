@@ -67,6 +67,10 @@ struct AthleteSetup: Codable, Equatable, Sendable {
     /// the richer objective in an optional scalar payload instead. Old rows
     /// naturally have nil here and fall back to the legacy goal.
     private var objectiveData: Data?
+    /// Optional scalar payloads keep newly introduced profile state readable by
+    /// stores created before these concepts existed.
+    private var openWaterConsentData: Data?
+    private var eventStateData: Data?
 
     /// Structured source of truth used by the app. It is computed so SwiftData
     /// never attempts to materialize EventSport/EventDistance from a missing
@@ -80,8 +84,46 @@ struct AthleteSetup: Codable, Equatable, Sendable {
             return decoded
         }
         set {
+            let previous = objective
             goal = newValue.legacyGoal
             objectiveData = try? JSONEncoder().encode(newValue)
+
+            let previousEvent = previous.event
+            let nextEvent = newValue.event
+            let eventIdentityChanged =
+                previous.kind != newValue.kind
+                || previousEvent?.sport != nextEvent?.sport
+                || previousEvent?.distance != nextEvent?.distance
+                || previousEvent?.eventDate != nextEvent?.eventDate
+
+            if eventIdentityChanged {
+                eventStateData = try? JSONEncoder().encode(AthleteEventState.upcoming)
+            }
+        }
+    }
+
+    var openWaterTrainingConsent: OpenWaterTrainingConsent {
+        get {
+            guard let openWaterConsentData,
+                  let value = try? JSONDecoder().decode(OpenWaterTrainingConsent.self, from: openWaterConsentData)
+            else { return .unavailable }
+            return value
+        }
+        set {
+            openWaterConsentData = try? JSONEncoder().encode(newValue)
+        }
+    }
+
+    var eventState: AthleteEventState {
+        get {
+            guard objective.kind == .event else { return .upcoming }
+            guard let eventStateData,
+                  let value = try? JSONDecoder().decode(AthleteEventState.self, from: eventStateData)
+            else { return .upcoming }
+            return value
+        }
+        set {
+            eventStateData = try? JSONEncoder().encode(newValue)
         }
     }
 
@@ -101,6 +143,8 @@ struct AthleteSetup: Codable, Equatable, Sendable {
     init(
         goal: TrainingGoal = .generalFitness,
         objective: TrainingObjective? = nil,
+        openWaterTrainingConsent: OpenWaterTrainingConsent = .unavailable,
+        eventState: AthleteEventState = .upcoming,
         baseline: AthleteBaseline = AthleteBaseline(),
         birthDate: Date? = nil,
         schedule: AthleteSchedule = .empty,
@@ -112,6 +156,8 @@ struct AthleteSetup: Codable, Equatable, Sendable {
         let resolvedObjective = objective ?? TrainingObjective(legacyGoal: goal)
         self.goal = resolvedObjective.legacyGoal
         self.objectiveData = try? JSONEncoder().encode(resolvedObjective)
+        self.openWaterConsentData = try? JSONEncoder().encode(openWaterTrainingConsent)
+        self.eventStateData = try? JSONEncoder().encode(eventState)
         self.baseline = baseline
         self.birthDate = birthDate
         self.schedule = schedule
@@ -141,6 +187,8 @@ struct AthleteSetup: Codable, Equatable, Sendable {
 
     private enum CodingKeys: String, CodingKey {
         case objectiveData
+        case openWaterConsentData
+        case eventStateData
         case goal
         case baseline
         case birthDate
@@ -174,6 +222,8 @@ struct AthleteSetup: Codable, Equatable, Sendable {
         let legacyGoal = value(.goal, defaults.goal)
         goal = legacyGoal
         objectiveData = (try? container.decodeIfPresent(Data.self, forKey: .objectiveData)) ?? nil
+        openWaterConsentData = (try? container.decodeIfPresent(Data.self, forKey: .openWaterConsentData)) ?? nil
+        eventStateData = (try? container.decodeIfPresent(Data.self, forKey: .eventStateData)) ?? nil
         baseline = value(.baseline, defaults.baseline)
         birthDate = (try? container.decodeIfPresent(Date.self, forKey: .birthDate)) ?? nil
         schedule = value(.schedule, defaults.schedule)
@@ -189,6 +239,8 @@ struct AthleteSetup: Codable, Equatable, Sendable {
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encodeIfPresent(objectiveData, forKey: .objectiveData)
+        try container.encodeIfPresent(openWaterConsentData, forKey: .openWaterConsentData)
+        try container.encodeIfPresent(eventStateData, forKey: .eventStateData)
         try container.encode(goal, forKey: .goal)
         try container.encode(baseline, forKey: .baseline)
         try container.encodeIfPresent(birthDate, forKey: .birthDate)
