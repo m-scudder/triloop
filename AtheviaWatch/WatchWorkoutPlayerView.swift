@@ -247,6 +247,9 @@ struct WatchWorkoutPlayerView: View {
                     value: caloriesText,
                     tint: .pink
                 )
+
+            case .multisport:
+                multisportMetrics
             }
 
             Spacer(minLength: 0)
@@ -379,6 +382,37 @@ struct WatchWorkoutPlayerView: View {
         }
     }
 
+    @ViewBuilder
+    private var multisportMetrics: some View {
+        if let discipline = manager.currentMetricDiscipline {
+            switch discipline {
+            case .running:
+                metricRow(label: "Heart Rate", value: heartRateText, tint: .red)
+                metricRow(label: "Current Pace", value: currentRunPaceText, tint: .green)
+                metricRow(label: "Average Pace", value: averageRunPaceText, tint: .green)
+                metricRow(label: "Distance", value: distanceText, tint: .cyan)
+            case .cycling:
+                metricRow(label: "Heart Rate", value: heartRateText, tint: .red)
+                metricRow(label: "Current Speed", value: currentCycleSpeedText, tint: .green)
+                metricRow(label: "Average Speed", value: averageCycleSpeedText, tint: .green)
+                metricRow(label: "Distance", value: distanceText, tint: .cyan)
+            case .swimming:
+                metricRow(label: "Distance", value: swimDistanceText, tint: .cyan)
+                metricRow(label: "Heart Rate", value: heartRateText, tint: .red)
+                metricRow(label: "Average Pace", value: averageSwimPaceText, tint: .green)
+            case .multisport:
+                EmptyView()
+            }
+        } else {
+            metricRow(
+                label: "Transition",
+                value: manager.engine?.stepElapsedSeconds.watchClockText ?? "0:00",
+                tint: .yellow
+            )
+            metricRow(label: "Heart Rate", value: heartRateText, tint: .red)
+        }
+    }
+
     // MARK: - Apple-style completion summary
 
     private var finishedView: some View {
@@ -483,7 +517,7 @@ struct WatchWorkoutPlayerView: View {
             return "--/KM"
         }
         return paceText(
-            secondsPerKilometre: manager.elapsedSeconds / (manager.distanceMeters / 1000)
+            secondsPerKilometre: manager.segmentElapsedSeconds / (manager.distanceMeters / 1000)
         )
     }
 
@@ -500,7 +534,7 @@ struct WatchWorkoutPlayerView: View {
         }
 
         let kilometres = manager.distanceMeters / 1000
-        let hours = manager.elapsedSeconds / 3600
+        let hours = manager.segmentElapsedSeconds / 3600
         return String(format: "%.1f KM/H", kilometres / hours)
     }
 
@@ -509,7 +543,7 @@ struct WatchWorkoutPlayerView: View {
             return "--/100M"
         }
 
-        let secondsPerHundred = manager.elapsedSeconds / (manager.distanceMeters / 100)
+        let secondsPerHundred = manager.segmentElapsedSeconds / (manager.distanceMeters / 100)
         return paceText(
             secondsPerKilometre: secondsPerHundred,
             suffix: "/100M"
@@ -542,6 +576,14 @@ private extension WatchWorkoutStepKind {
             "Recovery"
         case .cooldown:
             "Cooldown"
+        case .runningSegment:
+            "Run"
+        case .cyclingSegment:
+            "Bike"
+        case .swimmingSegment:
+            "Swim"
+        case .transition:
+            "Transition"
         case .repeatBlock:
             "Repeat"
         }
@@ -555,6 +597,14 @@ private extension WatchWorkoutStepKind {
             .yellow
         case .recovery:
             .green
+        case .runningSegment:
+            .orange
+        case .cyclingSegment:
+            .green
+        case .swimmingSegment:
+            .blue
+        case .transition:
+            .yellow
         case .repeatBlock:
             .orange
         }
