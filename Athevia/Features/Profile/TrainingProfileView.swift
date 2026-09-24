@@ -216,6 +216,20 @@ struct TrainingProfileView: View {
                         value: "\(Int(profile.poolLengthMeters)) m pool"
                     )
                 }
+
+                if setup.objective.event?.sport.requiredTrainingSports.contains(.swimming) == true {
+                    NavigationLink {
+                        openWaterEditor
+                    } label: {
+                        ProfileNavigationRow(
+                            title: "Open-water training",
+                            systemImage: "water.waves",
+                            value: setup.openWaterTrainingConsent.permitsPrescription
+                                ? "Available"
+                                : "Not confirmed"
+                        )
+                    }
+                }
             }
         }
     }
@@ -405,6 +419,29 @@ struct TrainingProfileView: View {
             }
         }
         .navigationTitle("Current Ability")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var openWaterEditor: some View {
+        Form {
+            Section {
+                Toggle(
+                    "Open-water training available",
+                    isOn: openWaterBinding(\.explicitlyConfirmed)
+                )
+                Toggle(
+                    "Safe venue available",
+                    isOn: openWaterBinding(\.hasSafeVenue)
+                )
+                Toggle(
+                    "I will train with a buddy / supervision",
+                    isOn: openWaterBinding(\.hasSupervisionOrBuddy)
+                )
+            } footer: {
+                Text("Athevia only prescribes open-water preparation when all three are confirmed and your current swim capability supports it. Pool training remains available otherwise.")
+            }
+        }
+        .navigationTitle("Open Water")
         .navigationBarTitleDisplayMode(.inline)
     }
 
@@ -752,6 +789,21 @@ struct TrainingProfileView: View {
         guard issues.isEmpty else { return }
 
         update { $0.objective = objective }
+    }
+
+    private func openWaterBinding(
+        _ keyPath: WritableKeyPath<OpenWaterTrainingConsent, Bool>
+    ) -> Binding<Bool> {
+        Binding(
+            get: { setup.openWaterTrainingConsent[keyPath: keyPath] },
+            set: { value in
+                update { setup in
+                    var consent = setup.openWaterTrainingConsent
+                    consent[keyPath: keyPath] = value
+                    setup.openWaterTrainingConsent = consent
+                }
+            }
+        )
     }
 
     private func save() {
