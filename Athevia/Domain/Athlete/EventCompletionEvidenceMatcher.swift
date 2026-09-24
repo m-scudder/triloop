@@ -41,6 +41,58 @@ struct EventCompletionEvidenceMatcher: Sendable {
         }
     }
 
+
+    func matches(
+        event: AthleteEventGoal,
+        summary: ImportedWorkoutSummary
+    ) -> Bool {
+        guard let eventDate = event.eventDate,
+              calendar.isDate(summary.startDate, inSameDayAs: eventDate) else {
+            return false
+        }
+
+        switch event.sport {
+        case .running:
+            return summary.discipline == .running
+                && meets(summary.distanceMeters, target: event.distance?.components.runMeters)
+
+        case .cycling:
+            return summary.discipline == .cycling
+                && meets(summary.distanceMeters, target: event.distance?.components.bikeMeters)
+
+        case .swimming:
+            return summary.discipline == .swimming
+                && meets(summary.distanceMeters, target: event.distance?.components.swimMeters)
+
+        case .triathlon:
+            guard summary.discipline == .multisport else { return false }
+            let components = event.distance?.components
+            let segments = summary.metrics?.multisportSegments ?? []
+            return meetsSegment(.swimming, target: components?.swimMeters, segments: segments)
+                && meetsSegment(.cycling, target: components?.bikeMeters, segments: segments)
+                && meetsSegment(.running, target: components?.runMeters, segments: segments)
+        }
+    }
+
+
+    private func meets(_ distance: Double?, target: Double?) -> Bool {
+        guard let target, target > 0 else { return distance != nil }
+        return (distance ?? 0) >= target * distanceTolerance
+    }
+
+    private func meetsSegment(
+        _ sport: Sport,
+        target: Double?,
+        segments: [RecordedMultisportSegment]
+    ) -> Bool {
+        guard let target, target > 0 else {
+            return segments.contains { $0.sport == sport && $0.durationSeconds > 0 }
+        }
+        return segments.contains {
+            $0.sport == sport && ($0.distanceMeters ?? 0) >= target * distanceTolerance
+        }
+    }
+
     private func singleSport(
         _ sport: Sport,
         target: Double?,
