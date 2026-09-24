@@ -65,8 +65,10 @@ struct WorkoutImportService {
         for activity in result.unmatchedImported {
             let recorded = PlannedWorkout(
                 date: calendar.startOfDay(for: activity.startDate),
-                discipline: activity.sport.discipline,
-                title: "Recorded \(activity.sport.displayName)",
+                discipline: activity.discipline,
+                title: activity.discipline == .multisport
+                    ? "Recorded Multisport"
+                    : "Recorded \(activity.sport.displayName)",
                 origin: .imported
             )
             let summary = ImportedWorkoutSummary(activity)
