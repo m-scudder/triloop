@@ -50,7 +50,9 @@ struct TodayWorkoutView: View {
                     .foregroundStyle(.secondary)
             }
 
-            if workout.discipline == .running || workout.discipline == .cycling {
+            if workout.discipline == .running
+                || workout.discipline == .cycling
+                || workout.discipline == .multisport {
                 NavigationLink {
                     AudioCoachingSettingsView()
                 } label: {
@@ -142,7 +144,9 @@ struct TodayWorkoutView: View {
     /// presented full-screen cover can race the cover animation and leave the
     /// system permission sheet unseen. Swimming never requests GPS.
     private func beginPhoneWorkout() {
-        guard workout.discipline == .running || workout.discipline == .cycling else {
+        guard workout.discipline == .running
+                || workout.discipline == .cycling
+                || workout.discipline == .multisport else {
             PhoneWorkoutExecutionState.begin(workout.id)
             showsPlayer = true
             return
@@ -164,30 +168,36 @@ struct TodayWorkoutView: View {
     /// distance and speed regardless of whether a Watch was present.
     private func savePendingResult() {
         guard let result = pendingResult,
-              result.workoutID == workout.id,
-              let sport = workout.discipline.sport else { return }
+              result.workoutID == workout.id else { return }
         pendingResult = nil
 
+        let isMultisport = workout.discipline == .multisport
+        let carrierSport = workout.discipline.sport
+            ?? result.multisportSegments.compactMap(\.sport).first
+        guard let carrierSport else { return }
+
         let averageSpeed: Double? = {
-            guard let distance = result.distanceMeters,
+            guard !isMultisport,
+                  let distance = result.distanceMeters,
                   distance > 0,
                   result.elapsedSeconds > 0 else { return nil }
             return distance / result.elapsedSeconds
         }()
 
         let metrics = RecordedMetrics(
-            averageRunningSpeed: sport == .running ? averageSpeed : nil,
-            averageCyclingSpeed: sport == .cycling ? averageSpeed : nil,
+            averageRunningSpeed: carrierSport == .running ? averageSpeed : nil,
+            averageCyclingSpeed: carrierSport == .cycling ? averageSpeed : nil,
+            multisportSegments: result.multisportSegments,
             route: result.route
         )
 
         let summary = ImportedWorkoutSummary(
             healthKitUUID: UUID(),
-            sport: sport,
+            sport: carrierSport,
             startDate: result.startedAt,
             endDate: result.endedAt,
             duration: result.elapsedSeconds,
-            distanceMeters: result.distanceMeters,
+            distanceMeters: isMultisport ? nil : result.distanceMeters,
             metrics: metrics.isEmpty ? nil : metrics,
             source: "Athevia iPhone"
         )
