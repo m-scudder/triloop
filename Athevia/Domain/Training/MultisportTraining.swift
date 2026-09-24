@@ -39,7 +39,7 @@ enum SwimFoundationState: String, Codable, Sendable {
     }
 }
 
-struct OpenWaterTrainingConsent: Equatable, Sendable {
+struct OpenWaterTrainingConsent: Codable, Equatable, Sendable {
     var explicitlyConfirmed: Bool
     var hasSafeVenue: Bool
     var hasSupervisionOrBuddy: Bool
@@ -47,6 +47,12 @@ struct OpenWaterTrainingConsent: Equatable, Sendable {
     var permitsPrescription: Bool {
         explicitlyConfirmed && hasSafeVenue && hasSupervisionOrBuddy
     }
+
+    static let unavailable = OpenWaterTrainingConsent(
+        explicitlyConfirmed: false,
+        hasSafeVenue: false,
+        hasSupervisionOrBuddy: false
+    )
 }
 
 struct BrickPrescription: Equatable, Sendable {
