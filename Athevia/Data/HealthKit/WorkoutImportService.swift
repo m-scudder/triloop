@@ -78,6 +78,8 @@ struct WorkoutImportService {
             plan.workouts.append(recorded)
         }
 
+        resolveEventCompletion(from: fresh)
+
         if !fresh.isEmpty {
             try context.save()
         }
@@ -87,5 +89,31 @@ struct WorkoutImportService {
             alreadyKnown: eligible.count - fresh.count,
             unrecognised: result.unmatchedImported.count
         )
+    }
+
+    private func resolveEventCompletion(from activities: [ImportedWorkout]) {
+        guard !activities.isEmpty,
+              let profile = try? context.fetch(FetchDescriptor<AthleteProfile>()).first,
+              var setup = profile.setup,
+              setup.eventState.status == .upcoming,
+              let event = setup.objective.event else {
+            return
+        }
+
+        let evidenceMatcher = EventCompletionEvidenceMatcher(calendar: calendar)
+        guard let evidence = activities.first(where: {
+            evidenceMatcher.matches(event: event, imported: $0)
+        }) else {
+            return
+        }
+
+        setup.eventState = AthleteEventState(
+            status: .completed,
+            resolvedAt: evidence.endDate,
+            completionEvidence: evidence.plannedWorkoutID == nil
+                ? .healthKitImport
+                : .atheviaWorkout
+        )
+        profile.setup = setup
     }
 }
