@@ -43,14 +43,17 @@ struct PlanStore {
         }
         configured.schedule = setup.schedule
         configured.preferences = setup.preferences
-        if setup.objective.kind == .event {
-            let recent = (try? context.fetch(
-                FetchDescriptor<WeeklyPlan>(sortBy: [SortDescriptor(\.startDate)])
-            )) ?? []
-            configured.journey = TrainingJourneyPlanner(calendar: configured.calendar)
-                .plan(setup: setup, recentPlans: Array(recent.suffix(4)))
-            configured.objective = setup.objective
-        }
+        let history = (try? context.fetch(
+            FetchDescriptor<WeeklyPlan>(sortBy: [SortDescriptor(\.startDate)])
+        )) ?? []
+        let capability = AthleteCapabilityAssessmentBuilder(calendar: configured.calendar)
+            .build(setup: setup, plans: history)
+        configured.capability = capability
+        configured.journey = TrainingJourneyPlanner(calendar: configured.calendar)
+            .plan(setup: setup, capability: capability)
+        configured.objective = setup.objective
+        configured.openWaterConsent = setup.openWaterTrainingConsent
+        configured.eventState = setup.eventState
         return configured
     }
 
