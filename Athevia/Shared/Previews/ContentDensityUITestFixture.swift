@@ -8,6 +8,7 @@ enum ContentDensityUITestFixture {
         ProcessInfo.processInfo.arguments.contains("--content-density-ui-tests")
             || isOnboarding
             || isEventProfile
+            || isOpenWaterProfile
     }
 
     private static var isOnboarding: Bool {
@@ -16,6 +17,10 @@ enum ContentDensityUITestFixture {
 
     private static var isEventProfile: Bool {
         ProcessInfo.processInfo.arguments.contains("--event-profile-ui-tests")
+    }
+
+    private static var isOpenWaterProfile: Bool {
+        ProcessInfo.processInfo.arguments.contains("--open-water-profile-ui-tests")
     }
 
     static func makeContainer() -> ModelContainer {
@@ -36,7 +41,23 @@ enum ContentDensityUITestFixture {
             }
             let profile = SeedWeekOne.makeProfile(startDate: start)
             var setup = AthleteSetup()
-            if isEventProfile {
+            if isOpenWaterProfile {
+                setup.objective = .event(
+                    sport: .triathlon,
+                    distance: EventDistance(kind: .triathlonSprint),
+                    eventDate: Calendar.current.date(byAdding: .day, value: 56, to: today),
+                    targetIntent: .complete
+                )
+                setup.baseline = AthleteBaseline(
+                    running: .regular5K,
+                    swimming: .continuous200Plus,
+                    cycling: .sixtyPlus
+                )
+                setup.preferences = Sport.allCases.map {
+                    SportPreference(sport: $0, sessionsPerWeek: 2)
+                }
+                setup.schedule = .everyDay()
+            } else if isEventProfile {
                 setup.objective = .event(
                     sport: .running,
                     distance: EventDistance(kind: .run5K),
