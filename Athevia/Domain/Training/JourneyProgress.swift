@@ -237,19 +237,16 @@ struct JourneyProgressBuilder: Sendable {
             .sorted { achievedDate($0) < achievedDate($1) }
         var result: [JourneyMilestone] = []
 
-        let runs = completed.filter { $0.discipline == .running }
-        if let first = runs.first {
-            result.append(.init(kind: .firstRun, achievedAt: achievedDate(first), detail: first.title))
+        if let first = firstSportEvidence(.running, in: completed) {
+            result.append(.init(kind: .firstRun, achievedAt: first, detail: "Running recorded"))
         }
 
-        let rides = completed.filter { $0.discipline == .cycling }
-        if let first = rides.first {
-            result.append(.init(kind: .firstRide, achievedAt: achievedDate(first), detail: first.title))
+        if let first = firstSportEvidence(.cycling, in: completed) {
+            result.append(.init(kind: .firstRide, achievedAt: first, detail: "Cycling recorded"))
         }
 
-        let swims = completed.filter { $0.discipline == .swimming }
-        if let first = swims.first {
-            result.append(.init(kind: .firstSwim, achievedAt: achievedDate(first), detail: first.title))
+        if let first = firstSportEvidence(.swimming, in: completed) {
+            result.append(.init(kind: .firstSwim, achievedAt: first, detail: "Swimming recorded"))
         }
 
         addRunContinuityMilestones(plans: plans, into: &result)
@@ -280,6 +277,21 @@ struct JourneyProgressBuilder: Sendable {
         }
 
         return deduplicated(result).sorted { $0.achievedAt < $1.achievedAt }
+    }
+
+
+    private func firstSportEvidence(
+        _ sport: Sport,
+        in completed: [PlannedWorkout]
+    ) -> Date? {
+        completed.compactMap { workout -> Date? in
+            if workout.discipline.sport == sport {
+                return achievedDate(workout)
+            }
+            let hasSegment = (workout.importedSummary?.metrics?.multisportSegments ?? [])
+                .contains { $0.sport == sport && $0.durationSeconds > 0 }
+            return hasSegment ? achievedDate(workout) : nil
+        }.min()
     }
 
     private func addRunContinuityMilestones(
@@ -426,12 +438,21 @@ struct JourneyProgressBuilder: Sendable {
             ))
         }
 
-        if let openWater = swimSummaries.first(where: {
+        let singleSportOpenWater = swimSummaries.first(where: {
             $0.1.metrics?.swimEnvironment == .openWater
-        }) {
+        })?.0
+        let multisportOpenWater = completed.compactMap { workout -> Date? in
+            let hasOpenWaterSegment = (workout.importedSummary?.metrics?.multisportSegments ?? [])
+                .contains {
+                    $0.sport == .swimming && $0.swimEnvironment == .openWater
+                }
+            return hasOpenWaterSegment ? achievedDate(workout) : nil
+        }.min()
+
+        if let openWater = [singleSportOpenWater, multisportOpenWater].compactMap({ $0 }).min() {
             result.append(.init(
                 kind: .firstOpenWaterSwim,
-                achievedAt: openWater.0,
+                achievedAt: openWater,
                 detail: "Open-water swim recorded"
             ))
         }
