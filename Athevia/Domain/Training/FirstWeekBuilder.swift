@@ -48,9 +48,22 @@ struct FirstWeekBuilder: Sendable {
         )
         .capped(toTrainingMinutes: trainingMinuteCap(in: available))
 
+        let selectedSports = setup.preferences.filter(\.isTrained).map(\.sport)
+        let journey = TrainingJourneyPlanner(calendar: calendar).plan(
+            setup: setup,
+            asOf: startDate
+        )
+        let frequencies = setup.objective.kind == .event
+            ? WeekShapePlanner.frequencies(
+                for: selectedSports,
+                schedule: available,
+                priorities: journey.sportPriorities
+            )
+            : WeekShapePlanner.frequencies(from: setup.preferences, schedule: available)
+
         let shape = planner.plan(
             schedule: available,
-            frequencies: WeekShapePlanner.frequencies(from: setup.preferences, schedule: available),
+            frequencies: frequencies,
             durations: durations(from: parameters)
         )
 
