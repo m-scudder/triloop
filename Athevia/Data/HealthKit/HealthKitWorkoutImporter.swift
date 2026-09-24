@@ -363,8 +363,17 @@ final class HealthKitWorkoutImporter: HealthDataProviding, @unchecked Sendable {
     /// Returns `nil` for anything Athevia does not train, so a yoga session or a
     /// walk never lands in the training analysis.
     static func normalize(_ workout: HKWorkout) -> ImportedWorkout? {
+        if workout.workoutActivityType == .swimBikeRun {
+            return normalizeMultisport(workout)
+        }
+
         guard let sport = workout.workoutActivityType.sport else { return nil }
         let lengths = sport == .swimming ? workout.swimmingLengths : []
+
+        var recorded = Self.recordedMetrics(of: workout, sport: sport)
+        if sport == .swimming {
+            recorded.swimEnvironment = workout.recordedSwimEnvironment
+        }
 
         return ImportedWorkout(
             healthKitUUID: workout.uuid,
@@ -379,7 +388,66 @@ final class HealthKitWorkoutImporter: HealthDataProviding, @unchecked Sendable {
             swimmingLengths: lengths.isEmpty ? nil : lengths.count,
             swimmingStrokeCount: workout.sum(HKQuantityType(.swimmingStrokeCount), in: .count()),
             longestContinuousSwimMeters: Self.longestContinuous(in: lengths),
-            metrics: Self.recordedMetrics(of: workout, sport: sport),
+            metrics: recorded,
+            plannedWorkoutID: (workout.metadata?[AtheviaWorkoutMetadata.plannedWorkoutIDKey] as? String)
+                .flatMap(UUID.init(uuidString:)),
+            prescriptionCompletion: Self.metadataDouble(
+                workout.metadata?[AtheviaWorkoutMetadata.prescriptionCompletionKey]
+            ),
+            completedPrescriptionSteps: Self.metadataInt(
+                workout.metadata?[AtheviaWorkoutMetadata.completedStepsKey]
+            ),
+            totalPrescriptionSteps: Self.metadataInt(
+                workout.metadata?[AtheviaWorkoutMetadata.totalStepsKey]
+            ),
+            source: workout.sourceRevision.source.bundleIdentifier
+        )
+    }
+
+    private static func normalizeMultisport(_ workout: HKWorkout) -> ImportedWorkout? {
+        let segments = workout.workoutActivities.compactMap { activity -> RecordedMultisportSegment? in
+            let type = activity.workoutConfiguration.activityType
+            if type == .transition {
+                return RecordedMultisportSegment(
+                    sport: nil,
+                    isTransition: true,
+                    durationSeconds: activity.duration
+                )
+            }
+            guard let sport = type.sport else { return nil }
+            let distance = activity.statistics(for: sport.healthKitDistanceType)?
+                .sumQuantity()?
+                .doubleValue(for: .meter())
+            return RecordedMultisportSegment(
+                sport: sport,
+                durationSeconds: activity.duration,
+                distanceMeters: distance
+            )
+        }
+
+        guard segments.contains(where: { $0.sport != nil }) else { return nil }
+
+        var metrics = Self.recordedMetrics(of: workout, sport: nil)
+        metrics.multisportSegments = segments
+
+        // `sport` is retained for source compatibility with the pre-multisport
+        // import model only. Downstream code must use `discipline` and
+        // `multisportSegments`; the aggregate distance is intentionally nil so
+        // no mixed activity can inflate cycling or running capability.
+        let carrierSport = segments.compactMap(\.sport).first ?? .cycling
+
+        return ImportedWorkout(
+            healthKitUUID: workout.uuid,
+            sport: carrierSport,
+            startDate: workout.startDate,
+            endDate: workout.endDate,
+            duration: workout.duration,
+            distanceMeters: nil,
+            averageHeartRate: workout.average(HKQuantityType(.heartRate), in: .heartRate),
+            maximumHeartRate: workout.maximum(HKQuantityType(.heartRate), in: .heartRate),
+            elevationAscendedMeters: workout.elevationAscendedMeters,
+            longestContinuousSwimMeters: Self.longestContinuous(in: workout.swimmingLengths),
+            metrics: metrics,
             plannedWorkoutID: (workout.metadata?[AtheviaWorkoutMetadata.plannedWorkoutIDKey] as? String)
                 .flatMap(UUID.init(uuidString:)),
             prescriptionCompletion: Self.metadataDouble(
@@ -537,6 +605,18 @@ private extension HKWorkout {
 
     var elevationAscendedMeters: Double? {
         (metadata?[HKMetadataKeyElevationAscended] as? HKQuantity)?.doubleValue(for: .meter())
+    }
+
+    var recordedSwimEnvironment: RecordedSwimEnvironment? {
+        guard let number = metadata?[HKMetadataKeySwimmingLocationType] as? NSNumber,
+              let type = HKWorkoutSwimmingLocationType(rawValue: number.intValue) else {
+            return nil
+        }
+        switch type {
+        case .pool: return .pool
+        case .openWater: return .openWater
+        @unknown default: return nil
+        }
     }
 
     /// Pool swims record one lap event per length. The pool length lives on the
