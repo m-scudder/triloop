@@ -30,17 +30,20 @@ struct RecordedMultisportSegment: Codable, Equatable, Sendable {
     var isTransition: Bool
     var durationSeconds: TimeInterval
     var distanceMeters: Double?
+    var swimEnvironment: RecordedSwimEnvironment?
 
     init(
         sport: Sport?,
         isTransition: Bool = false,
         durationSeconds: TimeInterval,
-        distanceMeters: Double? = nil
+        distanceMeters: Double? = nil,
+        swimEnvironment: RecordedSwimEnvironment? = nil
     ) {
         self.sport = sport
         self.isTransition = isTransition
         self.durationSeconds = durationSeconds
         self.distanceMeters = distanceMeters
+        self.swimEnvironment = swimEnvironment
     }
 }
 
