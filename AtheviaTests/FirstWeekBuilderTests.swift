@@ -48,6 +48,28 @@ struct FirstWeekBuilderTests {
         #expect(plan.generationReason.isEmpty == false)
     }
 
+    @Test("First-week explanation names the structured event objective")
+    func eventObjectiveAppearsInReason() throws {
+        var athlete = setup(
+            preferences: [
+                SportPreference(sport: .running, sessionsPerWeek: 3)
+            ]
+        )
+        athlete.objective = .event(
+            sport: .running,
+            distance: EventDistance(kind: .run5K)
+        )
+
+        let plan = try builder.build(
+            setup: athlete,
+            poolLengthMeters: 25,
+            startDate: monday()
+        )
+
+        #expect(plan.generationReason.localizedCaseInsensitiveContains("5K Run"))
+        #expect(!plan.generationReason.localizedCaseInsensitiveContains("improve endurance"))
+    }
+
     @Test("Parameters come from the resolver rather than defaults")
     func parametersFollowTheBaseline() throws {
         let plan = try builder.build(

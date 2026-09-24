@@ -13,6 +13,10 @@ struct WeeklyPlanGenerator: Sendable {
     /// as quotas; availability defines the week's plan slots.
     var preferences: [SportPreference] = []
     var planner: WeekShapePlanner = WeekShapePlanner()
+    /// Optional event journey context supplied by PlanStore. Safety analysis
+    /// remains authoritative; this only redistributes non-recovery slots.
+    var journey: TrainingJourney?
+    var objective: TrainingObjective?
     var calendar: Calendar = .current
 
     func generate(after plan: WeeklyPlan, analysis: WeeklyAnalysis) -> WeeklyPlan {
@@ -53,6 +57,12 @@ struct WeeklyPlanGenerator: Sendable {
                     .count { $0.discipline.sport == sport }
                 return count > 0 ? SportFrequency(sport: sport, sessions: count) : nil
             }
+        } else if let journey {
+            intendedFrequencies = WeekShapePlanner.frequencies(
+                for: selectedSports,
+                schedule: schedule,
+                priorities: journey.sportPriorities
+            )
         } else {
             intendedFrequencies = WeekShapePlanner.frequencies(
                 for: selectedSports,
@@ -83,6 +93,16 @@ struct WeeklyPlanGenerator: Sendable {
         )
 
         var workouts: [PlannedWorkout] = []
+        let multisport = MultisportTrainingPolicy()
+        let brickEligible = journey.map {
+            multisport.canScheduleBrick(
+                journey: $0,
+                objective: objective ?? .init(kind: .generalFitness),
+                schedule: schedule,
+                recoveringSports: recovering
+            )
+        } ?? false
+        var brickPlaced = false
 
         for (offset, discipline) in shape.disciplines.enumerated() {
             let date = day(offset)
@@ -109,9 +129,29 @@ struct WeeklyPlanGenerator: Sendable {
                     PrescribedSessions.techniqueSwim(on: date, parameters: parameters)
                 )
             case .cycling:
-                workouts.append(
-                    PrescribedSessions.easyRide(on: date, parameters: parameters)
-                )
+                if brickEligible, !brickPlaced {
+                    workouts.append(
+                        MultisportPrescribedSessions.brick(
+                            on: date,
+                            parameters: parameters,
+                            prescription: multisport.brick(parameters: parameters)
+                        )
+                    )
+                    brickPlaced = true
+                } else {
+                    workouts.append(
+                        PrescribedSessions.easyRide(on: date, parameters: parameters)
+                    )
+                }
+            }
+        }
+
+        if let phase = journey?.phase {
+            let multiplier = multisport.workloadMultiplier(for: phase)
+            if multiplier < 1 {
+                workouts.filter(\.discipline.isTrainingSession).forEach {
+                    MultisportPrescribedSessions.tapered($0, multiplier: multiplier)
+                }
             }
         }
 

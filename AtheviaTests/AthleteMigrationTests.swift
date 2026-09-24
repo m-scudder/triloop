@@ -154,9 +154,93 @@ struct AthleteMigrationTests {
         let setup = try JSONDecoder().decode(AthleteSetup.self, from: stored)
 
         #expect(setup.goal == .firstTriathlon)
+        #expect(setup.objective.kind == .event)
+        #expect(setup.objective.event?.sport == .triathlon)
+        #expect(setup.objective.event?.distance == nil)
+        #expect(setup.objective.event?.eventDate == nil)
         #expect(setup.stage == .welcome)
         #expect(setup.completedAt == nil)
         #expect(setup.isComplete == false)
+    }
+
+    @Test("Legacy goal remains a stored SwiftData composite field")
+    func legacyGoalAndObjectiveStaySynchronized() throws {
+        let container = try store()
+        let context = container.mainContext
+
+        var setup = AthleteSetup(goal: .firstTriathlon)
+        #expect(setup.goal == .firstTriathlon)
+        #expect(setup.objective.event?.sport == .triathlon)
+
+        setup.objective = .event(
+            sport: .running,
+            distance: EventDistance(kind: .run5K)
+        )
+        #expect(setup.goal == .improveEndurance)
+
+        setup.goal = .returnToTraining
+        // Direct legacy writes deliberately discard any incompatible richer
+        // event payload by constructing a fresh setup below. Existing engine
+        // call sites read goal; Phase A editors write objective.
+        let legacySetup = AthleteSetup(goal: .returnToTraining)
+        #expect(legacySetup.objective.kind == .returnToTraining)
+
+        let profile = AthleteProfile(
+            name: "Athlete",
+            trainingStartDate: .now,
+            setup: legacySetup
+        )
+        context.insert(profile)
+        try context.save()
+
+        let reopened = ModelContext(container)
+        let stored = try #require(
+            try reopened.fetch(FetchDescriptor<AthleteProfile>()).first?.setup
+        )
+        #expect(stored.goal == .returnToTraining)
+        #expect(stored.objective.kind == .returnToTraining)
+    }
+
+    @Test("A structured event objective survives a store reopen")
+    func eventObjectivePersists() throws {
+        let container = try store()
+        let context = container.mainContext
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+        let raceDate = calendar.date(
+            from: DateComponents(year: 2026, month: 12, day: 15)
+        )
+
+        let profile = AthleteProfile(
+            name: "Athlete",
+            trainingStartDate: .now,
+            setup: AthleteSetup(
+                objective: .event(
+                    sport: .running,
+                    distance: EventDistance(kind: .run5K),
+                    eventDate: raceDate,
+                    targetIntent: .finishComfortably
+                ),
+                preferences: [
+                    SportPreference(sport: .running, sessionsPerWeek: 3)
+                ],
+                stage: .complete,
+                completedAt: .now
+            )
+        )
+        context.insert(profile)
+        try context.save()
+
+        let reopened = ModelContext(container)
+        let stored = try #require(
+            try reopened.fetch(FetchDescriptor<AthleteProfile>()).first?.setup
+        )
+
+        #expect(stored.objective.kind == .event)
+        #expect(stored.objective.event?.sport == .running)
+        #expect(stored.objective.event?.distance?.kind == .run5K)
+        #expect(stored.objective.event?.eventDate == raceDate)
+        #expect(stored.objective.event?.targetIntent == .finishComfortably)
     }
 
     @Test("A plan generation reason survives a reopen")

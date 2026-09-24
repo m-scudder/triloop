@@ -48,9 +48,22 @@ struct FirstWeekBuilder: Sendable {
         )
         .capped(toTrainingMinutes: trainingMinuteCap(in: available))
 
+        let selectedSports = setup.preferences.filter(\.isTrained).map(\.sport)
+        let journey = TrainingJourneyPlanner(calendar: calendar).plan(
+            setup: setup,
+            asOf: startDate
+        )
+        let frequencies = setup.objective.kind == .event
+            ? WeekShapePlanner.frequencies(
+                for: selectedSports,
+                schedule: available,
+                priorities: journey.sportPriorities
+            )
+            : WeekShapePlanner.frequencies(from: setup.preferences, schedule: available)
+
         let shape = planner.plan(
             schedule: available,
-            frequencies: WeekShapePlanner.frequencies(from: setup.preferences, schedule: available),
+            frequencies: frequencies,
             durations: durations(from: parameters)
         )
 
@@ -75,6 +88,14 @@ struct FirstWeekBuilder: Sendable {
             }
 
             return PrescribedSessions.session(discipline, on: date, parameters: parameters)
+        }
+
+        let multisport = MultisportTrainingPolicy()
+        let multiplier = multisport.workloadMultiplier(for: journey.phase)
+        if multiplier < 1 {
+            workouts.filter(\.discipline.isTrainingSession).forEach {
+                MultisportPrescribedSessions.tapered($0, multiplier: multiplier)
+            }
         }
 
         return WeeklyPlan(
@@ -128,7 +149,7 @@ struct FirstWeekBuilder: Sendable {
             .map { "\($0.value) × \($0.key.displayName.lowercased())" }
             .joined(separator: ", ")
 
-        let opening = "Built from your \(setup.goal.displayName.lowercased()) goal and what you can do today"
+        let opening = "Built from your \(setup.objective.displayName.lowercased()) goal and what you can do today"
         guard !sports.isEmpty else { return opening + "." }
 
         let unfitted = shape.fittedEverything

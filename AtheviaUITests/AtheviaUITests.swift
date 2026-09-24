@@ -12,10 +12,10 @@ final class AtheviaUITests: XCTestCase {
         app.launch()
 
         let homeTab = app.tabBars.buttons["Home"]
-        let setUpButton = app.buttons["Build My Plan"]
+        let setupHeading = app.staticTexts["Where are you starting?"]
 
         XCTAssertTrue(
-            homeTab.waitForExistence(timeout: 10) || setUpButton.waitForExistence(timeout: 10),
+            homeTab.waitForExistence(timeout: 10) || setupHeading.waitForExistence(timeout: 10),
             "Launch showed neither the training tabs nor onboarding."
         )
     }
@@ -25,26 +25,17 @@ final class AtheviaUITests: XCTestCase {
         let app = onboardingApp()
         app.launch()
 
-        XCTAssertTrue(app.buttons["Build My Plan"].waitForExistence(timeout: 10))
-        attachScreenshot(app, name: "Onboarding welcome")
-        app.buttons["Build My Plan"].tap()
-
-        XCTAssertTrue(app.staticTexts["What are you training for?"].exists)
-        app.buttons["Continue"].tap()
-
-        XCTAssertTrue(app.staticTexts["Where are you starting?"].exists)
+        XCTAssertTrue(app.staticTexts["Where are you starting?"].waitForExistence(timeout: 10))
         app.buttons["startingPoint.running"].tap()
 
-        let runChoice = app.buttons["I can run continuously for around 10 minutes"]
+        let runChoice = app.buttons["10 min"]
         reveal(runChoice, in: app)
         runChoice.tap()
-        app.buttons["explanation.done"].tap()
 
-        XCTAssertTrue(app.staticTexts["10 min continuous"].exists)
         attachScreenshot(app, name: "Onboarding starting point")
         app.buttons["Continue"].tap()
 
-        XCTAssertTrue(app.staticTexts["When can you train?"].exists)
+        XCTAssertTrue(app.staticTexts["Build around your week"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["Continue"].isEnabled)
         app.buttons["Monday"].tap()
         app.buttons["Wednesday"].tap()
@@ -55,11 +46,6 @@ final class AtheviaUITests: XCTestCase {
         attachScreenshot(app, name: "Onboarding schedule")
         app.buttons["Continue"].tap()
 
-        XCTAssertTrue(app.staticTexts["Connect your training"].exists)
-        let seeWeek = app.buttons["See My Week"]
-        reveal(seeWeek, in: app)
-        seeWeek.tap()
-
         XCTAssertTrue(app.staticTexts["Your first week"].waitForExistence(timeout: 5))
         let start = app.buttons["Start My Plan"]
         XCTAssertTrue(start.isEnabled)
@@ -67,6 +53,68 @@ final class AtheviaUITests: XCTestCase {
         attachScreenshot(app, name: "Onboarding first week")
         start.tap()
         XCTAssertTrue(app.tabBars.buttons["Home"].waitForExistence(timeout: 10))
+    }
+
+    @MainActor
+    func testOnboardingCanChooseEventDistanceAndOptionalDate() throws {
+        let app = onboardingApp()
+        app.launch()
+
+        XCTAssertTrue(app.staticTexts["Where are you starting?"].waitForExistence(timeout: 10))
+        app.buttons["startingPoint.running"].tap()
+        reveal(app.buttons["10 min"], in: app)
+        app.buttons["10 min"].tap()
+        app.buttons["Continue"].tap()
+
+        XCTAssertTrue(app.staticTexts["Build around your week"].waitForExistence(timeout: 5))
+
+        let eventObjective = app.buttons["objective.event"]
+        reveal(eventObjective, in: app)
+        eventObjective.tap()
+
+        let tenK = app.buttons["event.distance.run10K"]
+        reveal(tenK, in: app)
+        tenK.tap()
+
+        let dateToggle = app.buttons["event.date.toggle"]
+        reveal(dateToggle, in: app)
+        dateToggle.tap()
+        XCTAssertTrue(app.datePickers["event.date.picker"].waitForExistence(timeout: 5))
+
+        reveal(app.buttons["Monday"], in: app)
+        app.buttons["Monday"].tap()
+        app.buttons["Wednesday"].tap()
+        reveal(app.buttons["60 min"], in: app)
+        app.buttons["60 min"].tap()
+
+        XCTAssertTrue(app.buttons["Continue"].isEnabled)
+        attachScreenshot(app, name: "Onboarding event objective")
+        app.buttons["Continue"].tap()
+        XCTAssertTrue(app.staticTexts["Your first week"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testTrainingProfileCanEditRaceDistance() throws {
+        let app = eventProfileApp()
+        app.launch()
+
+        XCTAssertTrue(app.tabBars.buttons["Home"].waitForExistence(timeout: 10))
+        let profile = app.buttons["Training profile"]
+        XCTAssertTrue(profile.waitForExistence(timeout: 5))
+        profile.tap()
+
+        let goal = app.buttons["profile.goal"]
+        XCTAssertTrue(goal.waitForExistence(timeout: 5))
+        goal.tap()
+
+        let tenK = app.buttons["event.distance.run10K"]
+        reveal(tenK, in: app)
+        tenK.tap()
+
+        app.navigationBars["Goal"].buttons.firstMatch.tap()
+
+        XCTAssertTrue(app.staticTexts["10K Run"].waitForExistence(timeout: 5))
+        attachScreenshot(app, name: "Profile edited event")
     }
 
     @MainActor
@@ -170,6 +218,17 @@ final class AtheviaUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = [
             "--onboarding-ui-tests",
+            "-automaticallyImportWorkouts", "NO",
+            "-automaticallyScheduleWorkouts", "NO"
+        ]
+        return app
+    }
+
+    @MainActor
+    private func eventProfileApp() -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "--event-profile-ui-tests",
             "-automaticallyImportWorkouts", "NO",
             "-automaticallyScheduleWorkouts", "NO"
         ]

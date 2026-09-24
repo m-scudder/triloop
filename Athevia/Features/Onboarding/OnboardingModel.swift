@@ -64,6 +64,10 @@ final class OnboardingModel {
         Sport.allCases.filter(isSportSelected)
     }
 
+    var objectiveValidationIssues: [TrainingObjectiveValidationIssue] {
+        setup.objectiveValidationIssues(asOf: minimumStartDate, calendar: calendar)
+    }
+
     var minimumTrainingDays: Int {
         max(2, selectedSports.count)
     }
@@ -91,6 +95,7 @@ final class OnboardingModel {
             return setup.canGeneratePlan
                 && sharedTrainingMinutes != nil
                 && setup.schedule.availableDays.count >= minimumTrainingDays
+                && objectiveValidationIssues.isEmpty
 
         default:
             return true
@@ -101,6 +106,35 @@ final class OnboardingModel {
 
     func choose(goal: TrainingGoal) {
         setup.goal = goal
+        persist()
+    }
+
+    func choose(objectiveKind kind: TrainingObjectiveKind) {
+        if kind == .event {
+            if setup.objective.kind != .event || setup.objective.event == nil {
+                let sport: EventSport
+                if selectedSports.count == Sport.allCases.count {
+                    sport = .triathlon
+                } else if let selected = selectedSports.first,
+                          let mapped = EventSport(trainingSport: selected) {
+                    sport = mapped
+                } else {
+                    sport = .running
+                }
+
+                setup.objective = .event(
+                    sport: sport,
+                    distance: EventDistance.defaultForSport(sport)
+                )
+            }
+        } else {
+            setup.objective = TrainingObjective(kind: kind)
+        }
+        persist()
+    }
+
+    func choose(objective: TrainingObjective) {
+        setup.objective = objective
         persist()
     }
 

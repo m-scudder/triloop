@@ -5,11 +5,17 @@ import SwiftData
 @MainActor
 enum ContentDensityUITestFixture {
     static var isEnabled: Bool {
-        ProcessInfo.processInfo.arguments.contains("--content-density-ui-tests") || isOnboarding
+        ProcessInfo.processInfo.arguments.contains("--content-density-ui-tests")
+            || isOnboarding
+            || isEventProfile
     }
 
     private static var isOnboarding: Bool {
         ProcessInfo.processInfo.arguments.contains("--onboarding-ui-tests")
+    }
+
+    private static var isEventProfile: Bool {
+        ProcessInfo.processInfo.arguments.contains("--event-profile-ui-tests")
     }
 
     static func makeContainer() -> ModelContainer {
@@ -30,6 +36,18 @@ enum ContentDensityUITestFixture {
             }
             let profile = SeedWeekOne.makeProfile(startDate: start)
             var setup = AthleteSetup()
+            if isEventProfile {
+                setup.objective = .event(
+                    sport: .running,
+                    distance: EventDistance(kind: .run5K),
+                    eventDate: Calendar.current.date(byAdding: .day, value: 70, to: today),
+                    targetIntent: .complete
+                )
+                setup.preferences = [
+                    SportPreference(sport: .running, sessionsPerWeek: 3)
+                ]
+                setup.schedule = .everyDay()
+            }
             setup.stage = .complete
             setup.completedAt = .now
             profile.setup = setup

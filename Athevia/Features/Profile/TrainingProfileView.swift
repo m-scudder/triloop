@@ -13,6 +13,7 @@ struct TrainingProfileView: View {
     @Query(sort: \WeeklyPlan.startDate) private var plans: [WeeklyPlan]
 
     @State private var message: String?
+    @State private var objectiveDraft: TrainingObjective?
     @State private var isConfirmingReassessment = false
 
     /// Snapshot from when this profile screen opened. It lets Athevia explain
@@ -160,8 +161,23 @@ struct TrainingProfileView: View {
                 ProfileNavigationRow(
                     title: "Goal",
                     systemImage: "scope",
-                    value: setup.goal.displayName
+                    value: setup.objective.displayName
                 )
+            }
+            .accessibilityIdentifier("profile.goal")
+
+            if let event = setup.objective.event {
+                NavigationLink {
+                    goalEditor
+                } label: {
+                    ProfileNavigationRow(
+                        title: "Event date",
+                        systemImage: "calendar",
+                        value: event.eventDate.map {
+                            TrainingFormatter.shortDate($0, includeYear: true)
+                        } ?? "Not set"
+                    )
+                }
             }
 
             NavigationLink {
@@ -269,30 +285,67 @@ struct TrainingProfileView: View {
     }
 
     private var goalEditor: some View {
-        Form {
+        let draft = objectiveDraft ?? setup.objective
+
+        return Form {
             Section {
                 LazyVGrid(
                     columns: [GridItem(.flexible()), GridItem(.flexible())],
                     spacing: 8
                 ) {
-                    ForEach(TrainingGoal.allCases, id: \.self) { goal in
+                    ForEach(TrainingObjectiveKind.allCases, id: \.self) { kind in
                         AtheviaChoiceChip(
-                            title: goal.displayName,
-                            isSelected: setup.goal == goal
+                            title: kind.displayName,
+                            isSelected: draft.kind == kind
                         ) {
-                            update { $0.goal = goal }
+                            var next = draft
+                            if kind == .event {
+                                if next.kind != .event || next.event == nil {
+                                    let sport: EventSport = selectedTrainingSports.count == Sport.allCases.count
+                                        ? .triathlon
+                                        : EventSport(trainingSport: selectedTrainingSports.first ?? .running) ?? .running
+                                    next = .event(
+                                        sport: sport,
+                                        distance: EventDistance.defaultForSport(sport)
+                                    )
+                                }
+                            } else {
+                                next = TrainingObjective(kind: kind)
+                            }
+                            updateObjectiveDraft(next)
                         }
+                        .accessibilityIdentifier("objective.\(kind.rawValue)")
+                        .frame(minHeight: 44)
                     }
                 }
                 .padding(.vertical, 4)
             } header: {
                 Text("What are you training for?")
             } footer: {
-                Text(setup.goal.detail)
+                Text(draft.kind.detail)
+            }
+
+            if draft.kind == .event {
+                Section {
+                    EventGoalFields(
+                        objective: draft,
+                        selectedSports: selectedTrainingSports,
+                        minimumDate: Calendar.current.startOfDay(for: .now),
+                        showsTargetIntent: true,
+                        onChange: updateObjectiveDraft
+                    )
+                    .padding(.vertical, 4)
+                }
             }
         }
         .navigationTitle("Goal")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            objectiveDraft = setup.objective
+        }
+        .onDisappear {
+            objectiveDraft = nil
+        }
     }
 
     private var abilityEditor: some View {
@@ -470,10 +523,13 @@ struct TrainingProfileView: View {
     }
 
     private var trainedSports: String {
-        preferences
-            .filter(\.isTrained)
-            .map { $0.sport.displayName }
+        selectedTrainingSports
+            .map(\.displayName)
             .joined(separator: " · ")
+    }
+
+    private var selectedTrainingSports: [Sport] {
+        preferences.filter(\.isTrained).map(\.sport)
     }
 
     private var trainingMixSummary: String {
@@ -604,6 +660,13 @@ struct TrainingProfileView: View {
         Binding(
             get: { preferences.first { $0.sport == sport }?.sessionsPerWeek ?? 0 },
             set: { count in
+                if count == 0,
+                   let event = setup.objective.event,
+                   event.sport.requiredTrainingSports.contains(sport) {
+                    message = "(event.displayName) requires (sport.displayName) training. Change your event first."
+                    return
+                }
+
                 update { current in
                     var updated = current.preferences.isEmpty
                         ? SportPreference.defaults(for: current.baseline)
@@ -676,6 +739,19 @@ struct TrainingProfileView: View {
         change(&current)
         profile.setup = current
         save()
+    }
+
+    private func updateObjectiveDraft(_ objective: TrainingObjective) {
+        objectiveDraft = objective
+
+        let issues = TrainingObjectiveValidator.issues(
+            for: objective,
+            selectedSports: selectedTrainingSports,
+            asOf: Calendar.current.startOfDay(for: .now)
+        )
+        guard issues.isEmpty else { return }
+
+        update { $0.objective = objective }
     }
 
     private func save() {

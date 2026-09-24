@@ -6,7 +6,7 @@ struct TrainingDaysStepView: View {
     @Bindable var model: OnboardingModel
 
     private let durationOptions = [30, 45, 60, 90, 120]
-    private let goalColumns = [
+    private let objectiveColumns = [
         GridItem(.flexible()),
         GridItem(.flexible())
     ]
@@ -18,15 +18,29 @@ struct TrainingDaysStepView: View {
             VStack(alignment: .leading, spacing: 10) {
                 SectionEyebrow(text: "Goal")
 
-                LazyVGrid(columns: goalColumns, spacing: 8) {
-                    ForEach(TrainingGoal.allCases, id: \.self) { goal in
+                LazyVGrid(columns: objectiveColumns, spacing: 8) {
+                    ForEach(TrainingObjectiveKind.allCases, id: \.self) { kind in
                         AtheviaChoiceChip(
-                            title: goal.displayName,
-                            isSelected: model.setup.goal == goal
+                            title: kind.displayName,
+                            isSelected: model.setup.objective.kind == kind
                         ) {
-                            model.choose(goal: goal)
+                            model.choose(objectiveKind: kind)
                         }
+                        .accessibilityIdentifier("objective.\(kind.rawValue)")
+                        .frame(minHeight: 44)
                     }
+                }
+
+                if model.setup.objective.kind == .event {
+                    EventGoalFields(
+                        objective: model.setup.objective,
+                        selectedSports: model.selectedSports,
+                        minimumDate: model.minimumStartDate,
+                        showsTargetIntent: true
+                    ) { objective in
+                        model.choose(objective: objective)
+                    }
+                    .padding(.top, 4)
                 }
             }
 

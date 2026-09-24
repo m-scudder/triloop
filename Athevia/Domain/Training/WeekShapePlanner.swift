@@ -201,6 +201,50 @@ extension WeekShapePlanner {
         }
     }
 
+    /// Redistributes the same available slots toward journey priorities.
+    /// It never creates extra days and never bypasses the planner's run-spacing
+    /// rule. Every selected sport remains represented when slots allow.
+    static func frequencies(
+        for sports: [Sport],
+        schedule: AthleteSchedule,
+        priorities: [SportPriority]
+    ) -> [SportFrequency] {
+        let selected = Sport.allCases.filter { sports.contains($0) }
+        let slots = schedule.availableDays.count
+        guard slots > 0, !selected.isEmpty else { return [] }
+        if selected == [.running] { return frequencies(for: selected, schedule: schedule) }
+
+        var counts = Dictionary(uniqueKeysWithValues: selected.map { ($0, 0) })
+        var remaining = slots
+
+        for sport in selected where remaining > 0 {
+            counts[sport, default: 0] += 1
+            remaining -= 1
+        }
+
+        let ranked = priorities
+            .filter { selected.contains($0.sport) }
+            .sorted { $0.rank < $1.rank }
+            .map(\.sport)
+        let order = ranked + selected.filter { !ranked.contains($0) }
+
+        var index = 0
+        while remaining > 0, !order.isEmpty {
+            let sport = order[index % order.count]
+            if sport != .running || counts[sport, default: 0] < safeRunningSessions(in: schedule) {
+                counts[sport, default: 0] += 1
+                remaining -= 1
+            }
+            index += 1
+            if index > slots * max(order.count, 1) * 2 { break }
+        }
+
+        return selected.compactMap { sport in
+            guard let count = counts[sport], count > 0 else { return nil }
+            return SportFrequency(sport: sport, sessions: count)
+        }
+    }
+
     private static func safeRunningSessions(in schedule: AthleteSchedule) -> Int {
         var count = 0
         var previousRunOffset: Int?

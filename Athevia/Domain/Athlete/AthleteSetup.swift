@@ -57,7 +57,34 @@ struct AthleteSetup: Codable, Equatable, Sendable {
         }
     }
 
+    /// Legacy stored field retained because AthleteSetup is a SwiftData
+    /// composite. Removing it from the composite description breaks existing
+    /// stores before Codable migration code gets a chance to run.
     var goal: TrainingGoal
+
+    /// SwiftData composites do not safely tolerate adding a new nested,
+    /// non-optional Codable composite to rows written by an older schema. Keep
+    /// the richer objective in an optional scalar payload instead. Old rows
+    /// naturally have nil here and fall back to the legacy goal.
+    private var objectiveData: Data?
+
+    /// Structured source of truth used by the app. It is computed so SwiftData
+    /// never attempts to materialize EventSport/EventDistance from a missing
+    /// legacy composite value.
+    var objective: TrainingObjective {
+        get {
+            guard let objectiveData,
+                  let decoded = try? JSONDecoder().decode(TrainingObjective.self, from: objectiveData) else {
+                return TrainingObjective(legacyGoal: goal)
+            }
+            return decoded
+        }
+        set {
+            goal = newValue.legacyGoal
+            objectiveData = try? JSONEncoder().encode(newValue)
+        }
+    }
+
     var baseline: AthleteBaseline
     /// Anchors heart-rate zones. Optional because zones report Unavailable
     /// rather than guessing when the athlete would rather not say.
@@ -73,6 +100,7 @@ struct AthleteSetup: Codable, Equatable, Sendable {
 
     init(
         goal: TrainingGoal = .generalFitness,
+        objective: TrainingObjective? = nil,
         baseline: AthleteBaseline = AthleteBaseline(),
         birthDate: Date? = nil,
         schedule: AthleteSchedule = .empty,
@@ -81,7 +109,9 @@ struct AthleteSetup: Codable, Equatable, Sendable {
         stage: Stage = .welcome,
         completedAt: Date? = nil
     ) {
-        self.goal = goal
+        let resolvedObjective = objective ?? TrainingObjective(legacyGoal: goal)
+        self.goal = resolvedObjective.legacyGoal
+        self.objectiveData = try? JSONEncoder().encode(resolvedObjective)
         self.baseline = baseline
         self.birthDate = birthDate
         self.schedule = schedule
@@ -92,6 +122,34 @@ struct AthleteSetup: Codable, Equatable, Sendable {
     }
 
     var isComplete: Bool { stage == .complete && completedAt != nil }
+
+    var selectedSports: [Sport] {
+        preferences.filter(\.isTrained).map(\.sport)
+    }
+
+    func objectiveValidationIssues(
+        asOf date: Date = .now,
+        calendar: Calendar = .current
+    ) -> [TrainingObjectiveValidationIssue] {
+        TrainingObjectiveValidator.issues(
+            for: objective,
+            selectedSports: selectedSports,
+            asOf: date,
+            calendar: calendar
+        )
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case objectiveData
+        case goal
+        case baseline
+        case birthDate
+        case schedule
+        case planStartDate
+        case preferences
+        case stage
+        case completedAt
+    }
 
     /// Enough information to build a week. Checked before generation so an
     /// interrupted setup can never produce a plan from half an assessment.
@@ -106,10 +164,16 @@ struct AthleteSetup: Codable, Equatable, Sendable {
         let defaults = AthleteSetup()
 
         func value<T: Decodable>(_ key: CodingKeys, _ fallback: T) -> T {
-            (try? container.decodeIfPresent(T.self, forKey: key)) as? T ?? fallback
+            do {
+                return try container.decodeIfPresent(T.self, forKey: key) ?? fallback
+            } catch {
+                return fallback
+            }
         }
 
-        goal = value(.goal, defaults.goal)
+        let legacyGoal = value(.goal, defaults.goal)
+        goal = legacyGoal
+        objectiveData = (try? container.decodeIfPresent(Data.self, forKey: .objectiveData)) ?? nil
         baseline = value(.baseline, defaults.baseline)
         birthDate = (try? container.decodeIfPresent(Date.self, forKey: .birthDate)) ?? nil
         schedule = value(.schedule, defaults.schedule)
@@ -117,5 +181,21 @@ struct AthleteSetup: Codable, Equatable, Sendable {
         preferences = value(.preferences, defaults.preferences)
         stage = value(.stage, defaults.stage)
         completedAt = (try? container.decodeIfPresent(Date.self, forKey: .completedAt)) ?? nil
+    }
+
+    /// Write both the structured objective and its coarse adapter. Keeping the
+    /// legacy key makes backups and older fixtures readable while the new
+    /// objective remains the authoritative representation.
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(objectiveData, forKey: .objectiveData)
+        try container.encode(goal, forKey: .goal)
+        try container.encode(baseline, forKey: .baseline)
+        try container.encodeIfPresent(birthDate, forKey: .birthDate)
+        try container.encode(schedule, forKey: .schedule)
+        try container.encodeIfPresent(planStartDate, forKey: .planStartDate)
+        try container.encode(preferences, forKey: .preferences)
+        try container.encode(stage, forKey: .stage)
+        try container.encodeIfPresent(completedAt, forKey: .completedAt)
     }
 }

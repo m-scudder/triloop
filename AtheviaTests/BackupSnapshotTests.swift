@@ -16,7 +16,20 @@ struct BackupSnapshotTests {
         let context = try makeContext()
         let profile = AthleteProfile(
             name: "Athlete",
-            trainingStartDate: Date(timeIntervalSince1970: 1_780_000_000)
+            trainingStartDate: Date(timeIntervalSince1970: 1_780_000_000),
+            setup: AthleteSetup(
+                objective: .event(
+                    sport: .running,
+                    distance: EventDistance(kind: .run10K),
+                    eventDate: Date(timeIntervalSince1970: 1_790_000_000),
+                    targetIntent: .finishComfortably
+                ),
+                preferences: [
+                    SportPreference(sport: .running, sessionsPerWeek: 3)
+                ],
+                stage: .complete,
+                completedAt: Date(timeIntervalSince1970: 1_780_000_000)
+            )
         )
         context.insert(profile)
 
@@ -107,6 +120,8 @@ struct BackupSnapshotTests {
 
         #expect(decoded.schemaVersion == BackupSnapshot.currentSchemaVersion)
         #expect(decoded.profile?.id == profile.id)
+        #expect(decoded.profile?.setup?.objective.event?.distance?.kind == .run10K)
+        #expect(decoded.profile?.setup?.objective.event?.targetIntent == .finishComfortably)
         #expect(decoded.plans.count == 1)
         #expect(decoded.templates.count == 1)
         #expect(decoded.plans[0].workouts[0].feedback?.rpe == 4)
@@ -121,7 +136,10 @@ struct BackupSnapshotTests {
 
         let restoredContext = try makeContext()
         try BackupRestoreService().restore(decoded, into: restoredContext)
+        let restoredProfiles = try restoredContext.fetch(FetchDescriptor<AthleteProfile>())
         let restoredWorkouts = try restoredContext.fetch(FetchDescriptor<PlannedWorkout>())
+        #expect(restoredProfiles.first?.setup?.objective.event?.distance?.kind == .run10K)
+        #expect(restoredProfiles.first?.setup?.objective.event?.targetIntent == .finishComfortably)
         #expect(restoredWorkouts.first?.feedback?.notes == "")
         #expect(restoredWorkouts.first?.importedSummary?.metrics?.route.isEmpty == true)
     }
