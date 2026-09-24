@@ -246,6 +246,13 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
         openWaterConsent: OpenWaterTrainingConsent,
         ordinal: Int
     ) -> PlannedWorkout {
+        if phase == .recovery {
+            return PrescribedSessions.recoveryDay(
+                on: date,
+                goal: "Recover before beginning another training block."
+            )
+        }
+
         let swimCapability = capability?.swimming
         let state = swimCapability?.foundationState
             ?? SwimFoundationState(continuousMeters: parameters.swimRepeatDistanceMeters)
