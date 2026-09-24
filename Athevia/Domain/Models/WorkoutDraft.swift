@@ -165,6 +165,14 @@ struct WorkoutDraft: Equatable, Sendable {
             WorkoutDraftBlock(kind: .recovery, title: "Recovery", durationSeconds: 60)
         case .work:
             measured(kind: .work, title: "Work", intensity: .easy)
+        case .runningSegment:
+            measured(kind: .runningSegment, title: "Run", intensity: .easy)
+        case .cyclingSegment:
+            measured(kind: .cyclingSegment, title: "Bike", intensity: .easy)
+        case .swimmingSegment:
+            measured(kind: .swimmingSegment, title: "Swim", intensity: .easy)
+        case .transition:
+            WorkoutDraftBlock(kind: .transition, title: "Transition", durationSeconds: 180)
         }
     }
 
