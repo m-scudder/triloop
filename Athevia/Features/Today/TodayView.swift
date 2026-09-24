@@ -33,9 +33,19 @@ struct TodayView: View {
                         WeeklyPlanOverviewView(plan: plan)
                     }
 
-                    if let objective = profiles.first?.setup?.objective,
-                       objective.event?.eventDate != nil {
-                        EventCountdownView(objective: objective)
+                    if let setup = profiles.first?.setup,
+                       setup.objective.event?.eventDate != nil {
+                        EventCountdownView(objective: setup.objective)
+
+                        let journey = TrainingJourneyPlanner().plan(
+                            setup: setup,
+                            recentPlans: Array(plans.prefix(4))
+                        )
+                        if let focus = journey.primaryFocus {
+                            Text("Focus · \(focus.kind.displayName)")
+                                .font(.subheadline.weight(.medium))
+                                .foregroundStyle(.secondary)
+                        }
                     }
 
                     if let pending = pendingCheckIn {
