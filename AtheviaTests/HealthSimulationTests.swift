@@ -150,6 +150,38 @@ struct HealthSimulationTests {
         #expect(samples.swimLengths.allSatisfy { $0.meters == 25 })
     }
 
+
+    @Test("Event 5K developing stays below event distance")
+    func event5KDevelopingStaysBelowFiveK() throws {
+        let data = SimulationFixture.generate(.event5KDeveloping, asOf: reference, calendar: calendar)
+        let runs = data.workouts.filter { $0.sport == .running }
+        #expect(!runs.isEmpty)
+        #expect(runs.compactMap(\.distanceMeters).max() ?? 0 < 5_000)
+    }
+
+    @Test("Event 5K completed contains milestone evidence")
+    func event5KCompletedContainsFiveK() throws {
+        let data = SimulationFixture.generate(.event5KCompleted, asOf: reference, calendar: calendar)
+        #expect(data.workouts.contains { $0.sport == .running && ($0.distanceMeters ?? 0) >= 5_000 })
+    }
+
+    @Test("Sprint tri swim gap remains materially below race continuity")
+    func sprintTriSwimGapIsVisible() throws {
+        let data = SimulationFixture.generate(.sprintTriSwimGap, asOf: reference, calendar: calendar)
+        let swims = data.workouts.filter { $0.sport == .swimming }
+        #expect(!swims.isEmpty)
+        #expect(swims.compactMap(\.longestContinuousSwimMeters).max() ?? 0 <= 100)
+        #expect(Set(data.workouts.map(\.sport)) == Set([.running, .swimming, .cycling]))
+    }
+
+    @Test("Sprint tri brick-ready fixture contains all three sports and stronger swim continuity")
+    func sprintTriBrickReadyHasEvidence() throws {
+        let data = SimulationFixture.generate(.sprintTriBrickComplete, asOf: reference, calendar: calendar)
+        #expect(Set(data.workouts.map(\.sport)) == Set([.running, .swimming, .cycling]))
+        #expect(data.workouts.filter { $0.sport == .swimming }
+            .compactMap(\.longestContinuousSwimMeters).max() ?? 0 >= 250)
+    }
+
     @Test("The deterministic generator repeats for a given seed")
     func generatorRepeats() {
         var first = DeterministicGenerator(seed: 42)
