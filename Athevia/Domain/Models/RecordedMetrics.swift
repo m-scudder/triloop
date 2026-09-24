@@ -20,6 +20,30 @@ struct RecordedRoutePoint: Codable, Equatable, Sendable {
 /// shape, so the schema version does not move and no migration stage is needed —
 /// which matters because the interesting metrics differ by sport and by watch,
 /// and the list will keep growing.
+enum RecordedSwimEnvironment: String, Codable, Equatable, Sendable {
+    case pool
+    case openWater
+}
+
+struct RecordedMultisportSegment: Codable, Equatable, Sendable {
+    var sport: Sport?
+    var isTransition: Bool
+    var durationSeconds: TimeInterval
+    var distanceMeters: Double?
+
+    init(
+        sport: Sport?,
+        isTransition: Bool = false,
+        durationSeconds: TimeInterval,
+        distanceMeters: Double? = nil
+    ) {
+        self.sport = sport
+        self.isTransition = isTransition
+        self.durationSeconds = durationSeconds
+        self.distanceMeters = distanceMeters
+    }
+}
+
 struct RecordedMetrics: Codable, Equatable, Sendable {
     /// Steps per minute. A proxy for running cadence, taken from `stepCount`.
     var averageCadence: Double?
@@ -43,6 +67,11 @@ struct RecordedMetrics: Codable, Equatable, Sendable {
     /// Apple's own estimate, when the athlete rated nothing.
     var estimatedWorkoutEffort: Double?
 
+    /// Multisport activities are kept as explicit per-sport evidence. A
+    /// transition has nil sport and isTransition=true.
+    var multisportSegments: [RecordedMultisportSegment]
+    var swimEnvironment: RecordedSwimEnvironment?
+
     /// GPS points captured by Athevia itself. HealthKit imports normally leave
     /// this empty because their sample stream remains in HealthKit.
     var route: [RecordedRoutePoint]
@@ -60,6 +89,8 @@ struct RecordedMetrics: Codable, Equatable, Sendable {
         functionalThresholdPower: Double? = nil,
         workoutEffort: Double? = nil,
         estimatedWorkoutEffort: Double? = nil,
+        multisportSegments: [RecordedMultisportSegment] = [],
+        swimEnvironment: RecordedSwimEnvironment? = nil,
         route: [RecordedRoutePoint] = []
     ) {
         self.averageCadence = averageCadence
@@ -74,6 +105,8 @@ struct RecordedMetrics: Codable, Equatable, Sendable {
         self.functionalThresholdPower = functionalThresholdPower
         self.workoutEffort = workoutEffort
         self.estimatedWorkoutEffort = estimatedWorkoutEffort
+        self.multisportSegments = multisportSegments
+        self.swimEnvironment = swimEnvironment
         self.route = route
     }
 
@@ -99,6 +132,8 @@ struct RecordedMetrics: Codable, Equatable, Sendable {
         functionalThresholdPower = value(.functionalThresholdPower)
         workoutEffort = value(.workoutEffort)
         estimatedWorkoutEffort = value(.estimatedWorkoutEffort)
+        multisportSegments = value(.multisportSegments) ?? []
+        swimEnvironment = value(.swimEnvironment)
         route = value(.route) ?? []
     }
 
@@ -117,7 +152,10 @@ struct RecordedMetrics: Codable, Equatable, Sendable {
             workoutEffort,
             estimatedWorkoutEffort
         ]
-        return scalarMetrics.allSatisfy { $0 == nil } && route.isEmpty
+        return scalarMetrics.allSatisfy { $0 == nil }
+            && multisportSegments.isEmpty
+            && swimEnvironment == nil
+            && route.isEmpty
     }
 
     /// The effort Apple holds, preferring what the athlete rated over what the
