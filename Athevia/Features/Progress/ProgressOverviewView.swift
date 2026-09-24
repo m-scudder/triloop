@@ -108,12 +108,15 @@ struct ProgressOverviewView: View {
             .padding(.top, 60)
         } else {
             if let setup = profiles.first?.setup {
-                TrainingJourneySummaryView(
-                    journey: TrainingJourneyPlanner().plan(
-                        setup: setup,
-                        recentPlans: recentPlans
-                    )
+                let snapshot = JourneyProgressBuilder().build(
+                    setup: setup,
+                    plans: plans
                 )
+                TrainingJourneySummaryView(journey: snapshot.journey)
+
+                if setup.objective.kind == .event {
+                    JourneyProgressView(snapshot: snapshot)
+                }
             }
 
             fourWeekSummary
