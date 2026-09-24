@@ -31,6 +31,7 @@ enum Discipline: String, Codable, CaseIterable, Sendable {
     case running
     case swimming
     case cycling
+    case multisport
     case recovery
     case rest
 
@@ -39,18 +40,19 @@ enum Discipline: String, Codable, CaseIterable, Sendable {
         case .running: .running
         case .swimming: .swimming
         case .cycling: .cycling
-        case .recovery, .rest: nil
+        case .multisport, .recovery, .rest: nil
         }
     }
 
     /// Recovery and rest days are still scheduled, but they are never progressed.
-    var isTrainingSession: Bool { sport != nil }
+    var isTrainingSession: Bool { self != .recovery && self != .rest }
 
     var displayName: String {
         switch self {
         case .running: "Run"
         case .swimming: "Swim"
         case .cycling: "Cycle"
+        case .multisport: "Multisport"
         case .recovery: "Recovery"
         case .rest: "Rest"
         }
@@ -61,6 +63,7 @@ enum Discipline: String, Codable, CaseIterable, Sendable {
         case .running: "figure.run"
         case .swimming: "figure.pool.swim"
         case .cycling: "figure.outdoor.cycle"
+        case .multisport: "figure.mixed.cardio"
         case .recovery: "figure.cooldown"
         case .rest: "moon.zzz.fill"
         }
