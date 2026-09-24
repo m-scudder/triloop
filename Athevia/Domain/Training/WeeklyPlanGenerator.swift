@@ -17,6 +17,10 @@ struct WeeklyPlanGenerator: Sendable {
     /// remains authoritative; this only redistributes non-recovery slots.
     var journey: TrainingJourney?
     var objective: TrainingObjective?
+    var capability: AthleteCapabilityAssessment?
+    var openWaterConsent: OpenWaterTrainingConsent = .unavailable
+    var eventState: AthleteEventState = .upcoming
+    var prescriptionBuilder = PhaseWorkoutPrescriptionBuilder()
     var calendar: Calendar = .current
 
     func generate(after plan: WeeklyPlan, analysis: WeeklyAnalysis) -> WeeklyPlan {
@@ -93,6 +97,7 @@ struct WeeklyPlanGenerator: Sendable {
         )
 
         var workouts: [PlannedWorkout] = []
+        var sportOrdinals: [Sport: Int] = [:]
         let multisport = MultisportTrainingPolicy()
         let brickEligible = journey.map {
             multisport.canScheduleBrick(
@@ -102,6 +107,8 @@ struct WeeklyPlanGenerator: Sendable {
                 recoveringSports: recovering
             )
         } ?? false
+        let brickAllowedByCurrentRecovery = capability?.recoveryState != .needsAttention
+            && capability?.recoveryState != .recovering
         var brickPlaced = false
 
         for (offset, discipline) in shape.disciplines.enumerated() {
@@ -119,30 +126,42 @@ struct WeeklyPlanGenerator: Sendable {
                 continue
             }
 
-            switch sport {
-            case .running:
+            if let event = objective?.event,
+               eventState.status == .upcoming,
+               let eventDate = event.eventDate,
+               calendar.isDate(date, inSameDayAs: eventDate) {
+                workouts.append(EventDayPrescription.workout(for: event, on: date))
+                continue
+            }
+
+            let ordinal = sportOrdinals[sport, default: 0]
+            sportOrdinals[sport] = ordinal + 1
+
+            if sport == .cycling,
+               brickEligible,
+               brickAllowedByCurrentRecovery,
+               !brickPlaced {
                 workouts.append(
-                    PrescribedSessions.runWalk(on: date, parameters: parameters)
+                    MultisportPrescribedSessions.brick(
+                        on: date,
+                        parameters: parameters,
+                        prescription: multisport.brick(parameters: parameters)
+                    )
                 )
-            case .swimming:
+                brickPlaced = true
+            } else {
                 workouts.append(
-                    PrescribedSessions.techniqueSwim(on: date, parameters: parameters)
+                    prescriptionBuilder.workout(
+                        sport: sport,
+                        on: date,
+                        parameters: parameters,
+                        journey: journey,
+                        objective: objective,
+                        capability: capability,
+                        openWaterConsent: openWaterConsent,
+                        sportOrdinal: ordinal
+                    )
                 )
-            case .cycling:
-                if brickEligible, !brickPlaced {
-                    workouts.append(
-                        MultisportPrescribedSessions.brick(
-                            on: date,
-                            parameters: parameters,
-                            prescription: multisport.brick(parameters: parameters)
-                        )
-                    )
-                    brickPlaced = true
-                } else {
-                    workouts.append(
-                        PrescribedSessions.easyRide(on: date, parameters: parameters)
-                    )
-                }
             }
         }
 
