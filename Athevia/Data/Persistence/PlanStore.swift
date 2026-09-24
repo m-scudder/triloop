@@ -49,6 +49,7 @@ struct PlanStore {
             )) ?? []
             configured.journey = TrainingJourneyPlanner(calendar: configured.calendar)
                 .plan(setup: setup, recentPlans: Array(recent.suffix(4)))
+            configured.objective = setup.objective
         }
         return configured
     }
