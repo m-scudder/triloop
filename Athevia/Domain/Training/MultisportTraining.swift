@@ -98,10 +98,14 @@ struct MultisportTrainingPolicy: Sendable {
         }
 
         switch SwimFoundationState(baseline) {
-        case .waterComfort, .breathing: .swimFundamentals
-        case .shortContinuity: .swimTechnique
-        case .continuous: .swimContinuous
-        case .endurance: phase == .specific ? .swimRaceDistance : .swimEndurance
+        case .waterComfort, .breathing:
+            return .swimFundamentals
+        case .shortContinuity:
+            return .swimTechnique
+        case .continuous:
+            return .swimContinuous
+        case .endurance:
+            return phase == .specific ? .swimRaceDistance : .swimEndurance
         }
     }
 
