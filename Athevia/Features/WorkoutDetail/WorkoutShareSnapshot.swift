@@ -11,9 +11,9 @@ struct WorkoutShareSnapshot {
     let route: [RecordedRoutePoint]
 
     @MainActor
-    init(workout: PlannedWorkout) {
+    init(workout: PlannedWorkout, titleOverride: String? = nil) {
         let summary = workout.importedSummary
-        title = workout.title
+        title = titleOverride ?? workout.title
         discipline = workout.discipline
         date = summary?.startDate ?? workout.completedAt ?? workout.date
         duration = Self.positive(summary?.duration)
