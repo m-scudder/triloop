@@ -213,6 +213,13 @@ struct AthleteCapabilityAssessmentBuilder: Sendable {
 
         let recovery = recoveryState(from: recentCompleted)
 
+        let multisportSegments = allCompleted.flatMap {
+            $0.importedSummary?.metrics?.multisportSegments ?? []
+        }
+        let runSegments = multisportSegments.filter { $0.sport == .running }
+        let cycleSegments = multisportSegments.filter { $0.sport == .cycling }
+        let swimSegments = multisportSegments.filter { $0.sport == .swimming }
+
         let runImported = allCompleted
             .filter { $0.discipline == .running }
             .compactMap(\.importedSummary)
@@ -229,12 +236,6 @@ struct AthleteCapabilityAssessmentBuilder: Sendable {
                 continuousRunCandidates.append(prescribed)
             }
         }
-        let multisportSegments = allCompleted.flatMap {
-            $0.importedSummary?.metrics?.multisportSegments ?? []
-        }
-        let runSegments = multisportSegments.filter { $0.sport == .running }
-        let cycleSegments = multisportSegments.filter { $0.sport == .cycling }
-        let swimSegments = multisportSegments.filter { $0.sport == .swimming }
 
         let swimImported = allCompleted
             .filter { $0.discipline == .swimming }
