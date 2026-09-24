@@ -90,6 +90,14 @@ struct FirstWeekBuilder: Sendable {
             return PrescribedSessions.session(discipline, on: date, parameters: parameters)
         }
 
+        let multisport = MultisportTrainingPolicy()
+        let multiplier = multisport.workloadMultiplier(for: journey.phase)
+        if multiplier < 1 {
+            workouts.filter(\.discipline.isTrainingSession).forEach {
+                MultisportPrescribedSessions.tapered($0, multiplier: multiplier)
+            }
+        }
+
         return WeeklyPlan(
             weekNumber: weekNumber,
             startDate: monday,
