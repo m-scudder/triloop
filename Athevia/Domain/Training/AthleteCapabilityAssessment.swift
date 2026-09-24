@@ -216,7 +216,10 @@ struct AthleteCapabilityAssessmentBuilder: Sendable {
         let runImported = allCompleted
             .filter { $0.discipline == .running }
             .compactMap(\.importedSummary)
-        let longestRun = runImported.compactMap(\.distanceMeters).max() ?? 0
+        let longestRun = max(
+            runImported.compactMap(\.distanceMeters).max() ?? 0,
+            runSegments.compactMap(\.distanceMeters).max() ?? 0
+        )
 
         var continuousRunCandidates: [TimeInterval] = []
         for plan in orderedPlans {
@@ -226,21 +229,33 @@ struct AthleteCapabilityAssessmentBuilder: Sendable {
                 continuousRunCandidates.append(prescribed)
             }
         }
-        continuousRunCandidates += allCompleted
-            .filter { $0.discipline == .running && $0.origin == .imported }
-            .compactMap { $0.importedSummary?.duration }
+        let multisportSegments = allCompleted.flatMap {
+            $0.importedSummary?.metrics?.multisportSegments ?? []
+        }
+        let runSegments = multisportSegments.filter { $0.sport == .running }
+        let cycleSegments = multisportSegments.filter { $0.sport == .cycling }
+        let swimSegments = multisportSegments.filter { $0.sport == .swimming }
 
         let swimImported = allCompleted
             .filter { $0.discipline == .swimming }
             .compactMap(\.importedSummary)
         let longestSwimContinuous = swimImported.compactMap(\.longestContinuousSwimMeters).max()
-        let longestSwimTotal = swimImported.compactMap(\.distanceMeters).max() ?? 0
+        let longestSwimTotal = max(
+            swimImported.compactMap(\.distanceMeters).max() ?? 0,
+            swimSegments.compactMap(\.distanceMeters).max() ?? 0
+        )
 
         let cycleImported = allCompleted
             .filter { $0.discipline == .cycling }
             .compactMap(\.importedSummary)
-        let longestRide = cycleImported.compactMap(\.distanceMeters).max() ?? 0
-        let bestRideDuration = cycleImported.map(\.duration).max() ?? 0
+        let longestRide = max(
+            cycleImported.compactMap(\.distanceMeters).max() ?? 0,
+            cycleSegments.compactMap(\.distanceMeters).max() ?? 0
+        )
+        let bestRideDuration = max(
+            cycleImported.map(\.duration).max() ?? 0,
+            cycleSegments.map(\.durationSeconds).max() ?? 0
+        )
 
         let runDirection = direction(
             current: runLoad(currentParameters),
@@ -294,7 +309,11 @@ struct AthleteCapabilityAssessmentBuilder: Sendable {
                 prescribedTotalWorkoutMeters: currentParameters.swimTotalMeters,
                 longestProvenContinuousMeters: longestSwimContinuous,
                 longestRecordedTotalWorkoutMeters: longestSwimTotal,
-                openWaterExperience: false,
+                openWaterExperience: swimImported.contains {
+                    $0.metrics?.swimEnvironment == .openWater
+                } || swimSegments.contains {
+                    $0.swimEnvironment == .openWater
+                },
                 recentDirection: swimDirection
             ),
             recentCompletedSessions: recentCompleted.count,
