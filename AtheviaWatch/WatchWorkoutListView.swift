@@ -188,6 +188,8 @@ extension WatchWorkoutDiscipline {
             .green
         case .swimming:
             .blue
+        case .multisport:
+            .purple
         }
     }
 }
