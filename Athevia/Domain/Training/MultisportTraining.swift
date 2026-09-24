@@ -180,6 +180,26 @@ enum MultisportPrescribedSessions {
         multiplier: Double
     ) {
         guard multiplier < 1 else { return }
+        if multiplier == 0 {
+            workout.title = "Post-event recovery"
+            workout.goal = "Recover before beginning the next training objective."
+            workout.discipline = .recovery
+            workout.targetRPE = nil
+            workout.targetDistanceMeters = nil
+            workout.prescribedDurationSeconds = 20 * 60
+            workout.steps.removeAll()
+            workout.steps = [
+                WorkoutStep(
+                    order: 0,
+                    kind: .recovery,
+                    title: "Easy recovery",
+                    instructions: "Optional easy walking and mobility only.",
+                    durationSeconds: 20 * 60,
+                    targetIntensity: .veryEasy
+                )
+            ]
+            return
+        }
         for step in workout.steps {
             scale(step, multiplier: multiplier)
         }
