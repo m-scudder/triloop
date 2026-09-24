@@ -126,6 +126,11 @@ struct ProgressOverviewView: View {
                        !snapshot.journey.eventResolutionRequired {
                         RaceWeekPreparationView(event: event)
                     }
+                    if snapshot.journey.requiresNextObjective,
+                       let event = setup.objective.event,
+                       let profile = profiles.first {
+                        NextObjectivePromptView(event: event, profile: profile)
+                    }
                     JourneyProgressView(snapshot: snapshot)
                 }
             }
