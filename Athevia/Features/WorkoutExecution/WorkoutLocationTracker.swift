@@ -28,7 +28,7 @@ final class WorkoutLocationTracker: NSObject, ObservableObject, CLLocationManage
     @Published private(set) var permission: Permission = .unknown
 
     private let manager = CLLocationManager()
-    private let sport: Sport
+    private var sport: Sport
     private var lastAccepted: CLLocation?
     private var wantsTracking = false
     private var isPaused = false
@@ -51,6 +51,15 @@ final class WorkoutLocationTracker: NSObject, ObservableObject, CLLocationManage
 
     var isSupported: Bool {
         sport == .running || sport == .cycling
+    }
+
+    func setSport(_ sport: Sport) {
+        guard self.sport != sport else { return }
+        self.sport = sport
+        // Keep one route, but do not measure an artificial straight line across
+        // the sport/transition boundary.
+        lastAccepted = nil
+        snapshot.currentSpeedMetersPerSecond = nil
     }
 
     func start() {
