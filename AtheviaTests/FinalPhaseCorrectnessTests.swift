@@ -543,15 +543,14 @@ struct FinalPhaseCorrectnessTests {
     @Test("Every phase selects appropriate run swim cycle and triathlon semantics")
     func phaseMatrixIsOperational() {
         let builder = PhaseWorkoutPrescriptionBuilder()
-        let parameters = TrainingParameters(
-            runIsContinuous: true,
-            runContinuousSeconds: 30 * 60,
-            swimRepeatDistanceMeters: 200,
-            swimRepeatCount: 4,
-            swimRestSeconds: 30,
-            swimPoolLengthMeters: 25,
-            rideWorkSeconds: 60 * 60
-        )
+        var parameters = TrainingParameters()
+        parameters.runIsContinuous = true
+        parameters.runContinuousSeconds = 30 * 60
+        parameters.swimRepeatDistanceMeters = 200
+        parameters.swimTotalMeters = 800
+        parameters.swimRestSeconds = 30
+        parameters.swimPoolLengthMeters = 25
+        parameters.rideWorkSeconds = 60 * 60
         let triObjective = TrainingObjective.event(
             sport: .triathlon,
             distance: EventDistance(kind: .triathlonSprint),
@@ -663,10 +662,9 @@ struct FinalPhaseCorrectnessTests {
             weeklyObjectives: [],
             sportPriorities: []
         )
-        let parameters = TrainingParameters(
-            runIsContinuous: true,
-            runContinuousSeconds: 35 * 60
-        )
+        var parameters = TrainingParameters()
+        parameters.runIsContinuous = true
+        parameters.runContinuousSeconds = 35 * 60
         let performance = TrainingObjective.event(
             sport: .running,
             distance: EventDistance(kind: .run10K),
