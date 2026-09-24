@@ -182,10 +182,25 @@ enum SimulationFixture {
             elevationAscendedMeters: sport == .cycling ? 60 + Double(weekIndex) * 4 : nil,
             swimmingLengths: sport == .swimming ? Int((distance(sport: .swimming, seconds: duration) ?? 0) / 25) : nil,
             swimmingStrokeCount: sport == .swimming ? 19 * Double(weekIndex + 8) : nil,
-            longestContinuousSwimMeters: sport == .swimming ? Double(25 * (1 + weekIndex / 3)) : nil,
+            longestContinuousSwimMeters: sport == .swimming
+                ? swimContinuity(dataset: dataset, weekIndex: weekIndex)
+                : nil,
             metrics: makeMetrics(sport: sport, dataset: dataset, weekIndex: weekIndex, seconds: duration),
             source: "com.apple.workout"
         )
+    }
+
+    private static func swimContinuity(dataset: SimulationDataset, weekIndex: Int) -> Double {
+        switch dataset {
+        case .sprintTriSwimGap:
+            // Keep the athlete clearly below Sprint-distance continuity while
+            // run and bike history continue to accumulate.
+            return Double(min(25 + weekIndex * 25, 100))
+        case .sprintTriBrickComplete:
+            return Double(min(100 + weekIndex * 75, 750))
+        default:
+            return Double(25 * (1 + weekIndex / 3))
+        }
     }
 
     /// Sport-specific sensor values, gated by what the fixture claims to own.
@@ -242,6 +257,15 @@ enum SimulationFixture {
         let progression = Double(weekIndex)
 
         switch (sport, dataset) {
+        case (.running, .event5KDeveloping):
+            // Builds toward 5 km but deliberately stays below it.
+            return min(34 + progression * 2, 34) * 60
+        case (.running, .event5KCompleted), (.running, .eventPostRace):
+            // By the final weeks this crosses 5 km at the fixture's 2.4 m/s pace.
+            return (30 + progression * 3) * 60
+        case (.running, .eventTaper):
+            // Mature running history; the profile/event date controls whether UI is in taper.
+            return (38 + progression * 2) * 60
         case (.running, .experiencedRunner), (.running, .experiencedTriathlete):
             return (45 + progression) * 60
         case (.running, _):

@@ -36,6 +36,12 @@ enum SimulationDataset: String, CaseIterable, Identifiable, Sendable {
     case highLoad
     case poorRecovery
     case conflictingSignals
+    case event5KDeveloping
+    case event5KCompleted
+    case sprintTriSwimGap
+    case sprintTriBrickComplete
+    case eventTaper
+    case eventPostRace
 
     var id: Self { self }
 
@@ -55,6 +61,12 @@ enum SimulationDataset: String, CaseIterable, Identifiable, Sendable {
         case .highLoad: "High Training Load"
         case .poorRecovery: "Poor Recovery"
         case .conflictingSignals: "Conflicting Signals"
+        case .event5KDeveloping: "Event — 5K Developing"
+        case .event5KCompleted: "Event — First 5K Complete"
+        case .sprintTriSwimGap: "Sprint Tri — Swim Gap"
+        case .sprintTriBrickComplete: "Sprint Tri — Brick Complete"
+        case .eventTaper: "Event — Taper"
+        case .eventPostRace: "Event — Post Race"
         }
     }
 
@@ -74,6 +86,12 @@ enum SimulationDataset: String, CaseIterable, Identifiable, Sendable {
         case .highLoad: "A sharp week-on-week load rise."
         case .poorRecovery: "Rising resting HR, falling HRV and sleep."
         case .conflictingSignals: "Easy heart rate against a high reported effort."
+        case .event5KDeveloping: "Running history builds toward 5 km without demonstrating it yet."
+        case .event5KCompleted: "Contains a completed 5 km run for capability and milestone checks."
+        case .sprintTriSwimGap: "Triathlon history where swim continuity trails run and bike capability."
+        case .sprintTriBrickComplete: "Triathlon history with bike/run evidence for brick and milestone UI."
+        case .eventTaper: "Mature event history suitable for inspecting taper-state screens."
+        case .eventPostRace: "Completed event-distance history suitable for post-event recovery screens."
         }
     }
 
@@ -87,6 +105,11 @@ enum SimulationDataset: String, CaseIterable, Identifiable, Sendable {
         case .partialData, .poorRecovery: 4
         case .highLoad: 8
         case .beginnerTwelveWeeks, .experiencedRunner, .experiencedTriathlete, .powerCyclist: 12
+        case .event5KDeveloping: 6
+        case .event5KCompleted: 8
+        case .sprintTriSwimGap, .sprintTriBrickComplete: 8
+        case .eventTaper: 10
+        case .eventPostRace: 12
         }
     }
 
@@ -94,7 +117,7 @@ enum SimulationDataset: String, CaseIterable, Identifiable, Sendable {
 
     var hasPower: Bool {
         switch self {
-        case .experiencedRunner, .experiencedTriathlete, .powerCyclist, .highLoad: true
+        case .experiencedRunner, .experiencedTriathlete, .powerCyclist, .highLoad, .sprintTriBrickComplete: true
         default: false
         }
     }
@@ -102,7 +125,7 @@ enum SimulationDataset: String, CaseIterable, Identifiable, Sendable {
     /// Running dynamics need a recent watch, so most fixtures do without them.
     var hasRunningDynamics: Bool {
         switch self {
-        case .experiencedRunner, .experiencedTriathlete: true
+        case .experiencedRunner, .experiencedTriathlete, .event5KCompleted, .eventTaper, .eventPostRace: true
         default: false
         }
     }
@@ -145,7 +168,7 @@ enum SimulationDataset: String, CaseIterable, Identifiable, Sendable {
     var sports: [Sport] {
         switch self {
         case .noData: []
-        case .experiencedRunner: [.running]
+        case .experiencedRunner, .event5KDeveloping, .event5KCompleted, .eventTaper, .eventPostRace: [.running]
         case .powerCyclist, .missingPower: [.cycling]
         case .beginnerFirstWeek, .sparseHistory: [.running, .swimming]
         default: [.running, .swimming, .cycling]
