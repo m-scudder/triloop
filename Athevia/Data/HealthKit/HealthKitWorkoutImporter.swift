@@ -418,10 +418,19 @@ final class HealthKitWorkoutImporter: HealthDataProviding, @unchecked Sendable {
             let distance = activity.statistics(for: sport.healthKitDistanceType)?
                 .sumQuantity()?
                 .doubleValue(for: .meter())
+            let swimEnvironment: RecordedSwimEnvironment? = {
+                guard sport == .swimming else { return nil }
+                switch activity.workoutConfiguration.swimmingLocationType {
+                case .pool: return .pool
+                case .openWater: return .openWater
+                @unknown default: return nil
+                }
+            }()
             return RecordedMultisportSegment(
                 sport: sport,
                 durationSeconds: activity.duration,
-                distanceMeters: distance
+                distanceMeters: distance,
+                swimEnvironment: swimEnvironment
             )
         }
 
