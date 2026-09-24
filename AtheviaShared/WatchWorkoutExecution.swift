@@ -24,7 +24,7 @@ struct WatchWorkoutStartConfiguration: Codable, Equatable, Sendable {
 
     static func defaultValue(for discipline: WatchWorkoutDiscipline) -> Self {
         switch discipline {
-        case .running, .cycling:
+        case .running, .cycling, .multisport:
             Self(environment: .outdoor, poolLengthMeters: nil)
         case .swimming:
             Self(environment: .pool, poolLengthMeters: 25)
