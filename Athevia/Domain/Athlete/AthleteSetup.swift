@@ -140,7 +140,7 @@ struct AthleteSetup: Codable, Equatable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case objective
+        case objectiveData
         case goal
         case baseline
         case birthDate
@@ -172,10 +172,8 @@ struct AthleteSetup: Codable, Equatable, Sendable {
         }
 
         let legacyGoal = value(.goal, defaults.goal)
-        let decodedObjective = (try? container.decodeIfPresent(TrainingObjective.self, forKey: .objective))
-            ?? TrainingObjective(legacyGoal: legacyGoal)
-        goal = decodedObjective.legacyGoal
-        objectiveData = try? JSONEncoder().encode(decodedObjective)
+        goal = legacyGoal
+        objectiveData = (try? container.decodeIfPresent(Data.self, forKey: .objectiveData)) ?? nil
         baseline = value(.baseline, defaults.baseline)
         birthDate = (try? container.decodeIfPresent(Date.self, forKey: .birthDate)) ?? nil
         schedule = value(.schedule, defaults.schedule)
@@ -190,7 +188,7 @@ struct AthleteSetup: Codable, Equatable, Sendable {
     /// objective remains the authoritative representation.
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(objective, forKey: .objective)
+        try container.encodeIfPresent(objectiveData, forKey: .objectiveData)
         try container.encode(goal, forKey: .goal)
         try container.encode(baseline, forKey: .baseline)
         try container.encodeIfPresent(birthDate, forKey: .birthDate)
