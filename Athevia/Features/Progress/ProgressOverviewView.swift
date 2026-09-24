@@ -121,6 +121,11 @@ struct ProgressOverviewView: View {
                     if let profile = profiles.first {
                         EventOutcomeResolutionCard(profile: profile)
                     }
+                    if snapshot.journey.phase == .raceWeek,
+                       let event = setup.objective.event,
+                       !snapshot.journey.eventResolutionRequired {
+                        RaceWeekPreparationView(event: event)
+                    }
                     JourneyProgressView(snapshot: snapshot)
                 }
             }
