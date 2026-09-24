@@ -21,7 +21,7 @@ struct JourneyProgressTests {
 
         #expect(snapshot.capabilities.count == 1)
         #expect(snapshot.capabilities.first?.state == .notEnoughData)
-        #expect(snapshot.capabilities.first?.currentEvidence == "Run/walk baseline")
+        #expect(snapshot.capabilities.first?.currentEvidence == "Run/walk reported")
     }
 
     @Test("Recorded event distance is demonstrated capability")
@@ -68,7 +68,7 @@ struct JourneyProgressTests {
         workout.completedAt = workout.date
 
         let snapshot = JourneyProgressBuilder().build(setup: setup, plans: [plan])
-        #expect(snapshot.milestones.contains(where: { $0.kind == .firstSession }))
+        #expect(snapshot.milestones.contains(where: { $0.kind == .firstRun }))
         #expect(snapshot.milestones.contains(where: { $0.kind == .firstBrick }))
     }
 
