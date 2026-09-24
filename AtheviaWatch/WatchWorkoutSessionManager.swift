@@ -39,6 +39,7 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
     private var coachingSettings: WatchCoachingSettingsPayload = .defaults
     private var countdownAnnouncedStepID: String?
     private var activeMultisportActivityKey: String?
+    private var multisportSegmentStartedAtElapsedSeconds: TimeInterval = 0
     private var lastPersistedAt: Date?
 
     private static let activeStateKey = "athevia.active-watch-workout.v1"
@@ -58,6 +59,15 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
 
     var currentStep: WatchExecutableWorkoutStep? {
         engine?.currentStep
+    }
+
+    var currentMetricDiscipline: WatchWorkoutDiscipline? {
+        metricDiscipline
+    }
+
+    var segmentElapsedSeconds: TimeInterval {
+        guard activeWorkout?.discipline == .multisport else { return elapsedSeconds }
+        return max(elapsedSeconds - multisportSegmentStartedAtElapsedSeconds, 0)
     }
 
     var nextStep: WatchExecutableWorkoutStep? {
@@ -529,6 +539,7 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
             metadata: nil
         )
         activeMultisportActivityKey = key
+        multisportSegmentStartedAtElapsedSeconds = engine?.elapsedSeconds ?? 0
         distanceMeters = 0
         currentSpeedMetersPerSecond = nil
         lastEngineDistanceMeters = 0
@@ -732,6 +743,7 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
         lastEngineDistanceMeters = 0
         observedPoolLapCount = 0
         activeMultisportActivityKey = nil
+        multisportSegmentStartedAtElapsedSeconds = 0
     }
 
     private var metricDiscipline: WatchWorkoutDiscipline? {
@@ -743,7 +755,7 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
     }
 
     private func updateStatistics(for types: Set<HKSampleType>) {
-        guard let builder, let workout = activeWorkout else { return }
+        guard let builder, activeWorkout != nil else { return }
 
         let heartRateType = HKQuantityType(.heartRate)
         if types.contains(heartRateType),
