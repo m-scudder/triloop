@@ -57,15 +57,27 @@ struct AthleteSetup: Codable, Equatable, Sendable {
         }
     }
 
-    /// Structured source of truth for why the athlete is training.
-    var objective: TrainingObjective
-
-    /// Compatibility adapter for the existing adaptive engine. Phase A does
-    /// not change how workload progression works; event-aware periodisation is
-    /// layered above it in Phase B.
+    /// Legacy stored field retained because AthleteSetup is a SwiftData
+    /// composite. Removing it from the composite description breaks existing
+    /// stores before Codable migration code gets a chance to run.
     var goal: TrainingGoal {
-        get { objective.legacyGoal }
-        set { objective = TrainingObjective(legacyGoal: newValue) }
+        didSet {
+            if objective.legacyGoal != goal {
+                objective = TrainingObjective(legacyGoal: goal)
+            }
+        }
+    }
+
+    /// Structured source of truth for why the athlete is training. This is
+    /// additive to the legacy stored goal so existing SwiftData composite
+    /// metadata remains compatible.
+    var objective: TrainingObjective {
+        didSet {
+            let adapted = objective.legacyGoal
+            if goal != adapted {
+                goal = adapted
+            }
+        }
     }
 
     var baseline: AthleteBaseline
@@ -92,7 +104,9 @@ struct AthleteSetup: Codable, Equatable, Sendable {
         stage: Stage = .welcome,
         completedAt: Date? = nil
     ) {
-        self.objective = objective ?? TrainingObjective(legacyGoal: goal)
+        let resolvedObjective = objective ?? TrainingObjective(legacyGoal: goal)
+        self.goal = resolvedObjective.legacyGoal
+        self.objective = resolvedObjective
         self.baseline = baseline
         self.birthDate = birthDate
         self.schedule = schedule
@@ -153,8 +167,10 @@ struct AthleteSetup: Codable, Equatable, Sendable {
         }
 
         let legacyGoal = value(.goal, defaults.goal)
-        objective = (try? container.decodeIfPresent(TrainingObjective.self, forKey: .objective))
+        let decodedObjective = (try? container.decodeIfPresent(TrainingObjective.self, forKey: .objective))
             ?? TrainingObjective(legacyGoal: legacyGoal)
+        goal = decodedObjective.legacyGoal
+        objective = decodedObjective
         baseline = value(.baseline, defaults.baseline)
         birthDate = (try? container.decodeIfPresent(Date.self, forKey: .birthDate)) ?? nil
         schedule = value(.schedule, defaults.schedule)
