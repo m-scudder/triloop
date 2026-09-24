@@ -6,6 +6,7 @@ import SwiftUI
 /// Am I progressing? What has my training looked like? How is recovery trending?
 struct ProgressOverviewView: View {
     @Query(sort: \WeeklyPlan.startDate) private var plans: [WeeklyPlan]
+    @Query private var profiles: [AthleteProfile]
 
     private enum Segment: String, CaseIterable, Identifiable {
         case overview = "Overview"
@@ -106,6 +107,15 @@ struct ProgressOverviewView: View {
             )
             .padding(.top, 60)
         } else {
+            if let setup = profiles.first?.setup {
+                TrainingJourneySummaryView(
+                    journey: TrainingJourneyPlanner().plan(
+                        setup: setup,
+                        recentPlans: recentPlans
+                    )
+                )
+            }
+
             fourWeekSummary
 
             if let current, current.hasData {
