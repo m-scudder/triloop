@@ -109,6 +109,16 @@ struct WeeklyPlanGenerator: Sendable {
         } ?? false
         let brickAllowedByCurrentRecovery = capability?.recoveryState != .needsAttention
             && capability?.recoveryState != .recovering
+        let nextWeekNumber = plan.weekNumber + 1
+        let simulationEligible = journey.map {
+            multisport.canScheduleRaceSimulation(
+                journey: $0,
+                objective: objective ?? .init(kind: .generalFitness),
+                capability: capability,
+                nextWeekNumber: nextWeekNumber,
+                recoveringSports: recovering
+            )
+        } ?? false
         var brickPlaced = false
 
         for (offset, discipline) in shape.disciplines.enumerated() {
@@ -141,13 +151,23 @@ struct WeeklyPlanGenerator: Sendable {
                brickEligible,
                brickAllowedByCurrentRecovery,
                !brickPlaced {
-                workouts.append(
-                    MultisportPrescribedSessions.brick(
-                        on: date,
-                        parameters: parameters,
-                        prescription: multisport.brick(parameters: parameters)
+                if simulationEligible {
+                    workouts.append(
+                        MultisportPrescribedSessions.raceSimulation(
+                            on: date,
+                            parameters: parameters,
+                            prescription: multisport.raceSimulation(parameters: parameters)
+                        )
                     )
-                )
+                } else {
+                    workouts.append(
+                        MultisportPrescribedSessions.brick(
+                            on: date,
+                            parameters: parameters,
+                            prescription: multisport.brick(parameters: parameters)
+                        )
+                    )
+                }
                 brickPlaced = true
             } else {
                 workouts.append(
