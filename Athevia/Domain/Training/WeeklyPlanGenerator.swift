@@ -114,12 +114,12 @@ struct WeeklyPlanGenerator: Sendable {
                 startDate: monday,
                 endDate: day(6),
                 status: .active,
-                parameters: parameters,
-                workouts: workouts,
                 generationReason: journey.eventResolutionRequired
                     ? "Training held until the event outcome is resolved."
                     : "Training held until the next objective is chosen.",
-                generationReasonCode: .profileChanged
+                generationReasonCode: .profileChanged,
+                parameters: parameters,
+                workouts: workouts
             )
         }
 
