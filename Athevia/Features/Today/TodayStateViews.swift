@@ -16,6 +16,7 @@ struct TodayWorkoutView: View {
     let start: () -> Void
 
     @Environment(\.modelContext) private var modelContext
+    @Query private var profiles: [AthleteProfile]
     @StateObject private var locationPermission = WorkoutLocationPermissionRequester()
     @StateObject private var watch = WatchAvailability.shared
     @Environment(\.scenePhase) private var scenePhase
@@ -163,6 +164,25 @@ struct TodayWorkoutView: View {
         }
     }
 
+    private func resolveEventCompletionIfNeeded(_ summary: ImportedWorkoutSummary) {
+        guard let profile = profiles.first,
+              var setup = profile.setup,
+              setup.eventState.status == .upcoming,
+              let event = setup.objective.event,
+              EventCompletionEvidenceMatcher().matches(event: event, summary: summary) else {
+            return
+        }
+
+        setup.eventState = AthleteEventState(
+            status: .completed,
+            resolvedAt: summary.endDate,
+            completionEvidence: .atheviaWorkout
+        )
+        profile.setup = setup
+        try? modelContext.save()
+    }
+
+
     /// Store phone execution in the same normalized summary used by HealthKit
     /// imports. That lets the existing analysis pipeline consume duration,
     /// distance and speed regardless of whether a Watch was present.
@@ -203,6 +223,7 @@ struct TodayWorkoutView: View {
         )
         modelContext.insert(summary)
         workout.attach(summary)
+        resolveEventCompletionIfNeeded(summary)
         markDone()
     }
 }
