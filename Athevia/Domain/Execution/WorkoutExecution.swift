@@ -151,6 +151,7 @@ struct WorkoutExecutionResult: Equatable, Sendable {
     /// location permission; workout execution never depends on GPS succeeding.
     let distanceMeters: Double?
     let route: [RecordedRoutePoint]
+    let multisportSegments: [RecordedMultisportSegment]
 
     init(
         workoutID: UUID,
@@ -158,7 +159,8 @@ struct WorkoutExecutionResult: Equatable, Sendable {
         endedAt: Date,
         elapsedSeconds: TimeInterval,
         distanceMeters: Double? = nil,
-        route: [RecordedRoutePoint] = []
+        route: [RecordedRoutePoint] = [],
+        multisportSegments: [RecordedMultisportSegment] = []
     ) {
         self.workoutID = workoutID
         self.startedAt = startedAt
@@ -166,6 +168,7 @@ struct WorkoutExecutionResult: Equatable, Sendable {
         self.elapsedSeconds = elapsedSeconds
         self.distanceMeters = distanceMeters
         self.route = route
+        self.multisportSegments = multisportSegments
     }
 }
 
