@@ -220,8 +220,29 @@ struct FeedbackSheet: View {
         }
     }
 
+    private func resolveEventConfirmationIfNeeded() {
+        guard let profile = profiles.first,
+              var setup = profile.setup,
+              setup.eventState.status == .upcoming,
+              let event = setup.objective.event,
+              let eventDate = event.eventDate,
+              Calendar.current.isDate(workout.date, inSameDayAs: eventDate),
+              workout.title == event.displayName else {
+            return
+        }
+
+        setup.eventState = AthleteEventState(
+            status: .completed,
+            resolvedAt: workout.completedAt ?? .now,
+            completionEvidence: .athleteConfirmation
+        )
+        profile.setup = setup
+    }
+
+
     private func save() {
         workout.recordCompletion(with: draft)
+        resolveEventConfirmationIfNeeded()
 
         do {
             try modelContext.save()
