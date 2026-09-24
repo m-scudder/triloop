@@ -51,11 +51,27 @@ struct PlanView: View {
                     )
                 } else {
                     VStack(spacing: 0) {
-                        if let objective = profiles.first?.setup?.objective,
-                           objective.event?.eventDate != nil {
-                            EventCountdownView(objective: objective)
+                        if let setup = profiles.first?.setup,
+                           setup.objective.event?.eventDate != nil {
+                            EventCountdownView(objective: setup.objective)
                                 .padding(.horizontal, 20)
-                                .padding(.vertical, 10)
+                                .padding(.top, 10)
+
+                            let journey = TrainingJourneyPlanner().plan(
+                                setup: setup,
+                                recentPlans: Array(plans.suffix(4))
+                            )
+                            if let focus = journey.primaryFocus {
+                                HStack {
+                                    Text("This week's focus")
+                                    Spacer()
+                                    Text(focus.kind.displayName)
+                                }
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 20)
+                                .padding(.bottom, 10)
+                            }
 
                             Divider()
                         }
