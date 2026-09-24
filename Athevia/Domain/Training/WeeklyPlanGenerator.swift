@@ -96,6 +96,33 @@ struct WeeklyPlanGenerator: Sendable {
             }
         )
 
+        if let journey, journey.eventResolutionRequired || journey.requiresNextObjective {
+            let workouts = Weekday.trainingWeek.enumerated().map { offset, weekday in
+                let date = day(offset)
+                if schedule.isAvailable(on: weekday) {
+                    return PrescribedSessions.recoveryDay(
+                        on: date,
+                        goal: journey.eventResolutionRequired
+                            ? "Resolve the event outcome before Athevia starts another training block."
+                            : "Choose your next objective before Athevia starts another training block."
+                    )
+                }
+                return PrescribedSessions.restDay(on: date)
+            }
+            return WeeklyPlan(
+                weekNumber: plan.weekNumber + 1,
+                startDate: monday,
+                endDate: day(6),
+                status: .active,
+                parameters: parameters,
+                workouts: workouts,
+                generationReason: journey.eventResolutionRequired
+                    ? "Training held until the event outcome is resolved."
+                    : "Training held until the next objective is chosen.",
+                generationReasonCode: .profileChanged
+            )
+        }
+
         var workouts: [PlannedWorkout] = []
         var sportOrdinals: [Sport: Int] = [:]
         let multisport = MultisportTrainingPolicy()
