@@ -10,6 +10,7 @@ struct DeveloperToolsView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.healthProvider) private var health
     @Query(sort: \WeeklyPlan.startDate, order: .reverse) private var plans: [WeeklyPlan]
+    @Query private var profiles: [AthleteProfile]
 
     @State private var message: String?
     @State private var source = HealthProviderResolver.selected
@@ -47,6 +48,12 @@ struct DeveloperToolsView: View {
                 Text(dataset.detail)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+
+                if dataset.scenarioSetup() != nil {
+                    Button("Apply scenario profile") {
+                        applyScenarioProfile()
+                    }
+                }
             }
         } header: {
             Text("Health data source")
@@ -210,6 +217,41 @@ struct DeveloperToolsView: View {
             Button("OK", role: .cancel) { message = nil }
         } message: {
             Text(message ?? "")
+        }
+    }
+
+
+    private func applyScenarioProfile() {
+        guard let scenario = dataset.scenarioSetup(),
+              let profile = profiles.first else {
+            message = "This dataset does not define a profile scenario."
+            return
+        }
+
+        profile.setup = scenario
+
+        if dataset == .sprintTriRecoveryProblem,
+           let workout = simulationPlan?.trainingSessions.first {
+            workout.recordCompletion(
+                with: FeedbackDraft(
+                    rpe: 7,
+                    painScore: 6,
+                    recoveryFeeling: .tired
+                )
+            )
+        }
+
+        do {
+            try modelContext.save()
+            if let plan = simulationPlan {
+                _ = try PlanStore(context: modelContext).reassess(
+                    plan,
+                    poolLengthMeters: profile.poolLengthMeters
+                )
+            }
+            message = "Applied \(dataset.displayName). Attach simulated Health workouts to populate its recorded evidence."
+        } catch {
+            message = "Could not apply scenario: \(error.localizedDescription)"
         }
     }
 
