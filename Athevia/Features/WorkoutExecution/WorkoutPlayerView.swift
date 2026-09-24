@@ -234,14 +234,20 @@ struct WorkoutPlayerView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         default:
-            HStack(spacing: 28) {
-                metric(
-                    TrainingFormatter.distance(meters: locationTracker.snapshot.distanceMeters),
-                    label: "Distance"
-                )
-                if let value = livePaceOrSpeed {
-                    metric(value, label: workout.discipline == .cycling ? "Avg speed" : "Avg pace")
+            VStack(spacing: 8) {
+                HStack(spacing: 28) {
+                    metric(
+                        TrainingFormatter.distance(meters: locationTracker.snapshot.distanceMeters),
+                        label: "Distance"
+                    )
+                    if let value = livePaceOrSpeed {
+                        metric(value, label: workout.discipline == .cycling ? "Avg speed" : "Avg pace")
+                    }
                 }
+
+                Label("GPS continues with the screen locked or app in background", systemImage: "location.fill")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
             }
         }
     }
