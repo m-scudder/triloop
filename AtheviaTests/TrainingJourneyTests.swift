@@ -124,7 +124,9 @@ struct TrainingJourneyTests {
         #expect(journey.primaryFocus?.kind == .taper)
 
         let safety = TrainingSafetyPolicy().evaluate(
-            FeedbackSummary(rpe: 5, painScore: 7, recoveryFeeling: .okay, symptoms: [])
+            FeedbackSummary(
+                WorkoutFeedback(rpe: 5, painScore: 7, recoveryFeeling: .okay)
+            )
         )
         guard case .requiresRecovery = safety else {
             Issue.record("Safety must remain authoritative near an event")
