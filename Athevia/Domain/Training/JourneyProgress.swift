@@ -108,7 +108,7 @@ struct JourneyProgressBuilder: Sendable {
                     state: target > 0 && best >= target ? .demonstrated : (best > 0 ? .developing : .notEnoughData)
                 )
             case .cycling:
-                let target = event.distance?.components.cycleMeters ?? 0
+                let target = event.distance?.components.bikeMeters ?? 0
                 let best = bestDistance(.cycling, plans: plans)
                 return CapabilityRequirement(
                     sport: .cycling,
