@@ -135,7 +135,7 @@ enum MultisportPrescribedSessions {
         let steps = [
             WorkoutStep(
                 order: 0,
-                kind: .warmUp,
+                kind: .cyclingSegment,
                 title: "Easy bike",
                 instructions: "Settle into a relaxed cadence.",
                 durationSeconds: parameters.rideWarmUpSeconds,
@@ -143,7 +143,7 @@ enum MultisportPrescribedSessions {
             ),
             WorkoutStep(
                 order: 1,
-                kind: .work,
+                kind: .cyclingSegment,
                 title: "Brick bike",
                 instructions: "Comfortable, controlled riding. Save the legs for the run.",
                 durationSeconds: prescription.bikeSeconds,
@@ -151,7 +151,7 @@ enum MultisportPrescribedSessions {
             ),
             WorkoutStep(
                 order: 2,
-                kind: .recovery,
+                kind: .transition,
                 title: "Transition",
                 instructions: "Dismount safely, change footwear and start the run without rushing.",
                 durationSeconds: prescription.transitionSeconds,
@@ -159,25 +159,24 @@ enum MultisportPrescribedSessions {
             ),
             WorkoutStep(
                 order: 3,
-                kind: .work,
+                kind: .runningSegment,
                 title: "Brick run",
                 instructions: "Run easy. The purpose is adapting to the bike-to-run change, not speed.",
                 durationSeconds: prescription.runSeconds,
                 targetIntensity: prescription.targetIntensity
             ),
-            WorkoutStep.cooldown(
+            WorkoutStep(
                 order: 4,
+                kind: .runningSegment,
                 title: "Easy walk",
-                durationSeconds: parameters.runCooldownSeconds
+                durationSeconds: parameters.runCooldownSeconds,
+                targetIntensity: .veryEasy
             )
         ]
 
-        // Cycling is the owning discipline so the existing execution stack can
-        // launch one deterministic sequential session. The explicit step titles
-        // preserve Bike -> Transition -> Run for phone/watch/audio.
         return PlannedWorkout(
             date: date,
-            discipline: .cycling,
+            discipline: .multisport,
             title: "Bike + Run Brick",
             goal: "Practise a calm bike-to-run transition at easy effort.",
             targetRPE: RPERange(3, 5),
