@@ -60,23 +60,28 @@ struct AthleteSetup: Codable, Equatable, Sendable {
     /// Legacy stored field retained because AthleteSetup is a SwiftData
     /// composite. Removing it from the composite description breaks existing
     /// stores before Codable migration code gets a chance to run.
-    var goal: TrainingGoal {
-        didSet {
-            if objective.legacyGoal != goal {
-                objective = TrainingObjective(legacyGoal: goal)
-            }
-        }
-    }
+    var goal: TrainingGoal
 
-    /// Structured source of truth for why the athlete is training. This is
-    /// additive to the legacy stored goal so existing SwiftData composite
-    /// metadata remains compatible.
+    /// SwiftData composites do not safely tolerate adding a new nested,
+    /// non-optional Codable composite to rows written by an older schema. Keep
+    /// the richer objective in an optional scalar payload instead. Old rows
+    /// naturally have nil here and fall back to the legacy goal.
+    private var objectiveData: Data?
+
+    /// Structured source of truth used by the app. It is computed so SwiftData
+    /// never attempts to materialize EventSport/EventDistance from a missing
+    /// legacy composite value.
     var objective: TrainingObjective {
-        didSet {
-            let adapted = objective.legacyGoal
-            if goal != adapted {
-                goal = adapted
+        get {
+            guard let objectiveData,
+                  let decoded = try? JSONDecoder().decode(TrainingObjective.self, from: objectiveData) else {
+                return TrainingObjective(legacyGoal: goal)
             }
+            return decoded
+        }
+        set {
+            goal = newValue.legacyGoal
+            objectiveData = try? JSONEncoder().encode(newValue)
         }
     }
 
@@ -106,7 +111,7 @@ struct AthleteSetup: Codable, Equatable, Sendable {
     ) {
         let resolvedObjective = objective ?? TrainingObjective(legacyGoal: goal)
         self.goal = resolvedObjective.legacyGoal
-        self.objective = resolvedObjective
+        self.objectiveData = try? JSONEncoder().encode(resolvedObjective)
         self.baseline = baseline
         self.birthDate = birthDate
         self.schedule = schedule
@@ -170,7 +175,7 @@ struct AthleteSetup: Codable, Equatable, Sendable {
         let decodedObjective = (try? container.decodeIfPresent(TrainingObjective.self, forKey: .objective))
             ?? TrainingObjective(legacyGoal: legacyGoal)
         goal = decodedObjective.legacyGoal
-        objective = decodedObjective
+        objectiveData = try? JSONEncoder().encode(decodedObjective)
         baseline = value(.baseline, defaults.baseline)
         birthDate = (try? container.decodeIfPresent(Date.self, forKey: .birthDate)) ?? nil
         schedule = value(.schedule, defaults.schedule)
