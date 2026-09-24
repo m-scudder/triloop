@@ -163,6 +163,40 @@ struct AthleteMigrationTests {
         #expect(setup.isComplete == false)
     }
 
+    @Test("Legacy goal remains a stored SwiftData composite field")
+    func legacyGoalAndObjectiveStaySynchronized() throws {
+        let container = try store()
+        let context = container.mainContext
+
+        var setup = AthleteSetup(goal: .firstTriathlon)
+        #expect(setup.goal == .firstTriathlon)
+        #expect(setup.objective.event?.sport == .triathlon)
+
+        setup.objective = .event(
+            sport: .running,
+            distance: EventDistance(kind: .run5K)
+        )
+        #expect(setup.goal == .improveEndurance)
+
+        setup.goal = .returnToTraining
+        #expect(setup.objective.kind == .returnToTraining)
+
+        let profile = AthleteProfile(
+            name: "Athlete",
+            trainingStartDate: .now,
+            setup: setup
+        )
+        context.insert(profile)
+        try context.save()
+
+        let reopened = ModelContext(container)
+        let stored = try #require(
+            try reopened.fetch(FetchDescriptor<AthleteProfile>()).first?.setup
+        )
+        #expect(stored.goal == .returnToTraining)
+        #expect(stored.objective.kind == .returnToTraining)
+    }
+
     @Test("A structured event objective survives a store reopen")
     func eventObjectivePersists() throws {
         let container = try store()
