@@ -562,7 +562,9 @@ struct FinalPhaseCorrectnessTests {
                 phase: phase,
                 weeksRemaining: phase == .raceWeek ? 1 : 5,
                 readiness: .init(status: .building, sports: []),
-                weeklyObjectives: [],
+                weeklyObjectives: phase == .specific
+                    ? [.init(sport: nil, kind: .brickTransition, priority: 1, reason: .brickPreparation)]
+                    : [],
                 sportPriorities: [
                     .init(sport: .swimming, rank: 1, reason: "Test"),
                     .init(sport: .cycling, rank: 2, reason: "Test"),
