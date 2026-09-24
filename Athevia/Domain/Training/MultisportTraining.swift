@@ -79,6 +79,26 @@ struct MultisportTrainingPolicy: Sendable {
         return journey.weeklyObjectives.contains { $0.kind == .brickTransition }
     }
 
+    func canScheduleRaceSimulation(
+        journey: TrainingJourney,
+        objective: TrainingObjective,
+        capability: AthleteCapabilityAssessment?,
+        nextWeekNumber: Int,
+        recoveringSports: Set<Sport> = []
+    ) -> Bool {
+        guard objective.event?.sport == .triathlon,
+              journey.phase == .specific,
+              nextWeekNumber.isMultiple(of: 2),
+              capability?.completedBrickCount ?? 0 > 0,
+              capability?.running.hasDemonstratedCapability == true,
+              capability?.cycling.hasDemonstratedCapability == true,
+              !recoveringSports.contains(.running),
+              !recoveringSports.contains(.cycling) else {
+            return false
+        }
+        return true
+    }
+
     func brick(parameters: TrainingParameters) -> BrickPrescription {
         BrickPrescription(
             bikeSeconds: min(parameters.rideWorkSeconds, 45 * 60),
@@ -90,6 +110,20 @@ struct MultisportTrainingPolicy: Sendable {
                 15 * 60
             ),
             targetIntensity: .easy
+        )
+    }
+
+    func raceSimulation(parameters: TrainingParameters) -> BrickPrescription {
+        BrickPrescription(
+            bikeSeconds: min(parameters.rideWorkSeconds, 60 * 60),
+            transitionSeconds: 5 * 60,
+            runSeconds: min(
+                parameters.runIsContinuous
+                    ? parameters.runContinuousSeconds
+                    : parameters.runIntervalSeconds * Double(max(parameters.runRepeatCount, 1)),
+                20 * 60
+            ),
+            targetIntensity: .steady
         )
     }
 
@@ -182,6 +216,30 @@ enum MultisportPrescribedSessions {
             targetRPE: RPERange(3, 5),
             steps: steps
         )
+    }
+
+    static func raceSimulation(
+        on date: Date,
+        parameters: TrainingParameters,
+        prescription: BrickPrescription
+    ) -> PlannedWorkout {
+        let workout = brick(
+            on: date,
+            parameters: parameters,
+            prescription: prescription
+        )
+        workout.title = "Bike + Run Race Rehearsal"
+        workout.goal = "Practise event pacing, equipment and transition flow without testing maximum performance."
+        workout.targetRPE = RPERange(4, 6)
+        if let bike = workout.orderedSteps.first(where: { $0.kind == .cyclingSegment && $0.title == "Brick bike" }) {
+            bike.title = "Controlled event-effort bike"
+            bike.instructions = "Use the steady event rhythm you have practised. Keep enough in reserve for the run."
+        }
+        if let run = workout.orderedSteps.first(where: { $0.kind == .runningSegment && $0.title == "Brick run" }) {
+            run.title = "Controlled event-effort run"
+            run.instructions = "Settle quickly after transition. Keep the effort controlled; this is rehearsal, not a test."
+        }
+        return workout
     }
 
     static func tapered(
