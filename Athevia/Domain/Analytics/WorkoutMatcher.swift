@@ -52,7 +52,7 @@ struct WorkoutMatcher: Sendable {
                       $0.id == plannedID
                           && !$0.isSkipped
                           && $0.importedSummary == nil
-                          && $0.discipline.sport == activity.sport
+                          && $0.discipline == activity.discipline
                   }),
                   !usedPlanned.contains(plannedIndex) else { continue }
 
@@ -78,8 +78,8 @@ struct WorkoutMatcher: Sendable {
 
         for (plannedIndex, session) in sessions.enumerated() {
             guard !usedPlanned.contains(plannedIndex) else { continue }
-            guard let sport = session.discipline.sport,
-                  !session.isSkipped, session.importedSummary == nil else { continue }
+            let expectedDiscipline = session.discipline
+            guard !session.isSkipped, session.importedSummary == nil else { continue }
             let plannedDay = calendar.startOfDay(for: session.date)
 
             // A session cannot be done before its day arrives. Without this the
@@ -88,7 +88,7 @@ struct WorkoutMatcher: Sendable {
             guard plannedDay <= today else { continue }
 
             for (importedIndex, activity) in imported.enumerated()
-            where activity.sport == sport && !usedImported.contains(importedIndex) {
+            where activity.discipline == expectedDiscipline && !usedImported.contains(importedIndex) {
                 let activityDay = calendar.startOfDay(for: activity.startDate)
                 let offset = calendar.dateComponents([.day], from: plannedDay, to: activityDay).day ?? 0
                 guard offset == 0, activity.startDate <= now,
