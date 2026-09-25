@@ -195,9 +195,9 @@ struct TodayGlanceTests {
         let tiles = TodayGlanceBuilder.tiles(plan: week, sessions: [])
         #expect(week.adherenceShare == nil)
         #expect(tile(tiles, .sessions)?.value == "2")
-        #expect(tile(tiles, .sessions)?.label == "Sessions")
+        #expect(tile(tiles, .sessions)?.label == "Workouts")
         #expect(tile(tiles, .training)?.value == "1 hr")
-        #expect(tile(tiles, .training)?.label == "Reported Training")
+        #expect(tile(tiles, .training)?.label == "Logged training")
         #expect(tile(tiles, .adherence) == nil)
     }
 
