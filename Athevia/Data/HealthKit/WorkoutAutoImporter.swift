@@ -11,17 +11,33 @@ import SwiftData
 final class WorkoutAutoImporter {
     private let container: ModelContainer
     private let health: any HealthDataProviding
-    private let importCutoff: Date?
+    private let fixedImportCutoff: Date?
+    private let followsTrainingResetBoundary: Bool
     private let observer = WorkoutObserver()
 
     init(
         container: ModelContainer,
-        provider: any HealthDataProviding = HealthKitWorkoutImporter(),
-        importCutoff: Date? = TrainingResetBoundary.latest
+        provider: any HealthDataProviding = HealthKitWorkoutImporter()
     ) {
         self.container = container
         self.health = provider
-        self.importCutoff = importCutoff
+        self.fixedImportCutoff = nil
+        self.followsTrainingResetBoundary = true
+    }
+
+    init(
+        container: ModelContainer,
+        provider: any HealthDataProviding,
+        importCutoff: Date?
+    ) {
+        self.container = container
+        self.health = provider
+        self.fixedImportCutoff = importCutoff
+        self.followsTrainingResetBoundary = false
+    }
+
+    private var effectiveImportCutoff: Date? {
+        followsTrainingResetBoundary ? TrainingResetBoundary.latest : fixedImportCutoff
     }
 
     /// Read directly rather than through `@AppStorage`, because registration has
@@ -59,7 +75,7 @@ final class WorkoutAutoImporter {
         let service = WorkoutImportService(
             context: context,
             provider: health,
-            importCutoff: importCutoff
+            importCutoff: effectiveImportCutoff
         )
         var matched = 0
 
