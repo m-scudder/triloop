@@ -69,6 +69,10 @@ enum SeedDataInstaller {
     /// and their setup answers alone. The week starts today, so a reset always
     /// lands the athlete in a week they are actually in.
     static func reset(in context: ModelContext, on date: Date = .now) {
+        // Reset Seed Data keeps the athlete profile but starts training history
+        // over from this moment. HealthKit survives that reset, so advance the
+        // import boundary before creating the replacement week.
+        TrainingResetBoundary.latest = date
         eraseTraining(in: context)
         context.insert(SeedWeekOne.makePlan(startDate: SeedWeekOne.defaultStartDate(now: date)))
         try? context.save()
