@@ -63,7 +63,10 @@ struct RunningCapability: Equatable, Sendable {
     var reportedDistanceMeters: Double? = nil
     var prescribedContinuousSeconds: TimeInterval?
     var demonstratedContinuousSeconds: TimeInterval?
+    /// Lifetime best retained for history and milestones.
     var longestRecordedDistanceMeters: Double
+    /// Best distance demonstrated inside the current capability window.
+    var recentBestDistanceMeters: Double = 0
     /// Average distance from recent recorded run sessions when available.
     var recentAverageDistanceMeters: Double = 0
     var recentDirection: TrainingDirection
@@ -90,7 +93,10 @@ struct CyclingCapability: Equatable, Sendable {
     var reportedDistanceMeters: Double = 0
     var prescribedWorkSeconds: TimeInterval
     var bestRecentDurationSeconds: TimeInterval
+    /// Lifetime best retained for history and milestones.
     var longestRecordedDistanceMeters: Double
+    /// Best distance demonstrated inside the current capability window.
+    var recentBestDistanceMeters: Double = 0
     /// Average distance from recent recorded ride sessions when available.
     var recentAverageDistanceMeters: Double = 0
     var recentDirection: TrainingDirection
@@ -109,7 +115,10 @@ struct SwimmingCapability: Equatable, Sendable {
     var reportedContinuousMeters: Double?
     var prescribedRepeatMeters: Double
     var prescribedTotalWorkoutMeters: Double
+    /// Lifetime proven continuous best retained for history and milestones.
     var longestProvenContinuousMeters: Double?
+    /// Proven continuous distance inside the current capability window.
+    var recentLongestProvenContinuousMeters: Double? = nil
     var longestRecordedTotalWorkoutMeters: Double
     var openWaterExperience: Bool
     var recentDirection: TrainingDirection
@@ -177,12 +186,26 @@ struct AthleteCapabilityAssessment: Equatable, Sendable {
     func currentDistanceMeters(for sport: Sport) -> Double {
         switch sport {
         case .running:
-            return running.longestRecordedDistanceMeters
+            return running.recentBestDistanceMeters
         case .swimming:
-            return swimming.currentContinuousMeters ?? 0
+            return swimming.recentLongestProvenContinuousMeters ?? 0
         case .cycling:
-            return cycling.longestRecordedDistanceMeters
+            return cycling.recentBestDistanceMeters
         }
+    }
+
+    /// Current event capability is intentionally recent. Lifetime bests remain
+    /// available on the sport capability for milestones and personal history.
+    func recentDemonstratedDistanceMeters(for sport: Sport) -> Double {
+        switch sport {
+        case .running: running.recentBestDistanceMeters
+        case .swimming: swimming.recentLongestProvenContinuousMeters ?? 0
+        case .cycling: cycling.recentBestDistanceMeters
+        }
+    }
+
+    func hasRecentDemonstratedEvidence(for sport: Sport) -> Bool {
+        recentDemonstratedDistanceMeters(for: sport) > 0
     }
 
     /// Compares onboarding distance with like-for-like recorded evidence.
@@ -246,14 +269,17 @@ struct AthleteCapabilityAssessmentBuilder: Sendable {
     func build(
         setup: AthleteSetup,
         plans: [WeeklyPlan],
-        asOf date: Date = .now
+        asOf date: Date = .now,
+        startingParameters: TrainingParameters? = nil
     ) -> AthleteCapabilityAssessment {
         let orderedPlans = plans.sorted { $0.startDate < $1.startDate }
-        let currentParameters = orderedPlans.last?.parameters ?? StartingParameterResolver().resolve(
-            baseline: setup.baseline,
-            goal: setup.goal,
-            poolLengthMeters: 25
-        )
+        let currentParameters = orderedPlans.last?.parameters
+            ?? startingParameters
+            ?? StartingParameterResolver().resolve(
+                baseline: setup.baseline,
+                goal: setup.goal,
+                poolLengthMeters: 25
+            )
         let previousParameters = orderedPlans.dropLast().last?.parameters
 
         let cutoff = calendar.date(byAdding: .day, value: -recentWindowDays, to: date) ?? .distantPast
@@ -317,11 +343,6 @@ struct AthleteCapabilityAssessmentBuilder: Sendable {
             cycleImported.compactMap(\.distanceMeters).max() ?? 0,
             cycleSegments.compactMap(\.distanceMeters).max() ?? 0
         )
-        let bestRideDuration = max(
-            cycleImported.map(\.duration).max() ?? 0,
-            cycleSegments.map(\.durationSeconds).max() ?? 0
-        )
-
         let recentMultisportSegments = recentCompleted.flatMap {
             $0.importedSummary?.metrics?.multisportSegments ?? []
         }
@@ -337,6 +358,16 @@ struct AthleteCapabilityAssessmentBuilder: Sendable {
             + recentMultisportSegments
                 .filter { $0.sport == .cycling }
                 .compactMap(\.distanceMeters)
+        let recentRideDurations = recentCompleted
+            .filter { $0.discipline == .cycling }
+            .compactMap { $0.importedSummary?.duration }
+            + recentMultisportSegments
+                .filter { $0.sport == .cycling }
+                .map(\.durationSeconds)
+        let recentSwimContinuous = recentCompleted
+            .filter { $0.discipline == .swimming }
+            .compactMap { $0.importedSummary?.longestContinuousSwimMeters }
+            .max()
 
         func average(_ values: [Double]) -> Double {
             guard !values.isEmpty else { return 0 }
@@ -380,6 +411,7 @@ struct AthleteCapabilityAssessmentBuilder: Sendable {
                     : nil,
                 demonstratedContinuousSeconds: continuousRunCandidates.max(),
                 longestRecordedDistanceMeters: longestRun,
+                recentBestDistanceMeters: recentRunDistances.max() ?? 0,
                 recentAverageDistanceMeters: average(recentRunDistances),
                 recentDirection: runDirection
             ),
@@ -387,8 +419,9 @@ struct AthleteCapabilityAssessmentBuilder: Sendable {
                 reportedComfortableSeconds: TimeInterval(setup.baseline.cycling.comfortableMinutes * 60),
                 reportedDistanceMeters: setup.baseline.cycling.baselineDistanceMeters,
                 prescribedWorkSeconds: currentParameters.rideWorkSeconds,
-                bestRecentDurationSeconds: bestRideDuration,
+                bestRecentDurationSeconds: recentRideDurations.max() ?? 0,
                 longestRecordedDistanceMeters: longestRide,
+                recentBestDistanceMeters: recentRideDistances.max() ?? 0,
                 recentAverageDistanceMeters: average(recentRideDistances),
                 recentDirection: cycleDirection
             ),
@@ -398,6 +431,7 @@ struct AthleteCapabilityAssessmentBuilder: Sendable {
                 prescribedRepeatMeters: currentParameters.swimRepeatDistanceMeters,
                 prescribedTotalWorkoutMeters: currentParameters.swimTotalMeters,
                 longestProvenContinuousMeters: longestSwimContinuous,
+                recentLongestProvenContinuousMeters: recentSwimContinuous,
                 longestRecordedTotalWorkoutMeters: longestSwimTotal,
                 openWaterExperience: swimImported.contains {
                     $0.metrics?.swimEnvironment == .openWater
