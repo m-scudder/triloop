@@ -26,6 +26,15 @@ struct SwimmingTrainingEngine: SportTrainingEngine {
         }
 
         let repeatDistance = result.prescribedRepeatDistanceMeters ?? poolLengthMeters
+        let pool = PoolLength(meters: poolLengthMeters)
+
+        // A venue must never manufacture capability. If the current repeat is
+        // shorter than one length of this pool, hold progression until the
+        // athlete can safely use a shorter venue or demonstrates the full length.
+        guard repeatDistance >= pool.meters else {
+            return .hold
+        }
+
         let floor = TrainingParameters.Limits.restFloor(forRepeat: repeatDistance)
 
         if rest - restDecrementSeconds >= floor {
@@ -43,11 +52,9 @@ struct SwimmingTrainingEngine: SportTrainingEngine {
     /// as this progression prescribes.
     private func nextRepeatDistance(after current: Double) -> Double? {
         let pool = PoolLength(meters: poolLengthMeters)
+        guard current >= pool.meters else { return nil }
 
-        // A repeat shorter than the pool means the athlete stops mid-pool, so
-        // the next honest step is one whole length rather than another fraction.
-        let next = current < pool.meters ? pool.meters : current + pool.meters
-
+        let next = current + pool.meters
         return next <= maximumRepeatMeters ? next : nil
     }
 }
