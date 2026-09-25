@@ -444,12 +444,12 @@ struct TrainingJourneyPlanner: Sendable {
                 result.append(.runningContinuity)
             }
             let target = event.distance?.components.runMeters ?? 0
-            if target > 0, capability.running.longestRecordedDistanceMeters < target {
+            if target > 0, capability.running.recentBestDistanceMeters < target {
                 result.append(.runningEndurance)
             }
 
         case .swimming:
-            let current = capability.swimming.longestProvenContinuousMeters ?? 0
+            let current = capability.swimming.recentLongestProvenContinuousMeters ?? 0
             let target = event.distance?.components.swimMeters ?? 0
             if target > 0, current < target {
                 result.append(.swimContinuity(currentMeters: current, targetMeters: target))
@@ -458,9 +458,9 @@ struct TrainingJourneyPlanner: Sendable {
         case .cycling:
             let target = event.distance?.components.bikeMeters ?? 0
             if target > 0 {
-                if capability.cycling.longestRecordedDistanceMeters < target {
+                if capability.cycling.recentBestDistanceMeters < target {
                     result.append(.cyclingDistance(
-                        currentMeters: capability.cycling.longestRecordedDistanceMeters,
+                        currentMeters: capability.cycling.recentBestDistanceMeters,
                         targetMeters: target
                     ))
                 }
@@ -491,7 +491,7 @@ struct TrainingJourneyPlanner: Sendable {
         }
 
         for sport in event.sport.requiredTrainingSports {
-            guard capability.hasDemonstratedEvidence(for: sport),
+            guard capability.hasRecentDemonstratedEvidence(for: sport),
                   capabilityRatio(for: sport, event: event, capability: capability) >= 1 else {
                 return false
             }
@@ -513,17 +513,17 @@ struct TrainingJourneyPlanner: Sendable {
         switch sport {
         case .running:
             target = event.distance?.components.runMeters ?? 0
-            current = capability.running.longestRecordedDistanceMeters
+            current = capability.running.recentBestDistanceMeters
         case .swimming:
             target = event.distance?.components.swimMeters ?? 0
-            current = capability.swimming.longestProvenContinuousMeters ?? 0
+            current = capability.swimming.recentLongestProvenContinuousMeters ?? 0
         case .cycling:
             target = event.distance?.components.bikeMeters ?? 0
-            current = capability.cycling.longestRecordedDistanceMeters
+            current = capability.cycling.recentBestDistanceMeters
         }
 
         guard target > 0 else {
-            return capability.hasDemonstratedEvidence(for: sport) ? 1 : 0
+            return capability.hasRecentDemonstratedEvidence(for: sport) ? 1 : 0
         }
         return min(max(current / target, 0), 1)
     }
