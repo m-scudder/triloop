@@ -162,7 +162,13 @@ struct JourneyProgressBuilder: Sendable {
                 let demonstrated = capability.running.longestRecordedDistanceMeters
                 let evidence: String
                 if demonstrated > 0 {
-                    evidence = "\(distance(demonstrated)) demonstrated"
+                    if let baseline = capability.running.reportedDistanceMeters {
+                        evidence = "\(distance(demonstrated)) recorded · baseline \(distance(baseline))"
+                    } else {
+                        evidence = "\(distance(demonstrated)) recorded"
+                    }
+                } else if let baseline = capability.running.reportedDistanceMeters {
+                    evidence = "\(distance(baseline)) onboarding baseline"
                 } else if let seconds = capability.running.demonstratedContinuousSeconds {
                     evidence = "\(minutes(seconds)) continuous demonstrated"
                 } else if let seconds = capability.running.prescribedContinuousSeconds {
@@ -170,7 +176,7 @@ struct JourneyProgressBuilder: Sendable {
                 } else if capability.running.reportedContinuousSeconds != nil {
                     evidence = "Continuous running reported"
                 } else {
-                    evidence = "Run/walk reported"
+                    evidence = "No distance baseline yet"
                 }
                 return CapabilityRequirement(
                     sport: .running,
@@ -186,7 +192,11 @@ struct JourneyProgressBuilder: Sendable {
                 let proven = capability.swimming.longestProvenContinuousMeters ?? 0
                 let evidence: String
                 if proven > 0 {
-                    evidence = "\(distance(proven)) continuous demonstrated"
+                    if let baseline = capability.swimming.reportedContinuousMeters {
+                        evidence = "\(distance(proven)) continuous recorded · baseline \(distance(baseline))"
+                    } else {
+                        evidence = "\(distance(proven)) continuous recorded"
+                    }
                 } else if capability.swimming.longestRecordedTotalWorkoutMeters > 0 {
                     evidence = "\(distance(capability.swimming.longestRecordedTotalWorkoutMeters)) total recorded · Continuous distance not verified"
                 } else if let reported = capability.swimming.reportedContinuousMeters {
@@ -208,11 +218,11 @@ struct JourneyProgressBuilder: Sendable {
                 let demonstrated = capability.cycling.longestRecordedDistanceMeters
                 let evidence: String
                 if demonstrated > 0 {
-                    evidence = "\(distance(demonstrated)) demonstrated"
+                    evidence = "\(distance(demonstrated)) recorded · baseline \(distance(capability.cycling.reportedDistanceMeters))"
                 } else if capability.cycling.bestRecentDurationSeconds > 0 {
-                    evidence = "\(minutes(capability.cycling.bestRecentDurationSeconds)) recorded"
+                    evidence = "\(minutes(capability.cycling.bestRecentDurationSeconds)) recorded · baseline \(distance(capability.cycling.reportedDistanceMeters))"
                 } else {
-                    evidence = "\(Int(capability.cycling.currentComfortableSeconds / 60)) min reported / prescribed"
+                    evidence = "\(distance(capability.cycling.reportedDistanceMeters)) onboarding baseline"
                 }
                 return CapabilityRequirement(
                     sport: .cycling,
