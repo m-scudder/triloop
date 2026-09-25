@@ -322,12 +322,21 @@ struct AthleteCapabilityAssessmentBuilder: Sendable {
             cycleSegments.map(\.durationSeconds).max() ?? 0
         )
 
+        let recentMultisportSegments = recentCompleted.flatMap {
+            $0.importedSummary?.metrics?.multisportSegments ?? []
+        }
         let recentRunDistances = recentCompleted
             .filter { $0.discipline == .running }
             .compactMap { $0.importedSummary?.distanceMeters }
+            + recentMultisportSegments
+                .filter { $0.sport == .running }
+                .compactMap(\.distanceMeters)
         let recentRideDistances = recentCompleted
             .filter { $0.discipline == .cycling }
             .compactMap { $0.importedSummary?.distanceMeters }
+            + recentMultisportSegments
+                .filter { $0.sport == .cycling }
+                .compactMap(\.distanceMeters)
 
         func average(_ values: [Double]) -> Double {
             guard !values.isEmpty else { return 0 }
