@@ -164,7 +164,10 @@ struct JourneyProgressBuilder: Sendable {
                 let baseline = capability.running.reportedDistanceMeters
                 let evidence: String
                 if recent > 0 {
-                    var parts = ["\(distance(recent)) recorded recently"]
+                    let recentDisplay = capability.running.recentAverageDistanceMeters > 0
+                        ? capability.running.recentAverageDistanceMeters
+                        : recent
+                    var parts = ["\(distance(recentDisplay)) recent average"]
                     if lifetime > recent {
                         parts.append("\(distance(lifetime)) lifetime best")
                     }
@@ -240,7 +243,10 @@ struct JourneyProgressBuilder: Sendable {
                 let baseline = capability.cycling.reportedDistanceMeters
                 let evidence: String
                 if recent > 0 {
-                    var parts = ["\(distance(recent)) recorded recently"]
+                    let recentDisplay = capability.cycling.recentAverageDistanceMeters > 0
+                        ? capability.cycling.recentAverageDistanceMeters
+                        : recent
+                    var parts = ["\(distance(recentDisplay)) recent average"]
                     if lifetime > recent {
                         parts.append("\(distance(lifetime)) lifetime best")
                     }
