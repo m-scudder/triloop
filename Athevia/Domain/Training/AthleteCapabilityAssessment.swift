@@ -60,12 +60,12 @@ struct RunningCapability: Equatable, Sendable {
     var reportedContinuousSeconds: TimeInterval?
     /// Conservative reference inferred from onboarding. It is reported evidence,
     /// never demonstrated capability.
-    var reportedDistanceMeters: Double?
+    var reportedDistanceMeters: Double? = nil
     var prescribedContinuousSeconds: TimeInterval?
     var demonstratedContinuousSeconds: TimeInterval?
     var longestRecordedDistanceMeters: Double
     /// Average distance from recent recorded run sessions when available.
-    var recentAverageDistanceMeters: Double
+    var recentAverageDistanceMeters: Double = 0
     var recentDirection: TrainingDirection
 
     var currentContinuousSeconds: TimeInterval? {
@@ -87,12 +87,12 @@ struct CyclingCapability: Equatable, Sendable {
     var reportedComfortableSeconds: TimeInterval
     /// Conservative reference inferred from onboarding. Recorded rides remain
     /// the authoritative distance evidence.
-    var reportedDistanceMeters: Double
+    var reportedDistanceMeters: Double = 0
     var prescribedWorkSeconds: TimeInterval
     var bestRecentDurationSeconds: TimeInterval
     var longestRecordedDistanceMeters: Double
     /// Average distance from recent recorded ride sessions when available.
-    var recentAverageDistanceMeters: Double
+    var recentAverageDistanceMeters: Double = 0
     var recentDirection: TrainingDirection
 
     var currentComfortableSeconds: TimeInterval {
