@@ -49,8 +49,8 @@ struct FeedbackSheet: View {
             }
             .sheet(isPresented: $showsMilestoneCelebration) {
                 MilestoneCelebrationView(
-                    workout: workout,
-                    milestones: milestoneCelebration
+                    milestones: milestoneCelebration,
+                    workout: workout
                 ) {
                     showsMilestoneCelebration = false
                     dismiss()
