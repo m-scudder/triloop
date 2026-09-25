@@ -328,6 +328,10 @@ enum SimulationFixture {
         case (.running, .eventTaper), (.running, .eventRaceWeek):
             // Mature running history; the profile/event date controls whether UI is in taper.
             return (38 + progression * 2) * 60
+        case (.running, .returningRunner):
+            // The oldest week demonstrates a lifetime 10K; everything after
+            // the long break stays around 3.6 km so recent capability is lower.
+            return (weekIndex == 0 ? 70 : 25) * 60
         case (.running, .experiencedRunner), (.running, .experiencedTriathlete):
             return (45 + progression) * 60
         case (.running, _):
