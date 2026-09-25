@@ -268,7 +268,9 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
         // swimmer who has only demonstrated less than one full length of this
         // pool must not be promoted to a full-length repeat by normalization.
         let poolLength = max(parameters.swimPoolLengthMeters, 25)
-        let supportedContinuousMeters = swimCapability?.currentContinuousMeters
+        let supportedContinuousMeters = swimCapability?.recentLongestProvenContinuousMeters
+            ?? swimCapability?.reportedContinuousMeters
+            ?? swimCapability?.longestProvenContinuousMeters
             ?? parameters.swimRepeatDistanceMeters
         if supportedContinuousMeters > 0,
            supportedContinuousMeters < poolLength {
