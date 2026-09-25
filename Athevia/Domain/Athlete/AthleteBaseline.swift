@@ -29,6 +29,35 @@ enum RunningBaseline: String, Codable, CaseIterable, Sendable {
         case .continuous10Minutes, .continuous20To30Minutes, .regular5K: true
         }
     }
+
+    /// Conservative distance reference inferred from the onboarding answer.
+    ///
+    /// This is not treated as demonstrated performance and is never used as a
+    /// pass/fail workout target. It gives Progress a baseline to compare with
+    /// subsequently recorded distance until HealthKit evidence replaces the
+    /// initial assumption.
+    var baselineDistanceMeters: Double? {
+        switch self {
+        case .none: nil
+        case .runWalk: 2_000
+        case .continuous10Minutes: 2_000
+        case .continuous20To30Minutes: 3_500
+        case .regular5K: 5_000
+        }
+    }
+
+    /// Relative opening training capacity. Frequency planning uses this only
+    /// to decide how many of the athlete's available days should initially
+    /// carry training; it does not label the athlete in the UI.
+    var experienceScore: Int {
+        switch self {
+        case .none: 0
+        case .runWalk: 1
+        case .continuous10Minutes: 2
+        case .continuous20To30Minutes: 3
+        case .regular5K: 4
+        }
+    }
 }
 
 /// Longest distance the athlete can swim without stopping.
@@ -63,6 +92,20 @@ enum SwimmingBaseline: String, Codable, CaseIterable, Sendable {
         case .continuous50: 50
         case .continuous100: 100
         case .continuous200Plus: 200
+        }
+    }
+
+    /// Swimming already asks for distance directly, so the onboarding distance
+    /// baseline is the athlete's reported continuous distance.
+    var baselineDistanceMeters: Double? { continuousMeters }
+
+    var experienceScore: Int {
+        switch self {
+        case .none: 0
+        case .continuous25: 1
+        case .continuous50: 2
+        case .continuous100: 3
+        case .continuous200Plus: 4
         }
     }
 }
@@ -110,6 +153,31 @@ enum CyclingBaseline: String, Codable, CaseIterable, Sendable {
         case .thirtyToFortyFive: 30
         case .fortyFiveToSixty: 45
         case .sixtyPlus: 60
+        }
+    }
+
+    /// Conservative distance reference paired with the duration answer.
+    ///
+    /// Terrain, indoor trainers and riding style can move these numbers a lot,
+    /// so this remains onboarding evidence only. Recorded rides always remain
+    /// the authoritative demonstrated distance.
+    var baselineDistanceMeters: Double {
+        switch self {
+        case .under20: 4_000
+        case .twentyToThirty: 7_000
+        case .thirtyToFortyFive: 10_000
+        case .fortyFiveToSixty: 15_000
+        case .sixtyPlus: 20_000
+        }
+    }
+
+    var experienceScore: Int {
+        switch self {
+        case .under20: 0
+        case .twentyToThirty: 1
+        case .thirtyToFortyFive: 2
+        case .fortyFiveToSixty: 3
+        case .sixtyPlus: 4
         }
     }
 }
