@@ -229,6 +229,7 @@ struct TrainingProfileView: View {
                                 : "Not confirmed"
                         )
                     }
+                    .accessibilityIdentifier("profile.openWaterTraining")
                 }
             }
         }
