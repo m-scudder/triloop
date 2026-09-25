@@ -187,6 +187,44 @@ struct WeekShapePlannerTests {
         #expect(frequencies.first { $0.sport == .cycling }?.sessions == 3)
     }
 
+    @Test("Opening capacity leaves recovery room for a multisport beginner")
+    func beginnerCapacityDoesNotFillSixDays() {
+        let plan = schedule([.monday, .tuesday, .wednesday, .thursday, .friday, .saturday])
+        let baseline = AthleteBaseline(
+            running: .none,
+            swimming: .none,
+            cycling: .under20
+        )
+
+        let frequencies = WeekShapePlanner.frequencies(
+            for: Sport.allCases,
+            schedule: plan,
+            baseline: baseline
+        )
+
+        #expect(frequencies.reduce(0) { $0 + $1.sessions } == 3)
+        #expect(frequencies.allSatisfy { $0.sessions == 1 })
+    }
+
+    @Test("Established multisport ability can use all six available days")
+    func establishedCapacityUsesSixDays() {
+        let plan = schedule([.monday, .tuesday, .wednesday, .thursday, .friday, .saturday])
+        let baseline = AthleteBaseline(
+            running: .regular5K,
+            swimming: .continuous200Plus,
+            cycling: .sixtyPlus
+        )
+
+        let frequencies = WeekShapePlanner.frequencies(
+            for: Sport.allCases,
+            schedule: plan,
+            baseline: baseline
+        )
+
+        #expect(frequencies.reduce(0) { $0 + $1.sessions } == 6)
+        #expect(frequencies.allSatisfy { $0.sessions == 2 })
+    }
+
     @Test("Running only uses non-consecutive available days")
     func runningOnlyLeavesRecoverySlots() {
         let plan = schedule([.monday, .tuesday, .wednesday, .thursday, .friday, .saturday])
