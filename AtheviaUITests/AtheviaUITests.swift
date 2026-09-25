@@ -141,7 +141,7 @@ final class AtheviaUITests: XCTestCase {
         XCTAssertTrue(profile.waitForExistence(timeout: 5))
         profile.tap()
 
-        let row = app.buttons["Open-water training"]
+        let row = app.buttons["profile.openWaterTraining"]
         reveal(row, in: app)
         XCTAssertTrue(row.exists)
         row.tap()
