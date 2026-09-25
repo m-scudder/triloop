@@ -230,7 +230,7 @@ struct JourneyProgressBuilder: Sendable {
                     currentEvidence: evidence,
                     state: target > 0 && recent >= target
                         ? .demonstrated
-                        : (recent > 0 || lifetime > 0 ? .developing : .notEnoughData)
+                        : (capability.swimming.hasDemonstratedCapability ? .developing : .notEnoughData)
                 )
 
             case .cycling:
