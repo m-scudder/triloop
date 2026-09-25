@@ -246,11 +246,12 @@ struct WorkoutImportServiceTests {
             plan.orderedWorkouts.first { $0.discipline == .running }
         }
         let stored = runs.map { run in
-            ImportedWorkout(
+            let startDate = run.date.addingTimeInterval(3_600)
+            return ImportedWorkout(
                 healthKitUUID: UUID(),
                 sport: .running,
-                startDate: run.date,
-                endDate: run.date.addingTimeInterval(1680),
+                startDate: startDate,
+                endDate: startDate.addingTimeInterval(1680),
                 duration: 1680,
                 averageHeartRate: 132
             )
