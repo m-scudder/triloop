@@ -50,7 +50,7 @@ struct JourneyProgressTests {
 
         let snapshot = JourneyProgressBuilder().build(setup: setup, plans: [plan])
         #expect(snapshot.capabilities.first?.state == .demonstrated)
-        #expect(snapshot.capabilities.first?.currentEvidence == "5.0 km recorded recently · starting baseline 5.0 km")
+        #expect(snapshot.capabilities.first?.currentEvidence == "5.0 km recent average · starting baseline 5.0 km")
     }
 
     @Test("Recorded distance can be compared with the onboarding baseline without becoming the target")
