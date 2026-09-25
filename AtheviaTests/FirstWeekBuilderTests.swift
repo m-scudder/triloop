@@ -510,6 +510,25 @@ struct FirstWeekBuilderTests {
         }.count == 1)
     }
 
+    @Test("Non-swimmer in a 25m pool gets supervised time-based fundamentals")
+    func nonSwimmerUsesSupervisedFundamentals() throws {
+        let plan = try builder.build(
+            setup: setup(
+                swimming: .none,
+                preferences: [SportPreference(sport: .swimming, sessionsPerWeek: 1)]
+            ),
+            poolLengthMeters: 25,
+            startDate: monday()
+        )
+        let swim = try #require(plan.trainingSessions.first { $0.discipline == .swimming })
+
+        #expect(swim.title == "Swim Fundamentals")
+        #expect(swim.orderedSteps.allSatisfy { $0.distanceMeters == nil })
+        #expect(swim.orderedSteps.contains {
+            $0.instructions?.localizedCaseInsensitiveContains("supervised") == true
+        })
+    }
+
     @Test("25m swimmer in 50m pool gets supervised fundamentals, not a forced 50m repeat")
     func longerPoolDoesNotInflateBeginnerSwimCapability() throws {
         let plan = try builder.build(
