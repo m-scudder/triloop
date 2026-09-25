@@ -836,4 +836,44 @@ struct FinalPhaseCorrectnessTests {
         #expect(capability.recentDemonstratedDistanceMeters(for: .swimming) == 100)
     }
 
+    @Test("Cycling baseline comparison uses recent average instead of lifetime best")
+    func cyclingComparisonUsesRecentAverage() {
+        let setup = eventSetup(
+            sport: .cycling,
+            distance: EventDistance(kind: .cycling50K),
+            baseline: AthleteBaseline(cycling: .fortyFiveToSixty),
+            eventOffset: 42
+        )
+        let rides = [
+            completed(
+                sport: .cycling,
+                on: day(-8),
+                summary: summary(
+                    sport: .cycling,
+                    on: day(-8),
+                    duration: 55 * 60,
+                    distance: 20_000
+                )
+            ),
+            completed(
+                sport: .cycling,
+                on: day(-3),
+                summary: summary(
+                    sport: .cycling,
+                    on: day(-3),
+                    duration: 65 * 60,
+                    distance: 30_000
+                )
+            )
+        ]
+        let capability = AthleteCapabilityAssessmentBuilder(calendar: calendar)
+            .build(setup: setup, plans: [plan(rides)], asOf: now)
+        let comparison = capability.distanceComparison(for: .cycling)
+
+        #expect(capability.cycling.recentBestDistanceMeters == 30_000)
+        #expect(capability.cycling.recentAverageDistanceMeters == 25_000)
+        #expect(comparison?.recordedMeters == 25_000)
+        #expect(capability.cycling.longestRecordedDistanceMeters == 30_000)
+    }
+
 }
