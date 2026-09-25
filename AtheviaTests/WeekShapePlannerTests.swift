@@ -250,4 +250,96 @@ struct WeekShapePlannerTests {
         #expect(shape.disciplines.contains(.running))
         #expect(shape.disciplines.contains(.cycling))
     }
+    @Test("Recorded training can increase future frequency without changing onboarding")
+    func capabilityEvidenceCanIncreaseFrequency() {
+        let sixDays = schedule([.monday, .tuesday, .wednesday, .thursday, .friday, .saturday])
+        let setup = AthleteSetup(
+            baseline: AthleteBaseline(running: .runWalk),
+            schedule: sixDays,
+            preferences: [SportPreference(sport: .running, sessionsPerWeek: 1)]
+        )
+        let asOf = Date(timeIntervalSince1970: 1_788_000_000)
+        let capabilityBuilder = AthleteCapabilityAssessmentBuilder()
+
+        let openingCapability = capabilityBuilder.build(
+            setup: setup,
+            plans: [],
+            asOf: asOf
+        )
+        let opening = WeekShapePlanner.frequencies(
+            for: [.running],
+            schedule: sixDays,
+            capability: openingCapability
+        )
+
+        let runDate = asOf.addingTimeInterval(-24 * 60 * 60)
+        let completedRun = PlannedWorkout(
+            date: runDate,
+            discipline: .running,
+            title: "Recorded run"
+        )
+        completedRun.attach(
+            ImportedWorkoutSummary(
+                healthKitUUID: UUID(),
+                sport: .running,
+                startDate: runDate,
+                endDate: runDate.addingTimeInterval(30 * 60),
+                duration: 30 * 60,
+                distanceMeters: 5_000,
+                source: "Test"
+            )
+        )
+        completedRun.recordCompletion(
+            with: FeedbackDraft(rpe: 4, painScore: 0, recoveryFeeling: .good),
+            at: runDate.addingTimeInterval(30 * 60)
+        )
+        let history = WeeklyPlan(
+            weekNumber: 1,
+            startDate: runDate,
+            endDate: runDate,
+            parameters: TrainingParameters(),
+            workouts: [completedRun]
+        )
+        let progressedCapability = capabilityBuilder.build(
+            setup: setup,
+            plans: [history],
+            asOf: asOf
+        )
+        let progressed = WeekShapePlanner.frequencies(
+            for: [.running],
+            schedule: sixDays,
+            capability: progressedCapability
+        )
+
+        #expect(opening.first?.sessions == 2)
+        #expect(progressedCapability.running.recentBestDistanceMeters == 5_000)
+        #expect(progressed.first?.sessions == 3)
+        #expect(setup.baseline.running == .runWalk)
+    }
+
+    @Test("Journey priority reallocates capacity but never creates extra training days")
+    func priorityDoesNotIncreaseCapacity() {
+        let sixDays = schedule([.monday, .tuesday, .wednesday, .thursday, .friday, .saturday])
+        let baseline = AthleteBaseline(
+            running: .continuous20To30Minutes,
+            swimming: .continuous25,
+            cycling: .twentyToThirty
+        )
+        let frequencies = WeekShapePlanner.frequencies(
+            for: Sport.allCases,
+            schedule: sixDays,
+            baseline: baseline,
+            priorities: [
+                SportPriority(sport: .swimming, rank: 1, reason: "Largest event gap"),
+                SportPriority(sport: .cycling, rank: 2, reason: "Maintain cycling"),
+                SportPriority(sport: .running, rank: 3, reason: "Maintain running")
+            ]
+        )
+
+        #expect(frequencies.reduce(0) { $0 + $1.sessions } == 4)
+        #expect(frequencies.first { $0.sport == .swimming }?.sessions == 2)
+        #expect(frequencies.first { $0.sport == .cycling }?.sessions == 1)
+        #expect(frequencies.first { $0.sport == .running }?.sessions == 1)
+    }
+
 }
