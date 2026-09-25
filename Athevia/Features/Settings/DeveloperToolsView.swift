@@ -129,6 +129,16 @@ struct DeveloperToolsView: View {
                     Text("Fills every training session with the same report, then creates the next week automatically.")
                 }
 
+                Section {
+                    Button("Create multisport test workout for today") {
+                        createMultisportTestWorkoutToday(in: plan)
+                    }
+                } header: {
+                    Text("Multisport execution")
+                } footer: {
+                    Text("Debug-only. Replaces today's unrecorded generated placeholder with the production Bike + Run Brick so phone execution can be tested immediately.")
+                }
+
                 Section("Recovery check-ins") {
                     Button("Add good check-ins") {
                         checkIn(plan, pain: 0, soreness: .none, energy: .good)
@@ -217,6 +227,44 @@ struct DeveloperToolsView: View {
             Button("OK", role: .cancel) { message = nil }
         } message: {
             Text(message ?? "")
+        }
+    }
+
+
+    private func createMultisportTestWorkoutToday(in plan: WeeklyPlan) {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: .now)
+        let todaysWorkouts = plan.orderedWorkouts.filter {
+            calendar.isDate($0.date, inSameDayAs: today)
+        }
+
+        let immutableToday = todaysWorkouts.filter {
+            $0.isCompleted || $0.hasReport || $0.importedSummary != nil || $0.isSkipped
+        }
+        guard immutableToday.isEmpty else {
+            message = "Today's existing workout has recorded history. Reset seed data first so the smoke test cannot overwrite it."
+            return
+        }
+
+        for workout in todaysWorkouts where workout.origin == .generated {
+            plan.workouts.removeAll { $0.id == workout.id }
+            modelContext.delete(workout)
+        }
+
+        let prescription = MultisportTrainingPolicy().brick(parameters: plan.parameters)
+        let brick = MultisportPrescribedSessions.brick(
+            on: today,
+            parameters: plan.parameters,
+            prescription: prescription
+        )
+        plan.workouts.append(brick)
+        modelContext.insert(brick)
+
+        do {
+            try modelContext.save()
+            message = "Bike + Run Brick created for today. Open Today and tap Start Workout."
+        } catch {
+            message = "Could not create multisport test workout: \(error.localizedDescription)"
         }
     }
 
