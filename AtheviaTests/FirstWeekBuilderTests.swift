@@ -558,9 +558,15 @@ struct FirstWeekBuilderTests {
         let swim50 = try #require(fifty.trainingSessions.first { $0.discipline == .swimming })
         let swim100 = try #require(hundred.trainingSessions.first { $0.discipline == .swimming })
 
-        #expect(swim25.orderedSteps.contains { $0.totalDistanceMeters == 25 })
-        #expect(swim50.orderedSteps.contains { $0.totalDistanceMeters >= 50 })
-        #expect(swim100.orderedSteps.contains { $0.totalDistanceMeters >= 100 })
+        #expect(swim25.orderedSteps.contains {
+            $0.orderedChildren.contains { $0.distanceMeters == 25 }
+        })
+        #expect(swim50.orderedSteps.contains {
+            $0.orderedChildren.contains { ($0.distanceMeters ?? 0) >= 50 }
+        })
+        #expect(swim100.orderedSteps.contains {
+            $0.orderedChildren.contains { ($0.distanceMeters ?? 0) >= 100 }
+        })
     }
 
     @Test("Specific first week reuses open-water and brick eligibility without inventing race rehearsal evidence")
