@@ -58,9 +58,14 @@ struct CapabilityMetric: Equatable, Sendable {
 
 struct RunningCapability: Equatable, Sendable {
     var reportedContinuousSeconds: TimeInterval?
+    /// Conservative reference inferred from onboarding. It is reported evidence,
+    /// never demonstrated capability.
+    var reportedDistanceMeters: Double?
     var prescribedContinuousSeconds: TimeInterval?
     var demonstratedContinuousSeconds: TimeInterval?
     var longestRecordedDistanceMeters: Double
+    /// Average distance from recent recorded run sessions when available.
+    var recentAverageDistanceMeters: Double
     var recentDirection: TrainingDirection
 
     var currentContinuousSeconds: TimeInterval? {
@@ -80,9 +85,14 @@ struct RunningCapability: Equatable, Sendable {
 
 struct CyclingCapability: Equatable, Sendable {
     var reportedComfortableSeconds: TimeInterval
+    /// Conservative reference inferred from onboarding. Recorded rides remain
+    /// the authoritative distance evidence.
+    var reportedDistanceMeters: Double
     var prescribedWorkSeconds: TimeInterval
     var bestRecentDurationSeconds: TimeInterval
     var longestRecordedDistanceMeters: Double
+    /// Average distance from recent recorded ride sessions when available.
+    var recentAverageDistanceMeters: Double
     var recentDirection: TrainingDirection
 
     var currentComfortableSeconds: TimeInterval {
@@ -116,6 +126,21 @@ struct SwimmingCapability: Equatable, Sendable {
 
     var hasDemonstratedCapability: Bool {
         hasVerifiedContinuousEvidence || longestRecordedTotalWorkoutMeters > 0
+    }
+}
+
+struct DistanceCapabilityComparison: Equatable, Sendable {
+    var sport: Sport
+    var baselineMeters: Double
+    var recordedMeters: Double?
+
+    var deltaMeters: Double? {
+        recordedMeters.map { $0 - baselineMeters }
+    }
+
+    var recordedToBaselineRatio: Double? {
+        guard baselineMeters > 0, let recordedMeters else { return nil }
+        return recordedMeters / baselineMeters
     }
 }
 
@@ -157,6 +182,45 @@ struct AthleteCapabilityAssessment: Equatable, Sendable {
             return swimming.currentContinuousMeters ?? 0
         case .cycling:
             return cycling.longestRecordedDistanceMeters
+        }
+    }
+
+    /// Compares onboarding distance with like-for-like recorded evidence.
+    ///
+    /// Running and cycling use a recent-session average when possible so one
+    /// unusually long activity does not redefine the baseline comparison.
+    /// Swimming compares reported continuous distance with proven continuous
+    /// distance rather than mixing continuous ability with total workout volume.
+    func distanceComparison(for sport: Sport) -> DistanceCapabilityComparison? {
+        switch sport {
+        case .running:
+            guard let baseline = running.reportedDistanceMeters else { return nil }
+            let recorded = running.recentAverageDistanceMeters > 0
+                ? running.recentAverageDistanceMeters
+                : (running.longestRecordedDistanceMeters > 0 ? running.longestRecordedDistanceMeters : nil)
+            return DistanceCapabilityComparison(
+                sport: .running,
+                baselineMeters: baseline,
+                recordedMeters: recorded
+            )
+
+        case .swimming:
+            guard let baseline = swimming.reportedContinuousMeters else { return nil }
+            return DistanceCapabilityComparison(
+                sport: .swimming,
+                baselineMeters: baseline,
+                recordedMeters: swimming.longestProvenContinuousMeters
+            )
+
+        case .cycling:
+            let recorded = cycling.recentAverageDistanceMeters > 0
+                ? cycling.recentAverageDistanceMeters
+                : (cycling.longestRecordedDistanceMeters > 0 ? cycling.longestRecordedDistanceMeters : nil)
+            return DistanceCapabilityComparison(
+                sport: .cycling,
+                baselineMeters: cycling.reportedDistanceMeters,
+                recordedMeters: recorded
+            )
         }
     }
 
@@ -258,6 +322,18 @@ struct AthleteCapabilityAssessmentBuilder: Sendable {
             cycleSegments.map(\.durationSeconds).max() ?? 0
         )
 
+        let recentRunDistances = recentCompleted
+            .filter { $0.discipline == .running }
+            .compactMap { $0.importedSummary?.distanceMeters }
+        let recentRideDistances = recentCompleted
+            .filter { $0.discipline == .cycling }
+            .compactMap { $0.importedSummary?.distanceMeters }
+
+        func average(_ values: [Double]) -> Double {
+            guard !values.isEmpty else { return 0 }
+            return values.reduce(0, +) / Double(values.count)
+        }
+
         let runDirection = direction(
             current: runLoad(currentParameters),
             previous: previousParameters.map(runLoad),
@@ -289,18 +365,22 @@ struct AthleteCapabilityAssessmentBuilder: Sendable {
         return AthleteCapabilityAssessment(
             running: RunningCapability(
                 reportedContinuousSeconds: reportedRunSeconds,
+                reportedDistanceMeters: setup.baseline.running.baselineDistanceMeters,
                 prescribedContinuousSeconds: currentParameters.runIsContinuous
                     ? currentParameters.runContinuousSeconds
                     : nil,
                 demonstratedContinuousSeconds: continuousRunCandidates.max(),
                 longestRecordedDistanceMeters: longestRun,
+                recentAverageDistanceMeters: average(recentRunDistances),
                 recentDirection: runDirection
             ),
             cycling: CyclingCapability(
                 reportedComfortableSeconds: TimeInterval(setup.baseline.cycling.comfortableMinutes * 60),
+                reportedDistanceMeters: setup.baseline.cycling.baselineDistanceMeters,
                 prescribedWorkSeconds: currentParameters.rideWorkSeconds,
                 bestRecentDurationSeconds: bestRideDuration,
                 longestRecordedDistanceMeters: longestRide,
+                recentAverageDistanceMeters: average(recentRideDistances),
                 recentDirection: cycleDirection
             ),
             swimming: SwimmingCapability(
