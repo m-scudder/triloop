@@ -120,7 +120,7 @@ struct FirstWeekBuilderTests {
             startDate: thursday
         )
 
-        #expect(plan.trainingSessions.count == 4)
+        #expect(plan.trainingSessions.count == 3)
         #expect(plan.trainingSessions.allSatisfy { $0.date >= thursday })
     }
 
@@ -198,7 +198,7 @@ struct FirstWeekBuilderTests {
         )
 
         let rides = plan.trainingSessions.filter { $0.discipline == .cycling }
-        #expect(rides.count == 7)
+        #expect(rides.count == 4)
         #expect(rides.allSatisfy { $0.estimatedDurationSeconds == TimeInterval(60 * 60) })
         #expect(plan.parameters.rideWorkSeconds == TimeInterval(50 * 60))
     }
@@ -253,16 +253,17 @@ struct FirstWeekBuilderTests {
         #expect(first.orderedWorkouts.map(\.discipline) == second.orderedWorkouts.map(\.discipline))
     }
 
-    @Test("Every available day receives a planned session")
-    func availableDaysAreFilled() throws {
+    @Test("Availability is a ceiling and unused days become recovery")
+    func availableDaysUseExperienceAwareCapacity() throws {
         let plan = try builder.build(setup: setup(), poolLengthMeters: 25, startDate: monday())
 
         #expect(plan.orderedWorkouts.contains { $0.discipline == .rest } == false)
-        #expect(plan.trainingSessions.count == 7)
+        #expect(plan.trainingSessions.count == 4)
+        #expect(plan.orderedWorkouts.filter { $0.discipline == .recovery }.count == 3)
     }
 
-    @Test("Six available Run and Cycle days produce six sessions")
-    func runCycleScenarioUsesAllSixDays() throws {
+    @Test("Experienced Run and Cycle uses five of six available days")
+    func runCycleScenarioUsesExperienceAwareCapacity() throws {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "UTC") ?? .gmt
         var builder = FirstWeekBuilder()
@@ -298,8 +299,8 @@ struct FirstWeekBuilderTests {
         let runs = plan.trainingSessions.filter { $0.discipline == .running }
         let rides = plan.trainingSessions.filter { $0.discipline == .cycling }
 
-        #expect(plan.trainingSessions.count == 6)
-        #expect(runs.count == 3)
+        #expect(plan.trainingSessions.count == 5)
+        #expect(runs.count == 2)
         #expect(rides.count == 3)
         #expect(runs.allSatisfy { $0.estimatedDurationSeconds == TimeInterval(30 * 60) })
         #expect(rides.allSatisfy { $0.estimatedDurationSeconds == TimeInterval(60 * 60) })
@@ -309,6 +310,52 @@ struct FirstWeekBuilderTests {
             Weekday(date: $0.date, calendar: calendar) != .monday
         }
         #expect(plannedDays.allSatisfy { $0.discipline != .rest })
+    }
+
+    @Test("The same six-day availability produces different plans by starting ability")
+    func experienceChangesWeeklyArchitecture() throws {
+        let schedule = AthleteSchedule(
+            days: Weekday.trainingWeek.map {
+                TrainingAvailability(
+                    weekday: $0,
+                    isAvailable: $0 != .sunday,
+                    maxDurationMinutes: 60
+                )
+            }
+        )
+        let sports = [
+            SportPreference(sport: .running, sessionsPerWeek: 1),
+            SportPreference(sport: .swimming, sessionsPerWeek: 1),
+            SportPreference(sport: .cycling, sessionsPerWeek: 1)
+        ]
+
+        let beginner = try builder.build(
+            setup: setup(
+                running: .none,
+                swimming: .none,
+                cycling: .under20,
+                schedule: schedule,
+                preferences: sports
+            ),
+            poolLengthMeters: 25,
+            startDate: monday()
+        )
+        let established = try builder.build(
+            setup: setup(
+                running: .regular5K,
+                swimming: .continuous200Plus,
+                cycling: .sixtyPlus,
+                schedule: schedule,
+                preferences: sports
+            ),
+            poolLengthMeters: 25,
+            startDate: monday()
+        )
+
+        #expect(beginner.trainingSessions.count == 3)
+        #expect(beginner.orderedWorkouts.filter { $0.discipline == .recovery }.count == 3)
+        #expect(established.trainingSessions.count == 6)
+        #expect(established.orderedWorkouts.filter { $0.discipline == .recovery }.isEmpty)
     }
 
     @Test("Running-only availability uses recovery between runs")
