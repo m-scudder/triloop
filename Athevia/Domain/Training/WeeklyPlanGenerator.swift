@@ -9,8 +9,9 @@ struct WeeklyPlanGenerator: Sendable {
     /// fallback opens every day so tests and previews about progression do not
     /// have to describe a schedule.
     var schedule: AthleteSchedule = .everyDay()
-    /// Which sports the athlete selected. Session counts are no longer treated
-    /// as quotas; availability defines the week's plan slots.
+    /// Which sports the athlete selected. Availability is the scheduling
+    /// ceiling; current capability decides how many of those days should carry
+    /// training, and unused available days become recovery.
     var preferences: [SportPreference] = []
     var planner: WeekShapePlanner = WeekShapePlanner()
     /// Optional event journey context supplied by PlanStore. Safety analysis
@@ -61,6 +62,13 @@ struct WeeklyPlanGenerator: Sendable {
                     .count { $0.discipline.sport == sport }
                 return count > 0 ? SportFrequency(sport: sport, sessions: count) : nil
             }
+        } else if let capability {
+            intendedFrequencies = WeekShapePlanner.frequencies(
+                for: selectedSports,
+                schedule: schedule,
+                capability: capability,
+                priorities: journey?.sportPriorities ?? []
+            )
         } else if let journey {
             intendedFrequencies = WeekShapePlanner.frequencies(
                 for: selectedSports,
