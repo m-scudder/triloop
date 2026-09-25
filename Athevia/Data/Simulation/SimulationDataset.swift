@@ -51,6 +51,12 @@ enum SimulationDataset: String, CaseIterable, Identifiable, Sendable {
     case generalFitness
     case openWaterReady
     case openWaterDisabled
+    case highAvailabilityBeginner
+    case highAvailabilityExperienced
+    case returningRunner
+    case poolMismatchBeginner
+    case firstWeekSpecificEvent
+    case firstWeekEventDay
 
     var id: Self { self }
 
@@ -85,6 +91,12 @@ enum SimulationDataset: String, CaseIterable, Identifiable, Sendable {
         case .generalFitness: "General Fitness — No Event"
         case .openWaterReady: "Sprint Tri — Open Water Enabled"
         case .openWaterDisabled: "Sprint Tri — Open Water Disabled"
+        case .highAvailabilityBeginner: "Capacity — Beginner / 6 Available Days"
+        case .highAvailabilityExperienced: "Capacity — Experienced / 6 Available Days"
+        case .returningRunner: "Returning Runner — Lifetime 10K / Recent Short"
+        case .poolMismatchBeginner: "Swim Safety — 25 m Ability / 50 m Pool"
+        case .firstWeekSpecificEvent: "Week 1 — Specific Phase"
+        case .firstWeekEventDay: "Week 1 — Event Inside Week"
         }
     }
 
@@ -119,6 +131,12 @@ enum SimulationDataset: String, CaseIterable, Identifiable, Sendable {
         case .generalFitness: "Non-event training history for current focus and progression UI."
         case .openWaterReady: "Strong swim continuity with explicit safe-venue and buddy consent."
         case .openWaterDisabled: "Strong swim continuity but open-water consent remains disabled; pool work only."
+        case .highAvailabilityBeginner: "Six available days with beginner baselines; training capacity should leave recovery days."
+        case .highAvailabilityExperienced: "The same six available days with established baselines; more slots may carry training."
+        case .returningRunner: "Preserves an old 10K while recent runs stay near 3–4 km for conservative readiness."
+        case .poolMismatchBeginner: "Reports 25 m continuous swimming while the debug profile uses a 50 m pool."
+        case .firstWeekSpecificEvent: "Opening profile is already inside the event-specific phase so Week 1 must be phase-aware."
+        case .firstWeekEventDay: "A 5K falls inside the opening week and must replace the normal/recovery slot on that date."
         }
     }
 
@@ -141,6 +159,9 @@ enum SimulationDataset: String, CaseIterable, Identifiable, Sendable {
         case .eventPostRace: 12
         case .eventMissed: 8
         case .generalFitness: 6
+        case .highAvailabilityBeginner, .highAvailabilityExperienced,
+             .poolMismatchBeginner, .firstWeekSpecificEvent, .firstWeekEventDay: 1
+        case .returningRunner: 12
         }
     }
 
@@ -202,8 +223,11 @@ enum SimulationDataset: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .noData: []
         case .experiencedRunner, .event5KDeveloping, .event5KCompleted, .progressedRunner,
-             .eventTaper, .eventRaceWeek, .eventPostRace, .eventMissed: [.running]
+             .eventTaper, .eventRaceWeek, .eventPostRace, .eventMissed, .returningRunner,
+             .firstWeekSpecificEvent, .firstWeekEventDay, .highAvailabilityBeginner,
+             .highAvailabilityExperienced: [.running]
         case .powerCyclist, .missingPower: [.cycling]
+        case .poolMismatchBeginner: [.swimming]
         case .beginnerFirstWeek, .sparseHistory: [.running, .swimming]
         case .generalFitness: [.running, .cycling]
         default: [.running, .swimming, .cycling]
