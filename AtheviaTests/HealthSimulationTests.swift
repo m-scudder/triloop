@@ -315,4 +315,66 @@ struct HealthSimulationTests {
         #expect(recentBest >= 3_000)
     }
 
+    @Test("Capacity debug scenarios produce three versus six training days")
+    func capacityScenariosProduceVisibleFrequencyDifference() throws {
+        let start = try #require(
+            calendar.date(from: DateComponents(year: 2025, month: 12, day: 29))
+        )
+        var builder = FirstWeekBuilder()
+        builder.calendar = calendar
+
+        let beginnerSetup = try #require(
+            SimulationDataset.highAvailabilityBeginner.scenarioSetup(
+                asOf: start,
+                calendar: calendar
+            )
+        )
+        let experiencedSetup = try #require(
+            SimulationDataset.highAvailabilityExperienced.scenarioSetup(
+                asOf: start,
+                calendar: calendar
+            )
+        )
+
+        let beginner = try builder.build(
+            setup: beginnerSetup,
+            poolLengthMeters: 25,
+            startDate: start
+        )
+        let experienced = try builder.build(
+            setup: experiencedSetup,
+            poolLengthMeters: 25,
+            startDate: start
+        )
+
+        #expect(beginner.trainingSessions.count == 3)
+        #expect(beginner.orderedWorkouts.filter { $0.discipline == .recovery }.count == 3)
+        #expect(experienced.trainingSessions.count == 6)
+        #expect(experienced.orderedWorkouts.filter { $0.discipline == .recovery }.isEmpty)
+    }
+
+    @Test("Pool mismatch debug scenario visibly falls back to fundamentals")
+    func poolMismatchScenarioUsesSafeFallback() throws {
+        let start = try #require(
+            calendar.date(from: DateComponents(year: 2025, month: 12, day: 29))
+        )
+        var builder = FirstWeekBuilder()
+        builder.calendar = calendar
+        let setup = try #require(
+            SimulationDataset.poolMismatchBeginner.scenarioSetup(
+                asOf: start,
+                calendar: calendar
+            )
+        )
+        let plan = try builder.build(
+            setup: setup,
+            poolLengthMeters: 50,
+            startDate: start
+        )
+        let swim = try #require(plan.trainingSessions.first { $0.discipline == .swimming })
+
+        #expect(swim.title == "Swim Fundamentals")
+        #expect(swim.orderedSteps.allSatisfy { ($0.distanceMeters ?? 0) < 50 })
+    }
+
 }
