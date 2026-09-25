@@ -8,6 +8,8 @@ import Foundation
 struct FirstWeekBuilder: Sendable {
     var resolver: any StartingParameterResolving = StartingParameterResolver()
     var planner: WeekShapePlanner = WeekShapePlanner()
+    var capabilityBuilder = AthleteCapabilityAssessmentBuilder()
+    var prescriptionBuilder = PhaseWorkoutPrescriptionBuilder()
     var calendar: Calendar = .current
 
     enum BuildFailure: Error, Equatable {
@@ -49,8 +51,15 @@ struct FirstWeekBuilder: Sendable {
         .capped(toTrainingMinutes: trainingMinuteCap(in: available))
 
         let selectedSports = setup.preferences.filter(\.isTrained).map(\.sport)
+        let capability = capabilityBuilder.build(
+            setup: setup,
+            plans: [],
+            asOf: startDate,
+            startingParameters: parameters
+        )
         let journey = TrainingJourneyPlanner(calendar: calendar).plan(
             setup: setup,
+            capability: capability,
             asOf: startDate
         )
         let frequencies = WeekShapePlanner.frequencies(
@@ -68,33 +77,116 @@ struct FirstWeekBuilder: Sendable {
 
         guard shape.isViable else { throw BuildFailure.noSessionsFit }
 
-        let workouts = Weekday.trainingWeek.compactMap { weekday -> PlannedWorkout? in
-            guard let date = calendar.date(byAdding: .day, value: weekday.offsetFromMonday, to: monday) else {
-                return nil
+        var workouts: [PlannedWorkout] = []
+        var sportOrdinals: [Sport: Int] = [:]
+        let multisport = MultisportTrainingPolicy()
+        let brickEligible = multisport.canScheduleBrick(
+            journey: journey,
+            objective: setup.objective,
+            schedule: available
+        )
+        let brickAllowedByCurrentRecovery = capability.recoveryState == .stable
+        let simulationEligible = multisport.canScheduleRaceSimulation(
+            journey: journey,
+            objective: setup.objective,
+            capability: capability,
+            nextWeekNumber: weekNumber,
+            recoveringSports: []
+        )
+        var brickPlaced = false
+
+        for weekday in Weekday.trainingWeek {
+            guard let date = calendar.date(
+                byAdding: .day,
+                value: weekday.offsetFromMonday,
+                to: monday
+            ) else {
+                continue
             }
+
+            // Event Day is a lifecycle fact, not another training slot. It must
+            // replace normal training even when the week shape would otherwise
+            // have left this date as recovery.
+            if weekday >= firstWeekday,
+               let event = setup.objective.event,
+               setup.eventState.status == .upcoming,
+               let eventDate = event.eventDate,
+               calendar.isDate(date, inSameDayAs: eventDate) {
+                workouts.append(EventDayPrescription.workout(for: event, on: date))
+                continue
+            }
+
             // Days already gone by the time setup finished are rest, not a
             // session the athlete silently failed to do. Every remaining day
             // the athlete marked available receives either training or a
             // recovery session.
-            let discipline: Discipline
             if weekday < firstWeekday {
-                discipline = .rest
-            } else {
-                let planned = shape.disciplines[weekday.offsetFromMonday]
-                discipline = planned == .rest && available.isAvailable(on: weekday)
-                    ? .recovery
-                    : planned
+                workouts.append(PrescribedSessions.restDay(on: date))
+                continue
             }
 
-            return PrescribedSessions.session(discipline, on: date, parameters: parameters)
+            let discipline = shape.disciplines[weekday.offsetFromMonday]
+            guard let sport = discipline.sport else {
+                workouts.append(
+                    available.isAvailable(on: weekday)
+                        ? PrescribedSessions.recoveryDay(on: date)
+                        : PrescribedSessions.restDay(on: date)
+                )
+                continue
+            }
+
+            let ordinal = sportOrdinals[sport, default: 0]
+            sportOrdinals[sport] = ordinal + 1
+
+            if sport == .cycling,
+               brickEligible,
+               brickAllowedByCurrentRecovery,
+               !brickPlaced {
+                if simulationEligible {
+                    workouts.append(
+                        MultisportPrescribedSessions.raceSimulation(
+                            on: date,
+                            parameters: parameters,
+                            prescription: multisport.raceSimulation(parameters: parameters)
+                        )
+                    )
+                } else {
+                    workouts.append(
+                        MultisportPrescribedSessions.brick(
+                            on: date,
+                            parameters: parameters,
+                            prescription: multisport.brick(parameters: parameters)
+                        )
+                    )
+                }
+                brickPlaced = true
+            } else {
+                workouts.append(
+                    prescriptionBuilder.workout(
+                        sport: sport,
+                        on: date,
+                        parameters: parameters,
+                        journey: journey,
+                        objective: setup.objective,
+                        capability: capability,
+                        openWaterConsent: setup.openWaterTrainingConsent,
+                        sportOrdinal: ordinal
+                    )
+                )
+            }
         }
 
-        let multisport = MultisportTrainingPolicy()
         let multiplier = multisport.workloadMultiplier(for: journey.phase)
         if multiplier < 1 {
-            workouts.filter(\.discipline.isTrainingSession).forEach {
-                MultisportPrescribedSessions.tapered($0, multiplier: multiplier)
-            }
+            workouts
+                .filter { workout in
+                    guard workout.discipline.isTrainingSession else { return false }
+                    guard let eventDate = setup.objective.event?.eventDate else { return true }
+                    return !calendar.isDate(workout.date, inSameDayAs: eventDate)
+                }
+                .forEach {
+                    MultisportPrescribedSessions.tapered($0, multiplier: multiplier)
+                }
         }
 
         return WeeklyPlan(
