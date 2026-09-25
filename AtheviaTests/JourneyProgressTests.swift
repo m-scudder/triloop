@@ -39,6 +39,7 @@ struct JourneyProgressTests {
         let run = plan.trainingSessions.first { $0.discipline == .running }!
         run.importedSummary = ImportedWorkoutSummary(
             healthKitUUID: UUID(),
+            sport: .running,
             startDate: run.date,
             endDate: run.date.addingTimeInterval(1_800),
             duration: 1_800,
