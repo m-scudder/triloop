@@ -237,6 +237,7 @@ struct WorkoutImportServiceTests {
         let latest = SeedWeekOne.makePlan(startDate: thisWeek, calendar: current)
         latest.weekNumber = 2
         context.insert(latest)
+        try context.save()
 
         let runs = [previous, latest].compactMap { plan in
             plan.orderedWorkouts.first { $0.discipline == .running }
@@ -258,7 +259,8 @@ struct WorkoutImportServiceTests {
             importCutoff: nil
         )
 
-        #expect(await importer.importRecentWeeks() == 2)
+        let importedCount = await importer.importRecentWeeks()
+        #expect(importedCount == 2)
     }
 
     @Test("Automatic import does nothing without authorization")
