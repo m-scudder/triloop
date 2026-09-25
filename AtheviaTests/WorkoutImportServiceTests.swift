@@ -282,3 +282,58 @@ struct WorkoutImportServiceTests {
         #expect(await importer.importRecentWeeks() == 0)
     }
 }
+
+
+@Suite("Workout auto-import reset boundary", .serialized)
+@MainActor
+struct WorkoutAutoImportResetBoundaryTests {
+
+    @Test("Reset seed data advances the Health import boundary")
+    func resetSeedAdvancesImportBoundary() throws {
+        TrainingResetBoundary.clearForTesting()
+        defer { TrainingResetBoundary.clearForTesting() }
+
+        let container = try AtheviaModelContainer.make(inMemory: true)
+        let resetAt = Date(timeIntervalSince1970: 1_800_000_000)
+
+        SeedDataInstaller.reset(in: container.mainContext, on: resetAt)
+
+        #expect(TrainingResetBoundary.latest == resetAt)
+    }
+
+    @Test("Auto importer observes a reset boundary created after launch")
+    func autoImporterObservesRuntimeResetBoundary() async throws {
+        TrainingResetBoundary.clearForTesting()
+        defer { TrainingResetBoundary.clearForTesting() }
+
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: .now)
+        let container = try AtheviaModelContainer.make(inMemory: true)
+        let context = container.mainContext
+        let plan = SeedWeekOne.makePlan(startDate: today, calendar: calendar)
+        context.insert(plan)
+        try context.save()
+
+        let run = try #require(plan.orderedWorkouts.first { $0.discipline == .running })
+        let startDate = run.date.addingTimeInterval(60)
+        let oldWorkout = ImportedWorkout(
+            healthKitUUID: UUID(),
+            sport: .running,
+            startDate: startDate,
+            endDate: startDate.addingTimeInterval(1_680),
+            duration: 1_680,
+            averageHeartRate: 132
+        )
+
+        let importer = WorkoutAutoImporter(
+            container: container,
+            provider: StubHealthDataProvider(stored: [oldWorkout])
+        )
+
+        // The importer already exists before the reset boundary advances.
+        TrainingResetBoundary.latest = oldWorkout.endDate.addingTimeInterval(60)
+
+        #expect(await importer.importRecentWeeks() == 0)
+        #expect(run.isCompleted == false)
+    }
+}
