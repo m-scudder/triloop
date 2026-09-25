@@ -277,6 +277,9 @@ struct DeveloperToolsView: View {
         }
 
         profile.setup = scenario
+        if dataset == .poolMismatchBeginner {
+            profile.poolLengthMeters = 50
+        }
 
         if dataset == .sprintTriRecoveryProblem,
            let workout = simulationPlan?.trainingSessions.first {
