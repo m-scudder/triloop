@@ -53,13 +53,12 @@ struct FirstWeekBuilder: Sendable {
             setup: setup,
             asOf: startDate
         )
-        let frequencies = setup.objective.kind == .event
-            ? WeekShapePlanner.frequencies(
-                for: selectedSports,
-                schedule: available,
-                priorities: journey.sportPriorities
-            )
-            : WeekShapePlanner.frequencies(from: setup.preferences, schedule: available)
+        let frequencies = WeekShapePlanner.frequencies(
+            for: selectedSports,
+            schedule: available,
+            baseline: setup.baseline,
+            priorities: setup.objective.kind == .event ? journey.sportPriorities : []
+        )
 
         let shape = planner.plan(
             schedule: available,
