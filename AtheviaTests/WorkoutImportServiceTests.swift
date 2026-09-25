@@ -233,9 +233,12 @@ struct WorkoutImportServiceTests {
         let context = container.mainContext
 
         let previous = SeedWeekOne.makePlan(startDate: lastWeek, calendar: current)
+        previous.generatedAt = lastWeek
         context.insert(previous)
+
         let latest = SeedWeekOne.makePlan(startDate: thisWeek, calendar: current)
         latest.weekNumber = 2
+        latest.generatedAt = thisWeek
         context.insert(latest)
         try context.save()
 
