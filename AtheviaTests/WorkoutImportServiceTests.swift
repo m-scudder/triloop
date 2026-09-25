@@ -254,7 +254,8 @@ struct WorkoutImportServiceTests {
 
         let importer = WorkoutAutoImporter(
             container: container,
-            provider: StubHealthDataProvider(stored: stored)
+            provider: StubHealthDataProvider(stored: stored),
+            importCutoff: nil
         )
 
         #expect(await importer.importRecentWeeks() == 2)
