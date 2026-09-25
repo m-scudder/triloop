@@ -26,6 +26,8 @@ struct RecordedMetricsTests {
 
         #expect(metrics.averageCadence == 168)
         #expect(metrics.averageRunningPower == nil)
+        #expect(metrics.multisportSegments.isEmpty)
+        #expect(metrics.swimEnvironment == nil)
         #expect(!metrics.isEmpty)
     }
 
@@ -49,7 +51,26 @@ struct RecordedMetricsTests {
             averageCyclingPower: 190,
             functionalThresholdPower: 230,
             workoutEffort: 6,
-            estimatedWorkoutEffort: 5
+            estimatedWorkoutEffort: 5,
+            multisportSegments: [
+                RecordedMultisportSegment(
+                    sport: .swimming,
+                    durationSeconds: 600,
+                    distanceMeters: 300,
+                    swimEnvironment: .openWater
+                ),
+                RecordedMultisportSegment(
+                    sport: nil,
+                    isTransition: true,
+                    durationSeconds: 90
+                ),
+                RecordedMultisportSegment(
+                    sport: .cycling,
+                    durationSeconds: 1_800,
+                    distanceMeters: 10_000
+                )
+            ],
+            swimEnvironment: .openWater
         )
 
         let data = try JSONEncoder().encode(original)
