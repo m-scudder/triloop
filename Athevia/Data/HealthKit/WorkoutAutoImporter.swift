@@ -11,11 +11,17 @@ import SwiftData
 final class WorkoutAutoImporter {
     private let container: ModelContainer
     private let health: any HealthDataProviding
+    private let importCutoff: Date?
     private let observer = WorkoutObserver()
 
-    init(container: ModelContainer, provider: any HealthDataProviding = HealthKitWorkoutImporter()) {
+    init(
+        container: ModelContainer,
+        provider: any HealthDataProviding = HealthKitWorkoutImporter(),
+        importCutoff: Date? = TrainingResetBoundary.latest
+    ) {
         self.container = container
         self.health = provider
+        self.importCutoff = importCutoff
     }
 
     /// Read directly rather than through `@AppStorage`, because registration has
@@ -50,7 +56,11 @@ final class WorkoutAutoImporter {
         let descriptor = FetchDescriptor<WeeklyPlan>(sortBy: [SortDescriptor(\.startDate)])
         guard let plans = try? context.fetch(descriptor) else { return 0 }
 
-        let service = WorkoutImportService(context: context, provider: health)
+        let service = WorkoutImportService(
+            context: context,
+            provider: health,
+            importCutoff: importCutoff
+        )
         var matched = 0
 
         for plan in plans.suffix(2) {
