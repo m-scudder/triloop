@@ -178,7 +178,9 @@ struct WorkoutImportServiceTests {
         // Half of the prescribed 28 minutes.
         try await service(context, [activity(.running, on: 0, duration: 840)]).importWorkouts(for: plan)
 
-        let run = try #require(plan.orderedWorkouts.first { $0.discipline == .running })
+        let run = try #require(plan.trainingSessions.first {
+            $0.discipline == .running && $0.origin == .generated
+        })
         #expect(!run.isCompleted)
         #expect(run.importedSummary == nil)
         #expect(plan.trainingSessions.filter { $0.origin == .imported }.count == 1)
@@ -224,7 +226,7 @@ struct WorkoutImportServiceTests {
         // Anchored to the current calendar: the importer builds its own matcher,
         // so a fixed UTC week would not line up with the device's time zone.
         let current = Calendar.current
-        let thisWeek = current.startOfDay(for: .now)
+        let thisWeek = try #require(current.dateInterval(of: .weekOfYear, for: .now)?.start)
         let lastWeek = try #require(current.date(byAdding: .day, value: -7, to: thisWeek))
 
         let container = try AtheviaModelContainer.make(inMemory: true)
@@ -243,8 +245,8 @@ struct WorkoutImportServiceTests {
             ImportedWorkout(
                 healthKitUUID: UUID(),
                 sport: .running,
-                startDate: run.date.addingTimeInterval(9 * 3600),
-                endDate: run.date.addingTimeInterval(9 * 3600 + 1680),
+                startDate: run.date,
+                endDate: run.date.addingTimeInterval(1680),
                 duration: 1680,
                 averageHeartRate: 132
             )
