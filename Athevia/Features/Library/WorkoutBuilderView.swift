@@ -239,6 +239,10 @@ private struct BlockRow: View {
         case .work: "Work"
         case .recovery: "Recovery"
         case .cooldown: "Cool-down"
+        case .runningSegment: "Run"
+        case .cyclingSegment: "Bike"
+        case .swimmingSegment: "Swim"
+        case .transition: "Transition"
         case .repeatBlock: "Repeat"
         }
     }
