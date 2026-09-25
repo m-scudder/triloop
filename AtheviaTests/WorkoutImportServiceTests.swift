@@ -178,7 +178,9 @@ struct WorkoutImportServiceTests {
         // Half of the prescribed 28 minutes.
         try await service(context, [activity(.running, on: 0, duration: 840)]).importWorkouts(for: plan)
 
-        let run = try #require(plan.orderedWorkouts.first { $0.discipline == .running })
+        let run = try #require(plan.trainingSessions.first {
+            $0.discipline == .running && $0.origin == .generated
+        })
         #expect(!run.isCompleted)
         #expect(run.importedSummary == nil)
         #expect(plan.trainingSessions.filter { $0.origin == .imported }.count == 1)
@@ -224,27 +226,32 @@ struct WorkoutImportServiceTests {
         // Anchored to the current calendar: the importer builds its own matcher,
         // so a fixed UTC week would not line up with the device's time zone.
         let current = Calendar.current
-        let thisWeek = current.startOfDay(for: .now)
+        let thisWeek = try #require(current.dateInterval(of: .weekOfYear, for: .now)?.start)
         let lastWeek = try #require(current.date(byAdding: .day, value: -7, to: thisWeek))
 
         let container = try AtheviaModelContainer.make(inMemory: true)
         let context = container.mainContext
 
         let previous = SeedWeekOne.makePlan(startDate: lastWeek, calendar: current)
+        previous.generatedAt = lastWeek
         context.insert(previous)
+
         let latest = SeedWeekOne.makePlan(startDate: thisWeek, calendar: current)
         latest.weekNumber = 2
+        latest.generatedAt = thisWeek
         context.insert(latest)
+        try context.save()
 
         let runs = [previous, latest].compactMap { plan in
             plan.orderedWorkouts.first { $0.discipline == .running }
         }
         let stored = runs.map { run in
-            ImportedWorkout(
+            let startDate = run.date.addingTimeInterval(3_600)
+            return ImportedWorkout(
                 healthKitUUID: UUID(),
                 sport: .running,
-                startDate: run.date.addingTimeInterval(9 * 3600),
-                endDate: run.date.addingTimeInterval(9 * 3600 + 1680),
+                startDate: startDate,
+                endDate: startDate.addingTimeInterval(1680),
                 duration: 1680,
                 averageHeartRate: 132
             )
@@ -252,10 +259,12 @@ struct WorkoutImportServiceTests {
 
         let importer = WorkoutAutoImporter(
             container: container,
-            provider: StubHealthDataProvider(stored: stored)
+            provider: StubHealthDataProvider(stored: stored),
+            importCutoff: nil
         )
 
-        #expect(await importer.importRecentWeeks() == 2)
+        let importedCount = await importer.importRecentWeeks()
+        #expect(importedCount == 2)
     }
 
     @Test("Automatic import does nothing without authorization")
@@ -271,5 +280,60 @@ struct WorkoutImportServiceTests {
         )
 
         #expect(await importer.importRecentWeeks() == 0)
+    }
+}
+
+
+@Suite("Workout auto-import reset boundary", .serialized)
+@MainActor
+struct WorkoutAutoImportResetBoundaryTests {
+
+    @Test("Reset seed data advances the Health import boundary")
+    func resetSeedAdvancesImportBoundary() throws {
+        TrainingResetBoundary.clearForTesting()
+        defer { TrainingResetBoundary.clearForTesting() }
+
+        let container = try AtheviaModelContainer.make(inMemory: true)
+        let resetAt = Date(timeIntervalSince1970: 1_800_000_000)
+
+        SeedDataInstaller.reset(in: container.mainContext, on: resetAt)
+
+        #expect(TrainingResetBoundary.latest == resetAt)
+    }
+
+    @Test("Auto importer observes a reset boundary created after launch")
+    func autoImporterObservesRuntimeResetBoundary() async throws {
+        TrainingResetBoundary.clearForTesting()
+        defer { TrainingResetBoundary.clearForTesting() }
+
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: .now)
+        let container = try AtheviaModelContainer.make(inMemory: true)
+        let context = container.mainContext
+        let plan = SeedWeekOne.makePlan(startDate: today, calendar: calendar)
+        context.insert(plan)
+        try context.save()
+
+        let run = try #require(plan.orderedWorkouts.first { $0.discipline == .running })
+        let startDate = run.date.addingTimeInterval(60)
+        let oldWorkout = ImportedWorkout(
+            healthKitUUID: UUID(),
+            sport: .running,
+            startDate: startDate,
+            endDate: startDate.addingTimeInterval(1_680),
+            duration: 1_680,
+            averageHeartRate: 132
+        )
+
+        let importer = WorkoutAutoImporter(
+            container: container,
+            provider: StubHealthDataProvider(stored: [oldWorkout])
+        )
+
+        // The importer already exists before the reset boundary advances.
+        TrainingResetBoundary.latest = oldWorkout.endDate.addingTimeInterval(60)
+
+        #expect(await importer.importRecentWeeks() == 0)
+        #expect(run.isCompleted == false)
     }
 }

@@ -26,6 +26,10 @@ struct WorkoutPlayerView: View {
     @State private var liveActivity = WorkoutLiveActivityController()
     @State private var inactiveAt: Date?
     @State private var immediateCountdownStepID: String?
+    @State private var segmentStartDistance: Double = 0
+    @State private var segmentStartElapsed: TimeInterval = 0
+    @State private var activeSegmentKey: String?
+    @State private var completedMultisportSegments: [RecordedMultisportSegment] = []
     @Environment(\.scenePhase) private var scenePhase
 
     private let pulse = Timer.publish(every: 0.25, on: .main, in: .common).autoconnect()
@@ -40,13 +44,33 @@ struct WorkoutPlayerView: View {
         self.onFinish = onFinish
         self.onCancel = onCancel
         _engine = State(initialValue: WorkoutExecutionEngine(plan: WorkoutExecutionPlan(workout: workout)))
+        let firstSegmentSport = workout.orderedSteps.compactMap { $0.kind.segmentSport }.first
         _locationTracker = StateObject(
-            wrappedValue: WorkoutLocationTracker(sport: workout.discipline.sport ?? .running)
+            wrappedValue: WorkoutLocationTracker(
+                sport: workout.discipline.sport ?? firstSegmentSport ?? .running
+            )
         )
     }
 
     private var recordsGPS: Bool {
-        workout.discipline == .running || workout.discipline == .cycling
+        workout.discipline == .running
+            || workout.discipline == .cycling
+            || workout.discipline == .multisport
+    }
+
+    private var activeMetricSport: Sport? {
+        if workout.discipline == .multisport {
+            return engine.currentStep?.kind.segmentSport
+        }
+        return workout.discipline.sport
+    }
+
+    private var activeSegmentDistance: Double {
+        max(locationTracker.snapshot.distanceMeters - segmentStartDistance, 0)
+    }
+
+    private var activeSegmentElapsed: TimeInterval {
+        max(engine.elapsedSeconds - segmentStartElapsed, 0)
     }
 
     var body: some View {
@@ -168,7 +192,7 @@ struct WorkoutPlayerView: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
 
-                    if recordsGPS {
+                    if recordsGPS, activeMetricSport == .running || activeMetricSport == .cycling {
                         liveGPSMetrics
                             .padding(.top, 8)
                     }
@@ -237,11 +261,11 @@ struct WorkoutPlayerView: View {
             VStack(spacing: 8) {
                 HStack(spacing: 28) {
                     metric(
-                        TrainingFormatter.distance(meters: locationTracker.snapshot.distanceMeters),
+                        TrainingFormatter.distance(meters: activeSegmentDistance),
                         label: "Distance"
                     )
                     if let value = livePaceOrSpeed {
-                        metric(value, label: workout.discipline == .cycling ? "Avg speed" : "Avg pace")
+                        metric(value, label: activeMetricSport == .cycling ? "Avg speed" : "Avg pace")
                     }
                 }
 
@@ -329,12 +353,13 @@ struct WorkoutPlayerView: View {
     }
 
     private var livePaceOrSpeed: String? {
-        let distance = locationTracker.snapshot.distanceMeters
-        guard distance >= 20, engine.elapsedSeconds > 0 else { return nil }
-        let metersPerSecond = distance / engine.elapsedSeconds
+        let distance = activeSegmentDistance
+        let elapsed = activeSegmentElapsed
+        guard distance >= 20, elapsed > 0 else { return nil }
+        let metersPerSecond = distance / elapsed
         guard metersPerSecond > 0 else { return nil }
 
-        if workout.discipline == .cycling {
+        if activeMetricSport == .cycling {
             return String(format: "%.1f km/h", metersPerSecond * 3.6)
         }
 
@@ -440,7 +465,10 @@ struct WorkoutPlayerView: View {
         guard engine.phase == .ready, preparationComplete, scenePhase == .active, !hasLeft else { return }
         let now = Date.now
         engine.start(now: now)
-        if recordsGPS { locationTracker.start() }
+        if recordsGPS {
+            syncMultisportSegmentBoundary(force: true)
+            locationTracker.start()
+        }
         lastPulse = now
         if coach.isPrepared, !coach.play() {
             coach.stop()
@@ -500,7 +528,11 @@ struct WorkoutPlayerView: View {
         guard engine.phase == .running || engine.phase == .paused else { return }
         guard engine.phase != .finished else { return }
         let wasPaused = engine.phase == .paused
+        let previousSegmentKey = currentSegmentKey
         engine.completeCurrentStep(now: .now)
+        if currentSegmentKey != previousSegmentKey {
+            syncMultisportSegmentBoundary()
+        }
 
         if engine.phase == .finished {
             coach.stop()
@@ -560,7 +592,8 @@ struct WorkoutPlayerView: View {
             endedAt: base.endedAt,
             elapsedSeconds: base.elapsedSeconds,
             distanceMeters: gps.distanceMeters > 0 ? gps.distanceMeters : nil,
-            route: gps.route
+            route: gps.route,
+            multisportSegments: finalizedMultisportSegments()
         )
         onFinish(result)
     }
@@ -582,6 +615,7 @@ struct WorkoutPlayerView: View {
         }
 
         if engine.currentIndex != previousIndex {
+            syncMultisportSegmentBoundary()
             immediateCountdownStepID = nil
 
             if coachingEnabled,
@@ -648,6 +682,7 @@ struct WorkoutPlayerView: View {
         }
 
         if engine.currentIndex != previousIndex {
+            syncMultisportSegmentBoundary()
             immediateCountdownStepID = nil
 
             if coachingEnabled,
@@ -693,6 +728,72 @@ struct WorkoutPlayerView: View {
         liveActivity.end(finalState: nil)
         lastPulse = nil
         saveWorkout()
+    }
+
+    private var currentSegmentKey: String? {
+        guard workout.discipline == .multisport, let kind = engine.currentStep?.kind else { return nil }
+        if kind.isTransition { return "transition" }
+        return kind.segmentSport?.rawValue
+    }
+
+    private func syncMultisportSegmentBoundary(force: Bool = false) {
+        guard workout.discipline == .multisport else { return }
+        let nextKey = currentSegmentKey
+        if !force, nextKey == activeSegmentKey { return }
+
+        if let previous = activeSegmentKey {
+            appendCompletedSegment(key: previous)
+        }
+
+        activeSegmentKey = nextKey
+        segmentStartDistance = locationTracker.snapshot.distanceMeters
+        segmentStartElapsed = engine.elapsedSeconds
+
+        if let sport = activeMetricSport, sport == .running || sport == .cycling {
+            locationTracker.setSport(sport)
+        }
+    }
+
+    private func appendCompletedSegment(key: String) {
+        let duration = max(engine.elapsedSeconds - segmentStartElapsed, 0)
+        let distance = max(locationTracker.snapshot.distanceMeters - segmentStartDistance, 0)
+        if key == "transition" {
+            completedMultisportSegments.append(
+                RecordedMultisportSegment(
+                    sport: nil,
+                    isTransition: true,
+                    durationSeconds: duration
+                )
+            )
+            return
+        }
+        guard let sport = Sport(rawValue: key) else { return }
+        completedMultisportSegments.append(
+            RecordedMultisportSegment(
+                sport: sport,
+                durationSeconds: duration,
+                distanceMeters: distance > 0 ? distance : nil
+            )
+        )
+    }
+
+    private func finalizedMultisportSegments() -> [RecordedMultisportSegment] {
+        guard workout.discipline == .multisport else { return [] }
+        var result = completedMultisportSegments
+        guard let key = activeSegmentKey else { return result }
+
+        let duration = max(engine.elapsedSeconds - segmentStartElapsed, 0)
+        let distance = max(locationTracker.snapshot.distanceMeters - segmentStartDistance, 0)
+        if key == "transition" {
+            result.append(.init(sport: nil, isTransition: true, durationSeconds: duration))
+        } else if let sport = Sport(rawValue: key) {
+            result.append(.init(
+                sport: sport,
+                durationSeconds: duration,
+                distanceMeters: distance > 0 ? distance : nil
+            ))
+        }
+        return result
     }
 
     private func syncLiveActivity(now: Date = .now) {

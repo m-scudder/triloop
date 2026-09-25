@@ -35,6 +35,12 @@ struct ImportedWorkout: Equatable, Sendable, Identifiable {
 
     var id: UUID { healthKitUUID }
 
+    /// Explicit activity semantics for downstream matching and capability.
+    /// `sport` remains the legacy single-sport carrier for compatibility.
+    var discipline: Discipline {
+        metrics.multisportSegments.isEmpty ? sport.discipline : .multisport
+    }
+
     init(
         healthKitUUID: UUID,
         sport: Sport,

@@ -177,7 +177,7 @@ private struct WatchWorkoutSetupView: View {
     var body: some View {
         Form {
             switch workout.discipline {
-            case .running, .cycling:
+            case .running, .cycling, .multisport:
                 Picker("Workout Type", selection: $configuration.environment) {
                     Text("Outdoor")
                         .tag(WatchWorkoutStartConfiguration.Environment.outdoor)

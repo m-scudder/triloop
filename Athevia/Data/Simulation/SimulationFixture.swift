@@ -44,6 +44,13 @@ enum SimulationFixture {
             )
         }
 
+        if [.sprintTriBrickComplete, .sprintTriEventReady, .sprintTriSpecificBrick].contains(dataset),
+           let brickDate = calendar.date(byAdding: .day, value: -2, to: today) {
+            let brick = makeBrick(on: brickDate, eventReady: dataset == .sprintTriEventReady, calendar: calendar)
+            data.workouts.append(brick)
+            data.samples[brick.healthKitUUID] = WorkoutSamples()
+        }
+
         data.dailySteps = makeDailySteps(days: max(days, 28), endingAt: today, calendar: calendar, generator: &generator)
         data.hourlySteps = makeHourlySteps(on: today, calendar: calendar, generator: &generator)
         data.recovery = makeRecovery(dataset, endingAt: today, calendar: calendar, generator: &generator)
@@ -196,11 +203,65 @@ enum SimulationFixture {
             // Keep the athlete clearly below Sprint-distance continuity while
             // run and bike history continue to accumulate.
             return Double(min(25 + weekIndex * 25, 100))
-        case .sprintTriBrickComplete:
+        case .sprintTriBrickComplete, .sprintTriSpecificBrick:
             return Double(min(100 + weekIndex * 75, 750))
+        case .sprintTriEventReady, .openWaterReady, .openWaterDisabled:
+            return Double(min(250 + weekIndex * 100, 900))
+        case .sprintTriRecoveryProblem:
+            return Double(min(150 + weekIndex * 75, 750))
         default:
             return Double(25 * (1 + weekIndex / 3))
         }
+    }
+
+    private static func makeBrick(
+        on date: Date,
+        eventReady: Bool,
+        calendar: Calendar
+    ) -> ImportedWorkout {
+        let start = calendar.date(bySettingHour: 7, minute: 0, second: 0, of: date) ?? date
+        let bikeDistance = eventReady ? 22_000.0 : 16_000.0
+        let runDistance = eventReady ? 5_200.0 : 3_000.0
+        let bikeDuration: TimeInterval = eventReady ? 60 * 60 : 45 * 60
+        let runDuration: TimeInterval = eventReady ? 31 * 60 : 18 * 60
+        let transition: TimeInterval = 4 * 60
+
+        let metrics = RecordedMetrics(
+            multisportSegments: [
+                RecordedMultisportSegment(
+                    sport: .cycling,
+                    durationSeconds: bikeDuration,
+                    distanceMeters: bikeDistance
+                ),
+                RecordedMultisportSegment(
+                    sport: nil,
+                    isTransition: true,
+                    durationSeconds: transition
+                ),
+                RecordedMultisportSegment(
+                    sport: .running,
+                    durationSeconds: runDuration,
+                    distanceMeters: runDistance
+                )
+            ]
+        )
+
+        return ImportedWorkout(
+            healthKitUUID: UUID(
+                uuidString: eventReady
+                    ? "00000000-0000-4000-8000-000000000901"
+                    : "00000000-0000-4000-8000-000000000902"
+            )!,
+            sport: .cycling,
+            startDate: start,
+            endDate: start.addingTimeInterval(bikeDuration + transition + runDuration),
+            duration: bikeDuration + transition + runDuration,
+            distanceMeters: nil,
+            averageHeartRate: 138,
+            maximumHeartRate: 164,
+            metrics: metrics,
+            source: "com.apple.workout"
+        )
     }
 
     /// Sport-specific sensor values, gated by what the fixture claims to own.
@@ -260,10 +321,11 @@ enum SimulationFixture {
         case (.running, .event5KDeveloping):
             // Builds toward 5 km but deliberately stays below it.
             return min(34 + progression * 2, 34) * 60
-        case (.running, .event5KCompleted), (.running, .eventPostRace):
+        case (.running, .event5KCompleted), (.running, .progressedRunner), (.running, .eventPostRace),
+             (.running, .eventMissed):
             // By the final weeks this crosses 5 km at the fixture's 2.4 m/s pace.
             return (30 + progression * 3) * 60
-        case (.running, .eventTaper):
+        case (.running, .eventTaper), (.running, .eventRaceWeek):
             // Mature running history; the profile/event date controls whether UI is in taper.
             return (38 + progression * 2) * 60
         case (.running, .experiencedRunner), (.running, .experiencedTriathlete):

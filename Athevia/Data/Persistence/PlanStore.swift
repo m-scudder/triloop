@@ -43,14 +43,17 @@ struct PlanStore {
         }
         configured.schedule = setup.schedule
         configured.preferences = setup.preferences
-        if setup.objective.kind == .event {
-            let recent = (try? context.fetch(
-                FetchDescriptor<WeeklyPlan>(sortBy: [SortDescriptor(\.startDate)])
-            )) ?? []
-            configured.journey = TrainingJourneyPlanner(calendar: configured.calendar)
-                .plan(setup: setup, recentPlans: Array(recent.suffix(4)))
-            configured.objective = setup.objective
-        }
+        let history = (try? context.fetch(
+            FetchDescriptor<WeeklyPlan>(sortBy: [SortDescriptor(\.startDate)])
+        )) ?? []
+        let capability = AthleteCapabilityAssessmentBuilder(calendar: configured.calendar)
+            .build(setup: setup, plans: history)
+        configured.capability = capability
+        configured.journey = TrainingJourneyPlanner(calendar: configured.calendar)
+            .plan(setup: setup, capability: capability)
+        configured.objective = setup.objective
+        configured.openWaterConsent = setup.openWaterTrainingConsent
+        configured.eventState = setup.eventState
         return configured
     }
 
@@ -186,10 +189,12 @@ struct PlanStore {
         return rebuildable.count
     }
 
-    /// Rebuilds the days ahead from the athlete's current assessment.
+    /// Rebuilds only unresolved future days from the athlete's *current*
+    /// capability, objective, event phase, priorities and schedule.
     ///
-    /// The view asks for a reassessment; deciding what that means is the
-    /// domain's job, so the resolver is called here rather than in the UI.
+    /// The legacy resolver parameter is retained for source compatibility with
+    /// older tests/callers, but onboarding baseline is no longer allowed to
+    /// reset a progressed athlete's current week.
     @discardableResult
     func reassess(
         _ plan: WeeklyPlan,
@@ -197,14 +202,86 @@ struct PlanStore {
         resolver: any StartingParameterResolving = StartingParameterResolver(),
         asOf now: Date = .now
     ) throws -> Int {
-        guard let setup = athleteSetup() else { return 0 }
+        _ = poolLengthMeters
+        _ = resolver
+        guard athleteSetup() != nil else { return 0 }
 
-        let parameters = resolver.resolve(
-            baseline: setup.baseline,
-            goal: setup.goal,
-            poolLengthMeters: poolLengthMeters
+        let calendar = generator.calendar
+        let boundary = calendar.startOfDay(for: now)
+        guard plan.status != .completed,
+              calendar.startOfDay(for: plan.endDate) >= boundary else {
+            return 0
+        }
+
+        let previousStart = calendar.date(
+            byAdding: .day,
+            value: -7,
+            to: plan.startDate
+        ) ?? plan.startDate
+        let previousEnd = calendar.date(
+            byAdding: .day,
+            value: -1,
+            to: plan.startDate
+        ) ?? plan.startDate
+
+        let seed = WeeklyPlan(
+            weekNumber: plan.weekNumber - 1,
+            startDate: previousStart,
+            endDate: previousEnd,
+            status: .completed,
+            parameters: plan.parameters,
+            workouts: []
         )
-        return try reapplyParameters(parameters, to: plan, asOf: now)
+        let neutralAnalysis = WeeklyAnalysis(
+            weekNumber: seed.weekNumber,
+            startDate: seed.startDate,
+            endDate: seed.endDate,
+            plannedSessions: 0,
+            completedSessions: 0,
+            skippedSessions: 0,
+            sports: []
+        )
+        let candidate = configuredGenerator().generate(
+            after: seed,
+            analysis: neutralAnalysis
+        )
+
+        let futureExisting = plan.orderedWorkouts.filter {
+            calendar.startOfDay(for: $0.date) >= boundary
+        }
+        let rebuildable = futureExisting.filter {
+            reshaper.isUnrecorded($0) && $0.origin == .generated
+        }
+        let immutable = futureExisting.filter { workout in
+            !rebuildable.contains(where: { $0.id == workout.id })
+        }
+        let immutableDays = immutable.map { calendar.startOfDay(for: $0.date) }
+
+        for workout in rebuildable {
+            plan.workouts.removeAll { $0.id == workout.id }
+            context.delete(workout)
+        }
+
+        var inserted = 0
+        for workout in candidate.orderedWorkouts {
+            let day = calendar.startOfDay(for: workout.date)
+            guard day >= boundary,
+                  !immutableDays.contains(where: { calendar.isDate($0, inSameDayAs: day) }) else {
+                continue
+            }
+
+            candidate.workouts.removeAll { $0.id == workout.id }
+            plan.workouts.append(workout)
+            context.insert(workout)
+            inserted += 1
+        }
+
+        plan.parameters = candidate.parameters
+        plan.generationReason = "Upcoming training rebuilt from current capability and profile."
+        plan.generationReasonCode = .profileChanged
+        removeOccupiedRestDays(in: plan, asOf: now)
+        try context.save()
+        return inserted
     }
 
     func moveWorkout(_ workout: PlannedWorkout, to date: Date, asOf now: Date = .now) throws {

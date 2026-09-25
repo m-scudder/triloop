@@ -6,6 +6,12 @@ enum WorkoutStepKind: String, Codable, CaseIterable, Equatable, Sendable {
     case work
     case recovery
     case cooldown
+    /// Explicit multisport segment semantics. These are persisted as enum raw
+    /// values, so existing rows remain valid without adding a SwiftData column.
+    case runningSegment
+    case cyclingSegment
+    case swimmingSegment
+    case transition
     /// A container that repeats its `children` `repeatCount` times.
     case repeatBlock
 }
@@ -151,4 +157,18 @@ extension WorkoutStep {
             children: children
         )
     }
+}
+
+
+extension WorkoutStepKind {
+    var segmentSport: Sport? {
+        switch self {
+        case .runningSegment: .running
+        case .swimmingSegment: .swimming
+        case .cyclingSegment: .cycling
+        default: nil
+        }
+    }
+
+    var isTransition: Bool { self == .transition }
 }

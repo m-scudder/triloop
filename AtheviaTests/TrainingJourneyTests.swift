@@ -11,7 +11,7 @@ struct TrainingJourneyTests {
         return value
     }
 
-    private func date(_ year: Int = 2026, _ month: Int, _ day: Int) -> Date {
+    private func date(_ month: Int, _ day: Int, _ year: Int = 2026) -> Date {
         calendar.date(from: DateComponents(year: year, month: month, day: day))!
     }
 

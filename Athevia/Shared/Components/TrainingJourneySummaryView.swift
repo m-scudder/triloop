@@ -2,6 +2,7 @@ import SwiftUI
 
 struct TrainingJourneySummaryView: View {
     let journey: TrainingJourney
+    var showsEventReadiness: Bool = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -25,8 +26,16 @@ struct TrainingJourneySummaryView: View {
                             .font(.subheadline)
                     }
 
-                    LabeledContent("Readiness", value: journey.readiness.status.displayName)
+                    if showsEventReadiness {
+                        LabeledContent("Readiness", value: journey.readiness.status.displayName)
+                            .font(.subheadline)
+                    } else {
+                        LabeledContent(
+                            "Training direction",
+                            value: journey.primaryFocus?.kind.displayName ?? "Build consistency"
+                        )
                         .font(.subheadline)
+                    }
 
                     ForEach(journey.sportPriorities.prefix(3)) { priority in
                         HStack(spacing: 10) {
@@ -43,13 +52,15 @@ struct TrainingJourneySummaryView: View {
                         }
                     }
 
-                    let gaps = journey.readiness.sports.flatMap(\.gaps)
-                        .filter { $0 != .insufficientRecentEvidence }
-                    if let gap = gaps.first {
-                        Divider()
-                        Text(gap.message)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                    if showsEventReadiness {
+                        let gaps = journey.readiness.sports.flatMap(\.gaps)
+                            .filter { $0 != .insufficientRecentEvidence }
+                        if let gap = gaps.first {
+                            Divider()
+                            Text(gap.message)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
             }

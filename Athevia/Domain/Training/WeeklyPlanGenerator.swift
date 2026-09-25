@@ -17,6 +17,10 @@ struct WeeklyPlanGenerator: Sendable {
     /// remains authoritative; this only redistributes non-recovery slots.
     var journey: TrainingJourney?
     var objective: TrainingObjective?
+    var capability: AthleteCapabilityAssessment?
+    var openWaterConsent: OpenWaterTrainingConsent = .unavailable
+    var eventState: AthleteEventState = .upcoming
+    var prescriptionBuilder = PhaseWorkoutPrescriptionBuilder()
     var calendar: Calendar = .current
 
     func generate(after plan: WeeklyPlan, analysis: WeeklyAnalysis) -> WeeklyPlan {
@@ -92,13 +96,53 @@ struct WeeklyPlanGenerator: Sendable {
             }
         )
 
+        if let journey, journey.eventResolutionRequired || journey.requiresNextObjective {
+            let workouts = Weekday.trainingWeek.enumerated().map { offset, weekday in
+                let date = day(offset)
+                if schedule.isAvailable(on: weekday) {
+                    return PrescribedSessions.recoveryDay(
+                        on: date,
+                        goal: journey.eventResolutionRequired
+                            ? "Resolve the event outcome before Athevia starts another training block."
+                            : "Choose your next objective before Athevia starts another training block."
+                    )
+                }
+                return PrescribedSessions.restDay(on: date)
+            }
+            return WeeklyPlan(
+                weekNumber: plan.weekNumber + 1,
+                startDate: monday,
+                endDate: day(6),
+                status: .active,
+                generationReason: journey.eventResolutionRequired
+                    ? "Training held until the event outcome is resolved."
+                    : "Training held until the next objective is chosen.",
+                generationReasonCode: .profileChanged,
+                parameters: parameters,
+                workouts: workouts
+            )
+        }
+
         var workouts: [PlannedWorkout] = []
+        var sportOrdinals: [Sport: Int] = [:]
         let multisport = MultisportTrainingPolicy()
         let brickEligible = journey.map {
             multisport.canScheduleBrick(
                 journey: $0,
                 objective: objective ?? .init(kind: .generalFitness),
                 schedule: schedule,
+                recoveringSports: recovering
+            )
+        } ?? false
+        let brickAllowedByCurrentRecovery = capability?.recoveryState != .needsAttention
+            && capability?.recoveryState != .recovering
+        let nextWeekNumber = plan.weekNumber + 1
+        let simulationEligible = journey.map {
+            multisport.canScheduleRaceSimulation(
+                journey: $0,
+                objective: objective ?? .init(kind: .generalFitness),
+                capability: capability,
+                nextWeekNumber: nextWeekNumber,
                 recoveringSports: recovering
             )
         } ?? false
@@ -119,17 +163,30 @@ struct WeeklyPlanGenerator: Sendable {
                 continue
             }
 
-            switch sport {
-            case .running:
-                workouts.append(
-                    PrescribedSessions.runWalk(on: date, parameters: parameters)
-                )
-            case .swimming:
-                workouts.append(
-                    PrescribedSessions.techniqueSwim(on: date, parameters: parameters)
-                )
-            case .cycling:
-                if brickEligible, !brickPlaced {
+            if let event = objective?.event,
+               eventState.status == .upcoming,
+               let eventDate = event.eventDate,
+               calendar.isDate(date, inSameDayAs: eventDate) {
+                workouts.append(EventDayPrescription.workout(for: event, on: date))
+                continue
+            }
+
+            let ordinal = sportOrdinals[sport, default: 0]
+            sportOrdinals[sport] = ordinal + 1
+
+            if sport == .cycling,
+               brickEligible,
+               brickAllowedByCurrentRecovery,
+               !brickPlaced {
+                if simulationEligible {
+                    workouts.append(
+                        MultisportPrescribedSessions.raceSimulation(
+                            on: date,
+                            parameters: parameters,
+                            prescription: multisport.raceSimulation(parameters: parameters)
+                        )
+                    )
+                } else {
                     workouts.append(
                         MultisportPrescribedSessions.brick(
                             on: date,
@@ -137,12 +194,21 @@ struct WeeklyPlanGenerator: Sendable {
                             prescription: multisport.brick(parameters: parameters)
                         )
                     )
-                    brickPlaced = true
-                } else {
-                    workouts.append(
-                        PrescribedSessions.easyRide(on: date, parameters: parameters)
-                    )
                 }
+                brickPlaced = true
+            } else {
+                workouts.append(
+                    prescriptionBuilder.workout(
+                        sport: sport,
+                        on: date,
+                        parameters: parameters,
+                        journey: journey,
+                        objective: objective,
+                        capability: capability,
+                        openWaterConsent: openWaterConsent,
+                        sportOrdinal: ordinal
+                    )
+                )
             }
         }
 

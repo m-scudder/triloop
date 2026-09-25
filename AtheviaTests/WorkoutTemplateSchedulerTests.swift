@@ -93,7 +93,7 @@ struct WorkoutTemplateSchedulerTests {
         let week = plan([.running], in: context)
 
         #expect(throws: WorkoutTemplateScheduler.Failure.dateOutsidePlan) {
-            try WorkoutTemplateScheduler.add(builtIn, to: week, on: day(9), calendar: calendar)
+            try WorkoutTemplateScheduler.add(builtIn, to: week, on: day(9), calendar: calendar, asOf: day(0))
         }
     }
 
@@ -103,7 +103,7 @@ struct WorkoutTemplateSchedulerTests {
         let week = plan([.rest, .rest], in: context)
 
         #expect(WorkoutTemplateScheduler.conflict(on: day(0), in: week, calendar: calendar) == .none)
-        try WorkoutTemplateScheduler.add(builtIn, to: week, on: day(0), calendar: calendar)
+        try WorkoutTemplateScheduler.add(builtIn, to: week, on: day(0), calendar: calendar, asOf: day(0))
 
         let onTheDay = week.orderedWorkouts.filter { calendar.isDate($0.date, inSameDayAs: day(0)) }
         // The rest placeholder gives way rather than sitting beside a session.
@@ -117,7 +117,7 @@ struct WorkoutTemplateSchedulerTests {
         let week = plan([.running], in: context)
         let original = try #require(week.trainingSessions.first)
 
-        try WorkoutTemplateScheduler.add(mine, to: week, on: day(0), calendar: calendar)
+        try WorkoutTemplateScheduler.add(mine, to: week, on: day(0), calendar: calendar, asOf: day(0))
 
         let onTheDay = week.trainingSessions.filter { calendar.isDate($0.date, inSameDayAs: day(0)) }
         #expect(onTheDay.count == 2)
@@ -161,7 +161,7 @@ struct WorkoutTemplateSchedulerTests {
         let original = try #require(week.trainingSessions.first)
         try context.save()
 
-        try WorkoutTemplateScheduler.add(mine, to: week, on: day(0), resolving: .replace, calendar: calendar)
+        try WorkoutTemplateScheduler.add(mine, to: week, on: day(0), resolving: .replace, calendar: calendar, asOf: day(0))
         // Saving is where an inconsistent relationship surfaces, so the test has
         // to go as far as the app does.
         try context.save()
@@ -188,7 +188,7 @@ struct WorkoutTemplateSchedulerTests {
                 == .completedSession(workoutID: original.id, title: original.title)
         )
         #expect(throws: WorkoutTemplateScheduler.Failure.cannotReplaceCompletedSession) {
-            try WorkoutTemplateScheduler.add(mine, to: week, on: day(0), resolving: .replace, calendar: calendar)
+            try WorkoutTemplateScheduler.add(mine, to: week, on: day(0), resolving: .replace, calendar: calendar, asOf: day(0))
         }
     }
 
@@ -199,7 +199,7 @@ struct WorkoutTemplateSchedulerTests {
         let original = try #require(week.trainingSessions.first)
         original.recordCompletion(with: FeedbackDraft(rpe: 4, painScore: 0, recoveryFeeling: .good))
 
-        try WorkoutTemplateScheduler.add(mine, to: week, on: day(0), calendar: calendar)
+        try WorkoutTemplateScheduler.add(mine, to: week, on: day(0), calendar: calendar, asOf: day(0))
 
         #expect(week.trainingSessions.count == 2)
         #expect(original.isCompleted)
@@ -211,7 +211,7 @@ struct WorkoutTemplateSchedulerTests {
         let week = plan([.running, .rest, .swimming, .rest, .cycling], in: context)
         let before = week.orderedWorkouts.filter { !calendar.isDate($0.date, inSameDayAs: day(3)) }.map(\.id)
 
-        try WorkoutTemplateScheduler.add(mine, to: week, on: day(3), calendar: calendar)
+        try WorkoutTemplateScheduler.add(mine, to: week, on: day(3), calendar: calendar, asOf: day(0))
 
         let after = week.orderedWorkouts.filter { !calendar.isDate($0.date, inSameDayAs: day(3)) }.map(\.id)
         #expect(Set(before) == Set(after))

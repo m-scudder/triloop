@@ -160,6 +160,8 @@ struct AthleteMigrationTests {
         #expect(setup.objective.event?.eventDate == nil)
         #expect(setup.stage == .welcome)
         #expect(setup.completedAt == nil)
+        #expect(setup.openWaterTrainingConsent == .unavailable)
+        #expect(setup.eventState == .upcoming)
         #expect(setup.isComplete == false)
     }
 
@@ -241,6 +243,51 @@ struct AthleteMigrationTests {
         #expect(stored.objective.event?.distance?.kind == .run5K)
         #expect(stored.objective.event?.eventDate == raceDate)
         #expect(stored.objective.event?.targetIntent == .finishComfortably)
+    }
+
+    @Test("Open-water consent and event lifecycle survive a store reopen")
+    func eventLifecyclePersists() throws {
+        let container = try store()
+        let context = container.mainContext
+        let resolvedAt = Date(timeIntervalSince1970: 1_800_000_000)
+
+        let profile = AthleteProfile(
+            name: "Athlete",
+            trainingStartDate: .now,
+            setup: AthleteSetup(
+                objective: .event(
+                    sport: .triathlon,
+                    distance: EventDistance(kind: .triathlonSprint)
+                ),
+                openWaterTrainingConsent: OpenWaterTrainingConsent(
+                    explicitlyConfirmed: true,
+                    hasSafeVenue: true,
+                    hasSupervisionOrBuddy: true
+                ),
+                eventState: AthleteEventState(
+                    status: .completed,
+                    resolvedAt: resolvedAt,
+                    completionEvidence: .athleteConfirmation
+                ),
+                preferences: Sport.allCases.map {
+                    SportPreference(sport: $0, sessionsPerWeek: 1)
+                },
+                stage: .complete,
+                completedAt: .now
+            )
+        )
+        context.insert(profile)
+        try context.save()
+
+        let reopened = ModelContext(container)
+        let setup = try #require(
+            try reopened.fetch(FetchDescriptor<AthleteProfile>()).first?.setup
+        )
+
+        #expect(setup.openWaterTrainingConsent.permitsPrescription)
+        #expect(setup.eventState.status == .completed)
+        #expect(setup.eventState.resolvedAt == resolvedAt)
+        #expect(setup.eventState.completionEvidence == .athleteConfirmation)
     }
 
     @Test("A plan generation reason survives a reopen")

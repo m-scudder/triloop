@@ -263,7 +263,7 @@ struct TrainingObjectiveTests {
         )
         let restored = try JSONDecoder().decode(AthleteSetup.self, from: data)
 
-        #expect(json["objective"] != nil)
+        #expect(json["objectiveData"] != nil)
         #expect(json["goal"] as? String == "improveEndurance")
         #expect(restored.objective == objective)
         #expect(restored.goal == .improveEndurance)

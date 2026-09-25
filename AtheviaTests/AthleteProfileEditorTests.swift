@@ -42,7 +42,7 @@ struct AthleteProfileEditorTests {
 
     @Test("The training goal reaches the plan")
     func goalIsTrainingImpacting() {
-        #expect(impact { $0.goal = .generalFitness }.reasons == [.goal])
+        #expect(impact { $0.objective = TrainingObjective(kind: .generalFitness) }.reasons == [.goal])
     }
 
     @Test("Each sport baseline is reported separately")
@@ -99,7 +99,7 @@ struct AthleteProfileEditorTests {
     @Test("Several edits at once are all reported")
     func multipleReasons() {
         let result = impact { current in
-            current.goal = .generalFitness
+            current.objective = TrainingObjective(kind: .generalFitness)
             current.baseline.running = .regular5K
         }
 
@@ -167,4 +167,42 @@ struct AthleteProfileEditorTests {
 
         #expect(AthleteProfileEditor.impact(from: original, to: updated).reasons == [.goal])
     }
+    @Test("Changing event identity resets prior event outcome")
+    func changingEventResetsOutcome() {
+        var current = setup()
+        current.objective = .event(
+            sport: .running,
+            distance: EventDistance(kind: .run5K),
+            eventDate: Date(timeIntervalSince1970: 1_800_000_000)
+        )
+        current.eventState = AthleteEventState(
+            status: .completed,
+            resolvedAt: Date(timeIntervalSince1970: 1_799_900_000),
+            completionEvidence: .athleteConfirmation
+        )
+
+        current.objective = .event(
+            sport: .running,
+            distance: EventDistance(kind: .run10K),
+            eventDate: Date(timeIntervalSince1970: 1_801_000_000)
+        )
+
+        #expect(current.eventState.status == .upcoming)
+        #expect(current.eventState.completionEvidence == nil)
+    }
+
+    @Test("Open water consent is training impacting")
+    func openWaterConsentImpactsTraining() {
+        let result = impact { current in
+            current.openWaterTrainingConsent = OpenWaterTrainingConsent(
+                explicitlyConfirmed: true,
+                hasSafeVenue: true,
+                hasSupervisionOrBuddy: true
+            )
+        }
+
+        #expect(result.reasons == [.openWaterTraining])
+    }
+
+
 }

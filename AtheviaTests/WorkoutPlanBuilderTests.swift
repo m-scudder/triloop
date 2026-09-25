@@ -17,6 +17,12 @@ struct WorkoutPlanBuilderTests {
             return PrescribedSessions.techniqueSwim(on: .now, parameters: parameters)
         case .cycling:
             return PrescribedSessions.easyRide(on: .now, parameters: parameters)
+        case .multisport:
+            return MultisportPrescribedSessions.brick(
+                on: .now,
+                parameters: parameters,
+                prescription: MultisportTrainingPolicy().brick(parameters: parameters)
+            )
         case .recovery:
             return PrescribedSessions.recoveryDay(on: .now)
         case .rest:

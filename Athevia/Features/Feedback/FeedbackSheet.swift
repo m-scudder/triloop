@@ -8,6 +8,10 @@ struct FeedbackSheet: View {
 
     @State private var draft = FeedbackDraft()
     @State private var failure: String?
+    @State private var milestoneCelebration: [JourneyMilestone] = []
+    @State private var showsMilestoneCelebration = false
+    @Query(sort: \WeeklyPlan.startDate) private var plans: [WeeklyPlan]
+    @Query private var profiles: [AthleteProfile]
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
@@ -42,6 +46,16 @@ struct FeedbackSheet: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }
+            }
+            .sheet(isPresented: $showsMilestoneCelebration) {
+                MilestoneCelebrationView(
+                    milestones: milestoneCelebration,
+                    workout: workout
+                ) {
+                    showsMilestoneCelebration = false
+                    dismiss()
+                }
+                .interactiveDismissDisabled()
             }
             .alert("Report not saved", isPresented: showingFailure) {
                 Button("OK", role: .cancel) { failure = nil }
@@ -191,15 +205,58 @@ struct FeedbackSheet: View {
         }
     }
 
+    private func milestonesTriggeredByThisWorkout() -> [JourneyMilestone] {
+        guard let setup = profiles.first?.setup else { return [] }
+        let achieved = JourneyProgressBuilder()
+            .milestones(setup: setup, plans: plans, asOf: .now)
+
+        let completionDate = workout.completedAt
+            ?? workout.importedSummary?.endDate
+            ?? workout.date
+
+        return achieved.filter { milestone in
+            Calendar.current.isDate(milestone.achievedAt, inSameDayAs: completionDate)
+                && milestone.kind != .eventWeek
+        }
+    }
+
+    private func resolveEventConfirmationIfNeeded() {
+        guard let profile = profiles.first,
+              var setup = profile.setup,
+              setup.eventState.status == .upcoming,
+              let event = setup.objective.event,
+              let eventDate = event.eventDate,
+              Calendar.current.isDate(workout.date, inSameDayAs: eventDate),
+              workout.title == event.displayName else {
+            return
+        }
+
+        setup.eventState = AthleteEventState(
+            status: .completed,
+            resolvedAt: workout.completedAt ?? .now,
+            completionEvidence: .athleteConfirmation
+        )
+        profile.setup = setup
+    }
+
+
     private func save() {
         workout.recordCompletion(with: draft)
+        resolveEventConfirmationIfNeeded()
 
         do {
             try modelContext.save()
+            let newMilestones = milestonesTriggeredByThisWorkout()
             if let plan = workout.plan {
                 try PlanStore(context: modelContext).generateNextWeekIfReady(after: plan)
             }
-            dismiss()
+
+            if newMilestones.isEmpty {
+                dismiss()
+            } else {
+                milestoneCelebration = newMilestones
+                showsMilestoneCelebration = true
+            }
         } catch {
             // A report that silently failed to save is worse than none: the
             // athlete believes the week is closed when it is not.

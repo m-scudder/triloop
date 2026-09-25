@@ -117,6 +117,42 @@ final class AtheviaUITests: XCTestCase {
         attachScreenshot(app, name: "Profile edited event")
     }
 
+
+    @MainActor
+    func testGeneralFitnessProgressUsesTrainingDirectionNotEventReadiness() throws {
+        let app = densityApp()
+        app.launch()
+
+        XCTAssertTrue(app.tabBars.buttons["Progress"].waitForExistence(timeout: 10))
+        app.tabBars.buttons["Progress"].tap()
+
+        XCTAssertTrue(app.staticTexts["Training direction"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["Readiness"].exists)
+        attachScreenshot(app, name: "General fitness progress")
+    }
+
+    @MainActor
+    func testTriathlonProfileExposesExplicitOpenWaterSafetyControls() throws {
+        let app = openWaterProfileApp()
+        app.launch()
+
+        XCTAssertTrue(app.tabBars.buttons["Home"].waitForExistence(timeout: 10))
+        let profile = app.buttons["Training profile"]
+        XCTAssertTrue(profile.waitForExistence(timeout: 5))
+        profile.tap()
+
+        let row = app.buttons["profile.openWaterTraining"]
+        reveal(row, in: app)
+        XCTAssertTrue(row.exists)
+        row.tap()
+
+        XCTAssertTrue(app.navigationBars["Open Water"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.switches["Open-water training available"].exists)
+        XCTAssertTrue(app.switches["Safe venue available"].exists)
+        XCTAssertTrue(app.switches["I will train with a buddy / supervision"].exists)
+        attachScreenshot(app, name: "Open water safety controls")
+    }
+
     @MainActor
     func testInfoDisclosurePreservesBuilderValidation() throws {
         let app = densityApp()
@@ -229,6 +265,18 @@ final class AtheviaUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = [
             "--event-profile-ui-tests",
+            "-automaticallyImportWorkouts", "NO",
+            "-automaticallyScheduleWorkouts", "NO"
+        ]
+        return app
+    }
+
+
+    @MainActor
+    private func openWaterProfileApp() -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "--open-water-profile-ui-tests",
             "-automaticallyImportWorkouts", "NO",
             "-automaticallyScheduleWorkouts", "NO"
         ]

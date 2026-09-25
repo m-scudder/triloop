@@ -112,9 +112,25 @@ struct ProgressOverviewView: View {
                     setup: setup,
                     plans: plans
                 )
-                TrainingJourneySummaryView(journey: snapshot.journey)
+                TrainingJourneySummaryView(
+                    journey: snapshot.journey,
+                    showsEventReadiness: setup.objective.kind == .event
+                )
 
                 if setup.objective.kind == .event {
+                    if let profile = profiles.first {
+                        EventOutcomeResolutionCard(profile: profile)
+                    }
+                    if snapshot.journey.phase == .raceWeek,
+                       let event = setup.objective.event,
+                       !snapshot.journey.eventResolutionRequired {
+                        RaceWeekPreparationView(event: event)
+                    }
+                    if snapshot.journey.requiresNextObjective,
+                       let event = setup.objective.event,
+                       let profile = profiles.first {
+                        NextObjectivePromptView(event: event, profile: profile)
+                    }
                     JourneyProgressView(snapshot: snapshot)
                 }
             }

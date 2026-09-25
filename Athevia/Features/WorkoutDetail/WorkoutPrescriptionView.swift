@@ -107,6 +107,10 @@ private struct StepView: View {
         case .work: "Main set"
         case .recovery: "Recovery"
         case .cooldown: "Cooldown"
+        case .runningSegment: "Run"
+        case .cyclingSegment: "Bike"
+        case .swimmingSegment: "Swim"
+        case .transition: "Transition"
         case .repeatBlock: "Intervals"
         }
     }

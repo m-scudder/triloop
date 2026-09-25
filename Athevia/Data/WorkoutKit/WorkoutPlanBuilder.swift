@@ -57,7 +57,12 @@ enum WorkoutPlanBuilder {
     }
 
     static func customWorkout(for workout: PlannedWorkout) -> CustomWorkout? {
-        guard let sport = workout.discipline.sport else { return nil }
+        // WorkoutKit CustomWorkout is single-activity. Athevia's multisport
+        // execution is therefore kept in the dedicated Watch app / HealthKit
+        // path, where segment activity boundaries are preserved instead of
+        // exporting the brick as cycling-only.
+        guard workout.discipline != .multisport,
+              let sport = workout.discipline.sport else { return nil }
 
         let activity = sport.workoutActivityType
         guard CustomWorkout.supportsActivity(activity) else { return nil }
@@ -87,6 +92,11 @@ enum WorkoutPlanBuilder {
                 blocks.append(
                     IntervalBlock(steps: children, iterations: max(step.repeatCount ?? 1, 1))
                 )
+
+            case .runningSegment, .cyclingSegment, .swimmingSegment, .transition:
+                // Segment-aware multisport steps are intentionally unsupported
+                // by WorkoutKit's single-activity custom workout representation.
+                return nil
 
             case .work, .recovery:
                 blocks.append(

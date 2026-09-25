@@ -7,6 +7,7 @@ extension Discipline {
         case .running: Color(red: 1.00, green: 0.42, blue: 0.16)
         case .swimming: Color(red: 0.13, green: 0.55, blue: 1.00)
         case .cycling: Color(red: 0.16, green: 0.78, blue: 0.42)
+        case .multisport: Color(red: 0.62, green: 0.42, blue: 0.95)
         case .recovery: Color(red: 0.20, green: 0.78, blue: 0.85)
         case .rest: Color(red: 0.55, green: 0.56, blue: 0.62)
         }
@@ -34,6 +35,8 @@ extension Discipline {
             [Color(red: 0.20, green: 0.62, blue: 1.00), Color(red: 0.04, green: 0.30, blue: 0.76)]
         case .cycling:
             [Color(red: 0.22, green: 0.80, blue: 0.45), Color(red: 0.04, green: 0.50, blue: 0.28)]
+        case .multisport:
+            [Color(red: 0.68, green: 0.49, blue: 1.00), Color(red: 0.39, green: 0.20, blue: 0.72)]
         case .recovery:
             [Color(red: 0.25, green: 0.82, blue: 0.88), Color(red: 0.02, green: 0.46, blue: 0.55)]
         case .rest:

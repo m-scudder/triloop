@@ -123,6 +123,7 @@ private struct WorkoutShareCard: View {
 
 struct WorkoutShareView: View {
     let workout: PlannedWorkout
+    var titleOverride: String? = nil
     @Environment(\.dismiss) private var dismiss
     @Environment(\.healthProvider) private var health
     @State private var format: WorkoutShareFormat = .story
@@ -146,7 +147,9 @@ struct WorkoutShareView: View {
     @State private var isExporting = false
     @State private var lastExportURL: URL?
 
-    private var snapshot: WorkoutShareSnapshot { WorkoutShareSnapshot(workout: workout) }
+    private var snapshot: WorkoutShareSnapshot {
+        WorkoutShareSnapshot(workout: workout, titleOverride: titleOverride)
+    }
     private var route: WorkoutShareRoute {
         WorkoutShareRoute(points: loadedRoute.isEmpty ? snapshot.route : loadedRoute)
     }

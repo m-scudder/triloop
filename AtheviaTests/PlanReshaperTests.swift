@@ -110,7 +110,7 @@ struct PlanReshaperTests {
         // Thursday onwards is no longer available, so nothing survives there.
         #expect(outcome.isUnchanged == false)
         for change in outcome.changes where change.date >= self.day(3) {
-            #expect(change.discipline == .rest)
+            #expect(change.skipped)
         }
     }
 

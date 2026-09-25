@@ -34,6 +34,43 @@ struct WorkoutExecutionTests {
         #expect(plan.steps[3].repetitionLabel == "Round 2 of 2")
     }
 
+
+    @Test("Phone execution preserves multisport segment kinds")
+    func multisportExecutionPlanPreservesSegments() {
+        let workout = PlannedWorkout(
+            date: .now,
+            discipline: .multisport,
+            title: "Bike + Run Brick",
+            steps: [
+                WorkoutStep(
+                    order: 0,
+                    kind: .cyclingSegment,
+                    title: "Bike",
+                    durationSeconds: 1_200
+                ),
+                WorkoutStep(
+                    order: 1,
+                    kind: .transition,
+                    title: "Transition",
+                    durationSeconds: 180
+                ),
+                WorkoutStep(
+                    order: 2,
+                    kind: .runningSegment,
+                    title: "Run",
+                    durationSeconds: 600
+                )
+            ]
+        )
+
+        let execution = WorkoutExecutionPlan(workout: workout)
+
+        #expect(execution.steps.map(\.kind) == [.cyclingSegment, .transition, .runningSegment])
+        #expect(execution.steps[0].kind.segmentSport == .cycling)
+        #expect(execution.steps[1].kind.isTransition)
+        #expect(execution.steps[2].kind.segmentSport == .running)
+    }
+
     @Test("Countdown steps advance automatically")
     func countdownAdvances() {
         let enginePlan = plan(

@@ -49,6 +49,64 @@ struct WatchWorkoutExecutionTests {
         #expect(plan.steps[2].repetition == 2)
     }
 
+
+    @Test("Multisport payload preserves bike transition run steps")
+    func multisportStepsRemainTyped() {
+        let steps = [
+            WatchWorkoutStepPayload(
+                id: UUID(),
+                kind: .cyclingSegment,
+                title: "Bike",
+                instructions: nil,
+                durationSeconds: 1_200,
+                distanceMeters: nil,
+                targetIntensity: .steady,
+                repeatCount: nil,
+                children: []
+            ),
+            WatchWorkoutStepPayload(
+                id: UUID(),
+                kind: .transition,
+                title: "Transition",
+                instructions: nil,
+                durationSeconds: 180,
+                distanceMeters: nil,
+                targetIntensity: .veryEasy,
+                repeatCount: nil,
+                children: []
+            ),
+            WatchWorkoutStepPayload(
+                id: UUID(),
+                kind: .runningSegment,
+                title: "Run",
+                instructions: nil,
+                durationSeconds: 600,
+                distanceMeters: nil,
+                targetIntensity: .easy,
+                repeatCount: nil,
+                children: []
+            )
+        ]
+        let workout = WatchWorkoutPayload(
+            id: UUID(),
+            date: .now,
+            discipline: .multisport,
+            title: "Bike + Run Brick",
+            goal: "",
+            estimatedDurationSeconds: nil,
+            estimatedDistanceMeters: nil,
+            status: .planned,
+            steps: steps
+        )
+
+        let plan = WatchWorkoutExecutionPlan(workout: workout)
+
+        #expect(plan.steps.map(\.kind) == [.cyclingSegment, .transition, .runningSegment])
+        #expect(plan.steps[0].kind.segmentDiscipline == .cycling)
+        #expect(plan.steps[1].kind.isTransition)
+        #expect(plan.steps[2].kind.segmentDiscipline == .running)
+    }
+
     @Test("Timed steps advance automatically")
     func timedStepProgression() {
         let first = step(title: "Warm-up", duration: 10)

@@ -24,6 +24,15 @@ struct BackupSnapshotTests {
                     eventDate: Date(timeIntervalSince1970: 1_790_000_000),
                     targetIntent: .finishComfortably
                 ),
+                openWaterTrainingConsent: OpenWaterTrainingConsent(
+                    explicitlyConfirmed: true,
+                    hasSafeVenue: true,
+                    hasSupervisionOrBuddy: true
+                ),
+                eventState: AthleteEventState(
+                    status: .cancelled,
+                    resolvedAt: Date(timeIntervalSince1970: 1_789_000_000)
+                ),
                 preferences: [
                     SportPreference(sport: .running, sessionsPerWeek: 3)
                 ],
@@ -122,6 +131,8 @@ struct BackupSnapshotTests {
         #expect(decoded.profile?.id == profile.id)
         #expect(decoded.profile?.setup?.objective.event?.distance?.kind == .run10K)
         #expect(decoded.profile?.setup?.objective.event?.targetIntent == .finishComfortably)
+        #expect(decoded.profile?.setup?.openWaterTrainingConsent.permitsPrescription == true)
+        #expect(decoded.profile?.setup?.eventState.status == .cancelled)
         #expect(decoded.plans.count == 1)
         #expect(decoded.templates.count == 1)
         #expect(decoded.plans[0].workouts[0].feedback?.rpe == 4)
@@ -140,6 +151,8 @@ struct BackupSnapshotTests {
         let restoredWorkouts = try restoredContext.fetch(FetchDescriptor<PlannedWorkout>())
         #expect(restoredProfiles.first?.setup?.objective.event?.distance?.kind == .run10K)
         #expect(restoredProfiles.first?.setup?.objective.event?.targetIntent == .finishComfortably)
+        #expect(restoredProfiles.first?.setup?.openWaterTrainingConsent.permitsPrescription == true)
+        #expect(restoredProfiles.first?.setup?.eventState.status == .cancelled)
         #expect(restoredWorkouts.first?.feedback?.notes == "")
         #expect(restoredWorkouts.first?.importedSummary?.metrics?.route.isEmpty == true)
     }

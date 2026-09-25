@@ -11,16 +11,20 @@ struct WorkoutShareSnapshot {
     let route: [RecordedRoutePoint]
 
     @MainActor
-    init(workout: PlannedWorkout) {
+    init(workout: PlannedWorkout, titleOverride: String? = nil) {
         let summary = workout.importedSummary
-        title = workout.title
+        title = titleOverride ?? workout.title
         discipline = workout.discipline
         date = summary?.startDate ?? workout.completedAt ?? workout.date
         duration = Self.positive(summary?.duration)
         distanceMeters = Self.positive(summary?.distanceMeters)
-        speedMetersPerSecond = Self.positive(workout.discipline == .cycling
-            ? summary?.metrics?.averageCyclingSpeed
-            : summary?.metrics?.averageRunningSpeed)
+        speedMetersPerSecond = Self.positive({
+            switch workout.discipline {
+            case .cycling: summary?.metrics?.averageCyclingSpeed
+            case .running: summary?.metrics?.averageRunningSpeed
+            default: nil
+            }
+        }())
         route = summary?.metrics?.route ?? []
     }
 
@@ -43,6 +47,7 @@ struct WorkoutShareSnapshot {
         switch discipline {
         case .cycling: "Avg speed · km/h"
         case .swimming: "Avg pace · /100 m"
+        case .multisport: "Recorded pace / speed"
         default: "Avg pace · /km"
         }
     }

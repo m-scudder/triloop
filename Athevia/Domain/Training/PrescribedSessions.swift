@@ -18,6 +18,12 @@ enum PrescribedSessions {
         case .running: runWalk(on: date, parameters: parameters, goal: goal)
         case .swimming: techniqueSwim(on: date, parameters: parameters, goal: goal)
         case .cycling: easyRide(on: date, parameters: parameters, goal: goal)
+        case .multisport:
+            MultisportPrescribedSessions.brick(
+                on: date,
+                parameters: parameters,
+                prescription: MultisportTrainingPolicy().brick(parameters: parameters)
+            )
         case .recovery: recoveryDay(on: date, goal: goal)
         case .rest: restDay(on: date)
         }

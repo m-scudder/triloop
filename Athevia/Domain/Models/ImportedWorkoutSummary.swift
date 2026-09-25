@@ -89,6 +89,10 @@ final class ImportedWorkoutSummary {
         )
     }
 
+    var discipline: Discipline {
+        (metrics?.multisportSegments.isEmpty == false) ? .multisport : sport.discipline
+    }
+
     var imported: ImportedWorkout {
         ImportedWorkout(
             healthKitUUID: healthKitUUID,

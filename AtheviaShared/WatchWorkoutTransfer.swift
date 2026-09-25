@@ -19,7 +19,7 @@ struct WatchCoachingSettingsPayload: Codable, Equatable, Sendable {
 }
 
 struct WatchWorkoutListPayload: Codable, Equatable, Sendable {
-    static let currentSchemaVersion = 1
+    static let currentSchemaVersion = 2
 
     let schemaVersion: Int
     let generatedAt: Date
@@ -58,12 +58,14 @@ enum WatchWorkoutDiscipline: String, Codable, Equatable, Sendable {
     case running
     case swimming
     case cycling
+    case multisport
 
     var displayName: String {
         switch self {
         case .running: "Run"
         case .swimming: "Swim"
         case .cycling: "Cycle"
+        case .multisport: "Multisport"
         }
     }
 
@@ -72,6 +74,7 @@ enum WatchWorkoutDiscipline: String, Codable, Equatable, Sendable {
         case .running: "figure.run"
         case .swimming: "figure.pool.swim"
         case .cycling: "figure.outdoor.cycle"
+        case .multisport: "figure.mixed.cardio"
         }
     }
 }
@@ -99,6 +102,10 @@ enum WatchWorkoutStepKind: String, Codable, Equatable, Sendable {
     case work
     case recovery
     case cooldown
+    case runningSegment
+    case cyclingSegment
+    case swimmingSegment
+    case transition
     case repeatBlock
 
     var displayName: String {
@@ -107,6 +114,10 @@ enum WatchWorkoutStepKind: String, Codable, Equatable, Sendable {
         case .work: "Work"
         case .recovery: "Recovery"
         case .cooldown: "Cool-down"
+        case .runningSegment: "Run"
+        case .cyclingSegment: "Bike"
+        case .swimmingSegment: "Swim"
+        case .transition: "Transition"
         case .repeatBlock: "Repeat"
         }
     }
@@ -148,4 +159,18 @@ extension Double {
         }
         return Int(self.rounded()).formatted() + " m"
     }
+}
+
+
+extension WatchWorkoutStepKind {
+    var segmentDiscipline: WatchWorkoutDiscipline? {
+        switch self {
+        case .runningSegment: .running
+        case .cyclingSegment: .cycling
+        case .swimmingSegment: .swimming
+        default: nil
+        }
+    }
+
+    var isTransition: Bool { self == .transition }
 }

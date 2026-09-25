@@ -10,6 +10,7 @@ struct DeveloperToolsView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.healthProvider) private var health
     @Query(sort: \WeeklyPlan.startDate, order: .reverse) private var plans: [WeeklyPlan]
+    @Query private var profiles: [AthleteProfile]
 
     @State private var message: String?
     @State private var source = HealthProviderResolver.selected
@@ -47,6 +48,12 @@ struct DeveloperToolsView: View {
                 Text(dataset.detail)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+
+                if dataset.scenarioSetup() != nil {
+                    Button("Apply scenario profile") {
+                        applyScenarioProfile()
+                    }
+                }
             }
         } header: {
             Text("Health data source")
@@ -120,6 +127,16 @@ struct DeveloperToolsView: View {
                     Text("Report week \(plan.weekNumber)")
                 } footer: {
                     Text("Fills every training session with the same report, then creates the next week automatically.")
+                }
+
+                Section {
+                    Button("Create multisport test workout for today") {
+                        createMultisportTestWorkoutToday(in: plan)
+                    }
+                } header: {
+                    Text("Multisport execution")
+                } footer: {
+                    Text("Debug-only. Replaces today's unrecorded generated placeholder with the production Bike + Run Brick so phone execution can be tested immediately.")
                 }
 
                 Section("Recovery check-ins") {
@@ -210,6 +227,79 @@ struct DeveloperToolsView: View {
             Button("OK", role: .cancel) { message = nil }
         } message: {
             Text(message ?? "")
+        }
+    }
+
+
+    private func createMultisportTestWorkoutToday(in plan: WeeklyPlan) {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: .now)
+        let todaysWorkouts = plan.orderedWorkouts.filter {
+            calendar.isDate($0.date, inSameDayAs: today)
+        }
+
+        let immutableToday = todaysWorkouts.filter {
+            $0.isCompleted || $0.hasReport || $0.importedSummary != nil || $0.isSkipped
+        }
+        guard immutableToday.isEmpty else {
+            message = "Today's existing workout has recorded history. Reset seed data first so the smoke test cannot overwrite it."
+            return
+        }
+
+        for workout in todaysWorkouts where workout.origin == .generated {
+            plan.workouts.removeAll { $0.id == workout.id }
+            modelContext.delete(workout)
+        }
+
+        let prescription = MultisportTrainingPolicy().brick(parameters: plan.parameters)
+        let brick = MultisportPrescribedSessions.brick(
+            on: today,
+            parameters: plan.parameters,
+            prescription: prescription
+        )
+        plan.workouts.append(brick)
+        modelContext.insert(brick)
+
+        do {
+            try modelContext.save()
+            message = "Bike + Run Brick created for today. Open Today and tap Start Workout."
+        } catch {
+            message = "Could not create multisport test workout: \(error.localizedDescription)"
+        }
+    }
+
+
+    private func applyScenarioProfile() {
+        guard let scenario = dataset.scenarioSetup(),
+              let profile = profiles.first else {
+            message = "This dataset does not define a profile scenario."
+            return
+        }
+
+        profile.setup = scenario
+
+        if dataset == .sprintTriRecoveryProblem,
+           let workout = simulationPlan?.trainingSessions.first {
+            workout.recordCompletion(
+                with: FeedbackDraft(
+                    rpe: 7,
+                    painScore: 6,
+                    recoveryFeeling: .tired
+                )
+            )
+        }
+
+        do {
+            try modelContext.save()
+            if let plan = simulationPlan {
+                _ = try PlanStore(context: modelContext).reassess(
+                    plan,
+                    poolLengthMeters: profile.poolLengthMeters
+                )
+            }
+            message = "Applied \(dataset.displayName). Attach simulated Health workouts to populate its recorded evidence."
+        } catch {
+            message = "Could not apply scenario: \(error.localizedDescription)"
         }
     }
 

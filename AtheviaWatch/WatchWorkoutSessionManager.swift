@@ -38,6 +38,8 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
     private var isFinalizing = false
     private var coachingSettings: WatchCoachingSettingsPayload = .defaults
     private var countdownAnnouncedStepID: String?
+    private var activeMultisportActivityKey: String?
+    private var multisportSegmentStartedAtElapsedSeconds: TimeInterval = 0
     private var lastPersistedAt: Date?
 
     private static let activeStateKey = "athevia.active-watch-workout.v1"
@@ -57,6 +59,15 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
 
     var currentStep: WatchExecutableWorkoutStep? {
         engine?.currentStep
+    }
+
+    var currentMetricDiscipline: WatchWorkoutDiscipline? {
+        metricDiscipline
+    }
+
+    var segmentElapsedSeconds: TimeInterval {
+        guard activeWorkout?.discipline == .multisport else { return elapsedSeconds }
+        return max(elapsedSeconds - multisportSegmentStartedAtElapsedSeconds, 0)
     }
 
     var nextStep: WatchExecutableWorkoutStep? {
@@ -142,6 +153,9 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
             newBuilder.addMetadata(workoutMetadata) { _, _ in }
 
             engine?.start()
+            if workout.discipline == .multisport {
+                beginMultisportActivityIfNeeded(at: startDate)
+            }
             state = .running
             lastTickDate = startDate
             lastEngineDistanceMeters = 0
@@ -149,7 +163,8 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
             startTicker()
             persistActiveState(force: true)
 
-            if workout.discipline == .swimming {
+            if workout.discipline == .swimming
+                || engine?.currentStep?.kind.segmentDiscipline == .swimming {
                 enableWaterLockIfSupported()
             }
 
@@ -366,11 +381,10 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
     }
 
     private func refreshRecoveredStatistics() {
-        guard let builder, let workout = activeWorkout else { return }
+        guard let builder, activeWorkout != nil else { return }
 
-        if let quantity = builder.statistics(
-            for: workout.discipline.healthKitDistanceType
-        )?.sumQuantity() {
+        if let distanceType = metricDiscipline?.healthKitDistanceType,
+           let quantity = builder.statistics(for: distanceType)?.sumQuantity() {
             distanceMeters = quantity.doubleValue(for: .meter())
         }
 
@@ -388,7 +402,7 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
             averageHeartRate = heartStatistics.averageQuantity()?.doubleValue(for: unit)
         }
 
-        if let speedType = workout.discipline.healthKitSpeedType,
+        if let speedType = metricDiscipline?.healthKitSpeedType,
            let quantity = builder.statistics(for: speedType)?.mostRecentQuantity() {
             currentSpeedMetersPerSecond = quantity.doubleValue(
                 for: HKUnit.meter().unitDivided(by: .second())
@@ -468,7 +482,7 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
         configuration.activityType = workout.discipline.healthKitActivityType
 
         switch workout.discipline {
-        case .running, .cycling:
+        case .running, .cycling, .multisport:
             configuration.locationType = startConfiguration.environment == .indoor
                 ? .indoor
                 : .outdoor
@@ -503,6 +517,76 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
                 configuration.swimmingLocationType = .openWater
                 configuration.lapLength = nil
             }
+        }
+
+        return configuration
+    }
+
+    private func beginMultisportActivityIfNeeded(at date: Date) {
+        guard activeWorkout?.discipline == .multisport,
+              let step = engine?.currentStep,
+              let configuration = multisportActivityConfiguration(for: step),
+              let session else {
+            return
+        }
+
+        let key = multisportActivityKey(for: step)
+        guard activeMultisportActivityKey != key else { return }
+
+        session.beginNewActivity(
+            configuration: configuration,
+            date: date,
+            metadata: nil
+        )
+        activeMultisportActivityKey = key
+        multisportSegmentStartedAtElapsedSeconds = engine?.elapsedSeconds ?? 0
+        distanceMeters = 0
+        currentSpeedMetersPerSecond = nil
+        lastEngineDistanceMeters = 0
+        observedPoolLapCount = 0
+
+        if step.kind.segmentDiscipline == .swimming {
+            enableWaterLockIfSupported()
+        }
+    }
+
+    private func multisportActivityKey(for step: WatchExecutableWorkoutStep) -> String {
+        if step.kind.isTransition { return "transition" }
+        return step.kind.segmentDiscipline?.rawValue ?? "other"
+    }
+
+    private func multisportActivityConfiguration(
+        for step: WatchExecutableWorkoutStep
+    ) -> HKWorkoutConfiguration? {
+        let configuration = HKWorkoutConfiguration()
+
+        if step.kind.isTransition {
+            configuration.activityType = .transition
+            configuration.locationType = .outdoor
+            return configuration
+        }
+
+        guard let discipline = step.kind.segmentDiscipline else { return nil }
+        configuration.activityType = discipline.healthKitActivityType
+
+        switch discipline {
+        case .running, .cycling:
+            configuration.locationType = activeConfiguration?.environment == .indoor
+                ? .indoor
+                : .outdoor
+
+        case .swimming:
+            let pool = activeConfiguration?.environment == .pool
+            configuration.swimmingLocationType = pool ? .pool : .openWater
+            if pool {
+                configuration.lapLength = HKQuantity(
+                    unit: .meter(),
+                    doubleValue: normalizedPoolLength(activeConfiguration?.poolLengthMeters)
+                )
+            }
+
+        case .multisport:
+            return nil
         }
 
         return configuration
@@ -546,8 +630,12 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
     private func updatePoolDistanceFromLapEvents(
         _ workoutBuilder: HKLiveWorkoutBuilder
     ) {
-        guard activeWorkout?.discipline == .swimming,
-              activeConfiguration?.environment == .pool else {
+        let isPoolSwim = activeWorkout?.discipline == .swimming
+            && activeConfiguration?.environment == .pool
+        let isMultisportPoolSwim = activeWorkout?.discipline == .multisport
+            && engine?.currentStep?.kind.segmentDiscipline == .swimming
+            && activeConfiguration?.environment == .pool
+        guard isPoolSwim || isMultisportPoolSwim else {
             return
         }
 
@@ -627,6 +715,10 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
         let currentID = engine?.currentStep?.id
         guard previousID != nil, previousID != currentID else { return }
 
+        if activeWorkout?.discipline == .multisport {
+            beginMultisportActivityIfNeeded(at: .now)
+        }
+
         countdownAnnouncedStepID = nil
 
         if currentID == nil {
@@ -650,10 +742,20 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
         activeEnergyKilocalories = 0
         lastEngineDistanceMeters = 0
         observedPoolLapCount = 0
+        activeMultisportActivityKey = nil
+        multisportSegmentStartedAtElapsedSeconds = 0
+    }
+
+    private var metricDiscipline: WatchWorkoutDiscipline? {
+        guard let workout = activeWorkout else { return nil }
+        if workout.discipline == .multisport {
+            return engine?.currentStep?.kind.segmentDiscipline
+        }
+        return workout.discipline
     }
 
     private func updateStatistics(for types: Set<HKSampleType>) {
-        guard let builder, let workout = activeWorkout else { return }
+        guard let builder, activeWorkout != nil else { return }
 
         let heartRateType = HKQuantityType(.heartRate)
         if types.contains(heartRateType),
@@ -676,18 +778,24 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
             activeEnergyKilocalories = quantity.doubleValue(for: .kilocalorie())
         }
 
-        let distanceType = workout.discipline.healthKitDistanceType
-        if types.contains(distanceType),
-           let quantity = builder.statistics(for: distanceType)?.sumQuantity() {
-            distanceMeters = quantity.doubleValue(for: .meter())
+        if let discipline = metricDiscipline,
+           let distanceType = discipline.healthKitDistanceType {
+            if types.contains(distanceType),
+               let quantity = builder.statistics(for: distanceType)?.sumQuantity() {
+                distanceMeters = quantity.doubleValue(for: .meter())
+            }
+        } else {
+            distanceMeters = 0
         }
 
-        if let speedType = workout.discipline.healthKitSpeedType,
+        if let speedType = metricDiscipline?.healthKitSpeedType,
            types.contains(speedType),
            let quantity = builder.statistics(for: speedType)?.mostRecentQuantity() {
             currentSpeedMetersPerSecond = quantity.doubleValue(
                 for: HKUnit.meter().unitDivided(by: .second())
             )
+        } else if metricDiscipline == nil {
+            currentSpeedMetersPerSecond = nil
         }
     }
 
@@ -799,6 +907,7 @@ private extension WatchWorkoutDiscipline {
         case .running: .running
         case .cycling: .cycling
         case .swimming: .swimming
+        case .multisport: .swimBikeRun
         }
     }
 
@@ -808,16 +917,17 @@ private extension WatchWorkoutDiscipline {
             HKQuantityType(.runningSpeed)
         case .cycling:
             HKQuantityType(.cyclingSpeed)
-        case .swimming:
+        case .swimming, .multisport:
             nil
         }
     }
 
-    var healthKitDistanceType: HKQuantityType {
+    var healthKitDistanceType: HKQuantityType? {
         switch self {
         case .running: HKQuantityType(.distanceWalkingRunning)
         case .cycling: HKQuantityType(.distanceCycling)
         case .swimming: HKQuantityType(.distanceSwimming)
+        case .multisport: nil
         }
     }
 }

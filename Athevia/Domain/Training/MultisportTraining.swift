@@ -39,7 +39,7 @@ enum SwimFoundationState: String, Codable, Sendable {
     }
 }
 
-struct OpenWaterTrainingConsent: Equatable, Sendable {
+struct OpenWaterTrainingConsent: Codable, Equatable, Sendable {
     var explicitlyConfirmed: Bool
     var hasSafeVenue: Bool
     var hasSupervisionOrBuddy: Bool
@@ -47,6 +47,12 @@ struct OpenWaterTrainingConsent: Equatable, Sendable {
     var permitsPrescription: Bool {
         explicitlyConfirmed && hasSafeVenue && hasSupervisionOrBuddy
     }
+
+    static let unavailable = OpenWaterTrainingConsent(
+        explicitlyConfirmed: false,
+        hasSafeVenue: false,
+        hasSupervisionOrBuddy: false
+    )
 }
 
 struct BrickPrescription: Equatable, Sendable {
@@ -73,6 +79,26 @@ struct MultisportTrainingPolicy: Sendable {
         return journey.weeklyObjectives.contains { $0.kind == .brickTransition }
     }
 
+    func canScheduleRaceSimulation(
+        journey: TrainingJourney,
+        objective: TrainingObjective,
+        capability: AthleteCapabilityAssessment?,
+        nextWeekNumber: Int,
+        recoveringSports: Set<Sport> = []
+    ) -> Bool {
+        guard objective.event?.sport == .triathlon,
+              journey.phase == .specific,
+              nextWeekNumber.isMultiple(of: 2),
+              capability?.completedBrickCount ?? 0 > 0,
+              capability?.running.hasDemonstratedCapability == true,
+              capability?.cycling.hasDemonstratedCapability == true,
+              !recoveringSports.contains(.running),
+              !recoveringSports.contains(.cycling) else {
+            return false
+        }
+        return true
+    }
+
     func brick(parameters: TrainingParameters) -> BrickPrescription {
         BrickPrescription(
             bikeSeconds: min(parameters.rideWorkSeconds, 45 * 60),
@@ -84,6 +110,20 @@ struct MultisportTrainingPolicy: Sendable {
                 15 * 60
             ),
             targetIntensity: .easy
+        )
+    }
+
+    func raceSimulation(parameters: TrainingParameters) -> BrickPrescription {
+        BrickPrescription(
+            bikeSeconds: min(parameters.rideWorkSeconds, 60 * 60),
+            transitionSeconds: 5 * 60,
+            runSeconds: min(
+                parameters.runIsContinuous
+                    ? parameters.runContinuousSeconds
+                    : parameters.runIntervalSeconds * Double(max(parameters.runRepeatCount, 1)),
+                20 * 60
+            ),
+            targetIntensity: .steady
         )
     }
 
@@ -129,7 +169,7 @@ enum MultisportPrescribedSessions {
         let steps = [
             WorkoutStep(
                 order: 0,
-                kind: .warmUp,
+                kind: .cyclingSegment,
                 title: "Easy bike",
                 instructions: "Settle into a relaxed cadence.",
                 durationSeconds: parameters.rideWarmUpSeconds,
@@ -137,7 +177,7 @@ enum MultisportPrescribedSessions {
             ),
             WorkoutStep(
                 order: 1,
-                kind: .work,
+                kind: .cyclingSegment,
                 title: "Brick bike",
                 instructions: "Comfortable, controlled riding. Save the legs for the run.",
                 durationSeconds: prescription.bikeSeconds,
@@ -145,7 +185,7 @@ enum MultisportPrescribedSessions {
             ),
             WorkoutStep(
                 order: 2,
-                kind: .recovery,
+                kind: .transition,
                 title: "Transition",
                 instructions: "Dismount safely, change footwear and start the run without rushing.",
                 durationSeconds: prescription.transitionSeconds,
@@ -153,30 +193,53 @@ enum MultisportPrescribedSessions {
             ),
             WorkoutStep(
                 order: 3,
-                kind: .work,
+                kind: .runningSegment,
                 title: "Brick run",
                 instructions: "Run easy. The purpose is adapting to the bike-to-run change, not speed.",
                 durationSeconds: prescription.runSeconds,
                 targetIntensity: prescription.targetIntensity
             ),
-            WorkoutStep.cooldown(
+            WorkoutStep(
                 order: 4,
+                kind: .runningSegment,
                 title: "Easy walk",
-                durationSeconds: parameters.runCooldownSeconds
+                durationSeconds: parameters.runCooldownSeconds,
+                targetIntensity: .veryEasy
             )
         ]
 
-        // Cycling is the owning discipline so the existing execution stack can
-        // launch one deterministic sequential session. The explicit step titles
-        // preserve Bike -> Transition -> Run for phone/watch/audio.
         return PlannedWorkout(
             date: date,
-            discipline: .cycling,
+            discipline: .multisport,
             title: "Bike + Run Brick",
             goal: "Practise a calm bike-to-run transition at easy effort.",
             targetRPE: RPERange(3, 5),
             steps: steps
         )
+    }
+
+    static func raceSimulation(
+        on date: Date,
+        parameters: TrainingParameters,
+        prescription: BrickPrescription
+    ) -> PlannedWorkout {
+        let workout = brick(
+            on: date,
+            parameters: parameters,
+            prescription: prescription
+        )
+        workout.title = "Bike + Run Race Rehearsal"
+        workout.goal = "Practise event pacing, equipment and transition flow without testing maximum performance."
+        workout.targetRPE = RPERange(4, 6)
+        if let bike = workout.orderedSteps.first(where: { $0.kind == .cyclingSegment && $0.title == "Brick bike" }) {
+            bike.title = "Controlled event-effort bike"
+            bike.instructions = "Use the steady event rhythm you have practised. Keep enough in reserve for the run."
+        }
+        if let run = workout.orderedSteps.first(where: { $0.kind == .runningSegment && $0.title == "Brick run" }) {
+            run.title = "Controlled event-effort run"
+            run.instructions = "Settle quickly after transition. Keep the effort controlled; this is rehearsal, not a test."
+        }
+        return workout
     }
 
     static func tapered(
