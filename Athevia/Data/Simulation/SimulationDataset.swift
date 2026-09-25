@@ -224,8 +224,7 @@ enum SimulationDataset: String, CaseIterable, Identifiable, Sendable {
         case .noData: []
         case .experiencedRunner, .event5KDeveloping, .event5KCompleted, .progressedRunner,
              .eventTaper, .eventRaceWeek, .eventPostRace, .eventMissed, .returningRunner,
-             .firstWeekSpecificEvent, .firstWeekEventDay, .highAvailabilityBeginner,
-             .highAvailabilityExperienced: [.running]
+             .firstWeekSpecificEvent, .firstWeekEventDay: [.running]
         case .powerCyclist, .missingPower: [.cycling]
         case .poolMismatchBeginner: [.swimming]
         case .beginnerFirstWeek, .sparseHistory: [.running, .swimming]
