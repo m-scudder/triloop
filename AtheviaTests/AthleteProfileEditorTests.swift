@@ -42,7 +42,7 @@ struct AthleteProfileEditorTests {
 
     @Test("The training goal reaches the plan")
     func goalIsTrainingImpacting() {
-        #expect(impact { $0.goal = .generalFitness }.reasons == [.goal])
+        #expect(impact { $0.objective = TrainingObjective(kind: .generalFitness) }.reasons == [.goal])
     }
 
     @Test("Each sport baseline is reported separately")
@@ -99,7 +99,7 @@ struct AthleteProfileEditorTests {
     @Test("Several edits at once are all reported")
     func multipleReasons() {
         let result = impact { current in
-            current.goal = .generalFitness
+            current.objective = TrainingObjective(kind: .generalFitness)
             current.baseline.running = .regular5K
         }
 
