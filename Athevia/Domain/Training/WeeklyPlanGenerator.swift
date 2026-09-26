@@ -330,12 +330,28 @@ struct WeeklyPlanGenerator: Sendable {
         schedule.availableDays.compactMap(\.maxDurationMinutes).max()
     }
 
+    private func planSafeCyclingBaseline(
+        from analysis: SportAnalysis,
+        fallback: TimeInterval
+    ) -> TimeInterval {
+        _ = analysis
+        return max(fallback, TrainingParameters.Limits.minimumRideWorkSeconds)
+    }
+
     private func reason(from analysis: WeeklyAnalysis, parameters: TrainingParameters) -> String {
-        let analysisReason = analysis.sports.isEmpty
+        var analysisReason = analysis.sports.isEmpty
             ? "Repeat of the previous week."
             : analysis.sports
                 .map { "\($0.sport.displayName): \($0.status.displayName.lowercased()) — \($0.adjustment.summary.lowercased())." }
                 .joined(separator: " ")
+
+        if let capability,
+           let cycling = analysis.analysis(for: .cycling),
+           cycling.status == .progress,
+           parameters.rideWorkSeconds > planSafeCyclingBaseline(from: cycling, fallback: parameters.rideWorkSeconds - 5 * 60),
+           capability.recentCompletedSessions >= 6 {
+            analysisReason += " Cycling also advanced from your recent completed-ride evidence, not only the last ride."
+        }
 
         guard let availableMinutes = schedule.availableDays.compactMap(\.maxDurationMinutes).max() else {
             return analysisReason
