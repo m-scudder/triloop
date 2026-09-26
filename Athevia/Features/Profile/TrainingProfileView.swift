@@ -108,6 +108,7 @@ struct TrainingProfileView: View {
                     } label: {
                         WeeklyHistoryRow(plan: plan)
                     }
+                    .accessibilityIdentifier("history.week.\(plan.weekNumber)")
                 }
 
                 if historyPlans.count > 3 {
@@ -872,6 +873,7 @@ private struct WeeklyHistoryListView: View {
             } label: {
                 WeeklyHistoryRow(plan: plan)
             }
+            .accessibilityIdentifier("history.week.\(plan.weekNumber)")
         }
         .navigationTitle("Workout History")
         .navigationBarTitleDisplayMode(.inline)
