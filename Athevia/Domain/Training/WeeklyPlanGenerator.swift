@@ -330,14 +330,6 @@ struct WeeklyPlanGenerator: Sendable {
         schedule.availableDays.compactMap(\.maxDurationMinutes).max()
     }
 
-    private func planSafeCyclingBaseline(
-        from analysis: SportAnalysis,
-        fallback: TimeInterval
-    ) -> TimeInterval {
-        _ = analysis
-        return max(fallback, TrainingParameters.Limits.minimumRideWorkSeconds)
-    }
-
     private func reason(from analysis: WeeklyAnalysis, parameters: TrainingParameters) -> String {
         var analysisReason = analysis.sports.isEmpty
             ? "Repeat of the previous week."
@@ -348,8 +340,9 @@ struct WeeklyPlanGenerator: Sendable {
         if let capability,
            let cycling = analysis.analysis(for: .cycling),
            cycling.status == .progress,
-           parameters.rideWorkSeconds > planSafeCyclingBaseline(from: cycling, fallback: parameters.rideWorkSeconds - 5 * 60),
-           capability.recentCompletedSessions >= 6 {
+           capability.recentCompletedSessions >= 6,
+           capability.cycling.bestRecentDurationSeconds > 0,
+           parameters.rideWorkSeconds >= capability.cycling.prescribedWorkSeconds + 10 * 60 {
             analysisReason += " Cycling also advanced from your recent completed-ride evidence, not only the last ride."
         }
 
