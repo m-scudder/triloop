@@ -287,14 +287,14 @@ struct FinalPhaseCorrectnessTests {
         let brickMetrics = RecordedMetrics(
             multisportSegments: [
                 .init(sport: .cycling, durationSeconds: 45 * 60, distanceMeters: 20_000),
-                .init(sport: nil, isTransition: true, durationSeconds: 180),
+                .init(sport: nil, isChange from bike to run: true, durationSeconds: 180),
                 .init(sport: .running, durationSeconds: 18 * 60, distanceMeters: 3_000)
             ]
         )
         let brick = completed(
             sport: .multisport,
             on: day(-2),
-            title: "Bike + Run Brick",
+            title: "Bike, Then Run",
             summary: summary(
                 sport: .cycling,
                 on: day(-2),
@@ -404,13 +404,13 @@ struct FinalPhaseCorrectnessTests {
         )
         let metrics = RecordedMetrics(multisportSegments: [
             .init(sport: .cycling, durationSeconds: 40 * 60, distanceMeters: 18_000),
-            .init(sport: nil, isTransition: true, durationSeconds: 180),
+            .init(sport: nil, isChange from bike to run: true, durationSeconds: 180),
             .init(sport: .running, durationSeconds: 25 * 60, distanceMeters: 5_000)
         ])
         let brick = completed(
             sport: .multisport,
             on: day(-1),
-            title: "Bike + Run Brick",
+            title: "Bike, Then Run",
             summary: summary(
                 sport: .cycling,
                 on: day(-1),
@@ -565,7 +565,7 @@ struct FinalPhaseCorrectnessTests {
                 weeksRemaining: phase == .raceWeek ? 1 : 5,
                 readiness: .init(status: .building, sports: []),
                 weeklyObjectives: phase == .specific
-                    ? [.init(sport: nil, kind: .brickTransition, priority: 1, reason: .brickPreparation)]
+                    ? [.init(sport: nil, kind: .brickChange from bike to run, priority: 1, reason: .brickPreparation)]
                     : [],
                 sportPriorities: [
                     .init(sport: .swimming, rank: 1, reason: "Test"),
@@ -614,25 +614,25 @@ struct FinalPhaseCorrectnessTests {
 
             switch phase {
             case .foundation:
-                #expect(run.title == "Easy Continuous Run")
+                #expect(run.title == "Comfortable Run")
                 #expect(swim.title == "Endurance Swim")
-                #expect(cycle.title == "Easy Ride")
+                #expect(cycle.title == "Comfortable Bike Ride")
             case .build:
                 #expect(run.title == "Easy Run")
                 #expect(swim.title == "Endurance Swim")
-                #expect(cycle.title == "Easy Ride")
+                #expect(cycle.title == "Comfortable Bike Ride")
             case .specific:
                 #expect(run.title == "Race-Specific Steady Run")
-                #expect(swim.title == "Race-Distance Preparation")
+                #expect(swim.title == "Practice for Your Event Swim")
                 #expect(cycle.title == "Race-Specific Steady Ride")
             case .taper:
                 #expect(run.title == "Easy Run")
-                #expect(swim.title == "Easy Technique Swim")
-                #expect(cycle.title == "Easy Ride")
+                #expect(swim.title == "Easy Swimming Practice")
+                #expect(cycle.title == "Comfortable Bike Ride")
             case .raceWeek:
-                #expect(run.title == "Race-Week Easy Run")
-                #expect(swim.title == "Race-Week Easy Swim")
-                #expect(cycle.title == "Race-Week Easy Ride")
+                #expect(run.title == "Short Easy Run Before Your Event")
+                #expect(swim.title == "Short Easy Swim Before Your Event")
+                #expect(cycle.title == "Race-Week Comfortable Bike Ride")
             case .recovery:
                 break
             }
