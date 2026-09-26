@@ -117,9 +117,9 @@ struct FirstWeekBuilder: Sendable {
             }
 
             // Days already gone by the time setup finished are rest, not a
-            // session the athlete silently failed to do. Every remaining day
-            // the athlete marked available receives either training or a
-            // recovery session.
+            // session the athlete silently failed to do. An available day that
+            // does not need training is also rest; Recovery is prescribed only
+            // when the training model has an actual recovery reason.
             if weekday < firstWeekday {
                 workouts.append(PrescribedSessions.restDay(on: date))
                 continue
@@ -127,11 +127,7 @@ struct FirstWeekBuilder: Sendable {
 
             let discipline = shape.disciplines[weekday.offsetFromMonday]
             guard let sport = discipline.sport else {
-                workouts.append(
-                    available.isAvailable(on: weekday)
-                        ? PrescribedSessions.recoveryDay(on: date)
-                        : PrescribedSessions.restDay(on: date)
-                )
+                workouts.append(PrescribedSessions.restDay(on: date))
                 continue
             }
 
