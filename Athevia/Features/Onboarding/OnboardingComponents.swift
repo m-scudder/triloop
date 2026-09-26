@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// A single selectable answer.
 ///
@@ -105,6 +106,17 @@ struct OnboardingStep<Content: View>: View {
             .padding(.top, 8)
             .padding(.bottom, 24)
         }
+        .scrollDismissesKeyboard(.interactively)
+        .simultaneousGesture(
+            TapGesture().onEnded {
+                UIApplication.shared.sendAction(
+                    #selector(UIResponder.resignFirstResponder),
+                    to: nil,
+                    from: nil,
+                    for: nil
+                )
+            }
+        )
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: 10) {
                 Button(primaryTitle, action: primary)
