@@ -222,15 +222,15 @@ struct WorkoutDayDetail: View {
     private var plannedWorkoutSection: some View {
         if workout.isCompleted {
             DisclosureCard(
-                workout.orderedSteps.isEmpty ? "Rest day" : "Planned workout",
+                workout.discipline == .rest ? "Rest day" : "Planned workout",
                 subtitle: WorkoutStructureSummary.text(for: workout) ?? WorkoutSummaryText.make(for: workout),
-                systemImage: workout.orderedSteps.isEmpty ? "moon.zzz" : "list.bullet"
+                systemImage: workout.discipline == .rest ? "moon.zzz" : "list.bullet"
             ) {
                 prescriptionContent
             }
         } else {
             VStack(alignment: .leading, spacing: 16) {
-                SectionEyebrow(text: workout.orderedSteps.isEmpty ? "Rest day" : "Planned workout")
+                SectionEyebrow(text: workout.discipline == .rest ? "Rest day" : "Planned workout")
                 prescriptionContent
             }
         }
@@ -253,8 +253,8 @@ struct WorkoutDayDetail: View {
 
             availabilityExplanation
 
-            if workout.orderedSteps.isEmpty {
-                Text("No session today. Rest is part of the plan.")
+            if workout.discipline == .rest {
+                Text("No workout to complete today.")
                     .font(.body)
                     .foregroundStyle(.secondary)
             } else {
