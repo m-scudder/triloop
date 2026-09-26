@@ -37,6 +37,25 @@ struct FirstWeekBuilderTests {
         )
     }
 
+    @Test("Recovery counts as a planned workout while rest does not")
+    func recoveryAndRestHaveDifferentCompletionSemantics() {
+        let date = monday()
+        let run = PlannedWorkout(date: date, discipline: .running, title: "Run")
+        let recovery = PrescribedSessions.recoveryDay(on: date.addingTimeInterval(24 * 60 * 60))
+        let rest = PrescribedSessions.restDay(on: date.addingTimeInterval(2 * 24 * 60 * 60))
+        let plan = WeeklyPlan(
+            weekNumber: 1,
+            startDate: date,
+            endDate: date.addingTimeInterval(6 * 24 * 60 * 60),
+            workouts: [run, recovery, rest]
+        )
+
+        #expect(plan.prescribedWorkouts.count == 2)
+        #expect(plan.prescribedTrainingSessions.count == 1)
+        #expect(recovery.acceptsFeedback)
+        #expect(rest.acceptsFeedback == false)
+    }
+
     @Test("The first week is built from the assessment, not a seed")
     func firstWeekComesFromTheAssessment() throws {
         let plan = try builder.build(setup: setup(), poolLengthMeters: 25, startDate: monday())
