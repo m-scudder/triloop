@@ -10,8 +10,8 @@ struct WeeklyPlanGenerator: Sendable {
     /// have to describe a schedule.
     var schedule: AthleteSchedule = .everyDay()
     /// Which sports the athlete selected. Availability is the scheduling
-    /// ceiling; current capability decides how many of those days should carry
-    /// training, and unused available days become recovery.
+    /// ceiling. Current capability and sport-specific safety decide how many
+    /// days carry training; unused availability is rest, never fake recovery.
     var preferences: [SportPreference] = []
     var planner: WeekShapePlanner = WeekShapePlanner()
     /// Optional event journey context supplied by PlanStore. Safety analysis
@@ -92,17 +92,20 @@ struct WeeklyPlanGenerator: Sendable {
             durations: durations(from: parameters)
         )
 
-        // Every day the athlete marked available remains a planned day. Any
-        // available slot not occupied by a sport becomes recovery.
-        let recoveryDays: Set<Int> = Set(
-            Weekday.trainingWeek.enumerated().compactMap { offset, weekday in
-                guard schedule.isAvailable(on: weekday),
-                      !shape.disciplines[offset].isTrainingSession else {
-                    return nil
+        // Recovery is intentional: only a sport explicitly held back by the
+        // previous week's safety analysis creates recovery days. Ordinary
+        // unused availability remains rest.
+        let recoveryDays: Set<Int> = recovering.isEmpty
+            ? []
+            : Set(
+                Weekday.trainingWeek.enumerated().compactMap { offset, weekday in
+                    guard schedule.isAvailable(on: weekday),
+                          !shape.disciplines[offset].isTrainingSession else {
+                        return nil
+                    }
+                    return offset
                 }
-                return offset
-            }
-        )
+            )
 
         if let journey, journey.eventResolutionRequired || journey.requiresNextObjective {
             let workouts = Weekday.trainingWeek.enumerated().map { offset, weekday in
