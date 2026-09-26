@@ -267,10 +267,10 @@ struct WeeklyPlanGenerator: Sendable {
         }
     }
 
-    /// New onboarding stores one daily limit. The minimum also gives a safe
-    /// interpretation to older profiles that still have mixed per-day limits.
+    /// New onboarding stores one daily limit. For older profiles with mixed per-day limits, use the largest window here;
+    /// placement still validates every individual day's limit.
     private func trainingMinuteCap(in schedule: AthleteSchedule) -> Int? {
-        schedule.availableDays.compactMap(\.maxDurationMinutes).min()
+        schedule.availableDays.compactMap(\.maxDurationMinutes).max()
     }
 
     private func reason(from analysis: WeeklyAnalysis) -> String {
