@@ -37,9 +37,14 @@ struct PrimaryActionButtonStyle: ButtonStyle {
             .font(.subheadline.weight(.semibold))
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
-            .background(theme.color(.accent, classic: Color.actionSurface), in: .rect(cornerRadius: 12))
+            .background {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(theme.color(.accent, classic: Color.actionSurface))
+                    // Shadow the surface only, never the label's glyphs.
+                    .shadow(color: theme.isGaming ? theme.palette.color(.onAccent).opacity(0.65) : .clear,
+                            radius: 0, y: configuration.isPressed ? 0 : 3)
+            }
             .foregroundStyle(theme.color(.onAccent, classic: Color.onActionSurface))
-            .shadow(color: theme.isGaming ? GamingPalette.color(.onAccent).opacity(0.65) : .clear, radius: 0, y: configuration.isPressed ? 0 : 3)
             .opacity(opacity(pressed: configuration.isPressed))
     }
 

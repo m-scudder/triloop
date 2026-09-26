@@ -2,39 +2,95 @@ import Foundation
 import SwiftUI
 
 /// Presentation only. Never use a theme value when making training decisions.
-enum AtheviaTheme: String, CaseIterable, Sendable {
-    case classic
-    case gaming
+struct AtheviaTheme: Equatable, Sendable {
+    let isGaming: Bool
+    let palette: GamingPalette
+    static let classic = Self(gamingEnabled: false)
+    static let gaming = Self(gamingEnabled: true)
 
     static let preferenceKey = "athevia.gamingThemeEnabled.v1"
 
-    init(gamingEnabled: Bool) {
-        self = gamingEnabled ? .gaming : .classic
+    init(gamingEnabled: Bool, palette: GamingPalette = .neon) {
+        isGaming = gamingEnabled
+        self.palette = palette
     }
 
     static func stored(in defaults: UserDefaults = .standard) -> Self {
         let enabled = defaults.object(forKey: preferenceKey) as? Bool
-        return Self(gamingEnabled: enabled ?? false)
+        return Self(gamingEnabled: enabled ?? false, palette: GamingPalette.stored(in: defaults))
     }
 
-    var isGaming: Bool { self == .gaming }
-
     func color(_ role: GamingPalette.Role, classic: Color) -> Color {
-        isGaming ? GamingPalette.color(role) : classic
+        isGaming ? palette.color(role) : classic
     }
 }
 
 /// Edit ONLY this palette to change Gaming colours across iPhone, Watch and
 /// Live Activities. Classic colours remain at their original call sites.
-enum GamingPalette {
-    enum Role: CaseIterable, Equatable, Sendable {
+enum GamingPalette: String, CaseIterable, Identifiable, Sendable {
+    case neon, ocean, ember, aurora
+
+    static let preferenceKey = "athevia.gamingPalette.v1"
+    var id: String { rawValue }
+    static func resolve(_ rawValue: String?) -> Self {
+        rawValue.flatMap(Self.init(rawValue:)) ?? .neon
+    }
+    static func stored(in defaults: UserDefaults = .standard) -> Self {
+        resolve(defaults.string(forKey: preferenceKey))
+    }
+    var name: String {
+        switch self {
+        case .neon: "Neon Arcade"
+        case .ocean: "Ocean Quest"
+        case .ember: "Ember Arena"
+        case .aurora: "Aurora Night"
+        }
+    }
+    var summary: String {
+        switch self {
+        case .neon: "Violet · Lime · Cyan"
+        case .ocean: "Navy · Aqua · Gold"
+        case .ember: "Burgundy · Peach · Gold"
+        case .aurora: "Forest · Mint · Lavender"
+        }
+    }
+
+    enum Role: CaseIterable, Hashable, Sendable {
         case canvas, surface, raisedSurface, border, hero, heroEnd
         case text, secondaryText, accent, onAccent, highlight, achievement
         case running, swimming, cycling, multisport, recovery, rest
         case danger, warning, success
     }
 
-    static func hex(_ role: Role) -> UInt32 {
+    func hex(_ role: Role) -> UInt32 {
+        // All preset values live here; sport and status colours stay consistent.
+        let surfaces: [UInt32]
+        switch self {
+        case .neon: surfaces = [0x160A2D, 0x281245, 0x43216D, 0x8952B6, 0x6B21B0, 0x3B176C, 0xC4FF47, 0x182A04, 0x4FE5FF]
+        case .ocean: surfaces = [0x071726, 0x102C42, 0x1B4058, 0x437C96, 0x125477, 0x102C42, 0x65F4E0, 0x042E2A, 0xFFD568]
+        case .ember: surfaces = [0x210D19, 0x361827, 0x512636, 0xA75E73, 0x762B43, 0x361827, 0xFFBA87, 0x361507, 0xFFD568]
+        case .aurora: surfaces = [0x091D1C, 0x14312E, 0x23453E, 0x50897A, 0x24574F, 0x14312E, 0x9FF5B6, 0x0A301B, 0xD7B5FF]
+        }
+        switch role {
+        case .canvas: return surfaces[0]
+        case .surface: return surfaces[1]
+        case .raisedSurface: return surfaces[2]
+        case .border: return surfaces[3]
+        case .hero: return surfaces[4]
+        case .heroEnd: return surfaces[5]
+        case .accent: return surfaces[6]
+        case .onAccent: return surfaces[7]
+        case .highlight: return surfaces[8]
+        default: break
+        }
+        return Self.baseHex(role)
+    }
+
+    // Default-palette helpers retained for callers that explicitly need Neon.
+    static func hex(_ role: Role) -> UInt32 { neon.hex(role) }
+    static func color(_ role: Role) -> Color { neon.color(role) }
+
+    private static func baseHex(_ role: Role) -> UInt32 {
         switch role {
         case .canvas: 0x160A2D
         case .surface: 0x281245
@@ -60,7 +116,7 @@ enum GamingPalette {
         }
     }
 
-    static func color(_ role: Role) -> Color {
+    func color(_ role: Role) -> Color {
         let value = hex(role)
         return Color(
             .sRGB,
@@ -71,11 +127,11 @@ enum GamingPalette {
         )
     }
 
-    static let heroGradient = LinearGradient(
+    var heroGradient: LinearGradient { LinearGradient(
         colors: [color(.hero), color(.heroEnd)],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
-    )
+    ) }
 }
 
 private struct AtheviaThemeKey: EnvironmentKey {
@@ -102,8 +158,8 @@ struct AtheviaAdaptiveStyle<Classic: ShapeStyle>: ShapeStyle {
 
     func resolve(in environment: EnvironmentValues) -> AnyShapeStyle {
         guard environment.atheviaTheme.isGaming else { return AnyShapeStyle(classic) }
-        if gaming == .hero { return AnyShapeStyle(GamingPalette.heroGradient) }
-        return AnyShapeStyle(GamingPalette.color(gaming))
+        if gaming == .hero { return AnyShapeStyle(environment.atheviaTheme.palette.heroGradient) }
+        return AnyShapeStyle(environment.atheviaTheme.palette.color(gaming))
     }
 }
 
@@ -123,7 +179,7 @@ struct AtheviaThemeRoot: ViewModifier {
                 theme.color(.text, classic: .primary),
                 theme.color(.secondaryText, classic: .secondary)
             )
-            .background(theme.isGaming ? GamingPalette.color(.canvas) : Color.clear)
+            .background(theme.isGaming ? theme.palette.color(.canvas) : Color.clear)
     }
 }
 
@@ -136,7 +192,7 @@ private struct AtheviaScreenSurface: ViewModifier {
                 // Decoration only: never adds hit targets or replaces content.
                 LinearGradient(
                     colors: theme.isGaming
-                        ? [GamingPalette.color(.heroEnd), GamingPalette.color(.canvas)]
+                        ? [theme.palette.color(.heroEnd), theme.palette.color(.canvas)]
                         : [Color.clear, Color.clear],
                     startPoint: .topTrailing,
                     endPoint: .bottomLeading
@@ -174,7 +230,7 @@ private struct AtheviaListRowSurface: ViewModifier {
     @Environment(\.atheviaTheme) private var theme
 
     func body(content: Content) -> some View {
-        content.listRowBackground(theme.isGaming ? GamingPalette.color(.surface) : nil)
+        content.listRowBackground(theme.isGaming ? theme.palette.color(.surface) : nil)
     }
 }
 

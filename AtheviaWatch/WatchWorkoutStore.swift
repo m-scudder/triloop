@@ -80,6 +80,7 @@ final class WatchWorkoutStore: NSObject, ObservableObject {
             return
         }
 
+        UserDefaults.standard.set(GamingPalette.resolve(decoded.gamingPalette).rawValue, forKey: GamingPalette.preferenceKey)
         payload = decoded
         UserDefaults.standard.set(decoded.gamingThemeEnabled ?? false, forKey: AtheviaTheme.preferenceKey)
 

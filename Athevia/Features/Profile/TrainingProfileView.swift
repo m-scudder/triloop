@@ -913,8 +913,8 @@ private struct WeeklyHistoryListView: View {
     let plans: [WeeklyPlan]
 
     var body: some View {
-        List(plans) {
-            Group { plan in
+        List(plans) { plan in
+            Group {
             NavigationLink {
                 WeekReviewView(plan: plan)
             } label: {

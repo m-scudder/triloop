@@ -33,3 +33,13 @@ Xcode and Apple SDKs are unavailable in that environment. **Builds, unit tests, 
 - Existing workout execution and Watch transfer tests.
 
 Manually review onboarding, Home, Plan, Progress, Settings and their details/sheets in both modes; Classic in light and dark system appearance; large text and VoiceOver; feedback selected chips; a running/paused workout; locked-screen Live Activity; and a paired Watch reconnecting after being offline. Confirm elapsed time, drafts, selections and navigation are preserved. OS-owned presentation surfaces are outside the custom theme.
+
+## Palette presets and crisp CTA labels
+
+Settings → Appearance now offers Neon Arcade, Ocean Quest, Ember Arena and Aurora Night when Gaming is enabled. Each option shows colour swatches; the selected palette has a sample CTA preview. Selection applies immediately and persists under `athevia.gamingPalette.v1`. Turning Gaming off retains the selected palette for next time.
+
+Preset values are centralized in `GamingPalette.hex(_:)` in `AtheviaTheme/AtheviaTheme.swift`; common sport/status roles retain their meanings. The selected palette travels through the environment, Watch payload and Live Activity state. Missing or unknown IDs fall back to Neon for backward compatibility.
+
+Primary CTA shadows are applied only to the rounded background shape, keeping label glyphs out of the hard shadow. The existing training controls and Classic appearance are preserved. The previously reported WeeklyHistoryListView closure error is also corrected.
+
+Validation: contrast calculated for every preset; source syntax checked against the prior snapshot. Expanded unit/UI tests cover palette persistence, unknown/legacy payloads, all preset selections and relaunch. Xcode builds, test execution and device visual confirmation still require macOS.

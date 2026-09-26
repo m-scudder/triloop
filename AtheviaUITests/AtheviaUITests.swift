@@ -258,6 +258,14 @@ final class AtheviaUITests: XCTestCase {
         if toggle.value as? String == "1" { toggle.tap() }
         toggle.tap()
         XCTAssertEqual(toggle.value as? String, "1")
+        for id in ["neon", "ember", "aurora", "ocean"] {
+            let option = app.buttons["settings.palette.\(id)"]
+            reveal(option, in: app)
+            XCTAssertTrue(option.waitForExistence(timeout: 5))
+            option.tap()
+            XCTAssertEqual(option.value as? String, "Selected")
+            attachScreenshot(app, name: "Gaming palette \(id)")
+        }
         attachScreenshot(app, name: "Gaming Settings")
         for title in ["Home", "Plan", "Progress"] {
             let tab = app.tabBars.buttons[title]
@@ -271,6 +279,13 @@ final class AtheviaUITests: XCTestCase {
         settings.tap()
         reveal(toggle, in: app)
         XCTAssertEqual(toggle.value as? String, "1")
+        let savedPalette = app.buttons["settings.palette.ocean"]
+        reveal(savedPalette, in: app)
+        XCTAssertEqual(savedPalette.value as? String, "Selected")
+        let originalPalette = app.buttons["settings.palette.neon"]
+        reveal(originalPalette, in: app)
+        originalPalette.tap()
+        reveal(toggle, in: app)
         toggle.tap()
         XCTAssertEqual(toggle.value as? String, "0")
         attachScreenshot(app, name: "Classic restored")

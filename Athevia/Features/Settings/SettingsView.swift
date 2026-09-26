@@ -33,6 +33,7 @@ struct SettingsView: View {
     @AppStorage("automaticallyScheduleWorkouts") private var automaticallySchedule = true
     @AppStorage("automaticallyImportWorkouts") private var automaticallyImport = true
     @AppStorage(AtheviaTheme.preferenceKey) private var gamingThemeEnabled = false
+    @AppStorage(GamingPalette.preferenceKey) private var gamingPalette = GamingPalette.neon.rawValue
     @AppStorage(TrainingNotificationPreferences.enabledKey) private var notificationsEnabled = false
 
     private let scheduler = WorkoutKitScheduler()
@@ -175,12 +176,78 @@ struct SettingsView: View {
             }
             .accessibilityIdentifier("settings.gamingTheme")
             .accessibilityHint("Changes appearance only. Your training and workouts stay the same.")
+            if gamingThemeEnabled {
+                ForEach(GamingPalette.allCases) { palette in
+                    paletteOption(palette)
+                }
+                palettePreview
+            }
         } header: {
             Text("Appearance")
         } footer: {
             Text(gamingThemeEnabled ? "Gaming appearance. Your training is unchanged." : "Classic appearance.")
                 .accessibilityIdentifier("settings.themeDescription")
         }
+    }
+
+    private func paletteOption(_ palette: GamingPalette) -> some View {
+        let selected = GamingPalette.resolve(gamingPalette) == palette
+        return Button {
+            gamingPalette = palette.rawValue
+        } label: {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text(palette.name)
+                        .font(.subheadline.weight(.semibold))
+                    Spacer()
+                    Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                        .foregroundStyle(theme.color(.accent, classic: .primary))
+                }
+                HStack(spacing: 8) {
+                    ForEach([GamingPalette.Role.surface, .hero, .accent, .highlight], id: \.self) { role in
+                        Circle()
+                            .fill(palette.color(role))
+                            .frame(width: 22, height: 22)
+                            .overlay(Circle().strokeBorder(.white.opacity(0.4), lineWidth: 1))
+                    }
+                    Text(palette.summary)
+                        .font(.caption)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+                }
+            }
+            .padding(.vertical, 6)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(palette.name)
+        .accessibilityValue(selected ? "Selected" : "Not selected")
+        .accessibilityHint(palette.summary + ". Applies immediately.")
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityIdentifier("settings.palette.\(palette.rawValue)")
+    }
+
+    private var palettePreview: some View {
+        let palette = GamingPalette.resolve(gamingPalette)
+        return VStack(alignment: .leading, spacing: 12) {
+            Label("Theme preview", systemImage: "sparkles")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(palette.color(.highlight))
+            Text("Ready for your next workout?")
+                .font(.headline)
+                .foregroundStyle(palette.color(.text))
+            Button("Start workout") { }
+                .buttonStyle(PrimaryActionButtonStyle())
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+            Text("Sample button · Preview only")
+                .font(.caption)
+                .foregroundStyle(palette.color(.secondaryText))
+        }
+        .padding(16)
+        .background(palette.heroGradient, in: RoundedRectangle(cornerRadius: 16))
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("settings.palettePreview")
     }
 
     @ViewBuilder

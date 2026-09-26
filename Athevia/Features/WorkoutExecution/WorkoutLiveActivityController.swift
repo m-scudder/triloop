@@ -12,6 +12,7 @@ struct WorkoutActivityAttributes: ActivityAttributes {
         var timerEndsAt: Date?
         var frozenSeconds: TimeInterval
         var gamingThemeEnabled: Bool? = nil
+        var gamingPalette: String? = nil
     }
 
     var workoutTitle: String
@@ -29,6 +30,7 @@ final class WorkoutLiveActivityController {
     private static func themed(_ state: WorkoutActivityAttributes.ContentState) -> WorkoutActivityAttributes.ContentState {
         var copy = state
         copy.gamingThemeEnabled = AtheviaTheme.stored().isGaming
+        copy.gamingPalette = GamingPalette.stored().rawValue
         return copy
     }
 

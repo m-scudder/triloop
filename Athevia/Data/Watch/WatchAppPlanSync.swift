@@ -29,7 +29,8 @@ enum WatchAppPlanSync {
             String(coaching.enabled),
             String(coaching.countdowns),
             String(coaching.volume),
-            String(AtheviaTheme.stored().isGaming)
+            String(AtheviaTheme.stored().isGaming),
+            GamingPalette.stored().rawValue
         ].joined(separator: ":")
 
         guard let plan else { return "no-current-plan|" + coachingFingerprint }
@@ -45,7 +46,8 @@ enum WatchAppPlanSync {
                 weekStart: nil,
                 workouts: [],
                 coaching: coachingSettings,
-                gamingThemeEnabled: AtheviaTheme.stored().isGaming
+                gamingThemeEnabled: AtheviaTheme.stored().isGaming,
+                gamingPalette: GamingPalette.stored().rawValue
             )
         }
 
@@ -57,7 +59,8 @@ enum WatchAppPlanSync {
             weekStart: plan.startDate,
             workouts: workouts,
             coaching: coachingSettings,
-            gamingThemeEnabled: AtheviaTheme.stored().isGaming
+            gamingThemeEnabled: AtheviaTheme.stored().isGaming,
+            gamingPalette: GamingPalette.stored().rawValue
         )
     }
 

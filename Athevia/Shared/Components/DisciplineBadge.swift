@@ -19,7 +19,7 @@ extension Discipline {
     func themedGradient(_ theme: AtheviaTheme) -> LinearGradient {
         guard theme.isGaming else { return gradient }
         return LinearGradient(
-            colors: [GamingPalette.color(.hero), GamingPalette.color(.heroEnd)],
+            colors: [theme.palette.color(.hero), theme.palette.color(.heroEnd)],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
