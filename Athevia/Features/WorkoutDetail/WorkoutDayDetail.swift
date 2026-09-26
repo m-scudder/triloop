@@ -251,12 +251,34 @@ struct WorkoutDayDetail: View {
                     .foregroundStyle(.secondary)
             }
 
+            availabilityExplanation
+
             if workout.orderedSteps.isEmpty {
                 Text("No session today. Rest is part of the plan.")
                     .font(.body)
                     .foregroundStyle(.secondary)
             } else {
                 WorkoutPrescriptionView(workout: workout)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var availabilityExplanation: some View {
+        if workout.discipline.isTrainingSession,
+           let setup = profiles.first?.setup,
+           let weekday = Weekday(date: workout.date),
+           let availableMinutes = setup.schedule.availability(on: weekday).maxDurationMinutes,
+           let plannedSeconds = workout.estimatedDurationSeconds {
+            let plannedMinutes = Int((plannedSeconds / 60).rounded())
+            if plannedMinutes < availableMinutes {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("\(plannedMinutes) min planned · up to \(availableMinutes) min available")
+                        .font(.caption.weight(.semibold))
+                    Text("Why shorter? This session is intentionally sized for your current capability and training stage. Your availability is a maximum, not a target Athevia has to fill.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
     }
