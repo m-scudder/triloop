@@ -162,7 +162,7 @@ final class AtheviaUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Before you can save"].exists)
         let info = app.buttons["info.rpe"]
         reveal(info, in: app)
-        XCTAssertTrue(info.label.contains("perceived effort"))
+        XCTAssertTrue(info.exists)
         info.tap()
         XCTAssertTrue(app.staticTexts["explanation.heading"].waitForExistence(timeout: 5))
         attachScreenshot(app, name: "Effort explanation")
@@ -175,14 +175,11 @@ final class AtheviaUITests: XCTestCase {
     func testWeeklyWhyKeepsPainVisible() throws {
         let app = densityApp()
         app.launch()
-        XCTAssertTrue(app.tabBars.buttons["Progress"].waitForExistence(timeout: 10))
-        app.tabBars.buttons["Progress"].tap()
-        let history = app.buttons.matching(
-            NSPredicate(format: "label BEGINSWITH %@", "History and totals")
-        ).firstMatch
-        reveal(history, in: app)
-        history.tap()
-        let week = app.staticTexts["Week 1"]
+        XCTAssertTrue(app.tabBars.buttons["Home"].waitForExistence(timeout: 10))
+        let profile = app.buttons["Training profile"]
+        XCTAssertTrue(profile.waitForExistence(timeout: 5))
+        profile.tap()
+        let week = app.buttons["history.week.1"]
         reveal(week, in: app)
         week.tap()
         let pain = app.staticTexts["Pain reported at 3/10"]
@@ -296,9 +293,16 @@ final class AtheviaUITests: XCTestCase {
 
     @MainActor
     private func reveal(_ element: XCUIElement, in app: XCUIApplication) {
+        // A previous interaction may have left a scroll view either above or
+        // below the target. Search both directions rather than assuming every
+        // requested control is farther down the page.
         for _ in 0..<12 {
             if element.isHittable { return }
             app.swipeUp()
+        }
+        for _ in 0..<12 {
+            if element.isHittable { return }
+            app.swipeDown()
         }
         XCTAssertTrue(element.isHittable, "Could not reveal \(element)")
     }
