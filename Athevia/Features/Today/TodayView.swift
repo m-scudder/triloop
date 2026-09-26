@@ -414,6 +414,9 @@ struct TodayView: View {
         await syncWatchState()
 
         if automaticallySchedule, let plan = plans.currentPlan() {
+            // Watch scheduling remains for executable sport sessions only.
+            // Recovery is completed on the phone because its walk + mobility
+            // prescription is not a single WorkoutKit activity.
             await WatchScheduleSync.sync(plan, scheduler: scheduler)
             await syncWatchState()
         }
@@ -432,6 +435,10 @@ struct TodayView: View {
     }
 
     private func send(_ workout: PlannedWorkout) {
+        guard workout.discipline.isTrainingSession else {
+            scheduleMessage = "Recovery workouts are completed on iPhone."
+            return
+        }
         isScheduling = true
         Task {
             defer { isScheduling = false }
