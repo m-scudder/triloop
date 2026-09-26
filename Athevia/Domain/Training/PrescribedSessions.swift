@@ -61,7 +61,7 @@ enum PrescribedSessions {
             date: date,
             discipline: .running,
             title: "Running",
-            goal: goal ?? "Hold one steady, conversational effort the whole way.",
+            goal: goal ?? "Run continuously at a comfortable pace. You should be able to speak in short sentences.",
             targetRPE: RPERange(3, 4),
             steps: steps
         )
@@ -103,7 +103,7 @@ enum PrescribedSessions {
             date: date,
             discipline: .running,
             title: "Running",
-            goal: goal ?? "Build running tolerance while keeping impact low.",
+            goal: goal ?? "Alternate easy running and walking so your body can get used to running safely.",
             targetRPE: RPERange(3, 4),
             steps: steps
         )
@@ -185,7 +185,7 @@ enum PrescribedSessions {
             date: date,
             discipline: .cycling,
             title: "Cycling",
-            goal: goal ?? "Build aerobic base at a conversational effort.",
+            goal: goal ?? "Build stamina with a comfortable ride. You should be able to hold a conversation.",
             targetRPE: RPERange(3, 4),
             steps: steps
         )
@@ -214,8 +214,8 @@ enum PrescribedSessions {
         return PlannedWorkout(
             date: date,
             discipline: .recovery,
-            title: "Recovery",
-            goal: goal ?? "Let the week's training settle.",
+            title: "Light Movement Day",
+            goal: goal ?? "Move gently today so your body can recover and be ready for the next workout.",
             steps: steps
         )
     }
@@ -225,7 +225,7 @@ enum PrescribedSessions {
             date: date,
             discipline: .rest,
             title: "Rest",
-            goal: "Full rest. Adaptation happens now, not during the sessions."
+            goal: "No workout today. Rest helps your body recover and become ready for the next session."
         )
     }
 
