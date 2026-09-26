@@ -36,7 +36,12 @@ struct WeeklyPlanGenerator: Sendable {
         let adjusted = analysis.sports.reduce(plan.parameters) { current, sport in
             current.applying(sport.adjustment, to: sport.sport)
         }
-        let parameters = adjusted.capped(
+        let evidenceAdjusted = applyingSustainedEvidenceProgression(
+            adjusted,
+            previous: plan.parameters,
+            analysis: analysis
+        )
+        let parameters = evidenceAdjusted.capped(
             toTrainingMinutes: trainingMinuteCap(in: schedule)
         )
 
@@ -255,6 +260,53 @@ struct WeeklyPlanGenerator: Sendable {
             parameters: parameters,
             workouts: workouts
         )
+    }
+
+    /// A single successful ride already earns the sport engine's normal
+    /// five-minute step. Once recent history shows sustained, well-tolerated
+    /// cycling, use demonstrated duration to avoid weeks of tiny catch-up.
+    ///
+    /// This is intentionally cycling-specific: running impact and swimming
+    /// technique need their own progression rules. Safety/weekly analysis must
+    /// still say progress before historical evidence can accelerate anything.
+    private func applyingSustainedEvidenceProgression(
+        _ parameters: TrainingParameters,
+        previous: TrainingParameters,
+        analysis: WeeklyAnalysis
+    ) -> TrainingParameters {
+        guard let capability,
+              capability.recoveryState == .stable,
+              capability.recentMissedOrSkippedSessions == 0,
+              (capability.recentAdherence ?? 0) >= 0.85,
+              capability.recentCompletedSessions >= 6,
+              let cycling = analysis.analysis(for: .cycling),
+              cycling.status == .progress,
+              cycling.completedEverySession,
+              cycling.highestPain <= 1,
+              (cycling.averageRPE ?? 10) <= 5 else {
+            return parameters
+        }
+
+        let demonstrated = capability.cycling.bestRecentDurationSeconds
+        guard demonstrated > 0 else { return parameters }
+
+        var next = parameters
+        // HealthKit duration is total ride time, while rideWorkSeconds excludes
+        // warm-up/cooldown. Translate like-for-like before using it as evidence.
+        let demonstratedWork = max(
+            demonstrated - previous.rideWarmUpSeconds - previous.rideCooldownSeconds,
+            TrainingParameters.Limits.minimumRideWorkSeconds
+        )
+
+        // Meaningful but bounded adaptation: sustained evidence may advance at
+        // most ten work minutes in one generated week. The normal engine has
+        // already supplied a five-minute increase.
+        let evidenceTarget = min(
+            demonstratedWork,
+            previous.rideWorkSeconds + 10 * 60
+        )
+        next.rideWorkSeconds = max(next.rideWorkSeconds, evidenceTarget)
+        return next
     }
 
     private func recoveryGoal(for recovering: Set<Sport>) -> String? {
