@@ -298,6 +298,18 @@ extension WeekShapePlanner {
         let available = schedule.availableDays.count
         guard available > 0, !selected.isEmpty else { return [] }
 
+        // Low-impact single-sport plans can use the days the athlete explicitly
+        // selected. Intensity and duration remain capability-controlled; frequency
+        // itself does not need the same impact protection as running.
+        if selected == [.cycling] {
+            return [SportFrequency(sport: .cycling, sessions: available)]
+        }
+        if selected == [.swimming] {
+            let swimScore = experienceScores[.swimming, default: 0]
+            let safeSwimDays = swimScore <= 1 ? min(available, 5) : available
+            return [SportFrequency(sport: .swimming, sessions: safeSwimDays)]
+        }
+
         let scores = selected.map { Double(experienceScores[$0, default: 0]) }
         let average = scores.reduce(0, +) / Double(scores.count)
         let minimum = scores.min() ?? 0
@@ -383,6 +395,13 @@ extension WeekShapePlanner {
         experienceScore: Int,
         schedule: AthleteSchedule
     ) -> Int {
+        if sport == .cycling { return schedule.availableDays.count }
+        if sport == .swimming {
+            return experienceScore <= 1
+                ? min(schedule.availableDays.count, 5)
+                : schedule.availableDays.count
+        }
+
         let generalLimit: Int
         switch experienceScore {
         case ...1: generalLimit = 2
