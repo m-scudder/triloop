@@ -202,11 +202,19 @@ private struct AtheviaScreenSurface: ViewModifier {
                 .accessibilityHidden(true)
             }
             #if os(iOS)
+            // Resolve concrete colours here: navigation bars are hosted outside
+            // the screen subtree and may not receive our custom environment
+            // when resolving an adaptive ShapeStyle.
             .toolbarBackground(
-                AtheviaAdaptiveStyle(.bar, gaming: .canvas),
-                for: .navigationBar, .tabBar
+                theme.isGaming ? AnyShapeStyle(theme.palette.color(.heroEnd)) : AnyShapeStyle(.bar),
+                for: .navigationBar
+            )
+            .toolbarBackground(
+                theme.isGaming ? AnyShapeStyle(theme.palette.color(.canvas)) : AnyShapeStyle(.bar),
+                for: .tabBar
             )
             .toolbarBackground(theme.isGaming ? .visible : .automatic, for: .navigationBar, .tabBar)
+            .toolbarColorScheme(theme.isGaming ? .dark : nil, for: .navigationBar, .tabBar)
             #endif
             #if os(watchOS)
             .containerBackground(AtheviaAdaptiveStyle(Color.black, gaming: .canvas), for: .navigation)
