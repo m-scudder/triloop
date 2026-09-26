@@ -21,7 +21,7 @@ struct JourneyProgressTests {
 
         #expect(snapshot.capabilities.count == 1)
         #expect(snapshot.capabilities.first?.state == .notEnoughData)
-        #expect(snapshot.capabilities.first?.currentEvidence == "Run/walk reported")
+        #expect(snapshot.capabilities.first?.currentEvidence == "2.0 km starting baseline")
     }
 
     @Test("Recorded event distance is demonstrated capability")
@@ -50,6 +50,45 @@ struct JourneyProgressTests {
 
         let snapshot = JourneyProgressBuilder().build(setup: setup, plans: [plan])
         #expect(snapshot.capabilities.first?.state == .demonstrated)
+        #expect(snapshot.capabilities.first?.currentEvidence == "5.0 km recent average · starting baseline 5.0 km")
+    }
+
+    @Test("Recorded distance can be compared with the onboarding baseline without becoming the target")
+    func baselineDistanceComparison() {
+        let setup = AthleteSetup(
+            baseline: AthleteBaseline(
+                running: .regular5K,
+                swimming: .continuous50,
+                cycling: .fortyFiveToSixty
+            ),
+            schedule: .everyDay(),
+            preferences: Sport.allCases.map { SportPreference(sport: $0, sessionsPerWeek: 1) }
+        )
+        let plan = SeedWeekOne.makePlan()
+        let run = plan.trainingSessions.first { $0.discipline == .running }!
+        run.importedSummary = ImportedWorkoutSummary(
+            healthKitUUID: UUID(),
+            sport: .running,
+            startDate: run.date,
+            endDate: run.date.addingTimeInterval(1_800),
+            duration: 1_800,
+            distanceMeters: 4_500,
+            source: "Test"
+        )
+        run.status = .completed
+
+        let capability = AthleteCapabilityAssessmentBuilder().build(
+            setup: setup,
+            plans: [plan],
+            asOf: run.date
+        )
+        let comparison = capability.distanceComparison(for: .running)
+
+        #expect(comparison?.baselineMeters == 5_000)
+        #expect(comparison?.recordedMeters == 4_500)
+        #expect(comparison?.deltaMeters == -500)
+        #expect(comparison?.recordedToBaselineRatio == 0.9)
+        #expect(capability.running.longestRecordedDistanceMeters == 4_500)
     }
 
     @Test("Milestones are derived from immutable completed history")

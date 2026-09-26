@@ -120,7 +120,7 @@ struct FirstWeekBuilderTests {
             startDate: thursday
         )
 
-        #expect(plan.trainingSessions.count == 4)
+        #expect(plan.trainingSessions.count == 3)
         #expect(plan.trainingSessions.allSatisfy { $0.date >= thursday })
     }
 
@@ -198,8 +198,11 @@ struct FirstWeekBuilderTests {
         )
 
         let rides = plan.trainingSessions.filter { $0.discipline == .cycling }
-        #expect(rides.count == 7)
-        #expect(rides.allSatisfy { $0.estimatedDurationSeconds == TimeInterval(60 * 60) })
+        #expect(rides.count == 4)
+        #expect(rides.allSatisfy {
+            guard let duration = $0.estimatedDurationSeconds else { return false }
+            return duration > 0 && duration <= TimeInterval(60 * 60)
+        })
         #expect(plan.parameters.rideWorkSeconds == TimeInterval(50 * 60))
     }
 
@@ -253,16 +256,17 @@ struct FirstWeekBuilderTests {
         #expect(first.orderedWorkouts.map(\.discipline) == second.orderedWorkouts.map(\.discipline))
     }
 
-    @Test("Every available day receives a planned session")
-    func availableDaysAreFilled() throws {
+    @Test("Availability is a ceiling and unused days become recovery")
+    func availableDaysUseExperienceAwareCapacity() throws {
         let plan = try builder.build(setup: setup(), poolLengthMeters: 25, startDate: monday())
 
         #expect(plan.orderedWorkouts.contains { $0.discipline == .rest } == false)
-        #expect(plan.trainingSessions.count == 7)
+        #expect(plan.trainingSessions.count == 4)
+        #expect(plan.orderedWorkouts.filter { $0.discipline == .recovery }.count == 3)
     }
 
-    @Test("Six available Run and Cycle days produce six sessions")
-    func runCycleScenarioUsesAllSixDays() throws {
+    @Test("Experienced Run and Cycle uses five of six available days")
+    func runCycleScenarioUsesExperienceAwareCapacity() throws {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "UTC") ?? .gmt
         var builder = FirstWeekBuilder()
@@ -298,17 +302,69 @@ struct FirstWeekBuilderTests {
         let runs = plan.trainingSessions.filter { $0.discipline == .running }
         let rides = plan.trainingSessions.filter { $0.discipline == .cycling }
 
-        #expect(plan.trainingSessions.count == 6)
-        #expect(runs.count == 3)
+        #expect(plan.trainingSessions.count == 5)
+        #expect(runs.count == 2)
         #expect(rides.count == 3)
-        #expect(runs.allSatisfy { $0.estimatedDurationSeconds == TimeInterval(30 * 60) })
-        #expect(rides.allSatisfy { $0.estimatedDurationSeconds == TimeInterval(60 * 60) })
+        #expect(runs.allSatisfy {
+            guard let duration = $0.estimatedDurationSeconds else { return false }
+            return duration > 0 && duration <= TimeInterval(30 * 60)
+        })
+        #expect(rides.allSatisfy {
+            guard let duration = $0.estimatedDurationSeconds else { return false }
+            return duration > 0 && duration <= TimeInterval(60 * 60)
+        })
         #expect(plan.parameters.rideWorkSeconds == TimeInterval(50 * 60))
 
         let plannedDays = plan.orderedWorkouts.filter {
             Weekday(date: $0.date, calendar: calendar) != .monday
         }
         #expect(plannedDays.allSatisfy { $0.discipline != .rest })
+    }
+
+    @Test("The same six-day availability produces different plans by starting ability")
+    func experienceChangesWeeklyArchitecture() throws {
+        let schedule = AthleteSchedule(
+            days: Weekday.trainingWeek.map {
+                TrainingAvailability(
+                    weekday: $0,
+                    isAvailable: $0 != .sunday,
+                    maxDurationMinutes: 60
+                )
+            }
+        )
+        let sports = [
+            SportPreference(sport: .running, sessionsPerWeek: 1),
+            SportPreference(sport: .swimming, sessionsPerWeek: 1),
+            SportPreference(sport: .cycling, sessionsPerWeek: 1)
+        ]
+
+        let beginner = try builder.build(
+            setup: setup(
+                running: .none,
+                swimming: .none,
+                cycling: .under20,
+                schedule: schedule,
+                preferences: sports
+            ),
+            poolLengthMeters: 25,
+            startDate: monday()
+        )
+        let established = try builder.build(
+            setup: setup(
+                running: .regular5K,
+                swimming: .continuous200Plus,
+                cycling: .sixtyPlus,
+                schedule: schedule,
+                preferences: sports
+            ),
+            poolLengthMeters: 25,
+            startDate: monday()
+        )
+
+        #expect(beginner.trainingSessions.count == 3)
+        #expect(beginner.orderedWorkouts.filter { $0.discipline == .recovery }.count == 3)
+        #expect(established.trainingSessions.count == 6)
+        #expect(established.orderedWorkouts.filter { $0.discipline == .recovery }.isEmpty)
     }
 
     @Test("Running-only availability uses recovery between runs")
@@ -364,4 +420,218 @@ struct FirstWeekBuilderTests {
             ($0.estimatedDurationSeconds ?? 0) <= TimeInterval(30 * 60)
         })
     }
+    @Test("First week uses the shared phase-aware running prescriptions")
+    func firstWeekUsesJourneyPhasePrescriptions() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC") ?? .gmt
+        var phaseBuilder = FirstWeekBuilder()
+        phaseBuilder.calendar = calendar
+        let start = monday()
+
+        func athlete(
+            baseline: RunningBaseline,
+            eventKind: EventDistanceKind,
+            daysToEvent: Int
+        ) -> AthleteSetup {
+            var value = setup(
+                running: baseline,
+                preferences: [SportPreference(sport: .running, sessionsPerWeek: 1)]
+            )
+            value.objective = .event(
+                sport: .running,
+                distance: EventDistance(kind: eventKind),
+                eventDate: calendar.date(byAdding: .day, value: daysToEvent, to: start)
+            )
+            return value
+        }
+
+        let foundation = try phaseBuilder.build(
+            setup: athlete(baseline: .runWalk, eventKind: .run5K, daysToEvent: 84),
+            poolLengthMeters: 25,
+            startDate: start
+        )
+        #expect(foundation.trainingSessions.contains { $0.title == "Run / Walk" })
+
+        let build = try phaseBuilder.build(
+            setup: athlete(baseline: .regular5K, eventKind: .run10K, daysToEvent: 56),
+            poolLengthMeters: 25,
+            startDate: start
+        )
+        #expect(build.trainingSessions.contains {
+            $0.title == "Easy Run" || $0.title == "Long Easy Run"
+        })
+
+        let specific = try phaseBuilder.build(
+            setup: athlete(baseline: .regular5K, eventKind: .run10K, daysToEvent: 28),
+            poolLengthMeters: 25,
+            startDate: start
+        )
+        #expect(specific.trainingSessions.contains { $0.title == "Race-Specific Steady Run" })
+
+        let taper = try phaseBuilder.build(
+            setup: athlete(baseline: .regular5K, eventKind: .run10K, daysToEvent: 10),
+            poolLengthMeters: 25,
+            startDate: start
+        )
+        #expect(taper.trainingSessions.filter { $0.discipline == .running }
+            .allSatisfy { $0.title == "Easy Run" })
+
+        let raceWeek = try phaseBuilder.build(
+            setup: athlete(baseline: .regular5K, eventKind: .run5K, daysToEvent: 5),
+            poolLengthMeters: 25,
+            startDate: start
+        )
+        #expect(raceWeek.trainingSessions.contains { $0.title == "Race-Week Easy Run" })
+    }
+
+    @Test("Event inside first week replaces recovery or normal training")
+    func eventInsideFirstWeekIsAuthoritative() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC") ?? .gmt
+        var phaseBuilder = FirstWeekBuilder()
+        phaseBuilder.calendar = calendar
+        let start = monday()
+        let eventDate = try #require(calendar.date(byAdding: .day, value: 5, to: start))
+
+        var athlete = setup(
+            running: .runWalk,
+            preferences: [SportPreference(sport: .running, sessionsPerWeek: 1)]
+        )
+        athlete.objective = .event(
+            sport: .running,
+            distance: EventDistance(kind: .run5K),
+            eventDate: eventDate
+        )
+
+        let plan = try phaseBuilder.build(
+            setup: athlete,
+            poolLengthMeters: 25,
+            startDate: start
+        )
+        let eventWorkout = try #require(plan.orderedWorkouts.first {
+            calendar.isDate($0.date, inSameDayAs: eventDate)
+        })
+
+        #expect(eventWorkout.title == "5K Run")
+        #expect(eventWorkout.targetDistanceMeters == 5_000)
+        #expect(plan.orderedWorkouts.filter {
+            calendar.isDate($0.date, inSameDayAs: eventDate)
+        }.count == 1)
+    }
+
+    @Test("Non-swimmer in a 25m pool gets supervised time-based fundamentals")
+    func nonSwimmerUsesSupervisedFundamentals() throws {
+        let plan = try builder.build(
+            setup: setup(
+                swimming: .none,
+                preferences: [SportPreference(sport: .swimming, sessionsPerWeek: 1)]
+            ),
+            poolLengthMeters: 25,
+            startDate: monday()
+        )
+        let swim = try #require(plan.trainingSessions.first { $0.discipline == .swimming })
+
+        #expect(swim.title == "Swim Fundamentals")
+        #expect(swim.orderedSteps.allSatisfy { $0.distanceMeters == nil })
+        #expect(swim.orderedSteps.contains {
+            $0.title.localizedCaseInsensitiveContains("supervised")
+                || $0.instructions?.localizedCaseInsensitiveContains("supervision") == true
+                || $0.instructions?.localizedCaseInsensitiveContains("supervised") == true
+        })
+    }
+
+    @Test("25m swimmer in 50m pool gets supervised fundamentals, not a forced 50m repeat")
+    func longerPoolDoesNotInflateBeginnerSwimCapability() throws {
+        let plan = try builder.build(
+            setup: setup(
+                swimming: .continuous25,
+                preferences: [SportPreference(sport: .swimming, sessionsPerWeek: 1)]
+            ),
+            poolLengthMeters: 50,
+            startDate: monday()
+        )
+        let swim = try #require(plan.trainingSessions.first { $0.discipline == .swimming })
+
+        #expect(swim.title == "Swim Fundamentals")
+        #expect(swim.orderedSteps.allSatisfy { ($0.distanceMeters ?? 0) < 50 })
+        #expect(swim.goal.localizedCaseInsensitiveContains("capability"))
+    }
+
+    @Test("Pool repeats remain valid once continuity supports the pool length")
+    func supportedPoolGeometryKeepsWholeLengthRepeats() throws {
+        let twentyFive = try builder.build(
+            setup: setup(
+                swimming: .continuous25,
+                preferences: [SportPreference(sport: .swimming, sessionsPerWeek: 1)]
+            ),
+            poolLengthMeters: 25,
+            startDate: monday()
+        )
+        let fifty = try builder.build(
+            setup: setup(
+                swimming: .continuous50,
+                preferences: [SportPreference(sport: .swimming, sessionsPerWeek: 1)]
+            ),
+            poolLengthMeters: 50,
+            startDate: monday()
+        )
+        let hundred = try builder.build(
+            setup: setup(
+                swimming: .continuous100,
+                preferences: [SportPreference(sport: .swimming, sessionsPerWeek: 1)]
+            ),
+            poolLengthMeters: 50,
+            startDate: monday()
+        )
+
+        let swim25 = try #require(twentyFive.trainingSessions.first { $0.discipline == .swimming })
+        let swim50 = try #require(fifty.trainingSessions.first { $0.discipline == .swimming })
+        let swim100 = try #require(hundred.trainingSessions.first { $0.discipline == .swimming })
+
+        #expect(swim25.orderedSteps.contains {
+            $0.orderedChildren.contains { $0.distanceMeters == 25 }
+        })
+        #expect(swim50.orderedSteps.contains {
+            $0.orderedChildren.contains { ($0.distanceMeters ?? 0) >= 50 }
+        })
+        #expect(swim100.orderedSteps.contains {
+            $0.orderedChildren.contains { ($0.distanceMeters ?? 0) >= 100 }
+        })
+    }
+
+    @Test("Specific first week reuses open-water and brick eligibility without inventing race rehearsal evidence")
+    func firstWeekUsesExistingMultisportPolicy() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC") ?? .gmt
+        var phaseBuilder = FirstWeekBuilder()
+        phaseBuilder.calendar = calendar
+        let start = monday()
+
+        var athlete = setup(
+            running: .regular5K,
+            swimming: .continuous200Plus,
+            cycling: .sixtyPlus
+        )
+        athlete.objective = .event(
+            sport: .triathlon,
+            distance: EventDistance(kind: .triathlonSprint),
+            eventDate: calendar.date(byAdding: .day, value: 28, to: start)
+        )
+        athlete.openWaterTrainingConsent = OpenWaterTrainingConsent(
+            explicitlyConfirmed: true,
+            hasSafeVenue: true,
+            hasSupervisionOrBuddy: true
+        )
+
+        let plan = try phaseBuilder.build(
+            setup: athlete,
+            poolLengthMeters: 25,
+            startDate: start
+        )
+
+        #expect(plan.trainingSessions.contains { $0.title == "Open-Water Preparation" })
+        #expect(plan.trainingSessions.contains { $0.title == "Bike + Run Brick" })
+        #expect(!plan.trainingSessions.contains { $0.title == "Bike + Run Race Rehearsal" })
+    }
+
 }

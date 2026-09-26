@@ -264,6 +264,22 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
             && state == .endurance
             && capability?.recoveryState == .stable
 
+        // Pool geometry is a venue constraint, never capability evidence. A
+        // swimmer who has only demonstrated less than one full length of this
+        // pool must not be promoted to a full-length repeat by normalization.
+        let poolLength = max(parameters.swimPoolLengthMeters, 25)
+        let supportedContinuousMeters = swimCapability?.recentLongestProvenContinuousMeters
+            ?? swimCapability?.reportedContinuousMeters
+            ?? swimCapability?.longestProvenContinuousMeters
+            ?? parameters.swimRepeatDistanceMeters
+        if supportedContinuousMeters > 0,
+           supportedContinuousMeters < poolLength {
+            return poolGeometryFundamentals(
+                on: date,
+                poolLengthMeters: poolLength
+            )
+        }
+
         let kind = multisportPolicy.swimKind(
             foundationState: state,
             phase: phase,
@@ -410,6 +426,30 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
             repeatMeters: 25,
             title: "Swim Fundamentals",
             goal: "Practise breathing and relaxation over short lengths with full recovery."
+        )
+    }
+
+    private func poolGeometryFundamentals(
+        on date: Date,
+        poolLengthMeters: Double
+    ) -> PlannedWorkout {
+        PlannedWorkout(
+            date: date,
+            discipline: .swimming,
+            title: "Swim Fundamentals",
+            goal: "Build water confidence and breathing safely without treating pool length as demonstrated continuous capability.",
+            targetRPE: RPERange(1, 3),
+            prescribedDurationSeconds: 20 * 60,
+            steps: [
+                WorkoutStep(
+                    order: 0,
+                    kind: .work,
+                    title: "Supervised fundamentals practice",
+                    instructions: "Use a shorter pool or supervised/coached practice until one full \(Int(poolLengthMeters)) m length can be completed safely and comfortably. Do not practise alone.",
+                    durationSeconds: 20 * 60,
+                    targetIntensity: .veryEasy
+                )
+            ]
         )
     }
 

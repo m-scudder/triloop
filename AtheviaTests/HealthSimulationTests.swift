@@ -250,4 +250,131 @@ struct HealthSimulationTests {
 
         #expect(try await provider.workoutHistory(from: future, to: later).isEmpty)
     }
+    @Test("Final completion scenarios expose the intended profile shapes")
+    func finalCompletionScenarioProfiles() throws {
+        let beginner = try #require(
+            SimulationDataset.highAvailabilityBeginner.scenarioSetup(
+                asOf: reference,
+                calendar: calendar
+            )
+        )
+        let experienced = try #require(
+            SimulationDataset.highAvailabilityExperienced.scenarioSetup(
+                asOf: reference,
+                calendar: calendar
+            )
+        )
+        let mismatch = try #require(
+            SimulationDataset.poolMismatchBeginner.scenarioSetup(
+                asOf: reference,
+                calendar: calendar
+            )
+        )
+        let specific = try #require(
+            SimulationDataset.firstWeekSpecificEvent.scenarioSetup(
+                asOf: reference,
+                calendar: calendar
+            )
+        )
+        let eventDay = try #require(
+            SimulationDataset.firstWeekEventDay.scenarioSetup(
+                asOf: reference,
+                calendar: calendar
+            )
+        )
+
+        #expect(beginner.schedule.availableDays.count == 6)
+        #expect(experienced.schedule.availableDays.count == 6)
+        #expect(beginner.baseline.running == .none)
+        #expect(experienced.baseline.running == .regular5K)
+        #expect(mismatch.baseline.swimming == .continuous25)
+
+        let specificJourney = TrainingJourneyPlanner(calendar: calendar)
+            .plan(setup: specific, asOf: reference)
+        #expect(specificJourney.phase == .specific)
+        #expect(eventDay.objective.event?.daysRemaining(asOf: reference, calendar: calendar) == 5)
+    }
+
+    @Test("Returning runner fixture keeps old 10K separate from recent short runs")
+    func returningRunnerFixtureHasLifetimeAndRecentContrast() throws {
+        let data = SimulationFixture.generate(
+            .returningRunner,
+            asOf: reference,
+            calendar: calendar
+        )
+        let runs = data.workouts.filter { $0.sport == .running }
+        let cutoff = try #require(calendar.date(byAdding: .day, value: -42, to: reference))
+        let lifetimeBest = runs.compactMap(\.distanceMeters).max() ?? 0
+        let recentBest = runs
+            .filter { $0.startDate >= cutoff }
+            .compactMap(\.distanceMeters)
+            .max() ?? 0
+
+        #expect(lifetimeBest >= 10_000)
+        #expect(recentBest < 5_000)
+        #expect(recentBest >= 3_000)
+    }
+
+    @Test("Capacity debug scenarios produce three versus six training days")
+    func capacityScenariosProduceVisibleFrequencyDifference() throws {
+        let start = try #require(
+            calendar.date(from: DateComponents(year: 2025, month: 12, day: 29))
+        )
+        var builder = FirstWeekBuilder()
+        builder.calendar = calendar
+
+        let beginnerSetup = try #require(
+            SimulationDataset.highAvailabilityBeginner.scenarioSetup(
+                asOf: start,
+                calendar: calendar
+            )
+        )
+        let experiencedSetup = try #require(
+            SimulationDataset.highAvailabilityExperienced.scenarioSetup(
+                asOf: start,
+                calendar: calendar
+            )
+        )
+
+        let beginner = try builder.build(
+            setup: beginnerSetup,
+            poolLengthMeters: 25,
+            startDate: start
+        )
+        let experienced = try builder.build(
+            setup: experiencedSetup,
+            poolLengthMeters: 25,
+            startDate: start
+        )
+
+        #expect(beginner.trainingSessions.count == 3)
+        #expect(beginner.orderedWorkouts.filter { $0.discipline == .recovery }.count == 3)
+        #expect(experienced.trainingSessions.count == 6)
+        #expect(experienced.orderedWorkouts.filter { $0.discipline == .recovery }.isEmpty)
+    }
+
+    @Test("Pool mismatch debug scenario visibly falls back to fundamentals")
+    func poolMismatchScenarioUsesSafeFallback() throws {
+        let start = try #require(
+            calendar.date(from: DateComponents(year: 2025, month: 12, day: 29))
+        )
+        var builder = FirstWeekBuilder()
+        builder.calendar = calendar
+        let setup = try #require(
+            SimulationDataset.poolMismatchBeginner.scenarioSetup(
+                asOf: start,
+                calendar: calendar
+            )
+        )
+        let plan = try builder.build(
+            setup: setup,
+            poolLengthMeters: 50,
+            startDate: start
+        )
+        let swim = try #require(plan.trainingSessions.first { $0.discipline == .swimming })
+
+        #expect(swim.title == "Swim Fundamentals")
+        #expect(swim.orderedSteps.allSatisfy { ($0.distanceMeters ?? 0) < 50 })
+    }
+
 }

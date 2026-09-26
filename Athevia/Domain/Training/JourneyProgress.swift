@@ -159,38 +159,71 @@ struct JourneyProgressBuilder: Sendable {
             switch sport {
             case .running:
                 let target = event.distance?.components.runMeters ?? 0
-                let demonstrated = capability.running.longestRecordedDistanceMeters
+                let recent = capability.running.recentBestDistanceMeters
+                let lifetime = capability.running.longestRecordedDistanceMeters
+                let baseline = capability.running.reportedDistanceMeters
                 let evidence: String
-                if demonstrated > 0 {
-                    evidence = "\(distance(demonstrated)) demonstrated"
-                } else if let seconds = capability.running.demonstratedContinuousSeconds {
-                    evidence = "\(minutes(seconds)) continuous demonstrated"
+                if recent > 0 {
+                    let recentDisplay = capability.running.recentAverageDistanceMeters > 0
+                        ? capability.running.recentAverageDistanceMeters
+                        : recent
+                    var parts = ["\(distance(recentDisplay)) recent average"]
+                    if lifetime > recent {
+                        parts.append("\(distance(lifetime)) lifetime best")
+                    }
+                    if let baseline {
+                        parts.append("starting baseline \(distance(baseline))")
+                    }
+                    evidence = parts.joined(separator: " · ")
+                } else if lifetime > 0 {
+                    var parts = ["\(distance(lifetime)) lifetime best", "no recent distance evidence"]
+                    if let baseline {
+                        parts.append("starting baseline \(distance(baseline))")
+                    }
+                    evidence = parts.joined(separator: " · ")
+                } else if let baseline {
+                    evidence = "\(distance(baseline)) starting baseline"
                 } else if let seconds = capability.running.prescribedContinuousSeconds {
                     evidence = "\(minutes(seconds)) continuous prescribed"
                 } else if capability.running.reportedContinuousSeconds != nil {
                     evidence = "Continuous running reported"
                 } else {
-                    evidence = "Run/walk reported"
+                    evidence = "No distance baseline yet"
                 }
                 return CapabilityRequirement(
                     sport: .running,
                     requirement: target > 0 ? "\(distance(target)) run" : "Continuous running",
                     currentEvidence: evidence,
-                    state: target > 0 && demonstrated >= target
+                    state: target > 0 && recent >= target
                         ? .demonstrated
-                        : (capability.running.hasDemonstratedCapability ? .developing : .notEnoughData)
+                        : (recent > 0 || lifetime > 0 ? .developing : .notEnoughData)
                 )
 
             case .swimming:
                 let target = event.distance?.components.swimMeters ?? 0
-                let proven = capability.swimming.longestProvenContinuousMeters ?? 0
+                let recent = capability.swimming.recentLongestProvenContinuousMeters ?? 0
+                let lifetime = capability.swimming.longestProvenContinuousMeters ?? 0
+                let baseline = capability.swimming.reportedContinuousMeters
                 let evidence: String
-                if proven > 0 {
-                    evidence = "\(distance(proven)) continuous demonstrated"
+                if recent > 0 {
+                    var parts = ["\(distance(recent)) continuous recorded recently"]
+                    if lifetime > recent {
+                        parts.append("\(distance(lifetime)) lifetime continuous best")
+                    }
+                    if let baseline {
+                        parts.append("starting baseline \(distance(baseline))")
+                    }
+                    evidence = parts.joined(separator: " · ")
+                } else if lifetime > 0 {
+                    var parts = ["\(distance(lifetime)) lifetime continuous best", "no recent continuous evidence"]
+                    if let baseline {
+                        parts.append("starting baseline \(distance(baseline))")
+                    }
+                    evidence = parts.joined(separator: " · ")
                 } else if capability.swimming.longestRecordedTotalWorkoutMeters > 0 {
                     evidence = "\(distance(capability.swimming.longestRecordedTotalWorkoutMeters)) total recorded · Continuous distance not verified"
-                } else if let reported = capability.swimming.reportedContinuousMeters {
-                    evidence = "\(distance(reported)) continuous reported"
+                } else if let baseline {
+                    evidence = "\(distance(baseline)) continuous starting baseline"
                 } else {
                     evidence = "Continuous distance not verified"
                 }
@@ -198,29 +231,47 @@ struct JourneyProgressBuilder: Sendable {
                     sport: .swimming,
                     requirement: target > 0 ? "\(distance(target)) continuous swim" : "Continuous swimming",
                     currentEvidence: evidence,
-                    state: target > 0 && proven >= target
+                    state: target > 0 && recent >= target
                         ? .demonstrated
                         : (capability.swimming.hasDemonstratedCapability ? .developing : .notEnoughData)
                 )
 
             case .cycling:
                 let target = event.distance?.components.bikeMeters ?? 0
-                let demonstrated = capability.cycling.longestRecordedDistanceMeters
+                let recent = capability.cycling.recentBestDistanceMeters
+                let lifetime = capability.cycling.longestRecordedDistanceMeters
+                let baseline = capability.cycling.reportedDistanceMeters
                 let evidence: String
-                if demonstrated > 0 {
-                    evidence = "\(distance(demonstrated)) demonstrated"
+                if recent > 0 {
+                    let recentDisplay = capability.cycling.recentAverageDistanceMeters > 0
+                        ? capability.cycling.recentAverageDistanceMeters
+                        : recent
+                    var parts = ["\(distance(recentDisplay)) recent average"]
+                    if lifetime > recent {
+                        parts.append("\(distance(lifetime)) lifetime best")
+                    }
+                    if baseline > 0 {
+                        parts.append("starting baseline \(distance(baseline))")
+                    }
+                    evidence = parts.joined(separator: " · ")
+                } else if lifetime > 0 {
+                    var parts = ["\(distance(lifetime)) lifetime best", "no recent distance evidence"]
+                    if baseline > 0 {
+                        parts.append("starting baseline \(distance(baseline))")
+                    }
+                    evidence = parts.joined(separator: " · ")
                 } else if capability.cycling.bestRecentDurationSeconds > 0 {
-                    evidence = "\(minutes(capability.cycling.bestRecentDurationSeconds)) recorded"
+                    evidence = "\(minutes(capability.cycling.bestRecentDurationSeconds)) recorded recently · starting baseline \(distance(baseline))"
                 } else {
-                    evidence = "\(Int(capability.cycling.currentComfortableSeconds / 60)) min reported / prescribed"
+                    evidence = "\(distance(baseline)) starting baseline"
                 }
                 return CapabilityRequirement(
                     sport: .cycling,
                     requirement: target > 0 ? "\(distance(target)) ride" : "Endurance riding",
                     currentEvidence: evidence,
-                    state: target > 0 && demonstrated >= target
+                    state: target > 0 && recent >= target
                         ? .demonstrated
-                        : (capability.cycling.hasDemonstratedCapability ? .developing : .notEnoughData)
+                        : (recent > 0 || lifetime > 0 ? .developing : .notEnoughData)
                 )
             }
         }

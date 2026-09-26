@@ -69,6 +69,12 @@ enum ContentDensityUITestFixture {
                 ]
                 setup.schedule = .everyDay()
             }
+            // Keep Plan management controls testable: the seeded current week
+            // needs a valid recurring schedule just like a completed onboarding
+            // profile would have.
+            if !isOnboarding {
+                setup.schedule = .everyDay(maxDurationMinutes: 60)
+            }
             setup.stage = .complete
             setup.completedAt = .now
             profile.setup = setup

@@ -35,11 +35,19 @@ struct RootView: View {
         profiles.first?.hasCompletedSetup != true
     }
 
+    private var bypassesAccountAccessForUITests: Bool {
+        #if DEBUG
+        ContentDensityUITestFixture.isEnabled
+        #else
+        false
+        #endif
+    }
+
     var body: some View {
         Group {
             if isErasingLocalData {
                 ProgressView("Resetting Athevia…")
-            } else if let authentication, let backup, !accountReady {
+            } else if let authentication, let backup, !accountReady, !bypassesAccountAccessForUITests {
                 AccountAccessView(
                     authentication: authentication,
                     backup: backup,

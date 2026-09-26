@@ -245,6 +245,189 @@ extension WeekShapePlanner {
         }
     }
 
+    /// Opening frequency derived from the athlete's sport-specific onboarding
+    /// ability. Availability is a ceiling, not a quota: a new athlete can say
+    /// six days are possible without being assigned six training sessions.
+    static func frequencies(
+        for sports: [Sport],
+        schedule: AthleteSchedule,
+        baseline: AthleteBaseline,
+        priorities: [SportPriority] = []
+    ) -> [SportFrequency] {
+        let scores: [Sport: Int] = [
+            .running: baseline.running.experienceScore,
+            .swimming: baseline.swimming.experienceScore,
+            .cycling: baseline.cycling.experienceScore
+        ]
+        return capacityAwareFrequencies(
+            for: sports,
+            schedule: schedule,
+            experienceScores: scores,
+            priorities: priorities
+        )
+    }
+
+    /// The same capacity rule after onboarding, now driven by current capability
+    /// rather than permanently freezing the initial self-assessment.
+    static func frequencies(
+        for sports: [Sport],
+        schedule: AthleteSchedule,
+        capability: AthleteCapabilityAssessment,
+        priorities: [SportPriority] = []
+    ) -> [SportFrequency] {
+        let scores: [Sport: Int] = [
+            .running: runningExperienceScore(capability.running),
+            .swimming: swimmingExperienceScore(capability.swimming),
+            .cycling: cyclingExperienceScore(capability.cycling)
+        ]
+        return capacityAwareFrequencies(
+            for: sports,
+            schedule: schedule,
+            experienceScores: scores,
+            priorities: priorities
+        )
+    }
+
+    private static func capacityAwareFrequencies(
+        for sports: [Sport],
+        schedule: AthleteSchedule,
+        experienceScores: [Sport: Int],
+        priorities: [SportPriority]
+    ) -> [SportFrequency] {
+        let selected = Sport.allCases.filter { sports.contains($0) }
+        let available = schedule.availableDays.count
+        guard available > 0, !selected.isEmpty else { return [] }
+
+        let scores = selected.map { Double(experienceScores[$0, default: 0]) }
+        let average = scores.reduce(0, +) / Double(scores.count)
+        let minimum = scores.min() ?? 0
+        // A weak discipline matters in multisport training, but does not erase
+        // capability already established in the other sports.
+        let capacityScore = (average * 0.7) + (minimum * 0.3)
+        let target = min(
+            available,
+            openingSessionTarget(
+                selectedSportCount: selected.count,
+                capacityScore: capacityScore
+            )
+        )
+
+        var counts = Dictionary(uniqueKeysWithValues: selected.map { ($0, 0) })
+        var remaining = target
+
+        // Represent every selected sport before adding repeat exposures.
+        for sport in selected where remaining > 0 {
+            counts[sport, default: 0] += 1
+            remaining -= 1
+        }
+
+        let ranked = priorities
+            .filter { selected.contains($0.sport) }
+            .sorted { $0.rank < $1.rank }
+            .map(\.sport)
+        let defaultOrder: [Sport] = [.swimming, .cycling, .running]
+            .filter { selected.contains($0) }
+        let order = ranked + defaultOrder.filter { !ranked.contains($0) }
+
+        var cursor = 0
+        var stalled = 0
+        while remaining > 0, !order.isEmpty {
+            let sport = order[cursor % order.count]
+            let current = counts[sport, default: 0]
+            let limit = perSportOpeningLimit(
+                sport,
+                experienceScore: experienceScores[sport, default: 0],
+                schedule: schedule
+            )
+
+            if current < limit {
+                counts[sport, default: 0] += 1
+                remaining -= 1
+                stalled = 0
+            } else {
+                stalled += 1
+                if stalled >= order.count { break }
+            }
+            cursor += 1
+        }
+
+        return selected.compactMap { sport in
+            guard let count = counts[sport], count > 0 else { return nil }
+            return SportFrequency(sport: sport, sessions: count)
+        }
+    }
+
+    private static func openingSessionTarget(
+        selectedSportCount: Int,
+        capacityScore: Double
+    ) -> Int {
+        switch selectedSportCount {
+        case 1:
+            if capacityScore < 2 { return 2 }
+            if capacityScore < 4 { return 3 }
+            return 4
+        case 2:
+            if capacityScore < 1.5 { return 3 }
+            if capacityScore < 3 { return 4 }
+            return 5
+        default:
+            if capacityScore < 1 { return 3 }
+            if capacityScore < 2 { return 4 }
+            if capacityScore < 3.25 { return 5 }
+            return 6
+        }
+    }
+
+    private static func perSportOpeningLimit(
+        _ sport: Sport,
+        experienceScore: Int,
+        schedule: AthleteSchedule
+    ) -> Int {
+        let generalLimit: Int
+        switch experienceScore {
+        case ...1: generalLimit = 2
+        case 2...3: generalLimit = 3
+        default: generalLimit = 4
+        }
+
+        return sport == .running
+            ? min(generalLimit, safeRunningSessions(in: schedule))
+            : generalLimit
+    }
+
+    private static func runningExperienceScore(_ capability: RunningCapability) -> Int {
+        let seconds = capability.currentContinuousSeconds ?? 0
+        let distance = max(
+            capability.reportedDistanceMeters ?? 0,
+            capability.longestRecordedDistanceMeters
+        )
+        if seconds >= 30 * 60 || distance >= 5_000 { return 4 }
+        if seconds >= 20 * 60 || distance >= 3_500 { return 3 }
+        if seconds >= 10 * 60 { return 2 }
+        if distance > 0 { return 1 }
+        return 0
+    }
+
+    private static func swimmingExperienceScore(_ capability: SwimmingCapability) -> Int {
+        switch capability.currentContinuousMeters ?? 0 {
+        case 200...: return 4
+        case 100..<200: return 3
+        case 50..<100: return 2
+        case 25..<50: return 1
+        default: return 0
+        }
+    }
+
+    private static func cyclingExperienceScore(_ capability: CyclingCapability) -> Int {
+        switch capability.currentComfortableSeconds {
+        case (60 * 60)...: return 4
+        case (45 * 60)..<(60 * 60): return 3
+        case (30 * 60)..<(45 * 60): return 2
+        case (20 * 60)..<(30 * 60): return 1
+        default: return 0
+        }
+    }
+
     private static func safeRunningSessions(in schedule: AthleteSchedule) -> Int {
         var count = 0
         var previousRunOffset: Int?

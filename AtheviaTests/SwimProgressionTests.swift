@@ -58,15 +58,14 @@ struct SwimProgressionTests {
         #expect(longPool == .swimRepeatDistance(meters: 100))
     }
 
-    @Test("A repeat shorter than the pool steps up to a whole length")
-    func shortRepeatReachesTheWall() {
-        // 25 m ability in a 50 m pool: the next step is a full length.
+    @Test("A longer pool never forces a repeat beyond demonstrated continuity")
+    func shortRepeatDoesNotGetInflatedByPoolGeometry() {
         let adjustment = engine(pool: 50).progressionAdjustment(
             result: result(rest: 30, repeatDistance: 25),
             feedback: easy
         )
 
-        #expect(adjustment == .swimRepeatDistance(meters: 50))
+        #expect(adjustment == .hold)
     }
 
     @Test("Volume grows only once the repeat cannot")

@@ -21,6 +21,15 @@ extension SimulationDataset {
         let triPreferences = Sport.allCases.map {
             SportPreference(sport: $0, sessionsPerWeek: 2)
         }
+        let sixDaySchedule = AthleteSchedule(
+            days: Weekday.trainingWeek.map {
+                TrainingAvailability(
+                    weekday: $0,
+                    isAvailable: $0 != .sunday,
+                    maxDurationMinutes: 60
+                )
+            }
+        )
 
         switch self {
         case .event5KDeveloping:
@@ -233,6 +242,80 @@ extension SimulationDataset {
                 baseline: AthleteBaseline(running: .runWalk),
                 schedule: .everyDay(),
                 preferences: [SportPreference(sport: .running, sessionsPerWeek: 3)],
+                stage: .complete
+            )
+
+        case .highAvailabilityBeginner:
+            return AthleteSetup(
+                objective: TrainingObjective(kind: .generalFitness),
+                baseline: AthleteBaseline(
+                    running: .none,
+                    swimming: .none,
+                    cycling: .under20
+                ),
+                schedule: sixDaySchedule,
+                preferences: triPreferences,
+                stage: .complete
+            )
+
+        case .highAvailabilityExperienced:
+            return AthleteSetup(
+                objective: TrainingObjective(kind: .generalFitness),
+                baseline: AthleteBaseline(
+                    running: .regular5K,
+                    swimming: .continuous200Plus,
+                    cycling: .sixtyPlus
+                ),
+                schedule: sixDaySchedule,
+                preferences: triPreferences,
+                stage: .complete
+            )
+
+        case .returningRunner:
+            return AthleteSetup(
+                objective: .event(
+                    sport: .running,
+                    distance: EventDistance(kind: .run5K),
+                    eventDate: eventDate(days: 42)
+                ),
+                baseline: AthleteBaseline(running: .regular5K),
+                schedule: sixDaySchedule,
+                preferences: [SportPreference(sport: .running, sessionsPerWeek: 3)],
+                stage: .complete
+            )
+
+        case .poolMismatchBeginner:
+            return AthleteSetup(
+                objective: TrainingObjective(kind: .generalFitness),
+                baseline: AthleteBaseline(swimming: .continuous25),
+                schedule: sixDaySchedule,
+                preferences: [SportPreference(sport: .swimming, sessionsPerWeek: 2)],
+                stage: .complete
+            )
+
+        case .firstWeekSpecificEvent:
+            return AthleteSetup(
+                objective: .event(
+                    sport: .running,
+                    distance: EventDistance(kind: .run10K),
+                    eventDate: eventDate(days: 28)
+                ),
+                baseline: AthleteBaseline(running: .regular5K),
+                schedule: sixDaySchedule,
+                preferences: [SportPreference(sport: .running, sessionsPerWeek: 3)],
+                stage: .complete
+            )
+
+        case .firstWeekEventDay:
+            return AthleteSetup(
+                objective: .event(
+                    sport: .running,
+                    distance: EventDistance(kind: .run5K),
+                    eventDate: eventDate(days: 5)
+                ),
+                baseline: AthleteBaseline(running: .runWalk),
+                schedule: sixDaySchedule,
+                preferences: [SportPreference(sport: .running, sessionsPerWeek: 2)],
                 stage: .complete
             )
 

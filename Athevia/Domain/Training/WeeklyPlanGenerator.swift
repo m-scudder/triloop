@@ -9,8 +9,9 @@ struct WeeklyPlanGenerator: Sendable {
     /// fallback opens every day so tests and previews about progression do not
     /// have to describe a schedule.
     var schedule: AthleteSchedule = .everyDay()
-    /// Which sports the athlete selected. Session counts are no longer treated
-    /// as quotas; availability defines the week's plan slots.
+    /// Which sports the athlete selected. Availability is the scheduling
+    /// ceiling; current capability decides how many of those days should carry
+    /// training, and unused available days become recovery.
     var preferences: [SportPreference] = []
     var planner: WeekShapePlanner = WeekShapePlanner()
     /// Optional event journey context supplied by PlanStore. Safety analysis
@@ -61,6 +62,13 @@ struct WeeklyPlanGenerator: Sendable {
                     .count { $0.discipline.sport == sport }
                 return count > 0 ? SportFrequency(sport: sport, sessions: count) : nil
             }
+        } else if let capability {
+            intendedFrequencies = WeekShapePlanner.frequencies(
+                for: selectedSports,
+                schedule: schedule,
+                capability: capability,
+                priorities: journey?.sportPriorities ?? []
+            )
         } else if let journey {
             intendedFrequencies = WeekShapePlanner.frequencies(
                 for: selectedSports,
@@ -151,6 +159,16 @@ struct WeeklyPlanGenerator: Sendable {
         for (offset, discipline) in shape.disciplines.enumerated() {
             let date = day(offset)
 
+            // Event Day replaces whatever the weekly shape would otherwise put
+            // on the date, including a recovery slot.
+            if let event = objective?.event,
+               eventState.status == .upcoming,
+               let eventDate = event.eventDate,
+               calendar.isDate(date, inSameDayAs: eventDate) {
+                workouts.append(EventDayPrescription.workout(for: event, on: date))
+                continue
+            }
+
             guard let sport = discipline.sport else {
                 workouts.append(
                     recoveryDays.contains(offset)
@@ -160,14 +178,6 @@ struct WeeklyPlanGenerator: Sendable {
                         )
                         : PrescribedSessions.restDay(on: date)
                 )
-                continue
-            }
-
-            if let event = objective?.event,
-               eventState.status == .upcoming,
-               let eventDate = event.eventDate,
-               calendar.isDate(date, inSameDayAs: eventDate) {
-                workouts.append(EventDayPrescription.workout(for: event, on: date))
                 continue
             }
 
@@ -215,9 +225,15 @@ struct WeeklyPlanGenerator: Sendable {
         if let phase = journey?.phase {
             let multiplier = multisport.workloadMultiplier(for: phase)
             if multiplier < 1 {
-                workouts.filter(\.discipline.isTrainingSession).forEach {
-                    MultisportPrescribedSessions.tapered($0, multiplier: multiplier)
-                }
+                workouts
+                    .filter { workout in
+                        guard workout.discipline.isTrainingSession else { return false }
+                        guard let eventDate = objective?.event?.eventDate else { return true }
+                        return !calendar.isDate(workout.date, inSameDayAs: eventDate)
+                    }
+                    .forEach {
+                        MultisportPrescribedSessions.tapered($0, multiplier: multiplier)
+                    }
             }
         }
 

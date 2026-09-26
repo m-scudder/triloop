@@ -156,7 +156,7 @@ struct FinalPhaseCorrectnessTests {
 
         #expect(capability.swimming.longestRecordedTotalWorkoutMeters == 750)
         #expect(capability.swimming.longestProvenContinuousMeters == 100)
-        #expect(swimCapability?.currentEvidence.contains("100 m continuous demonstrated") == true)
+        #expect(swimCapability?.currentEvidence.contains("100 m continuous recorded recently") == true)
         #expect(swimCapability?.state != .demonstrated)
     }
 
@@ -424,6 +424,8 @@ struct FinalPhaseCorrectnessTests {
 
         #expect(capability.cycling.longestRecordedDistanceMeters == 18_000)
         #expect(capability.running.longestRecordedDistanceMeters == 5_000)
+        #expect(capability.cycling.recentBestDistanceMeters == 18_000)
+        #expect(capability.running.recentBestDistanceMeters == 5_000)
     }
 
     @Test("Passing event date alone never marks event complete")
@@ -687,5 +689,191 @@ struct FinalPhaseCorrectnessTests {
         #expect(unsupportedWork?.targetIntensity != .hard)
     }
 
+
+    @Test("Old lifetime 10K remains a milestone but cannot by itself make a current 5K event ready")
+    func lifetimeBestIsNotCurrentReadiness() {
+        let setup = eventSetup(
+            sport: .running,
+            distance: EventDistance(kind: .run5K),
+            baseline: AthleteBaseline(running: .regular5K),
+            eventOffset: 28
+        )
+        let oldTenK = completed(
+            sport: .running,
+            on: day(-270),
+            summary: summary(
+                sport: .running,
+                on: day(-270),
+                duration: 60 * 60,
+                distance: 10_000
+            )
+        )
+        let recentDistances: [Double] = [3_000, 3_500, 4_000, 3_200]
+        let recentRuns = zip([-10, -7, -4, -1], recentDistances).map { offset, distance in
+            completed(
+                sport: .running,
+                on: day(offset),
+                summary: summary(
+                    sport: .running,
+                    on: day(offset),
+                    duration: 25 * 60,
+                    distance: distance
+                )
+            )
+        }
+        let history = plan([oldTenK] + recentRuns)
+        let capability = AthleteCapabilityAssessmentBuilder(calendar: calendar)
+            .build(setup: setup, plans: [history], asOf: now)
+        let snapshot = JourneyProgressBuilder(calendar: calendar)
+            .build(setup: setup, plans: [history], asOf: now)
+
+        #expect(capability.running.longestRecordedDistanceMeters == 10_000)
+        #expect(capability.running.recentBestDistanceMeters == 4_000)
+        #expect(capability.running.recentAverageDistanceMeters == 3_425)
+        #expect(snapshot.journey.readiness.status != .eventReady)
+        #expect(snapshot.milestones.contains { $0.kind == .first10K })
+        #expect(snapshot.capabilities.first?.currentEvidence.contains("10.0 km lifetime best") == true)
+    }
+
+    @Test("Recent event-distance evidence restores readiness without erasing lifetime history")
+    func recentEvidenceCanRestoreReadiness() {
+        let setup = eventSetup(
+            sport: .running,
+            distance: EventDistance(kind: .run5K),
+            baseline: AthleteBaseline(running: .runWalk),
+            eventOffset: 28
+        )
+        let oldTenK = completed(
+            sport: .running,
+            on: day(-270),
+            summary: summary(
+                sport: .running,
+                on: day(-270),
+                duration: 60 * 60,
+                distance: 10_000
+            )
+        )
+        let recentDistances: [Double] = [3_000, 3_500, 5_200, 3_000]
+        let recentRuns = zip([-10, -7, -4, -1], recentDistances).map { offset, distance in
+            completed(
+                sport: .running,
+                on: day(offset),
+                summary: summary(
+                    sport: .running,
+                    on: day(offset),
+                    duration: 30 * 60,
+                    distance: distance
+                )
+            )
+        }
+        let history = plan([oldTenK] + recentRuns)
+        let capability = AthleteCapabilityAssessmentBuilder(calendar: calendar)
+            .build(setup: setup, plans: [history], asOf: now)
+        let journey = TrainingJourneyPlanner(calendar: calendar)
+            .plan(setup: setup, capability: capability, asOf: now)
+
+        #expect(capability.running.longestRecordedDistanceMeters == 10_000)
+        #expect(capability.running.recentBestDistanceMeters == 5_200)
+        #expect(journey.readiness.status == .eventReady)
+    }
+
+    @Test("One short recovery run does not erase a stronger recent demonstrated best")
+    func shortRecentRunDoesNotEraseCapability() {
+        let setup = eventSetup(
+            sport: .running,
+            distance: EventDistance(kind: .run5K),
+            baseline: AthleteBaseline(running: .regular5K),
+            eventOffset: 28
+        )
+        let distances: [Double] = [5_200, 4_800, 4_600, 3_000]
+        let runs = zip([-12, -8, -4, -1], distances).map { offset, distance in
+            completed(
+                sport: .running,
+                on: day(offset),
+                summary: summary(
+                    sport: .running,
+                    on: day(offset),
+                    duration: 30 * 60,
+                    distance: distance
+                )
+            )
+        }
+        let history = plan(runs)
+        let capability = AthleteCapabilityAssessmentBuilder(calendar: calendar)
+            .build(setup: setup, plans: [history], asOf: now)
+        let journey = TrainingJourneyPlanner(calendar: calendar)
+            .plan(setup: setup, capability: capability, asOf: now)
+
+        #expect(capability.running.recentBestDistanceMeters == 5_200)
+        #expect(capability.running.recentAverageDistanceMeters == 4_400)
+        #expect(journey.readiness.status == .eventReady)
+    }
+
+    @Test("Recent swim readiness uses proven continuity, never total workout volume")
+    func recentSwimCapabilityIsContinuousOnly() {
+        let setup = eventSetup(
+            sport: .swimming,
+            distance: EventDistance(kind: .swimming500M),
+            baseline: AthleteBaseline(swimming: .continuous25),
+            eventOffset: 28
+        )
+        let swim = completed(
+            sport: .swimming,
+            on: day(-2),
+            summary: summary(
+                sport: .swimming,
+                on: day(-2),
+                duration: 40 * 60,
+                distance: 1_200,
+                continuousSwim: 100
+            )
+        )
+        let capability = AthleteCapabilityAssessmentBuilder(calendar: calendar)
+            .build(setup: setup, plans: [plan([swim])], asOf: now)
+
+        #expect(capability.swimming.longestRecordedTotalWorkoutMeters == 1_200)
+        #expect(capability.swimming.recentLongestProvenContinuousMeters == 100)
+        #expect(capability.recentDemonstratedDistanceMeters(for: .swimming) == 100)
+    }
+
+    @Test("Cycling baseline comparison uses recent average instead of lifetime best")
+    func cyclingComparisonUsesRecentAverage() {
+        let setup = eventSetup(
+            sport: .cycling,
+            distance: EventDistance(kind: .cycling50K),
+            baseline: AthleteBaseline(cycling: .fortyFiveToSixty),
+            eventOffset: 42
+        )
+        let rides = [
+            completed(
+                sport: .cycling,
+                on: day(-8),
+                summary: summary(
+                    sport: .cycling,
+                    on: day(-8),
+                    duration: 55 * 60,
+                    distance: 20_000
+                )
+            ),
+            completed(
+                sport: .cycling,
+                on: day(-3),
+                summary: summary(
+                    sport: .cycling,
+                    on: day(-3),
+                    duration: 65 * 60,
+                    distance: 30_000
+                )
+            )
+        ]
+        let capability = AthleteCapabilityAssessmentBuilder(calendar: calendar)
+            .build(setup: setup, plans: [plan(rides)], asOf: now)
+        let comparison = capability.distanceComparison(for: .cycling)
+
+        #expect(capability.cycling.recentBestDistanceMeters == 30_000)
+        #expect(capability.cycling.recentAverageDistanceMeters == 25_000)
+        #expect(comparison?.recordedMeters == 25_000)
+        #expect(capability.cycling.longestRecordedDistanceMeters == 30_000)
+    }
 
 }
