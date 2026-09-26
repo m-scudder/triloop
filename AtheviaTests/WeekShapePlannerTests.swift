@@ -86,6 +86,43 @@ struct WeekShapePlannerTests {
         #expect(abs(runDays[0] - runDays[1]) >= 2)
     }
 
+    @Test("Different daily time limits control which day receives a long session")
+    func individualDayTimeLimitsShapePlacement() {
+        let plan = schedule(
+            [.monday, .tuesday, .wednesday, .thursday],
+            minutes: [.monday: 30, .tuesday: 60, .wednesday: 20, .thursday: 90]
+        )
+
+        let shape = planner.plan(
+            schedule: plan,
+            frequencies: [SportFrequency(sport: .cycling, sessions: 2)],
+            durations: [.cycling: TimeInterval(50 * 60)]
+        )
+
+        #expect(shape.disciplines[Weekday.monday.offsetFromMonday] == .rest)
+        #expect(shape.disciplines[Weekday.wednesday.offsetFromMonday] == .rest)
+        #expect(shape.disciplines[Weekday.tuesday.offsetFromMonday] == .cycling)
+        #expect(shape.disciplines[Weekday.thursday.offsetFromMonday] == .cycling)
+    }
+
+    @Test("A session that fits none of the selected time windows is reported unplaced")
+    func tooShortAvailabilityDoesNotViolateTheLimit() {
+        let plan = schedule(
+            [.monday, .wednesday],
+            minutes: [.monday: 15, .wednesday: 15]
+        )
+
+        let shape = planner.plan(
+            schedule: plan,
+            frequencies: [SportFrequency(sport: .cycling, sessions: 1)],
+            durations: [.cycling: TimeInterval(30 * 60)]
+        )
+
+        #expect(shape.isViable == false)
+        #expect(shape.unplaced[.cycling] == 1)
+        #expect(shape.disciplines.allSatisfy { $0 == .rest })
+    }
+
     @Test("The longest session claims a day before a shorter one takes it")
     func longestSessionIsPlacedFirst() {
         // Only Saturday is long enough for the ride.
