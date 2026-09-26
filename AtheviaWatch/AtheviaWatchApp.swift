@@ -3,6 +3,7 @@ import WatchKit
 
 @main
 struct AtheviaWatchApp: App {
+    @AppStorage(AtheviaTheme.preferenceKey) private var gamingThemeEnabled = false
     @WKApplicationDelegateAdaptor(AtheviaWatchApplicationDelegate.self)
     private var appDelegate
 
@@ -13,7 +14,7 @@ struct AtheviaWatchApp: App {
         WindowGroup {
             WatchWorkoutListView()
                 .symbolRenderingMode(.monochrome)
-                .tint(Color.white)
+                .atheviaTheme(AtheviaTheme(gamingEnabled: gamingThemeEnabled), classicTint: .white)
                 .environmentObject(store)
                 .environmentObject(workoutSession)
                 .task {

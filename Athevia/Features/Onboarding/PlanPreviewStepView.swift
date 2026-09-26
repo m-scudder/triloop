@@ -71,7 +71,7 @@ struct PlanPreviewStepView: View {
                     .font(.subheadline.weight(.medium))
                 Text(detail(workout))
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
 
             Spacer(minLength: 0)
@@ -94,3 +94,4 @@ struct PlanPreviewStepView: View {
         return workout.title
     }
 }
+

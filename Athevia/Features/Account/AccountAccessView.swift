@@ -86,7 +86,7 @@ struct AccountAccessView: View {
 
                     Text("Adaptive training for running, cycling and swimming — built around what you actually do.")
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                         .multilineTextAlignment(.center)
                         .lineSpacing(3)
                         .frame(maxWidth: 360)
@@ -109,7 +109,7 @@ struct AccountAccessView: View {
 
                 Text("Your training stays on this iPhone. You can connect an account later in Settings to enable cloud backup.")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: 360)
             }
@@ -165,7 +165,7 @@ struct AccountAccessView: View {
                     .font(.title2.weight(.semibold))
                 Text(detail)
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
 
             ProgressView()
@@ -183,7 +183,7 @@ struct AccountAccessView: View {
                     .font(.system(size: 42, weight: .medium))
                     .symbolRenderingMode(.monochrome)
                     .frame(width: 82, height: 82)
-                    .background(.fill.tertiary, in: .circle)
+                    .background(AtheviaAdaptiveStyle(.fill.tertiary, gaming: .raisedSurface), in: .circle)
                     .accessibilityHidden(true)
 
                 VStack(spacing: 8) {
@@ -192,7 +192,7 @@ struct AccountAccessView: View {
 
                     Text(message)
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                         .multilineTextAlignment(.center)
                         .lineSpacing(2)
                 }
@@ -297,3 +297,4 @@ enum LocalTrainingStoreState {
         try context.save()
     }
 }
+

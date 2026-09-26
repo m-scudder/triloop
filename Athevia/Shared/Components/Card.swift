@@ -28,6 +28,8 @@ extension Color {
 
 /// Filled, full-width button for the one action a screen most wants.
 struct PrimaryActionButtonStyle: ButtonStyle {
+    @Environment(\.atheviaTheme) private var theme
+
     @Environment(\.isEnabled) private var isEnabled
 
     func makeBody(configuration: Configuration) -> some View {
@@ -35,8 +37,9 @@ struct PrimaryActionButtonStyle: ButtonStyle {
             .font(.subheadline.weight(.semibold))
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
-            .background(Color.actionSurface, in: .rect(cornerRadius: 12))
-            .foregroundStyle(Color.onActionSurface)
+            .background(theme.color(.accent, classic: Color.actionSurface), in: .rect(cornerRadius: 12))
+            .foregroundStyle(theme.color(.onAccent, classic: Color.onActionSurface))
+            .shadow(color: theme.isGaming ? GamingPalette.color(.onAccent).opacity(0.65) : .clear, radius: 0, y: configuration.isPressed ? 0 : 3)
             .opacity(opacity(pressed: configuration.isPressed))
     }
 
@@ -58,10 +61,10 @@ struct SecondaryActionButtonStyle: ButtonStyle {
             .font(.subheadline.weight(.medium))
             .padding(.horizontal, 14)
             .padding(.vertical, 14)
-            .background(.fill.tertiary, in: .rect(cornerRadius: 12))
+            .background(AtheviaAdaptiveStyle(.fill.tertiary, gaming: .raisedSurface), in: .rect(cornerRadius: 12))
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(.separator, lineWidth: 0.5)
+                    .strokeBorder(AtheviaAdaptiveStyle(.separator, gaming: .border), lineWidth: 0.5)
             )
             .opacity(opacity(pressed: configuration.isPressed))
     }
@@ -81,13 +84,14 @@ struct SectionEyebrow: View {
             .font(.caption.weight(.semibold))
             .textCase(.uppercase)
             .kerning(0.6)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .highlight))
     }
 }
 
 /// Bordered container used for grouped content outside of `List`.
 struct Card<Content: View>: View {
     var padding: CGFloat = 16
+    var gamingRole: GamingPalette.Role = .surface
     @ViewBuilder var content: Content
 
     var body: some View {
@@ -96,11 +100,11 @@ struct Card<Content: View>: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(.background.secondary)
+                    .fill(AtheviaAdaptiveStyle(.background.secondary, gaming: gamingRole))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(.separator.opacity(0.6), lineWidth: 0.5)
+                    .strokeBorder(AtheviaAdaptiveStyle(.separator.opacity(0.6), gaming: .border), lineWidth: 0.5)
             )
     }
 }
@@ -146,13 +150,13 @@ struct DisclosureCard<Content: View>: View {
                     if let subtitle {
                         Text(subtitle)
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                             .lineLimit(2)
                     }
                 }
             } icon: {
                 Image(systemName: systemImage)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                     .frame(width: 24)
             }
         }
@@ -160,11 +164,11 @@ struct DisclosureCard<Content: View>: View {
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(.background.secondary)
+                .fill(AtheviaAdaptiveStyle(.background.secondary, gaming: .surface))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(.separator.opacity(0.45), lineWidth: 0.5)
+                    .strokeBorder(AtheviaAdaptiveStyle(.separator.opacity(0.45), gaming: .border), lineWidth: 0.5)
         )
     }
 }
@@ -185,7 +189,7 @@ struct StatTile: View {
                 .minimumScaleFactor(0.7)
             Text(label)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: Alignment(horizontal: alignment, vertical: .center))
@@ -202,7 +206,7 @@ struct ProportionBar: View {
     var body: some View {
         GeometryReader { proxy in
             ZStack(alignment: .leading) {
-                Capsule().fill(.fill.tertiary)
+                Capsule().fill(AtheviaAdaptiveStyle(.fill.tertiary, gaming: .raisedSurface))
                 Capsule()
                     .fill(tint)
                     .frame(width: max(proxy.size.width * min(max(fraction, 0), 1), 2))
@@ -225,7 +229,7 @@ struct EffortBar: View {
                 let upper = Double(range.upper - RPEScale.minimum) / Double(RPEScale.maximum - RPEScale.minimum)
 
                 ZStack(alignment: .leading) {
-                    Capsule().fill(.fill.tertiary)
+                    Capsule().fill(AtheviaAdaptiveStyle(.fill.tertiary, gaming: .raisedSurface))
                     Capsule()
                         .fill(.primary)
                         .frame(width: max((upper - lower) * width, 6))
@@ -240,7 +244,7 @@ struct EffortBar: View {
                 Text("\(RPEScale.maximum) Max")
             }
             .font(.caption2)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Target effort \(TrainingFormatter.rpe(range)) out of \(RPEScale.maximum)")
@@ -249,6 +253,7 @@ struct EffortBar: View {
 
 
 struct AtheviaToggleStyle: ToggleStyle {
+    @Environment(\.atheviaTheme) private var theme
     func makeBody(configuration: Configuration) -> some View {
         Button {
             withAnimation(.easeInOut(duration: 0.16)) {
@@ -261,10 +266,10 @@ struct AtheviaToggleStyle: ToggleStyle {
                 Spacer(minLength: 12)
                 ZStack(alignment: configuration.isOn ? .trailing : .leading) {
                     Capsule()
-                        .fill(configuration.isOn ? Color.green : Color(uiColor: .tertiarySystemFill))
+                        .fill(configuration.isOn ? theme.color(.accent, classic: .green) : theme.color(.raisedSurface, classic: Color(uiColor: .tertiarySystemFill)))
                         .frame(width: 50, height: 30)
                     Circle()
-                        .fill(Color.white)
+                        .fill(theme.color(.onAccent, classic: .white))
                         .frame(width: 24, height: 24)
                         .shadow(color: .black.opacity(0.12), radius: 1.5, y: 1)
                         .padding(3)
@@ -298,7 +303,7 @@ struct AtheviaProgressOverlay: ViewModifier {
                         }
                         .padding(.horizontal, 26)
                         .padding(.vertical, 22)
-                        .background(.regularMaterial, in: .rect(cornerRadius: 16))
+                        .background(AtheviaAdaptiveStyle(.regularMaterial, gaming: .surface), in: .rect(cornerRadius: 16))
                         .shadow(radius: 12, y: 4)
                         .padding(32)
                     }
@@ -322,6 +327,7 @@ extension View {
 /// another screen or sheet. The selected fill is explicit so it remains
 /// readable in both light and dark appearances.
 struct AtheviaChoiceChip: View {
+    @Environment(\.atheviaTheme) private var theme
     let title: String
     let isSelected: Bool
     var tint: Color = .blue
@@ -332,17 +338,17 @@ struct AtheviaChoiceChip: View {
             Text(title)
                 .font(.subheadline.weight(.medium))
                 .multilineTextAlignment(.center)
-                .foregroundStyle(isSelected ? Color.white : Color.primary)
+                .foregroundStyle(isSelected ? theme.color(.onAccent, classic: .white) : theme.color(.text, classic: .primary))
                 .frame(maxWidth: .infinity, minHeight: 42)
                 .padding(.horizontal, 8)
                 .background(
-                    isSelected ? tint : Color(uiColor: .tertiarySystemFill),
+                    isSelected ? theme.color(.accent, classic: tint) : theme.color(.raisedSurface, classic: Color(uiColor: .tertiarySystemFill)),
                     in: .rect(cornerRadius: 11)
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 11, style: .continuous)
                         .strokeBorder(
-                            isSelected ? tint : Color.secondary.opacity(0.16),
+                            isSelected ? theme.color(.accent, classic: tint) : theme.color(.border, classic: Color.secondary.opacity(0.16)),
                             lineWidth: 0.5
                         )
                 )

@@ -81,6 +81,7 @@ final class WatchWorkoutStore: NSObject, ObservableObject {
         }
 
         payload = decoded
+        UserDefaults.standard.set(decoded.gamingThemeEnabled ?? false, forKey: AtheviaTheme.preferenceKey)
 
         let currentIDs = Set(decoded.workouts.map(\.id))
         locallyCompletedWorkoutIDs.formIntersection(currentIDs)

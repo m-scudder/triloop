@@ -69,6 +69,7 @@ struct RecoveryCheckInSheet: View {
                 }
                 .padding(20)
             }
+            .atheviaScreen()
             .navigationTitle("Yesterday")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -85,6 +86,7 @@ struct RecoveryCheckInSheet: View {
                 Text(failure ?? "")
             }
         }
+        .atheviaScreen()
     }
 
     private func save() {
@@ -107,3 +109,4 @@ struct RecoveryCheckInSheet: View {
         Binding(get: { failure != nil }, set: { if !$0 { failure = nil } })
     }
 }
+

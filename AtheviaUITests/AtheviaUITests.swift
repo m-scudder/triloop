@@ -246,6 +246,37 @@ final class AtheviaUITests: XCTestCase {
     }
 
     @MainActor
+    func testGamingThemeSwitchPersistsAndKeepsNavigation() throws {
+        let app = densityApp()
+        app.launch()
+        let settings = app.tabBars.buttons["Settings"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 10))
+        settings.tap()
+        let toggle = app.switches["settings.gamingTheme"]
+        reveal(toggle, in: app)
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+        if toggle.value as? String == "1" { toggle.tap() }
+        toggle.tap()
+        XCTAssertEqual(toggle.value as? String, "1")
+        attachScreenshot(app, name: "Gaming Settings")
+        for title in ["Home", "Plan", "Progress"] {
+            let tab = app.tabBars.buttons[title]
+            XCTAssertTrue(tab.exists)
+            tab.tap()
+            attachScreenshot(app, name: "Gaming \(title)")
+        }
+        app.terminate()
+        app.launch()
+        XCTAssertTrue(settings.waitForExistence(timeout: 10))
+        settings.tap()
+        reveal(toggle, in: app)
+        XCTAssertEqual(toggle.value as? String, "1")
+        toggle.tap()
+        XCTAssertEqual(toggle.value as? String, "0")
+        attachScreenshot(app, name: "Classic restored")
+    }
+
+    @MainActor
     private func densityApp() -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = [
@@ -327,3 +358,4 @@ final class AtheviaUITests: XCTestCase {
         add(attachment)
     }
 }
+

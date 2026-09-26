@@ -25,7 +25,7 @@ struct FeedbackSummaryView: View {
             if !feedback.notes.isEmpty {
                 Text(feedback.notes)
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                     .padding(.top, 2)
             }
         }
@@ -35,14 +35,15 @@ struct FeedbackSummaryView: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             Text(value)
                 .font(.title2.weight(.semibold))
                 .monospacedDigit()
             Text(caption)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
         }
         .accessibilityElement(children: .combine)
     }
 }
+

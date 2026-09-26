@@ -57,10 +57,11 @@ struct AboutYouStepView: View {
                         .font(.subheadline)
                     Text("A population average, so it can be out by 10 bpm either way. If you record a harder effort than this, Athevia uses what you actually did.")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
     }
 }
+

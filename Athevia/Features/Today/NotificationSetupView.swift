@@ -11,14 +11,14 @@ struct NotificationEnableCard: View {
                 Image(systemName: "bell.badge")
                     .font(.title3)
                     .frame(width: 34, height: 34)
-                    .background(.fill.tertiary, in: .circle)
+                    .background(AtheviaAdaptiveStyle(.fill.tertiary, gaming: .raisedSurface), in: .circle)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Never miss a workout")
                         .font(.subheadline.weight(.semibold))
                     Text("Get a reminder on training days and when your next week is ready.")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 }
             }
 
@@ -27,11 +27,11 @@ struct NotificationEnableCard: View {
                     .buttonStyle(PrimaryActionButtonStyle())
                 Button("Not now", action: dismiss)
                     .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
         }
         .padding(16)
-        .background(.fill.tertiary, in: .rect(cornerRadius: 16))
+        .background(AtheviaAdaptiveStyle(.fill.tertiary, gaming: .raisedSurface), in: .rect(cornerRadius: 16))
     }
 }
 
@@ -67,7 +67,7 @@ struct NotificationSetupSheet: View {
                         .font(.title2.weight(.semibold))
                     Text("Choose when Athevia should remind you on days that have a planned workout.")
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 }
 
                 DatePicker(
@@ -79,7 +79,7 @@ struct NotificationSetupSheet: View {
 
                 Text("Workout reminders move automatically when your plan changes. Completed or skipped sessions are removed.")
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
 
                 Spacer()
 
@@ -88,6 +88,7 @@ struct NotificationSetupSheet: View {
                     .disabled(isRequesting)
             }
             .padding(20)
+            .atheviaScreen()
             .navigationTitle("Notifications")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -101,6 +102,7 @@ struct NotificationSetupSheet: View {
                 Text("iOS did not grant notification access. You can enable it later from Settings.")
             }
         }
+        .atheviaScreen()
     }
 
     private func enable() {
@@ -124,3 +126,4 @@ struct NotificationSetupSheet: View {
         }
     }
 }
+

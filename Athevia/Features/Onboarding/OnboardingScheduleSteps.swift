@@ -94,13 +94,13 @@ struct TrainingDaysStepView: View {
                     systemImage: "info.circle"
                 )
                 .font(.footnote)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
 
             if model.sharedTrainingMinutes == nil {
                 Label("Choose your training time.", systemImage: "info.circle")
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
         }
     }
@@ -116,13 +116,13 @@ struct TrainingDaysStepView: View {
                 .frame(maxWidth: .infinity, minHeight: 46)
                 .background(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(isOn ? AnyShapeStyle(Color.blue) : AnyShapeStyle(.fill.tertiary))
+                        .fill(isOn ? AnyShapeStyle(AtheviaAdaptiveStyle(Color.blue, gaming: .accent)) : AnyShapeStyle(AtheviaAdaptiveStyle(.fill.tertiary, gaming: .raisedSurface)))
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .strokeBorder(.separator, lineWidth: isOn ? 0 : 0.5)
                 )
-                .foregroundStyle(isOn ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
+                .foregroundStyle(isOn ? AnyShapeStyle(AtheviaAdaptiveStyle(.white, gaming: .onAccent)) : AnyShapeStyle(AtheviaAdaptiveStyle(.primary, gaming: .text)))
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)
@@ -139,3 +139,4 @@ struct TrainingDaysStepView: View {
         }
     }
 }
+

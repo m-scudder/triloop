@@ -7,6 +7,7 @@ import SwiftUI
 /// individual values are not, so drawing a scale would imply precision the card
 /// cannot deliver.
 struct MetricCard: View {
+    @Environment(\.atheviaTheme) private var theme
     let metric: WorkoutMetric
 
     var body: some View {
@@ -33,7 +34,7 @@ struct MetricCard: View {
                     .minimumScaleFactor(0.6)
                 Text(metric.caption)
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                     .lineLimit(1)
             }
 
@@ -47,11 +48,11 @@ struct MetricCard: View {
         .aspectRatio(1, contentMode: .fit)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(metric.tint.opacity(0.10))
+                .fill(theme.color(.surface, classic: metric.tint.opacity(0.10)))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(metric.tint.opacity(0.18), lineWidth: 0.5)
+                .strokeBorder(theme.color(.border, classic: metric.tint.opacity(0.18)), lineWidth: 0.5)
         )
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(metric.title), \(metric.headline) \(metric.caption)")
@@ -144,3 +145,4 @@ struct MetricCard: View {
         return max(low, 0)...max(high, low + 1)
     }
 }
+

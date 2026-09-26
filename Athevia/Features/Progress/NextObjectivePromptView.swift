@@ -20,7 +20,7 @@ struct NextObjectivePromptView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Recovery is complete. Choose the next objective when you’re ready.")
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
 
                     ForEach(options, id: \.1) { option in
                         Label(option.1, systemImage: option.0)
@@ -39,3 +39,4 @@ struct NextObjectivePromptView: View {
         }
     }
 }
+

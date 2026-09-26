@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct WatchWorkoutPlayerView: View {
+    @Environment(\.atheviaTheme) private var theme
     let workout: WatchWorkoutPayload
 
     @EnvironmentObject private var manager: WatchWorkoutSessionManager
@@ -19,7 +20,7 @@ struct WatchWorkoutPlayerView: View {
                 activeWorkoutView
             }
         }
-        .background(Color.black)
+        .background(AtheviaAdaptiveStyle(Color.black, gaming: .canvas))
         .navigationBarBackButtonHidden(manager.isActive)
         .onChange(of: manager.savedWorkoutUUID) { _, savedID in
             if savedID != nil {
@@ -92,7 +93,7 @@ struct WatchWorkoutPlayerView: View {
                     controlButton(
                         title: "End",
                         systemImage: "xmark",
-                        tint: .red
+                        tint: theme.color(.danger, classic: .red)
                     ) {
                         showsEndConfirmation = true
                     }
@@ -100,7 +101,7 @@ struct WatchWorkoutPlayerView: View {
                     controlButton(
                         title: manager.state == .paused ? "Resume" : "Pause",
                         systemImage: manager.state == .paused ? "play.fill" : "pause.fill",
-                        tint: .yellow
+                        tint: theme.color(.warning, classic: .yellow)
                     ) {
                         if manager.state == .paused {
                             manager.resume()
@@ -114,7 +115,7 @@ struct WatchWorkoutPlayerView: View {
                         systemImage: manager.voiceEnabled
                             ? "speaker.wave.2.fill"
                             : "speaker.slash.fill",
-                        tint: manager.voiceEnabled ? .green : .gray
+                        tint: manager.voiceEnabled ? theme.color(.success, classic: .green) : theme.color(.rest, classic: .gray)
                     ) {
                         manager.toggleVoice()
                     }
@@ -122,7 +123,7 @@ struct WatchWorkoutPlayerView: View {
                     controlButton(
                         title: "Next",
                         systemImage: "forward.end.fill",
-                        tint: .white,
+                        tint: theme.color(.text, classic: .white),
                         disabled: manager.currentStep == nil
                     ) {
                         manager.completeCurrentStep()
@@ -157,7 +158,7 @@ struct WatchWorkoutPlayerView: View {
 
                 Text(title)
                     .font(.caption2)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.white, gaming: .text))
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
             }
@@ -178,7 +179,7 @@ struct WatchWorkoutPlayerView: View {
             metricRow(
                 label: "Elapsed Time",
                 value: elapsedText,
-                tint: .yellow
+                tint: theme.color(.warning, classic: .yellow)
             )
 
             switch workout.discipline {
@@ -186,66 +187,66 @@ struct WatchWorkoutPlayerView: View {
                 metricRow(
                     label: "Heart Rate",
                     value: heartRateText,
-                    tint: .red
+                    tint: theme.color(.danger, classic: .red)
                 )
                 metricRow(
                     label: "Current Pace",
                     value: currentRunPaceText,
-                    tint: .green
+                    tint: theme.color(.success, classic: .green)
                 )
                 metricRow(
                     label: "Average Pace",
                     value: averageRunPaceText,
-                    tint: .green
+                    tint: theme.color(.success, classic: .green)
                 )
                 metricRow(
                     label: "Distance",
                     value: distanceText,
-                    tint: .cyan
+                    tint: theme.color(.highlight, classic: .cyan)
                 )
 
             case .cycling:
                 metricRow(
                     label: "Heart Rate",
                     value: heartRateText,
-                    tint: .red
+                    tint: theme.color(.danger, classic: .red)
                 )
                 metricRow(
                     label: "Current Speed",
                     value: currentCycleSpeedText,
-                    tint: .green
+                    tint: theme.color(.success, classic: .green)
                 )
                 metricRow(
                     label: "Average Speed",
                     value: averageCycleSpeedText,
-                    tint: .green
+                    tint: theme.color(.success, classic: .green)
                 )
                 metricRow(
                     label: "Distance",
                     value: distanceText,
-                    tint: .cyan
+                    tint: theme.color(.highlight, classic: .cyan)
                 )
 
             case .swimming:
                 metricRow(
                     label: "Distance",
                     value: swimDistanceText,
-                    tint: .cyan
+                    tint: theme.color(.highlight, classic: .cyan)
                 )
                 metricRow(
                     label: "Heart Rate",
                     value: heartRateText,
-                    tint: .red
+                    tint: theme.color(.danger, classic: .red)
                 )
                 metricRow(
                     label: "Average Pace",
                     value: averageSwimPaceText,
-                    tint: .green
+                    tint: theme.color(.success, classic: .green)
                 )
                 metricRow(
                     label: "Active Calories",
                     value: caloriesText,
-                    tint: .pink
+                    tint: theme.color(.multisport, classic: .pink)
                 )
 
             case .multisport:
@@ -265,7 +266,7 @@ struct WatchWorkoutPlayerView: View {
         HStack(alignment: .firstTextBaseline) {
             Text(label)
                 .font(.caption2)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
 
             Spacer(minLength: 4)
 
@@ -291,36 +292,36 @@ struct WatchWorkoutPlayerView: View {
 
                     Text(step.kind.appleWorkoutLabel.uppercased())
                         .font(.caption2.weight(.semibold))
-                        .foregroundStyle(step.kind.tint)
+                        .foregroundStyle(step.kind.themedTint(theme))
 
                     if let repetition = step.repetitionLabel {
                         Text(repetition)
                             .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                     }
 
                     Text(step.title)
                         .font(.headline.weight(.semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.white, gaming: .text))
                         .lineLimit(2)
                         .minimumScaleFactor(0.8)
 
                     Text(primaryProgressText)
                         .font(.system(size: 30, weight: .semibold, design: .rounded))
                         .monospacedDigit()
-                        .foregroundStyle(step.kind.tint)
+                        .foregroundStyle(step.kind.themedTint(theme))
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
 
                     if let progress = manager.engine?.stepProgress {
                         ProgressView(value: progress)
-                            .tint(step.kind.tint)
+                            .tint(step.kind.themedTint(theme))
                     }
 
                     if let intensity = step.targetIntensity {
                         Text(intensity.displayName)
                             .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                     }
 
                     Divider()
@@ -330,7 +331,7 @@ struct WatchWorkoutPlayerView: View {
                         VStack(alignment: .leading, spacing: 3) {
                             Text("UP NEXT")
                                 .font(.caption2.weight(.semibold))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
 
                             HStack(alignment: .firstTextBaseline, spacing: 6) {
                                 Text(next.title)
@@ -342,14 +343,14 @@ struct WatchWorkoutPlayerView: View {
 
                                 Text(next.prescriptionText)
                                     .font(.caption2)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                                     .lineLimit(1)
                             }
                         }
                     } else {
                         Text("Final interval")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -365,11 +366,11 @@ struct WatchWorkoutPlayerView: View {
         HStack(spacing: 5) {
             Image(systemName: workout.discipline.symbolName)
                 .font(.caption2.weight(.semibold))
-                .foregroundStyle(.green)
+                .foregroundStyle(AtheviaAdaptiveStyle(.green, gaming: .success))
 
             Text(workout.discipline.displayName)
                 .font(.caption2.weight(.semibold))
-                .foregroundStyle(.green)
+                .foregroundStyle(AtheviaAdaptiveStyle(.green, gaming: .success))
                 .lineLimit(1)
 
             Spacer()
@@ -377,7 +378,7 @@ struct WatchWorkoutPlayerView: View {
             if manager.state == .paused {
                 Text("PAUSED")
                     .font(.caption2.weight(.bold))
-                    .foregroundStyle(.yellow)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.yellow, gaming: .warning))
             }
         }
     }
@@ -387,19 +388,19 @@ struct WatchWorkoutPlayerView: View {
         if let discipline = manager.currentMetricDiscipline {
             switch discipline {
             case .running:
-                metricRow(label: "Heart Rate", value: heartRateText, tint: .red)
-                metricRow(label: "Current Pace", value: currentRunPaceText, tint: .green)
-                metricRow(label: "Average Pace", value: averageRunPaceText, tint: .green)
-                metricRow(label: "Distance", value: distanceText, tint: .cyan)
+                metricRow(label: "Heart Rate", value: heartRateText, tint: theme.color(.danger, classic: .red))
+                metricRow(label: "Current Pace", value: currentRunPaceText, tint: theme.color(.success, classic: .green))
+                metricRow(label: "Average Pace", value: averageRunPaceText, tint: theme.color(.success, classic: .green))
+                metricRow(label: "Distance", value: distanceText, tint: theme.color(.highlight, classic: .cyan))
             case .cycling:
-                metricRow(label: "Heart Rate", value: heartRateText, tint: .red)
-                metricRow(label: "Current Speed", value: currentCycleSpeedText, tint: .green)
-                metricRow(label: "Average Speed", value: averageCycleSpeedText, tint: .green)
-                metricRow(label: "Distance", value: distanceText, tint: .cyan)
+                metricRow(label: "Heart Rate", value: heartRateText, tint: theme.color(.danger, classic: .red))
+                metricRow(label: "Current Speed", value: currentCycleSpeedText, tint: theme.color(.success, classic: .green))
+                metricRow(label: "Average Speed", value: averageCycleSpeedText, tint: theme.color(.success, classic: .green))
+                metricRow(label: "Distance", value: distanceText, tint: theme.color(.highlight, classic: .cyan))
             case .swimming:
-                metricRow(label: "Distance", value: swimDistanceText, tint: .cyan)
-                metricRow(label: "Heart Rate", value: heartRateText, tint: .red)
-                metricRow(label: "Average Pace", value: averageSwimPaceText, tint: .green)
+                metricRow(label: "Distance", value: swimDistanceText, tint: theme.color(.highlight, classic: .cyan))
+                metricRow(label: "Heart Rate", value: heartRateText, tint: theme.color(.danger, classic: .red))
+                metricRow(label: "Average Pace", value: averageSwimPaceText, tint: theme.color(.success, classic: .green))
             case .multisport:
                 EmptyView()
             }
@@ -407,9 +408,9 @@ struct WatchWorkoutPlayerView: View {
             metricRow(
                 label: "Transition",
                 value: manager.engine?.stepElapsedSeconds.watchClockText ?? "0:00",
-                tint: .yellow
+                tint: theme.color(.warning, classic: .yellow)
             )
-            metricRow(label: "Heart Rate", value: heartRateText, tint: .red)
+            metricRow(label: "Heart Rate", value: heartRateText, tint: theme.color(.danger, classic: .red))
         }
     }
 
@@ -420,7 +421,7 @@ struct WatchWorkoutPlayerView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Workout Ended")
                     .font(.headline)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.white, gaming: .text))
 
                 summaryRow("Total Time", elapsedText)
                 summaryRow("Distance", distanceText)
@@ -433,11 +434,11 @@ struct WatchWorkoutPlayerView: View {
                 if let error = manager.errorMessage {
                     Text(error)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 } else if manager.savedWorkoutUUID != nil {
                     Label("Saved to Health", systemImage: "heart.fill")
                         .font(.caption)
-                        .foregroundStyle(.green)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.green, gaming: .success))
                 }
 
                 Button("Done") {
@@ -448,7 +449,7 @@ struct WatchWorkoutPlayerView: View {
                     dismiss()
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(.green)
+                .tint(theme.color(.accent, classic: .green))
                 .frame(maxWidth: .infinity)
             }
             .padding(.horizontal, 8)
@@ -459,7 +460,7 @@ struct WatchWorkoutPlayerView: View {
         VStack(alignment: .leading, spacing: 1) {
             Text(label)
                 .font(.caption2)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             Text(value)
                 .font(.title3.weight(.semibold))
                 .monospacedDigit()
@@ -587,6 +588,19 @@ private extension WatchWorkoutStepKind {
         case .repeatBlock:
             "Repeat"
         }
+    }
+
+    func themedTint(_ theme: AtheviaTheme) -> Color {
+        let role: GamingPalette.Role
+        switch self {
+        case .warmUp, .cooldown: role = .highlight
+        case .work, .transition: role = .warning
+        case .recovery: role = .recovery
+        case .runningSegment, .repeatBlock: role = .running
+        case .cyclingSegment: role = .cycling
+        case .swimmingSegment: role = .swimming
+        }
+        return theme.color(role, classic: tint)
     }
 
     var tint: Color {

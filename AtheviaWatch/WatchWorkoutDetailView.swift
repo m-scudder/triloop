@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct WatchWorkoutDetailView: View {
+    @Environment(\.atheviaTheme) private var theme
+
     let workout: WatchWorkoutPayload
 
     @EnvironmentObject private var manager: WatchWorkoutSessionManager
@@ -24,7 +26,7 @@ struct WatchWorkoutDetailView: View {
                 if !workout.goal.isEmpty {
                     Text(workout.goal)
                         .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 }
 
                 if !workout.steps.isEmpty {
@@ -72,7 +74,7 @@ struct WatchWorkoutDetailView: View {
                     .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(.green)
+                .tint(theme.color(.accent, classic: .green))
                 .disabled(
                     isCompleted
                     || isStarting
@@ -83,11 +85,12 @@ struct WatchWorkoutDetailView: View {
                 if isCompleted {
                     Text("This workout is complete and can’t be started again.")
                         .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 }
             }
             .padding(.horizontal, 4)
         }
+        .atheviaScreen()
         .navigationTitle(workout.discipline.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(isPresented: $showsPlayer) {
@@ -151,7 +154,7 @@ struct WatchWorkoutDetailView: View {
             Image(systemName: workout.discipline.symbolName)
                 .font(.title2)
                 .symbolRenderingMode(.monochrome)
-                .foregroundStyle(workout.discipline.sportTint)
+                .foregroundStyle(workout.discipline.themedTint(theme))
 
             Text(workout.title)
                 .font(.title3.weight(.semibold))
@@ -165,7 +168,7 @@ struct WatchWorkoutDetailView: View {
                 }
             }
             .font(.caption)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
         }
     }
 }
@@ -176,6 +179,7 @@ private struct WatchWorkoutSetupView: View {
 
     var body: some View {
         Form {
+            Group {
             switch workout.discipline {
             case .running, .cycling, .multisport:
                 Picker("Workout Type", selection: $configuration.environment) {
@@ -208,7 +212,11 @@ private struct WatchWorkoutSetupView: View {
                     }
                 }
             }
+            }
+            .atheviaListRow()
         }
+        .atheviaList()
+        .atheviaScreen()
         .navigationTitle("Workout Setup")
     }
 }
@@ -227,20 +235,20 @@ private struct WatchWorkoutStepView: View {
                 if let prescription {
                     Text(prescription)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 }
             }
 
             if let intensity = step.targetIntensity {
                 Text(intensity.displayName)
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
 
             if let instructions = step.instructions, !instructions.isEmpty {
                 Text(instructions)
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
 
             if step.kind == .repeatBlock {
@@ -257,7 +265,7 @@ private struct WatchWorkoutStepView: View {
                             if let value = prescription(for: child) {
                                 Text(value)
                                     .font(.caption2)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                             }
                         }
                     }
@@ -289,3 +297,4 @@ private struct WatchWorkoutStepView: View {
         return nil
     }
 }
+

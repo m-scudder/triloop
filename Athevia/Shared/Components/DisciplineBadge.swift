@@ -1,6 +1,34 @@
 import SwiftUI
 
 extension Discipline {
+    var gamingRole: GamingPalette.Role {
+        switch self {
+        case .running: .running
+        case .swimming: .swimming
+        case .cycling: .cycling
+        case .multisport: .multisport
+        case .recovery: .recovery
+        case .rest: .rest
+        }
+    }
+
+    func themedTint(_ theme: AtheviaTheme) -> Color {
+        theme.color(gamingRole, classic: tint)
+    }
+
+    func themedGradient(_ theme: AtheviaTheme) -> LinearGradient {
+        guard theme.isGaming else { return gradient }
+        return LinearGradient(
+            colors: [GamingPalette.color(.hero), GamingPalette.color(.heroEnd)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
+    func themedSurface(_ theme: AtheviaTheme) -> Color {
+        theme.color(.heroEnd, classic: surface)
+    }
+
     /// Vivid hue for sport identity across glyphs, bars and training surfaces.
     var tint: Color {
         switch self {
@@ -47,6 +75,8 @@ extension Discipline {
 
 /// Rounded sport-coloured glyph used consistently across Today, Plan and Detail.
 struct DisciplineBadge: View {
+    @Environment(\.atheviaTheme) private var theme
+
     let discipline: Discipline
     var size: CGFloat = 40
 
@@ -54,9 +84,9 @@ struct DisciplineBadge: View {
         Image(systemName: discipline.symbolName)
             .font(.system(size: size * 0.45, weight: .semibold))
             .symbolRenderingMode(.monochrome)
-            .foregroundStyle(discipline.tint)
+            .foregroundStyle(discipline.themedTint(theme))
             .frame(width: size, height: size)
-            .background(discipline.tint.opacity(0.18), in: .rect(cornerRadius: size * 0.28))
+            .background(discipline.themedTint(theme).opacity(0.18), in: .rect(cornerRadius: size * 0.28))
             .accessibilityHidden(true)
     }
 }

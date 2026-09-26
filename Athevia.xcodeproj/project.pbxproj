@@ -101,6 +101,11 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+        AK0000000000000000000009 /* AtheviaTheme */ = {
+            isa = PBXFileSystemSynchronizedRootGroup;
+            path = AtheviaTheme;
+            sourceTree = "<group>";
+        };
 		AB0000000000000000000009 /* Athevia */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -196,6 +201,7 @@
 				AE0000000000000000000009 /* AtheviaLiveActivity */,
 				AG0000000000000000000009 /* AtheviaWatch */,
 				AH0000000000000000000009 /* AtheviaShared */,
+                AK0000000000000000000009 /* AtheviaTheme */,
 				AC0000000000000000000009 /* AtheviaTests */,
 				AD0000000000000000000009 /* AtheviaUITests */,
 				712410B4305DC9D200365CC3 /* Frameworks */,
@@ -237,6 +243,7 @@
 			fileSystemSynchronizedGroups = (
 				AB0000000000000000000009 /* Athevia */,
 				AH0000000000000000000009 /* AtheviaShared */,
+                AK0000000000000000000009 /* AtheviaTheme */,
 			);
 			name = Athevia;
 			packageProductDependencies = (
@@ -306,6 +313,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				AE0000000000000000000009 /* AtheviaLiveActivity */,
+                AK0000000000000000000009 /* AtheviaTheme */,
 			);
 			name = AtheviaLiveActivity;
 			packageProductDependencies = (
@@ -329,6 +337,7 @@
 			fileSystemSynchronizedGroups = (
 				AG0000000000000000000009 /* AtheviaWatch */,
 				AH0000000000000000000009 /* AtheviaShared */,
+                AK0000000000000000000009 /* AtheviaTheme */,
 			);
 			name = "Athevia Watch";
 			packageProductDependencies = (
@@ -893,3 +902,4 @@
 	};
 	rootObject = AA0000000000000000000001 /* Project object */;
 }
+

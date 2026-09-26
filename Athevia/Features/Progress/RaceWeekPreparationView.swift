@@ -19,7 +19,7 @@ struct RaceWeekPreparationView: View {
                                 .font(.subheadline.weight(.semibold))
                             Text(item.detail)
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                         }
 
                         if item.id != items.prefix(7).last?.id {
@@ -31,3 +31,4 @@ struct RaceWeekPreparationView: View {
         }
     }
 }
+

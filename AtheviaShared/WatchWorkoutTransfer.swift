@@ -26,19 +26,23 @@ struct WatchWorkoutListPayload: Codable, Equatable, Sendable {
     let weekStart: Date?
     let workouts: [WatchWorkoutPayload]
     let coaching: WatchCoachingSettingsPayload?
+    /// Optional so older phone/Watch payloads remain decodable (schema v2).
+    let gamingThemeEnabled: Bool?
 
     init(
         schemaVersion: Int = Self.currentSchemaVersion,
         generatedAt: Date = .now,
         weekStart: Date?,
         workouts: [WatchWorkoutPayload],
-        coaching: WatchCoachingSettingsPayload? = nil
+        coaching: WatchCoachingSettingsPayload? = nil,
+        gamingThemeEnabled: Bool? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.generatedAt = generatedAt
         self.weekStart = weekStart
         self.workouts = workouts
         self.coaching = coaching
+        self.gamingThemeEnabled = gamingThemeEnabled
     }
 }
 

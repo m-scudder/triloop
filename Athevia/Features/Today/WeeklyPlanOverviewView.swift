@@ -3,6 +3,8 @@ import SwiftUI
 /// Compact whole-week context for Home. It answers how the week is shaped and
 /// how far through it the athlete is without turning Home into Progress.
 struct WeeklyPlanOverviewView: View {
+    @Environment(\.atheviaTheme) private var theme
+
     let plan: WeeklyPlan
 
     /// This card describes the plan, not every activity recorded this week.
@@ -33,7 +35,7 @@ struct WeeklyPlanOverviewView: View {
     }
 
     var body: some View {
-        Card {
+        Card(gamingRole: .hero) {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .firstTextBaseline) {
                     VStack(alignment: .leading, spacing: 2) {
@@ -41,14 +43,14 @@ struct WeeklyPlanOverviewView: View {
                             .font(.headline)
                         Text(TrainingFormatter.weekRange(start: plan.startDate, end: plan.endDate))
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                     }
 
                     Spacer()
 
                     Text("\(TrainingFormatter.totalDuration(seconds: plannedSeconds)) planned")
                         .font(.caption.weight(.medium))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
@@ -58,7 +60,7 @@ struct WeeklyPlanOverviewView: View {
                         Spacer()
                         Text("\(Int(progress * 100))%")
                             .font(.caption.monospacedDigit())
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                     }
 
                     ProgressView(value: progress)
@@ -77,7 +79,7 @@ struct WeeklyPlanOverviewView: View {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
                         Text("Focus")
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                         Text(focus)
                             .font(.caption)
                             .lineLimit(2)
@@ -98,13 +100,13 @@ struct WeeklyPlanOverviewView: View {
 
         return HStack(spacing: 6) {
             Image(systemName: sport.discipline.symbolName)
-                .foregroundStyle(sport.discipline.tint)
+                .foregroundStyle(sport.discipline.themedTint(theme))
             VStack(alignment: .leading, spacing: 1) {
                 Text(sport.discipline.displayName)
                     .font(.caption.weight(.medium))
                 Text("\(sportSessions.count) · \(TrainingFormatter.totalDuration(seconds: duration))")
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
             }

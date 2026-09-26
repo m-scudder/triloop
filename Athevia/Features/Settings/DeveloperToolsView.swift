@@ -47,7 +47,7 @@ struct DeveloperToolsView: View {
 
                 Text(dataset.detail)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
 
                 if dataset.scenarioSetup() != nil {
                     Button("Apply scenario profile") {
@@ -106,6 +106,7 @@ struct DeveloperToolsView: View {
 
     var body: some View {
         List {
+            Group {
             healthSourceSection
 
             if let plan = simulationPlan {
@@ -119,7 +120,7 @@ struct DeveloperToolsView: View {
                                 Text(scenario.name)
                                 Text(scenario.detail)
                                     .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                             }
                         }
                     }
@@ -158,7 +159,7 @@ struct DeveloperToolsView: View {
                     } else {
                         Text("Switch Source to Simulated Data above to attach fixture workouts.")
                             .font(.footnote)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                     }
                 } footer: {
                     // Fabricated summaries carry a random UUID that HealthKit
@@ -206,7 +207,7 @@ struct DeveloperToolsView: View {
                 }
             } else {
                 Text("No plan available.")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
 
             Section {
@@ -220,7 +221,11 @@ struct DeveloperToolsView: View {
             } footer: {
                 Text("Start Over clears Athevia's local profile and training data. Apple Health is not deleted; workouts from before the reset are ignored when the fresh plan imports. Resetting reinstalls the fixed week one without touching setup.")
             }
+            }
+            .atheviaListRow()
         }
+        .atheviaList()
+        .atheviaScreen()
         .navigationTitle("Developer")
         .navigationBarTitleDisplayMode(.inline)
         .alert("Developer", isPresented: showingMessage) {
@@ -500,3 +505,4 @@ struct DeveloperToolsView: View {
     }
 }
 #endif
+
