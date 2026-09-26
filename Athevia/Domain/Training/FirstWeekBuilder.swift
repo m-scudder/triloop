@@ -240,10 +240,23 @@ struct FirstWeekBuilder: Sendable {
         let opening = "Built from your \(setup.objective.displayName.lowercased()) goal and what you can do today"
         guard !sports.isEmpty else { return opening + "." }
 
+        let selectedMinutes = setup.schedule.availableDays.compactMap(\.maxDurationMinutes).max()
+        let plannedMinutes = shape.disciplines
+            .compactMap(\.sport)
+            .compactMap { durations(from: setup.parametersFallback(poolLengthMeters: 25))[$0] }
+            .map { Int(($0 / 60).rounded()) }
+            .max()
+        let timeExplanation: String
+        if let selectedMinutes, let plannedMinutes, plannedMinutes < selectedMinutes {
+            timeExplanation = " You gave Athevia up to \(selectedMinutes) minutes; this week deliberately uses shorter sessions because your current starting point does not need the full window yet."
+        } else {
+            timeExplanation = ""
+        }
+
         let unfitted = shape.fittedEverything
             ? ""
             : " Some sessions did not fit your availability and were left out."
 
-        return "\(opening): \(sports). Starting conservatively so Athevia can learn how you respond.\(unfitted)"
+        return "\(opening): \(sports). Starting conservatively so Athevia can learn how you respond.\(timeExplanation)\(unfitted)"
     }
 }
