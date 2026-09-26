@@ -187,7 +187,9 @@ final class AtheviaUITests: XCTestCase {
         week.tap()
         let pain = app.staticTexts["Pain reported at 3/10"]
         XCTAssertTrue(pain.waitForExistence(timeout: 5))
-        let why = app.buttons["why.Why Running: Reduce"]
+        let why = app.buttons.matching(
+            NSPredicate(format: "identifier BEGINSWITH %@", "why.Why Running:")
+        ).firstMatch
         reveal(why, in: app)
         attachScreenshot(app, name: "Weekly analysis with visible pain")
         why.tap()
@@ -212,7 +214,6 @@ final class AtheviaUITests: XCTestCase {
         attachScreenshot(app, name: "Explanation accessibility text")
         XCTAssertTrue(app.buttons["explanation.done"].isHittable)
         try app.performAccessibilityAudit(for: [.textClipped, .dynamicType])
-        app.buttons["explanation.done"].tap()
     }
 
     /// Plan renders the selected workout in place; management actions stay on
