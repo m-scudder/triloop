@@ -48,6 +48,12 @@ private struct StepView: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
+
+            if let cue = effortCue(for: step.targetIntensity) {
+                Label(cue, systemImage: "gauge.with.dots.needle.33percent")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 
@@ -101,17 +107,33 @@ private struct StepView: View {
         }
     }
 
+    private func effortCue(for intensity: TargetIntensity?) -> String? {
+        guard let intensity else { return nil }
+        switch intensity {
+        case .veryEasy:
+            return "Very easy: relaxed movement. Breathing should feel normal."
+        case .easy:
+            return "Easy: you should be able to talk comfortably."
+        case .steady:
+            return "Steady: controlled effort. You can still speak in short sentences."
+        case .moderate:
+            return "Moderate: breathing is stronger, but the effort should stay controlled."
+        case .hard:
+            return "Hard: challenging effort. Follow the planned time and do not sprint."
+        }
+    }
+
     private var sectionTitle: String {
         switch step.kind {
         case .warmUp: "Warm-up"
         case .work: "Main set"
-        case .recovery: "Recovery"
+        case .recovery: "Easy recovery"
         case .cooldown: "Cooldown"
         case .runningSegment: "Run"
         case .cyclingSegment: "Bike"
         case .swimmingSegment: "Swim"
-        case .transition: "Transition"
-        case .repeatBlock: "Intervals"
+        case .transition: "Change sport"
+        case .repeatBlock: "Repeat these steps"
         }
     }
 
