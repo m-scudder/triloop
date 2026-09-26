@@ -315,7 +315,7 @@ struct WorkoutDayDetail: View {
 
     private var canSkip: Bool {
         guard let plan = workout.plan else { return false }
-        return workout.discipline.isTrainingSession && PlanReshaper().canEdit(workout, in: plan)
+        return workout.discipline.isPlannedWorkout && PlanReshaper().canEdit(workout, in: plan)
     }
 
     private var weekday: Weekday? { Weekday(date: workout.date) }
