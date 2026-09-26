@@ -250,6 +250,30 @@ struct WeekShapePlannerTests {
         #expect(shape.disciplines.contains(.running))
         #expect(shape.disciplines.contains(.cycling))
     }
+    @Test("Cycling-only can use every selected day even for a beginner")
+    func cyclingUsesSelectedAvailability() {
+        let baseline = AthleteBaseline(cycling: .under20)
+        let frequencies = WeekShapePlanner.frequencies(
+            for: [.cycling],
+            schedule: everyDay,
+            baseline: baseline
+        )
+
+        #expect(frequencies == [SportFrequency(sport: .cycling, sessions: 7)])
+    }
+
+    @Test("Beginner swimming uses selected days with a conservative frequency ceiling")
+    func beginnerSwimmingKeepsRecoveryRoom() {
+        let baseline = AthleteBaseline(swimming: .none)
+        let frequencies = WeekShapePlanner.frequencies(
+            for: [.swimming],
+            schedule: everyDay,
+            baseline: baseline
+        )
+
+        #expect(frequencies == [SportFrequency(sport: .swimming, sessions: 5)])
+    }
+
     @Test("Recorded training can increase future frequency without changing onboarding")
     func capabilityEvidenceCanIncreaseFrequency() {
         let sixDays = schedule([.monday, .tuesday, .wednesday, .thursday, .friday, .saturday])
