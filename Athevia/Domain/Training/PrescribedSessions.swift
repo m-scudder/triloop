@@ -220,12 +220,12 @@ enum PrescribedSessions {
         )
     }
 
-    static func restDay(on date: Date) -> PlannedWorkout {
+    static func restDay(on date: Date, reason: String? = nil) -> PlannedWorkout {
         PlannedWorkout(
             date: date,
             discipline: .rest,
             title: "Rest",
-            goal: "No workout today. Rest helps your body recover and become ready for the next session."
+            goal: reason ?? "No workout is scheduled today because this day is outside your selected training availability."
         )
     }
 
