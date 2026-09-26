@@ -189,9 +189,11 @@ struct StartingPointStepView: View {
 
             if customPoolSelected {
                 TextField("Pool length in metres", text: $poolText)
-                    .keyboardType(.decimalPad)
+                    .keyboardType(.numbersAndPunctuation)
+                    .submitLabel(.done)
                     .textFieldStyle(.roundedBorder)
                     .focused($isEditingPool)
+                    .onSubmit { isEditingPool = false }
                     .onChange(of: poolText) { _, value in
                         let metres = (try? Double(value, format: .number)) ?? 0
                         model.setPoolLength(PoolLength.isValid(metres) ? metres : 0)
