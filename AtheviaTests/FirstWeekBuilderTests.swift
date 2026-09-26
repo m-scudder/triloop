@@ -52,8 +52,12 @@ struct FirstWeekBuilderTests {
 
         #expect(plan.prescribedWorkouts.count == 2)
         #expect(plan.prescribedTrainingSessions.count == 1)
-        #expect(recovery.acceptsFeedback)
+        #expect(recovery.acceptsFeedback == false)
+        #expect(recovery.canCompleteWithoutFeedback)
+        recovery.completeWithoutFeedback()
+        #expect(recovery.isCompleted)
         #expect(rest.acceptsFeedback == false)
+        #expect(rest.canCompleteWithoutFeedback == false)
     }
 
     @Test("The first week is built from the assessment, not a seed")
