@@ -173,14 +173,18 @@ struct TodayView: View {
 
         case .upcoming(let id):
             if let workout = workout(id) {
-                TodayWorkoutView(
-                    workout: workout,
-                    isScheduledOnWatch: scheduledWorkoutIDs.contains(workout.id),
-                    isScheduling: isScheduling,
-                    markDone: { feedbackWorkout = workout },
-                    start: { send(workout) }
-                )
-                completedSummaries
+                if workout.discipline == .recovery {
+                    recoveryWorkout(workout)
+                } else {
+                    TodayWorkoutView(
+                        workout: workout,
+                        isScheduledOnWatch: scheduledWorkoutIDs.contains(workout.id),
+                        isScheduling: isScheduling,
+                        markDone: { feedbackWorkout = workout },
+                        start: { send(workout) }
+                    )
+                    completedSummaries
+                }
             }
 
         case .awaitingImport(let id):
@@ -229,6 +233,29 @@ struct TodayView: View {
                 message: "This week's training is done.",
                 detail: "Your next week is created once you've reported this one."
             )
+        }
+    }
+
+    private func recoveryWorkout(_ workout: PlannedWorkout) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Label("RECOVERY WORKOUT", systemImage: workout.discipline.symbolName)
+                .font(.headline)
+
+            Text(workout.title)
+                .font(.title2.weight(.semibold))
+
+            if !workout.goal.isEmpty {
+                Text(workout.goal)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+
+            WorkoutPrescriptionView(workout: workout)
+
+            Button("Complete recovery workout") {
+                workout.completeWithoutFeedback()
+            }
+            .buttonStyle(PrimaryActionButtonStyle())
         }
     }
 
