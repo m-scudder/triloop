@@ -76,7 +76,7 @@ struct MultisportTrainingPolicy: Sendable {
               !recoveringSports.contains(.running) else {
             return false
         }
-        return journey.weeklyObjectives.contains { $0.kind == .brickTransition }
+        return journey.weeklyObjectives.contains { $0.kind == .brickChange from bike to run }
     }
 
     func canScheduleRaceSimulation(
@@ -171,14 +171,14 @@ enum MultisportPrescribedSessions {
                 order: 0,
                 kind: .cyclingSegment,
                 title: "Easy bike",
-                instructions: "Settle into a relaxed cadence.",
+                instructions: "Pedal gently and get comfortable on the bike.",
                 durationSeconds: parameters.rideWarmUpSeconds,
                 targetIntensity: .veryEasy
             ),
             WorkoutStep(
                 order: 1,
                 kind: .cyclingSegment,
-                title: "Brick bike",
+                title: "Bike before your run",
                 instructions: "Comfortable, controlled riding. Save the legs for the run.",
                 durationSeconds: prescription.bikeSeconds,
                 targetIntensity: prescription.targetIntensity
@@ -186,7 +186,7 @@ enum MultisportPrescribedSessions {
             WorkoutStep(
                 order: 2,
                 kind: .transition,
-                title: "Transition",
+                title: "Change from bike to run",
                 instructions: "Dismount safely, change footwear and start the run without rushing.",
                 durationSeconds: prescription.transitionSeconds,
                 targetIntensity: .veryEasy
@@ -194,7 +194,7 @@ enum MultisportPrescribedSessions {
             WorkoutStep(
                 order: 3,
                 kind: .runningSegment,
-                title: "Brick run",
+                title: "Easy run after cycling",
                 instructions: "Run easy. The purpose is adapting to the bike-to-run change, not speed.",
                 durationSeconds: prescription.runSeconds,
                 targetIntensity: prescription.targetIntensity
@@ -211,8 +211,8 @@ enum MultisportPrescribedSessions {
         return PlannedWorkout(
             date: date,
             discipline: .multisport,
-            title: "Bike + Run Brick",
-            goal: "Practise a calm bike-to-run transition at easy effort.",
+            title: "Bike, Then Run",
+            goal: "Practise how it feels to finish cycling, change shoes, and begin running without rushing.",
             targetRPE: RPERange(3, 5),
             steps: steps
         )
@@ -228,14 +228,14 @@ enum MultisportPrescribedSessions {
             parameters: parameters,
             prescription: prescription
         )
-        workout.title = "Bike + Run Race Rehearsal"
+        workout.title = "Practice Your Bike-to-Run Event"
         workout.goal = "Practise event pacing, equipment and transition flow without testing maximum performance."
         workout.targetRPE = RPERange(4, 6)
-        if let bike = workout.orderedSteps.first(where: { $0.kind == .cyclingSegment && $0.title == "Brick bike" }) {
+        if let bike = workout.orderedSteps.first(where: { $0.kind == .cyclingSegment && $0.title == "Bike before your run" }) {
             bike.title = "Controlled event-effort bike"
             bike.instructions = "Use the steady event rhythm you have practised. Keep enough in reserve for the run."
         }
-        if let run = workout.orderedSteps.first(where: { $0.kind == .runningSegment && $0.title == "Brick run" }) {
+        if let run = workout.orderedSteps.first(where: { $0.kind == .runningSegment && $0.title == "Easy run after cycling" }) {
             run.title = "Controlled event-effort run"
             run.instructions = "Settle quickly after transition. Keep the effort controlled; this is rehearsal, not a test."
         }
@@ -248,7 +248,7 @@ enum MultisportPrescribedSessions {
     ) {
         guard multiplier < 1 else { return }
         if multiplier == 0 {
-            workout.title = "Post-event recovery"
+            workout.title = "Light Movement After Your Event"
             workout.goal = "Recover before beginning the next training objective."
             workout.discipline = .recovery
             workout.targetRPE = nil
@@ -259,7 +259,7 @@ enum MultisportPrescribedSessions {
                 WorkoutStep(
                     order: 0,
                     kind: .recovery,
-                    title: "Easy recovery",
+                    title: "Gentle walking and movement",
                     instructions: "Optional easy walking and mobility only.",
                     durationSeconds: 20 * 60,
                     targetIntensity: .veryEasy
