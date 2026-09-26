@@ -231,8 +231,11 @@ final class AtheviaUITests: XCTestCase {
         attachScreenshot(app, name: "Plan inline workout")
 
         options.tap()
-        let moveWorkout = app.buttons["Move Workout"]
-        XCTAssertTrue(moveWorkout.waitForExistence(timeout: 5))
+        let moveWorkout = app.descendants(matching: .any)["Move Workout"]
+        XCTAssertTrue(
+            moveWorkout.waitForExistence(timeout: 5),
+            "Workout options opened but the Move Workout action was not exposed."
+        )
         attachScreenshot(app, name: "Plan workout options")
     }
 
@@ -293,16 +296,19 @@ final class AtheviaUITests: XCTestCase {
 
     @MainActor
     private func reveal(_ element: XCUIElement, in app: XCUIApplication) {
-        // A previous interaction may have left a scroll view either above or
-        // below the target. Search both directions rather than assuming every
-        // requested control is farther down the page.
+        // Onboarding and detail screens pin actions into safe-area insets.
+        // Swipe the content scroll view itself so gestures are not consumed by
+        // the pinned footer or another overlay.
+        let scrollView = app.scrollViews.firstMatch
+        let surface = scrollView.exists ? scrollView : app
+
         for _ in 0..<12 {
             if element.isHittable { return }
-            app.swipeUp()
+            surface.swipeUp()
         }
         for _ in 0..<12 {
             if element.isHittable { return }
-            app.swipeDown()
+            surface.swipeDown()
         }
         XCTAssertTrue(element.isHittable, "Could not reveal \(element)")
     }
