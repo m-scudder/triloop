@@ -222,10 +222,11 @@ struct FirstWeekBuilder: Sendable {
         }
     }
 
-    /// New onboarding uses one time limit for every training day. Taking the
-    /// smallest stated value also keeps legacy profiles with mixed limits safe.
+    /// New onboarding uses one time limit for every training day. Using the largest available window preserves the athlete's capability-based
+    /// prescription; the week-shape planner then places that session only on days
+    /// whose individual time limit can actually accommodate it.
     private func trainingMinuteCap(in schedule: AthleteSchedule) -> Int? {
-        schedule.availableDays.compactMap(\.maxDurationMinutes).min()
+        schedule.availableDays.compactMap(\.maxDurationMinutes).max()
     }
 
     private func reason(for setup: AthleteSetup, shape: WeekShape) -> String {
