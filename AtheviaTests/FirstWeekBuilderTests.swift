@@ -198,7 +198,7 @@ struct FirstWeekBuilderTests {
         )
 
         let rides = plan.trainingSessions.filter { $0.discipline == .cycling }
-        #expect(rides.count == 4)
+        #expect(rides.count == 7)
         #expect(rides.allSatisfy {
             guard let duration = $0.estimatedDurationSeconds else { return false }
             return duration > 0 && duration <= TimeInterval(60 * 60)
@@ -256,13 +256,13 @@ struct FirstWeekBuilderTests {
         #expect(first.orderedWorkouts.map(\.discipline) == second.orderedWorkouts.map(\.discipline))
     }
 
-    @Test("Availability is a ceiling and unused days become recovery")
+    @Test("Unused availability is rest rather than fake recovery")
     func availableDaysUseExperienceAwareCapacity() throws {
         let plan = try builder.build(setup: setup(), poolLengthMeters: 25, startDate: monday())
 
-        #expect(plan.orderedWorkouts.contains { $0.discipline == .rest } == false)
         #expect(plan.trainingSessions.count == 4)
-        #expect(plan.orderedWorkouts.filter { $0.discipline == .recovery }.count == 3)
+        #expect(plan.orderedWorkouts.filter { $0.discipline == .rest }.count == 3)
+        #expect(plan.orderedWorkouts.filter { $0.discipline == .recovery }.isEmpty)
     }
 
     @Test("Experienced Run and Cycle uses five of six available days")
@@ -362,12 +362,13 @@ struct FirstWeekBuilderTests {
         )
 
         #expect(beginner.trainingSessions.count == 3)
-        #expect(beginner.orderedWorkouts.filter { $0.discipline == .recovery }.count == 3)
+        #expect(beginner.orderedWorkouts.filter { $0.discipline == .rest }.count == 3)
+        #expect(beginner.orderedWorkouts.filter { $0.discipline == .recovery }.isEmpty)
         #expect(established.trainingSessions.count == 6)
         #expect(established.orderedWorkouts.filter { $0.discipline == .recovery }.isEmpty)
     }
 
-    @Test("Running-only availability uses recovery between runs")
+    @Test("Running-only availability leaves rest between runs")
     func runningOnlyUsesRecoverySlots() throws {
         let schedule = AthleteSchedule(
             days: Weekday.trainingWeek.map {
@@ -392,7 +393,8 @@ struct FirstWeekBuilderTests {
         )
 
         #expect(plan.orderedWorkouts.filter { $0.discipline == .running }.count == 3)
-        #expect(plan.orderedWorkouts.filter { $0.discipline == .recovery }.count == 3)
+        #expect(plan.orderedWorkouts.filter { $0.discipline == .recovery }.isEmpty)
+        #expect(plan.orderedWorkouts.filter { $0.discipline == .rest }.count == 4)
         #expect(plan.orderedWorkouts.last?.discipline == .rest)
     }
 
