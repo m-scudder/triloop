@@ -190,7 +190,7 @@ struct FirstWeekBuilder: Sendable {
             startDate: monday,
             endDate: calendar.date(byAdding: .day, value: 6, to: monday) ?? monday,
             status: .active,
-            generationReason: reason(for: setup, shape: shape),
+            generationReason: reason(for: setup, shape: shape, parameters: parameters),
             generationReasonCode: .initialAssessment,
             parameters: parameters,
             workouts: workouts
@@ -229,7 +229,7 @@ struct FirstWeekBuilder: Sendable {
         schedule.availableDays.compactMap(\.maxDurationMinutes).max()
     }
 
-    private func reason(for setup: AthleteSetup, shape: WeekShape) -> String {
+    private func reason(for setup: AthleteSetup, shape: WeekShape, parameters: TrainingParameters) -> String {
         let sports = shape.disciplines
             .compactMap(\.sport)
             .reduce(into: [Sport: Int]()) { counts, sport in counts[sport, default: 0] += 1 }
@@ -243,7 +243,7 @@ struct FirstWeekBuilder: Sendable {
         let selectedMinutes = setup.schedule.availableDays.compactMap(\.maxDurationMinutes).max()
         let plannedMinutes = shape.disciplines
             .compactMap(\.sport)
-            .compactMap { durations(from: setup.parametersFallback(poolLengthMeters: 25))[$0] }
+            .compactMap { durations(from: parameters)[$0] }
             .map { Int(($0 / 60).rounded()) }
             .max()
         let timeExplanation: String
