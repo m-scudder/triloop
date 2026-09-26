@@ -100,9 +100,19 @@ final class PlannedWorkout {
         return calendar.startOfDay(for: date) < calendar.startOfDay(for: now)
     }
 
-    /// Recovery is an active planned workout and can be completed/reported.
-    /// Rest is passive and has no completion state for the athlete.
-    var acceptsFeedback: Bool { discipline.isPlannedWorkout }
+    /// Sport training needs the normal effort/pain report. Recovery is a real
+    /// workout for completion, but deliberately uses a lightweight completion
+    /// path so the athlete is not asked to manufacture training feedback.
+    var acceptsFeedback: Bool { discipline.isTrainingSession }
+
+    var canCompleteWithoutFeedback: Bool { discipline == .recovery }
+
+    func completeWithoutFeedback(at date: Date = .now) {
+        guard canCompleteWithoutFeedback else { return }
+        discardFeedback()
+        status = .completed
+        completedAt = date
+    }
 
     func recordCompletion(with draft: FeedbackDraft, at date: Date = .now) {
         discardFeedback()
