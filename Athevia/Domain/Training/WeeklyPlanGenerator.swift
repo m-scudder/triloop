@@ -245,7 +245,7 @@ struct WeeklyPlanGenerator: Sendable {
             startDate: monday,
             endDate: day(6),
             status: .active,
-            generationReason: reason(from: analysis),
+            generationReason: reason(from: analysis, parameters: parameters),
             generationReasonCode: PlanGenerationReason.from(analysis.sports.map(\.status)),
             parameters: parameters,
             workouts: workouts
@@ -273,13 +273,23 @@ struct WeeklyPlanGenerator: Sendable {
         schedule.availableDays.compactMap(\.maxDurationMinutes).max()
     }
 
-    private func reason(from analysis: WeeklyAnalysis) -> String {
-        guard !analysis.sports.isEmpty else {
-            return "Repeat of the previous week."
+    private func reason(from analysis: WeeklyAnalysis, parameters: TrainingParameters) -> String {
+        let analysisReason = analysis.sports.isEmpty
+            ? "Repeat of the previous week."
+            : analysis.sports
+                .map { "\($0.sport.displayName): \($0.status.displayName.lowercased()) — \($0.adjustment.summary.lowercased())." }
+                .joined(separator: " ")
+
+        guard let availableMinutes = schedule.availableDays.compactMap(\.maxDurationMinutes).max() else {
+            return analysisReason
         }
 
-        return analysis.sports
-            .map { "\($0.sport.displayName): \($0.status.displayName.lowercased()) — \($0.adjustment.summary.lowercased())." }
-            .joined(separator: " ")
+        let longestPlannedMinutes = durations(from: parameters)
+            .values
+            .map { Int(($0 / 60).rounded()) }
+            .max() ?? availableMinutes
+
+        guard longestPlannedMinutes < availableMinutes else { return analysisReason }
+        return analysisReason + " You have up to \(availableMinutes) minutes available; Athevia is deliberately using shorter sessions because the current training load is enough for this stage."
     }
 }
