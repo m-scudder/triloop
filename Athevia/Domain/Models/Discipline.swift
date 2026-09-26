@@ -44,8 +44,13 @@ enum Discipline: String, Codable, CaseIterable, Sendable {
         }
     }
 
-    /// Recovery and rest days are still scheduled, but they are never progressed.
+    /// Sessions that contribute physiological training load and sport progression.
+    /// Recovery is deliberately excluded from load even though it is a workout.
     var isTrainingSession: Bool { self != .recovery && self != .rest }
+
+    /// Anything the athlete is actively asked to complete counts as a workout.
+    /// Rest is passive and never enters workout totals, completion, or adherence.
+    var isPlannedWorkout: Bool { self != .rest }
 
     var displayName: String {
         switch self {
