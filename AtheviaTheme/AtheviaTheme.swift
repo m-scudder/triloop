@@ -28,7 +28,7 @@ struct AtheviaTheme: Equatable, Sendable {
 /// Edit ONLY this palette to change Gaming colours across iPhone, Watch and
 /// Live Activities. Classic colours remain at their original call sites.
 enum GamingPalette: String, CaseIterable, Identifiable, Sendable {
-    case neon, ocean, ember, aurora
+    case neon, ocean, ember, aurora, midnight, rose, cobalt, graphite
 
     static let preferenceKey = "athevia.gamingPalette.v1"
     var id: String { rawValue }
@@ -44,6 +44,10 @@ enum GamingPalette: String, CaseIterable, Identifiable, Sendable {
         case .ocean: "Ocean Quest"
         case .ember: "Ember Arena"
         case .aurora: "Aurora Night"
+        case .midnight: "Midnight Gold"
+        case .rose: "Rose Pixel"
+        case .cobalt: "Cobalt Rush"
+        case .graphite: "Graphite Ice"
         }
     }
     var summary: String {
@@ -52,6 +56,10 @@ enum GamingPalette: String, CaseIterable, Identifiable, Sendable {
         case .ocean: "Navy · Aqua · Gold"
         case .ember: "Burgundy · Peach · Gold"
         case .aurora: "Forest · Mint · Lavender"
+        case .midnight: "Indigo · Gold · Ice"
+        case .rose: "Plum · Pink · Mint"
+        case .cobalt: "Blue · Sky · Coral"
+        case .graphite: "Charcoal · Ice · Lime"
         }
     }
 
@@ -69,6 +77,10 @@ enum GamingPalette: String, CaseIterable, Identifiable, Sendable {
         case .neon: surfaces = [0x160A2D, 0x281245, 0x43216D, 0x8952B6, 0x6B21B0, 0x3B176C, 0xC4FF47, 0x182A04, 0x4FE5FF]
         case .ocean: surfaces = [0x071726, 0x102C42, 0x1B4058, 0x437C96, 0x125477, 0x102C42, 0x65F4E0, 0x042E2A, 0xFFD568]
         case .ember: surfaces = [0x210D19, 0x361827, 0x512636, 0xA75E73, 0x762B43, 0x361827, 0xFFBA87, 0x361507, 0xFFD568]
+        case .midnight: surfaces = [0x101225, 0x202440, 0x343956, 0x717BA6, 0x393D70, 0x202440, 0xFFD568, 0x322303, 0x9CE8FF]
+        case .rose: surfaces = [0x210F24, 0x361C39, 0x502B50, 0xA26699, 0x702D68, 0x361C39, 0xFFACE0, 0x380D2B, 0x8CF4CD]
+        case .cobalt: surfaces = [0x0B142E, 0x172B4C, 0x283E61, 0x617FAE, 0x234E85, 0x172B4C, 0x8EDCFF, 0x062B40, 0xFFB5A2]
+        case .graphite: surfaces = [0x14171C, 0x252B33, 0x3A414C, 0x7D8797, 0x444D5E, 0x252B33, 0xD3EDFF, 0x172C3A, 0xC4FF47]
         case .aurora: surfaces = [0x091D1C, 0x14312E, 0x23453E, 0x50897A, 0x24574F, 0x14312E, 0x9FF5B6, 0x0A301B, 0xD7B5FF]
         }
         switch role {

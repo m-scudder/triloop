@@ -258,7 +258,10 @@ final class AtheviaUITests: XCTestCase {
         if toggle.value as? String == "1" { toggle.tap() }
         toggle.tap()
         XCTAssertEqual(toggle.value as? String, "1")
-        for id in ["neon", "ember", "aurora", "ocean"] {
+        let colors = app.buttons["settings.themeColors"]
+        reveal(colors, in: app)
+        colors.tap()
+        for id in ["neon", "ember", "aurora", "midnight", "rose", "cobalt", "graphite", "ocean"] {
             let option = app.buttons["settings.palette.\(id)"]
             reveal(option, in: app)
             XCTAssertTrue(option.waitForExistence(timeout: 5))
@@ -279,12 +282,15 @@ final class AtheviaUITests: XCTestCase {
         settings.tap()
         reveal(toggle, in: app)
         XCTAssertEqual(toggle.value as? String, "1")
+        reveal(colors, in: app)
+        colors.tap()
         let savedPalette = app.buttons["settings.palette.ocean"]
         reveal(savedPalette, in: app)
         XCTAssertEqual(savedPalette.value as? String, "Selected")
         let originalPalette = app.buttons["settings.palette.neon"]
         reveal(originalPalette, in: app)
         originalPalette.tap()
+        app.navigationBars.buttons.element(boundBy: 0).tap()
         reveal(toggle, in: app)
         toggle.tap()
         XCTAssertEqual(toggle.value as? String, "0")
