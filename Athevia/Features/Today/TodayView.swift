@@ -159,12 +159,10 @@ struct TodayView: View {
                 detail: "Finish setting up in Settings to get started."
             )
 
-        case .recoveryRequired:
-            TodayStatementView(
-                heading: "Recovery",
-                message: "Training is paused today.",
-                detail: "Your recent feedback asked for a recovery day. Nothing is expected of you."
-            )
+        case .recoveryRequired(let id):
+            if let workout = workout(id) {
+                recoveryWorkout(workout)
+            }
 
         case .needsFeedback(let id):
             if let workout = workout(id) {
