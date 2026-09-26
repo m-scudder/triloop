@@ -458,7 +458,7 @@ struct FirstWeekBuilderTests {
             startDate: start
         )
         #expect(build.trainingSessions.contains {
-            $0.title == "Easy Run" || $0.title == "Long Easy Run"
+            $0.title == "Easy Run" || $0.title == "Longer Comfortable Run"
         })
 
         let specific = try phaseBuilder.build(
@@ -481,7 +481,7 @@ struct FirstWeekBuilderTests {
             poolLengthMeters: 25,
             startDate: start
         )
-        #expect(raceWeek.trainingSessions.contains { $0.title == "Race-Week Easy Run" })
+        #expect(raceWeek.trainingSessions.contains { $0.title == "Short Easy Run Before Your Event" })
     }
 
     @Test("Event inside first week replaces recovery or normal training")
@@ -630,7 +630,7 @@ struct FirstWeekBuilderTests {
         )
 
         #expect(plan.trainingSessions.contains { $0.title == "Open-Water Preparation" })
-        #expect(plan.trainingSessions.contains { $0.title == "Bike + Run Brick" })
+        #expect(plan.trainingSessions.contains { $0.title == "Bike, Then Run" })
         #expect(!plan.trainingSessions.contains { $0.title == "Bike + Run Race Rehearsal" })
     }
 
