@@ -31,7 +31,6 @@ struct TrainingProfileView: View {
             historySection
             trainingSection
             preferencesSection
-            planSection
             }
             .atheviaListRow()
         }
@@ -137,22 +136,6 @@ struct TrainingProfileView: View {
             .sorted { $0.startDate > $1.startDate }
     }
 
-    @ViewBuilder
-    private var impactSection: some View {
-        let impact = pendingImpact
-        if impact.isTrainingImpacting {
-            Section {
-                Label("Upcoming training needs review", systemImage: "info.circle")
-                    .font(.subheadline.weight(.medium))
-
-                Text(impact.reasons.map(\.displayName).joined(separator: " · "))
-                    .font(.caption)
-                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
-            } footer: {
-                Text("Your completed and reported workouts stay unchanged. Use the Plan actions below when you want these edits applied to the days still ahead.")
-            }
-        }
-    }
 
     private var trainingSection: some View {
         Section("Training") {
@@ -934,26 +917,6 @@ struct TrainingProfileView: View {
         }
     }
 
-    private func reshape() {
-        guard let plan = plans.currentPlan() else { return }
-
-        do {
-            let outcome = try PlanStore(context: modelContext).reshapeWeek(plan)
-
-            var summary = outcome.isUnchanged
-                ? "The days ahead already match your schedule."
-                : "\(outcome.changes.count) day\(outcome.changes.count == 1 ? "" : "s") updated."
-
-            if outcome.dropped > 0 {
-                summary += " \(outcome.dropped) session\(outcome.dropped == 1 ? "" : "s") no longer fit."
-            }
-
-            opened = setup
-            message = summary
-        } catch {
-            message = "Could not update your week: \(error.localizedDescription)"
-        }
-    }
 
     private func reassess(showConfirmation: Bool = true) {
         guard let plan = plans.currentPlan() else { return }
