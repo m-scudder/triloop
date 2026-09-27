@@ -47,7 +47,16 @@ struct OnboardingView: View {
             TrainingDaysStepView(model: model)
 
         case .avatar:
-            AthleteAvatarOnboardingView(model: model)
+            AthleteAvatarIntroStepView(model: model)
+
+        case .avatarAppearance:
+            AthleteAvatarAppearanceStepView(model: model)
+
+        case .avatarOutfit:
+            AthleteAvatarOutfitStepView(model: model)
+
+        case .avatarReady:
+            AthleteAvatarReadyStepView(model: model)
 
         case .health, .watch, .safety:
             PlanPreviewStepView(model: model)
