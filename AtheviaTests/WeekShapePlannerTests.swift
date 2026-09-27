@@ -86,6 +86,43 @@ struct WeekShapePlannerTests {
         #expect(abs(runDays[0] - runDays[1]) >= 2)
     }
 
+    @Test("Different daily time limits control which day receives a long session")
+    func individualDayTimeLimitsShapePlacement() {
+        let plan = schedule(
+            [.monday, .tuesday, .wednesday, .thursday],
+            minutes: [.monday: 30, .tuesday: 60, .wednesday: 20, .thursday: 90]
+        )
+
+        let shape = planner.plan(
+            schedule: plan,
+            frequencies: [SportFrequency(sport: .cycling, sessions: 2)],
+            durations: [.cycling: TimeInterval(50 * 60)]
+        )
+
+        #expect(shape.disciplines[Weekday.monday.offsetFromMonday] == .rest)
+        #expect(shape.disciplines[Weekday.wednesday.offsetFromMonday] == .rest)
+        #expect(shape.disciplines[Weekday.tuesday.offsetFromMonday] == .cycling)
+        #expect(shape.disciplines[Weekday.thursday.offsetFromMonday] == .cycling)
+    }
+
+    @Test("A session that fits none of the selected time windows is reported unplaced")
+    func tooShortAvailabilityDoesNotViolateTheLimit() {
+        let plan = schedule(
+            [.monday, .wednesday],
+            minutes: [.monday: 15, .wednesday: 15]
+        )
+
+        let shape = planner.plan(
+            schedule: plan,
+            frequencies: [SportFrequency(sport: .cycling, sessions: 1)],
+            durations: [.cycling: TimeInterval(30 * 60)]
+        )
+
+        #expect(shape.isViable == false)
+        #expect(shape.unplaced[.cycling] == 1)
+        #expect(shape.disciplines.allSatisfy { $0 == .rest })
+    }
+
     @Test("The longest session claims a day before a shorter one takes it")
     func longestSessionIsPlacedFirst() {
         // Only Saturday is long enough for the ride.
@@ -250,6 +287,30 @@ struct WeekShapePlannerTests {
         #expect(shape.disciplines.contains(.running))
         #expect(shape.disciplines.contains(.cycling))
     }
+    @Test("Cycling-only can use every selected day even for a beginner")
+    func cyclingUsesSelectedAvailability() {
+        let baseline = AthleteBaseline(cycling: .under20)
+        let frequencies = WeekShapePlanner.frequencies(
+            for: [.cycling],
+            schedule: everyDay,
+            baseline: baseline
+        )
+
+        #expect(frequencies == [SportFrequency(sport: .cycling, sessions: 7)])
+    }
+
+    @Test("Beginner swimming uses selected days with a conservative frequency ceiling")
+    func beginnerSwimmingKeepsRecoveryRoom() {
+        let baseline = AthleteBaseline(swimming: .none)
+        let frequencies = WeekShapePlanner.frequencies(
+            for: [.swimming],
+            schedule: everyDay,
+            baseline: baseline
+        )
+
+        #expect(frequencies == [SportFrequency(sport: .swimming, sessions: 5)])
+    }
+
     @Test("Recorded training can increase future frequency without changing onboarding")
     func capabilityEvidenceCanIncreaseFrequency() {
         let sixDays = schedule([.monday, .tuesday, .wednesday, .thursday, .friday, .saturday])

@@ -12,7 +12,7 @@ struct MultisportTrainingTests {
             phase: .specific,
             weeksRemaining: 4,
             readiness: EventReadiness(status: .building, sports: []),
-            weeklyObjectives: [.init(sport: nil, kind: .brickTransition, priority: 4)],
+            weeklyObjectives: [.init(sport: nil, kind: .brickChange from bike to run, priority: 4)],
             sportPriorities: []
         )
         let objective = TrainingObjective.event(
@@ -34,7 +34,7 @@ struct MultisportTrainingTests {
             phase: .specific,
             weeksRemaining: 4,
             readiness: EventReadiness(status: .onTrack, sports: []),
-            weeklyObjectives: [.init(sport: nil, kind: .brickTransition, priority: 2)],
+            weeklyObjectives: [.init(sport: nil, kind: .brickChange from bike to run, priority: 2)],
             sportPriorities: []
         )
 
@@ -52,7 +52,7 @@ struct MultisportTrainingTests {
             phase: .specific,
             weeksRemaining: 4,
             readiness: EventReadiness(status: .needsAttention, sports: []),
-            weeklyObjectives: [.init(sport: nil, kind: .brickTransition, priority: 4)],
+            weeklyObjectives: [.init(sport: nil, kind: .brickChange from bike to run, priority: 4)],
             sportPriorities: []
         )
 
@@ -113,7 +113,7 @@ struct MultisportTrainingTests {
         )
 
         #expect(workout.orderedSteps.map(\.title) == [
-            "Easy bike", "Brick bike", "Transition", "Brick run", "Easy walk"
+            "Easy bike", "Bike before your run", "Change from bike to run", "Easy run after cycling", "Easy walk"
         ])
     }
 }

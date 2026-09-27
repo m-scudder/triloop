@@ -45,7 +45,7 @@ enum PrescribedSessions {
         goal: String?
     ) -> PlannedWorkout {
         let steps: [WorkoutStep] = [
-            .warmUp(order: 0, title: "Brisk walk", durationSeconds: parameters.runWarmUpSeconds),
+            WorkoutStep(order: 0, kind: .warmUp, title: "Warm up: brisk walk", instructions: "Start easy, then gradually walk more briskly. Keep your shoulders relaxed and let your arms swing naturally.", durationSeconds: parameters.runWarmUpSeconds, targetIntensity: .veryEasy),
             WorkoutStep(
                 order: 1,
                 kind: .work,
@@ -54,14 +54,14 @@ enum PrescribedSessions {
                 durationSeconds: parameters.runContinuousSeconds,
                 targetIntensity: .easy
             ),
-            .cooldown(order: 2, title: "Easy walk", durationSeconds: parameters.runCooldownSeconds)
+            WorkoutStep(order: 2, kind: .cooldown, title: "Cool down: easy walk", instructions: "Slow to a relaxed walk. Let your breathing return toward normal; do not stop suddenly.", durationSeconds: parameters.runCooldownSeconds, targetIntensity: .veryEasy)
         ]
 
         return PlannedWorkout(
             date: date,
             discipline: .running,
             title: "Running",
-            goal: goal ?? "Hold one steady, conversational effort the whole way.",
+            goal: goal ?? "Run continuously at a comfortable pace. You should be able to speak in short sentences.",
             targetRPE: RPERange(3, 4),
             steps: steps
         )
@@ -103,7 +103,7 @@ enum PrescribedSessions {
             date: date,
             discipline: .running,
             title: "Running",
-            goal: goal ?? "Build running tolerance while keeping impact low.",
+            goal: goal ?? "Alternate easy running and walking so your body can get used to running safely.",
             targetRPE: RPERange(3, 4),
             steps: steps
         )
@@ -132,7 +132,7 @@ enum PrescribedSessions {
                 order: 0,
                 title: "\(lengths(warmUpMeters, of: repeatDistance)) easy",
                 distanceMeters: warmUpMeters,
-                instructions: "Any stroke. Loosen up and get comfortable in the water."
+                instructions: "Start very easy. Use a comfortable stroke, keep your movements relaxed, and focus on smooth breathing before the main set."
             ),
             WorkoutStep(
                 order: 1,
@@ -169,7 +169,7 @@ enum PrescribedSessions {
         goal: String? = nil
     ) -> PlannedWorkout {
         let steps: [WorkoutStep] = [
-            .warmUp(order: 0, title: "Easy spinning", durationSeconds: parameters.rideWarmUpSeconds),
+            WorkoutStep(order: 0, kind: .warmUp, title: "Warm up: easy spinning", instructions: "Use a light gear and pedal smoothly. Start very easy and gradually settle into a comfortable rhythm.", durationSeconds: parameters.rideWarmUpSeconds, targetIntensity: .veryEasy),
             WorkoutStep(
                 order: 1,
                 kind: .work,
@@ -178,14 +178,14 @@ enum PrescribedSessions {
                 durationSeconds: parameters.rideWorkSeconds,
                 targetIntensity: .easy
             ),
-            .cooldown(order: 2, title: "Easy spinning", durationSeconds: parameters.rideCooldownSeconds)
+            WorkoutStep(order: 2, kind: .cooldown, title: "Cool down: easy spinning", instructions: "Shift to a light gear and gradually reduce your effort. Finish with easy, smooth pedaling.", durationSeconds: parameters.rideCooldownSeconds, targetIntensity: .veryEasy)
         ]
 
         return PlannedWorkout(
             date: date,
             discipline: .cycling,
             title: "Cycling",
-            goal: goal ?? "Build aerobic base at a conversational effort.",
+            goal: goal ?? "Build stamina with a comfortable ride. You should be able to hold a conversation.",
             targetRPE: RPERange(3, 4),
             steps: steps
         )
@@ -205,7 +205,7 @@ enum PrescribedSessions {
                 order: 1,
                 kind: .recovery,
                 title: "Mobility",
-                instructions: "Calves, hips and shoulders. A few minutes is enough.",
+                instructions: "Move slowly through ankle circles, gentle calf stretches, hip rotations and shoulder circles. Hold stretches only to mild tension; never force the range.",
                 durationSeconds: 10 * 60,
                 targetIntensity: .veryEasy
             )
@@ -214,18 +214,72 @@ enum PrescribedSessions {
         return PlannedWorkout(
             date: date,
             discipline: .recovery,
-            title: "Recovery",
-            goal: goal ?? "Let the week's training settle.",
+            title: "Light Movement Day",
+            goal: goal ?? "Move gently today so your body can recover and be ready for the next workout.",
             steps: steps
         )
     }
 
-    static func restDay(on date: Date) -> PlannedWorkout {
+    /// Purposeful low-load activity for a day the athlete said they can train
+    /// but where another sport-specific load session would not be appropriate.
+    /// It counts as a planned workout while remaining physiologically recovery.
+    static func engagementRecoveryDay(
+        on date: Date,
+        for sports: [Sport]
+    ) -> PlannedWorkout {
+        let selected = Set(sports)
+
+        if selected == [.swimming] {
+            return PlannedWorkout(
+                date: date,
+                discipline: .recovery,
+                title: "Swim Mobility & Recovery",
+                goal: "Stay engaged without adding another swim load session. Keep everything gentle.",
+                steps: [
+                    WorkoutStep(order: 0, kind: .recovery, title: "Easy walk", instructions: "Relaxed movement only.", durationSeconds: 15 * 60, targetIntensity: .veryEasy),
+                    WorkoutStep(order: 1, kind: .recovery, title: "Shoulder and upper-back mobility", instructions: "Do slow shoulder circles, arm circles, gentle cross-body shoulder stretches and easy upper-back rotations. Move smoothly and stop before discomfort.", durationSeconds: 15 * 60, targetIntensity: .veryEasy)
+                ]
+            )
+        }
+
+        if selected == [.cycling] {
+            return PlannedWorkout(
+                date: date,
+                discipline: .recovery,
+                title: "Cycling Recovery & Mobility",
+                goal: "Keep moving while giving your legs a low-load day before the next ride.",
+                steps: [
+                    WorkoutStep(order: 0, kind: .recovery, title: "Easy walk", instructions: "Keep the effort very easy.", durationSeconds: 20 * 60, targetIntensity: .veryEasy),
+                    WorkoutStep(order: 1, kind: .recovery, title: "Hip and leg mobility", instructions: "Do slow hip circles, gentle standing calf stretches and relaxed hamstring stretches. Hold each stretch about 20–30 seconds per side without bouncing.", durationSeconds: 10 * 60, targetIntensity: .veryEasy)
+                ]
+            )
+        }
+
+        if selected == [.running] {
+            return PlannedWorkout(
+                date: date,
+                discipline: .recovery,
+                title: "Running Recovery & Mobility",
+                goal: "Stay active today without adding another impact-running session.",
+                steps: [
+                    WorkoutStep(order: 0, kind: .recovery, title: "Easy walk", instructions: "Comfortable walking only.", durationSeconds: 20 * 60, targetIntensity: .veryEasy),
+                    WorkoutStep(order: 1, kind: .recovery, title: "Leg mobility", instructions: "Do slow ankle circles, gentle standing calf stretches and easy hip circles. Hold each calf stretch about 20–30 seconds per side; keep every movement comfortable.", durationSeconds: 10 * 60, targetIntensity: .veryEasy)
+                ]
+            )
+        }
+
+        return recoveryDay(
+            on: date,
+            goal: "Use this available day for gentle movement so you stay consistent without adding unnecessary training load."
+        )
+    }
+
+    static func restDay(on date: Date, reason: String? = nil) -> PlannedWorkout {
         PlannedWorkout(
             date: date,
             discipline: .rest,
             title: "Rest",
-            goal: "Full rest. Adaptation happens now, not during the sessions."
+            goal: reason ?? "No workout is scheduled today because this day is outside your selected training availability."
         )
     }
 

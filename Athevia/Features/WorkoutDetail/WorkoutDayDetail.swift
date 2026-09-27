@@ -224,15 +224,15 @@ struct WorkoutDayDetail: View {
     private var plannedWorkoutSection: some View {
         if workout.isCompleted {
             DisclosureCard(
-                workout.orderedSteps.isEmpty ? "Rest day" : "Planned workout",
+                workout.discipline == .rest ? "Rest day" : "Planned workout",
                 subtitle: WorkoutStructureSummary.text(for: workout) ?? WorkoutSummaryText.make(for: workout),
-                systemImage: workout.orderedSteps.isEmpty ? "moon.zzz" : "list.bullet"
+                systemImage: workout.discipline == .rest ? "moon.zzz" : "list.bullet"
             ) {
                 prescriptionContent
             }
         } else {
             VStack(alignment: .leading, spacing: 16) {
-                SectionEyebrow(text: workout.orderedSteps.isEmpty ? "Rest day" : "Planned workout")
+                SectionEyebrow(text: workout.discipline == .rest ? "Rest day" : "Planned workout")
                 prescriptionContent
             }
         }
@@ -253,12 +253,34 @@ struct WorkoutDayDetail: View {
                     .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
 
-            if workout.orderedSteps.isEmpty {
-                Text("No session today. Rest is part of the plan.")
+            availabilityExplanation
+
+            if workout.discipline == .rest {
+                Text("No workout to complete today.")
                     .font(.body)
                     .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             } else {
                 WorkoutPrescriptionView(workout: workout)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var availabilityExplanation: some View {
+        if workout.discipline.isTrainingSession,
+           let setup = profiles.first?.setup,
+           let weekday = Weekday(date: workout.date),
+           let availableMinutes = setup.schedule.availability(on: weekday).maxDurationMinutes,
+           let plannedSeconds = workout.estimatedDurationSeconds {
+            let plannedMinutes = Int((plannedSeconds / 60).rounded())
+            if plannedMinutes < availableMinutes {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("\(plannedMinutes) min planned · up to \(availableMinutes) min available")
+                        .font(.caption.weight(.semibold))
+                    Text("Why shorter? This session is intentionally sized for your current capability and training stage. Your availability is a maximum, not a target Athevia has to fill.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
     }
@@ -295,7 +317,7 @@ struct WorkoutDayDetail: View {
 
     private var canSkip: Bool {
         guard let plan = workout.plan else { return false }
-        return workout.discipline.isTrainingSession && PlanReshaper().canEdit(workout, in: plan)
+        return workout.discipline.isPlannedWorkout && PlanReshaper().canEdit(workout, in: plan)
     }
 
     private var weekday: Weekday? { Weekday(date: workout.date) }

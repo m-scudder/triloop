@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// A single selectable answer.
 ///
@@ -105,6 +106,8 @@ struct OnboardingStep<Content: View>: View {
             .padding(.top, 8)
             .padding(.bottom, 24)
         }
+        .scrollDismissesKeyboard(.interactively)
+        .background(KeyboardDismissOnBackgroundTap())
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: 10) {
                 Button(primaryTitle, action: primary)
@@ -124,3 +127,49 @@ struct OnboardingStep<Content: View>: View {
     }
 }
 
+/// Dismisses the keyboard when the athlete taps outside an editable control.
+/// The recognizer never cancels the underlying SwiftUI tap, and deliberately
+/// ignores text inputs so focusing a field does not immediately dismiss it.
+private struct KeyboardDismissOnBackgroundTap: UIViewRepresentable {
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView(frame: .zero)
+        DispatchQueue.main.async {
+            guard let host = view.window else { return }
+            let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.dismissKeyboard))
+            tap.cancelsTouchesInView = false
+            tap.delegate = context.coordinator
+            host.addGestureRecognizer(tap)
+            context.coordinator.gesture = tap
+            context.coordinator.host = host
+        }
+        return view
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {}
+
+    static func dismantleUIView(_ uiView: UIView, coordinator: Coordinator) {
+        if let gesture = coordinator.gesture {
+            coordinator.host?.removeGestureRecognizer(gesture)
+        }
+    }
+
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        weak var gesture: UITapGestureRecognizer?
+        weak var host: UIView?
+
+        @objc func dismissKeyboard() {
+            host?.endEditing(true)
+        }
+
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+            var view: UIView? = touch.view
+            while let current = view {
+                if current is UITextField || current is UITextView { return false }
+                view = current.superview
+            }
+            return true
+        }
+    }
+}

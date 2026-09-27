@@ -82,7 +82,7 @@ struct PlanPreviewStepView: View {
     }
 
     private func dayAndDate(of date: Date) -> String {
-        "\(TrainingFormatter.weekdayAbbreviation(for: date)), \(TrainingFormatter.shortDate(date))"
+        TrainingFormatter.shortDate(date)
     }
 
     private func detail(_ workout: PlannedWorkout) -> String {

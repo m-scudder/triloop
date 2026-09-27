@@ -10,12 +10,12 @@ enum TrainingPhase: String, Codable, CaseIterable, Sendable {
 
     var displayName: String {
         switch self {
-        case .foundation: "Foundation"
-        case .build: "Build"
-        case .specific: "Specific"
-        case .taper: "Taper"
-        case .raceWeek: "Race Week"
-        case .recovery: "Post Event / Recovery"
+        case .foundation: "Getting Started"
+        case .build: "Build Stamina"
+        case .specific: "Practice for Your Event"
+        case .taper: "Ease Off Before Your Event"
+        case .raceWeek: "Event Week"
+        case .recovery: "Recover After Your Event"
         }
     }
 }

@@ -89,6 +89,103 @@ struct WeeklyPlanGeneratorTests {
         #expect(ride?.estimatedDurationSeconds == TimeInterval(35 * 60))
     }
 
+    @Test("Sustained demonstrated cycling can advance by ten work minutes")
+    func sustainedCyclingEvidenceAcceleratesProgression() {
+        let week1 = seededWeek()
+        for workout in week1.trainingSessions {
+            workout.recordCompletion(with: FeedbackDraft(rpe: 3, painScore: 0))
+        }
+
+        var generator = generator()
+        generator.capability = AthleteCapabilityAssessment(
+            running: RunningCapability(
+                reportedContinuousSeconds: nil,
+                prescribedContinuousSeconds: nil,
+                demonstratedContinuousSeconds: nil,
+                longestRecordedDistanceMeters: 0,
+                recentDirection: .holding
+            ),
+            cycling: CyclingCapability(
+                reportedComfortableSeconds: 20 * 60,
+                prescribedWorkSeconds: 20 * 60,
+                bestRecentDurationSeconds: 40 * 60,
+                longestRecordedDistanceMeters: 10_000,
+                recentDirection: .building
+            ),
+            swimming: SwimmingCapability(
+                foundationState: .waterComfort,
+                reportedContinuousMeters: nil,
+                prescribedRepeatMeters: 25,
+                prescribedTotalWorkoutMeters: 300,
+                longestProvenContinuousMeters: nil,
+                longestRecordedTotalWorkoutMeters: 0,
+                openWaterExperience: false,
+                recentDirection: .holding
+            ),
+            recentCompletedSessions: 10,
+            recentPlannedSessions: 10,
+            recentMissedOrSkippedSessions: 0,
+            recentAdherence: 1,
+            recoveryState: .stable,
+            completedBrickCount: 0
+        )
+
+        let week2 = generator.generate(after: week1, analysis: WeeklyAnalyser().analyse(week1))
+
+        // 40 min demonstrated total - 10 min warm-up/cooldown = 30 min work.
+        // That is a meaningful 10-minute step from the 20-minute work block,
+        // rather than forcing the athlete through 21, 22, 23... minute weeks.
+        #expect(week2.parameters.rideWorkSeconds == TimeInterval(30 * 60))
+    }
+
+    @Test("Sustained history never overrides a cycling safety hold")
+    func sustainedCyclingEvidenceDoesNotOverrideSafety() {
+        let week1 = seededWeek()
+        for workout in week1.trainingSessions where workout.discipline == .cycling {
+            workout.recordCompletion(with: FeedbackDraft(rpe: 4, painScore: 3))
+        }
+        for workout in week1.trainingSessions where workout.discipline != .cycling {
+            workout.recordCompletion(with: FeedbackDraft(rpe: 3, painScore: 0))
+        }
+
+        var generator = generator()
+        generator.capability = AthleteCapabilityAssessment(
+            running: RunningCapability(
+                reportedContinuousSeconds: nil,
+                prescribedContinuousSeconds: nil,
+                demonstratedContinuousSeconds: nil,
+                longestRecordedDistanceMeters: 0,
+                recentDirection: .holding
+            ),
+            cycling: CyclingCapability(
+                reportedComfortableSeconds: 20 * 60,
+                prescribedWorkSeconds: 20 * 60,
+                bestRecentDurationSeconds: 60 * 60,
+                longestRecordedDistanceMeters: 20_000,
+                recentDirection: .building
+            ),
+            swimming: SwimmingCapability(
+                foundationState: .waterComfort,
+                reportedContinuousMeters: nil,
+                prescribedRepeatMeters: 25,
+                prescribedTotalWorkoutMeters: 300,
+                longestProvenContinuousMeters: nil,
+                longestRecordedTotalWorkoutMeters: 0,
+                openWaterExperience: false,
+                recentDirection: .holding
+            ),
+            recentCompletedSessions: 10,
+            recentPlannedSessions: 10,
+            recentMissedOrSkippedSessions: 0,
+            recentAdherence: 1,
+            recoveryState: .stable,
+            completedBrickCount: 0
+        )
+
+        let week2 = generator.generate(after: week1, analysis: WeeklyAnalyser().analyse(week1))
+        #expect(week2.parameters.rideWorkSeconds == week1.parameters.rideWorkSeconds)
+    }
+
     @Test("Swimming tightens rest, then lengthens the repeat")
     func swimmingTightensRestThenLengthensRepeat() {
         let week1 = seededWeek()

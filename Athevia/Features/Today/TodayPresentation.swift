@@ -99,7 +99,10 @@ enum TodayPresentationBuilder {
         calendar: Calendar
     ) -> TodayPresentationState {
         if let recovery = workouts.first(where: { $0.discipline == .recovery }) {
-            return .recoveryRequired(workoutID: recovery.id)
+            if recovery.isCompleted { return .completed(workoutID: recovery.id) }
+            if recovery.isSkipped { return .skipped(workoutID: recovery.id) }
+            if recovery.isMissed(asOf: date, calendar: calendar) { return .missed(workoutID: recovery.id) }
+            return .upcoming(workoutID: recovery.id)
         }
 
         let sessions = workouts.filter(\.discipline.isTrainingSession)
@@ -146,7 +149,7 @@ enum TodayPresentationBuilder {
         calendar: Calendar
     ) -> NextSession? {
         guard let workout = plan.orderedWorkouts.first(where: {
-            calendar.startOfDay(for: $0.date) > today && $0.discipline.isTrainingSession
+            calendar.startOfDay(for: $0.date) > today && $0.discipline.isPlannedWorkout
         }) else { return nil }
 
         return NextSession(

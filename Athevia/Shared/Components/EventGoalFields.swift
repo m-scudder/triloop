@@ -14,10 +14,21 @@ struct EventGoalFields: View {
     private let columns = [GridItem(.flexible()), GridItem(.flexible())]
 
     private var event: AthleteEventGoal {
-        objective.event ?? AthleteEventGoal(
+        var resolved = objective.event ?? AthleteEventGoal(
             sport: defaultEventSport,
             distance: EventDistance.defaultForSport(defaultEventSport)
         )
+        if let onlySport = lockedEventSport, resolved.sport != onlySport {
+            resolved.sport = onlySport
+            resolved.distance = EventDistance.defaultForSport(onlySport)
+        }
+        return resolved
+    }
+
+    private var lockedEventSport: EventSport? {
+        guard selectedSports.count == 1,
+              let selected = selectedSports.first else { return nil }
+        return EventSport(trainingSport: selected)
     }
 
     private var defaultEventSport: EventSport {
@@ -41,6 +52,8 @@ struct EventGoalFields: View {
                             select(sport)
                         }
                         .accessibilityIdentifier("event.sport.\(sport.rawValue)")
+                        .disabled(lockedEventSport != nil && lockedEventSport != sport)
+                        .opacity(lockedEventSport != nil && lockedEventSport != sport ? 0.35 : 1)
                         .frame(minHeight: 44)
                     }
                 }
@@ -69,10 +82,15 @@ struct EventGoalFields: View {
             }
 
             section(title: "When is it?") {
-                Toggle("Add event date", isOn: hasDate)
-                    .toggleStyle(AtheviaToggleStyle())
-                    .accessibilityIdentifier("event.date.toggle")
-                    .frame(minHeight: 44)
+                HStack {
+                    Text("Add event date")
+                    Spacer(minLength: 12)
+                    Toggle("", isOn: hasDate)
+                        .labelsHidden()
+                        .toggleStyle(AtheviaToggleStyle())
+                        .accessibilityIdentifier("event.date.toggle")
+                }
+                .frame(minHeight: 44)
 
                 if event.eventDate != nil {
                     DatePicker(
@@ -82,6 +100,7 @@ struct EventGoalFields: View {
                         displayedComponents: .date
                     )
                     .datePickerStyle(.compact)
+                    .environment(\.locale, Locale(identifier: "en_GB"))
                     .accessibilityIdentifier("event.date.picker")
                 }
             }
@@ -283,7 +302,8 @@ private struct EventDistanceTextField: View {
                 .frame(width: 44, alignment: .leading)
 
             TextField("Distance", text: $text)
-                .keyboardType(.decimalPad)
+                .keyboardType(.numbersAndPunctuation)
+                .submitLabel(.done)
                 .textFieldStyle(.roundedBorder)
                 .accessibilityLabel("\(title) distance")
                 .onChange(of: text) { _, value in

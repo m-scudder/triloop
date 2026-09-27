@@ -96,12 +96,23 @@ final class PlannedWorkout {
     /// decision made. Derived rather than stored: it becomes true through the
     /// passage of time, so a stored flag would need sweeping to stay honest.
     func isMissed(asOf now: Date = .now, calendar: Calendar = .current) -> Bool {
-        guard discipline.isTrainingSession, status == .planned else { return false }
+        guard discipline.isPlannedWorkout, status == .planned else { return false }
         return calendar.startOfDay(for: date) < calendar.startOfDay(for: now)
     }
 
-    /// Rest and recovery days are scheduled but never reported on.
+    /// Sport training needs the normal effort/pain report. Recovery is a real
+    /// workout for completion, but deliberately uses a lightweight completion
+    /// path so the athlete is not asked to manufacture training feedback.
     var acceptsFeedback: Bool { discipline.isTrainingSession }
+
+    var canCompleteWithoutFeedback: Bool { discipline == .recovery }
+
+    func completeWithoutFeedback(at date: Date = .now) {
+        guard canCompleteWithoutFeedback else { return }
+        discardFeedback()
+        status = .completed
+        completedAt = date
+    }
 
     func recordCompletion(with draft: FeedbackDraft, at date: Date = .now) {
         discardFeedback()

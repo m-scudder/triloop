@@ -71,4 +71,26 @@ struct TrainingParametersTests {
         #expect(parameters.swimTotalMeters == TrainingParameters.Limits.minimumSwimMeters)
         #expect(parameters.rideWorkSeconds == TrainingParameters.Limits.minimumRideWorkSeconds)
     }
+
+    @Test("A sixty minute window produces a near-full cycling session")
+    func fillsSixtyMinuteCyclingWindow() {
+        let parameters = TrainingParameters().fillingTrainingWindow(minutes: 60)
+        #expect(parameters.rideWorkSeconds == 45 * 60)
+        #expect(
+            parameters.rideWarmUpSeconds
+                + parameters.rideWorkSeconds
+                + parameters.rideCooldownSeconds == 55 * 60
+        )
+    }
+
+    @Test("Training window filler never exceeds selected time")
+    func filledWindowStaysInsideAvailability() {
+        let parameters = TrainingParameters().fillingTrainingWindow(minutes: 30)
+        #expect(
+            parameters.rideWarmUpSeconds
+                + parameters.rideWorkSeconds
+                + parameters.rideCooldownSeconds <= 30 * 60
+        )
+    }
+
 }

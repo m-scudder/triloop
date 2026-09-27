@@ -74,7 +74,7 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
             return namedRun(
                 on: date,
                 parameters: reduced(parameters, sport: .running, by: 0.10),
-                title: "Easy Continuous Run",
+                title: "Comfortable Run",
                 goal: "Build relaxed continuous running without adding intensity.",
                 intensity: .easy
             )
@@ -92,7 +92,7 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
             return namedRun(
                 on: date,
                 parameters: parameters,
-                title: "Long Easy Run",
+                title: "Longer Comfortable Run",
                 goal: "Extend comfortable continuous running at an easy effort.",
                 intensity: .easy
             )
@@ -106,7 +106,7 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
                 return namedRun(
                     on: date,
                     parameters: reduced(parameters, sport: .running, by: 0.25),
-                    title: "Race-Specific Steady Run",
+                    title: "Practice Your Event Pace",
                     goal: "Practise controlled event-specific rhythm without testing maximum performance.",
                     intensity: intensity
                 )
@@ -115,7 +115,7 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
                 return namedRun(
                     on: date,
                     parameters: parameters,
-                    title: "Long Easy Run",
+                    title: "Longer Comfortable Run",
                     goal: "Maintain the endurance needed for the event at a conversational effort.",
                     intensity: .easy
                 )
@@ -141,7 +141,7 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
             return namedRun(
                 on: date,
                 parameters: reduced(parameters, sport: .running, by: 0.40),
-                title: "Race-Week Easy Run",
+                title: "Short Easy Run Before Your Event",
                 goal: "Short, familiar running only. Do not add new stress this week.",
                 intensity: .easy
             )
@@ -170,7 +170,7 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
                     parameters: reduced(parameters, sport: .cycling, by: 0.15),
                     goal: "Build bike comfort at an easy conversational effort."
                 )
-                ride.title = "Easy Ride"
+                ride.title = "Comfortable Bike Ride"
                 return ride
             }
             return cadenceRide(on: date, parameters: parameters)
@@ -185,7 +185,7 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
                     ? "Keep an easy aerobic ride between longer sessions."
                     : "Build steady cycling endurance without chasing speed."
             )
-            ride.title = ordinal.isMultiple(of: 2) ? "Easy Ride" : "Endurance Ride"
+            ride.title = ordinal.isMultiple(of: 2) ? "Comfortable Bike Ride" : "Longer Comfortable Bike Ride"
             return ride
 
         case .specific:
@@ -195,7 +195,7 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
                     parameters: reduced(parameters, sport: .cycling, by: 0.20),
                     goal: "Practise a controlled event-specific riding rhythm."
                 )
-                ride.title = "Race-Specific Steady Ride"
+                ride.title = "Practice Your Event Riding Pace"
                 let intensity = specificIntensity(
                     objective: objective,
                     supported: capability?.cycling.hasDemonstratedCapability == true
@@ -208,7 +208,7 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
                 parameters: parameters,
                 goal: "Maintain event-relevant endurance at a controlled effort."
             )
-            ride.title = "Endurance Ride"
+            ride.title = "Longer Comfortable Bike Ride"
             return ride
 
         case .taper:
@@ -217,7 +217,7 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
                 parameters: reduced(parameters, sport: .cycling, by: 0.20),
                 goal: "Keep normal pedalling rhythm while volume comes down."
             )
-            ride.title = "Easy Ride"
+            ride.title = "Comfortable Bike Ride"
             return ride
 
         case .raceWeek:
@@ -226,7 +226,7 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
                 parameters: reduced(parameters, sport: .cycling, by: 0.40),
                 goal: "Short, familiar riding only. Do not add new stress this week."
             )
-            ride.title = "Race-Week Easy Ride"
+            ride.title = "Race-Week Comfortable Bike Ride"
             return ride
 
         case .recovery:
@@ -294,7 +294,7 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
                 on: date,
                 parameters: parameters,
                 repeatMeters: 50,
-                title: "Technique Swim",
+                title: "Practice Comfortable Swimming",
                 goal: "Repeat relaxed 50 m efforts with enough rest to keep technique consistent."
             )
         case .swimContinuous:
@@ -302,7 +302,7 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
                 on: date,
                 parameters: parameters,
                 repeatMeters: 100,
-                title: "Continuous Swim Development",
+                title: "Swim Longer With Short Rests",
                 goal: "Develop longer continuous blocks without turning total volume into one uninterrupted effort."
             )
         case .swimEndurance:
@@ -310,7 +310,7 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
                 on: date,
                 parameters: parameters,
                 repeatMeters: max(100, min(swimCapability?.currentContinuousMeters ?? 200, 200)),
-                title: "Endurance Swim",
+                title: "Longer Comfortable Swim",
                 goal: "Build controlled swimming endurance through repeatable blocks."
             )
         case .swimRaceDistance:
@@ -320,7 +320,7 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
                 on: date,
                 parameters: parameters,
                 repeatMeters: block,
-                title: "Race-Distance Preparation",
+                title: "Practice for Your Event Swim",
                 goal: "Practise event-relevant swim blocks without repeatedly swimming the full event distance."
             )
         case .swimOpenWater:
@@ -330,7 +330,7 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
                 on: date,
                 parameters: reduced(parameters, sport: .swimming, by: phase == .raceWeek ? 0.40 : 0.20),
                 repeatMeters: min(max(parameters.swimRepeatDistanceMeters, 25), 100),
-                title: phase == .raceWeek ? "Race-Week Easy Swim" : "Easy Technique Swim",
+                title: phase == .raceWeek ? "Short Easy Swim Before Your Event" : "Easy Practice Comfortable Swimming",
                 goal: "Keep familiar swim rhythm while volume comes down."
             )
         default:
@@ -362,14 +362,14 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
             .warmUp(order: 0, title: "Easy spinning", durationSeconds: parameters.rideWarmUpSeconds),
             .repeating(
                 order: 1,
-                title: "Cadence practice",
+                title: "Practice smooth pedaling",
                 count: 3,
                 instructions: "Smooth pedalling, not harder pedalling.",
                 children: [
                     WorkoutStep(
                         order: 0,
                         kind: .work,
-                        title: "Smooth cadence",
+                        title: "Smooth, quick pedaling",
                         durationSeconds: cadenceBlock,
                         targetIntensity: .easy
                     ),
@@ -387,7 +387,7 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
         return PlannedWorkout(
             date: date,
             discipline: .cycling,
-            title: "Cadence / Technique Ride",
+            title: "Practice Smooth Pedaling",
             goal: "Build bike comfort and smooth cadence without adding intensity.",
             targetRPE: RPERange(3, 4),
             steps: steps
@@ -403,7 +403,7 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
             return PlannedWorkout(
                 date: date,
                 discipline: .swimming,
-                title: "Swim Fundamentals",
+                title: "Learn the Basics of Swimming",
                 goal: "Learn basic water confidence and breathing with supervised instruction before endurance progression.",
                 targetRPE: RPERange(1, 3),
                 prescribedDurationSeconds: 20 * 60,
@@ -424,7 +424,7 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
             on: date,
             parameters: parameters,
             repeatMeters: 25,
-            title: "Swim Fundamentals",
+            title: "Learn the Basics of Swimming",
             goal: "Practise breathing and relaxation over short lengths with full recovery."
         )
     }
@@ -436,7 +436,7 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
         PlannedWorkout(
             date: date,
             discipline: .swimming,
-            title: "Swim Fundamentals",
+            title: "Learn the Basics of Swimming",
             goal: "Build water confidence and breathing safely without treating pool length as demonstrated continuous capability.",
             targetRPE: RPERange(1, 3),
             prescribedDurationSeconds: 20 * 60,
@@ -511,7 +511,7 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
         return PlannedWorkout(
             date: date,
             discipline: .swimming,
-            title: "Open-Water Preparation",
+            title: "Practice Swimming in Open Water",
             goal: "Practise calm open-water familiarity only at the confirmed safe venue with your buddy or supervision.",
             targetRPE: RPERange(3, 5),
             prescribedDurationSeconds: duration,

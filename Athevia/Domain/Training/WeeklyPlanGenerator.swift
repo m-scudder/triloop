@@ -10,8 +10,8 @@ struct WeeklyPlanGenerator: Sendable {
     /// have to describe a schedule.
     var schedule: AthleteSchedule = .everyDay()
     /// Which sports the athlete selected. Availability is the scheduling
-    /// ceiling; current capability decides how many of those days should carry
-    /// training, and unused available days become recovery.
+    /// ceiling. Current capability and sport-specific safety decide how many
+    /// days carry training; unused availability is rest, never fake recovery.
     var preferences: [SportPreference] = []
     var planner: WeekShapePlanner = WeekShapePlanner()
     /// Optional event journey context supplied by PlanStore. Safety analysis
@@ -36,9 +36,13 @@ struct WeeklyPlanGenerator: Sendable {
         let adjusted = analysis.sports.reduce(plan.parameters) { current, sport in
             current.applying(sport.adjustment, to: sport.sport)
         }
-        let parameters = adjusted.capped(
-            toTrainingMinutes: trainingMinuteCap(in: schedule)
+        let evidenceAdjusted = applyingSustainedEvidenceProgression(
+            adjusted,
+            previous: plan.parameters,
+            analysis: analysis
         )
+        let parameters = evidenceAdjusted
+            .fillingTrainingWindow(minutes: trainingMinuteCap(in: schedule))
 
         // A sport sent to recovery is not prescribed next week. Its intended
         // slots are left open so they become recovery sessions rather than
@@ -92,17 +96,20 @@ struct WeeklyPlanGenerator: Sendable {
             durations: durations(from: parameters)
         )
 
-        // Every day the athlete marked available remains a planned day. Any
-        // available slot not occupied by a sport becomes recovery.
-        let recoveryDays: Set<Int> = Set(
-            Weekday.trainingWeek.enumerated().compactMap { offset, weekday in
-                guard schedule.isAvailable(on: weekday),
-                      !shape.disciplines[offset].isTrainingSession else {
-                    return nil
+        // Recovery is intentional: only a sport explicitly held back by the
+        // previous week's safety analysis creates recovery days. Ordinary
+        // unused availability remains rest.
+        let recoveryDays: Set<Int> = recovering.isEmpty
+            ? []
+            : Set(
+                Weekday.trainingWeek.enumerated().compactMap { offset, weekday in
+                    guard schedule.isAvailable(on: weekday),
+                          !shape.disciplines[offset].isTrainingSession else {
+                        return nil
+                    }
+                    return offset
                 }
-                return offset
-            }
-        )
+            )
 
         if let journey, journey.eventResolutionRequired || journey.requiresNextObjective {
             let workouts = Weekday.trainingWeek.enumerated().map { offset, weekday in
@@ -176,7 +183,12 @@ struct WeeklyPlanGenerator: Sendable {
                             on: date,
                             goal: recoveryGoal(for: recovering)
                         )
-                        : PrescribedSessions.restDay(on: date)
+                        : schedule.isAvailable(on: Weekday.trainingWeek[offset])
+                            ? PrescribedSessions.engagementRecoveryDay(on: date, for: selectedSports)
+                            : PrescribedSessions.restDay(
+                                on: date,
+                                reason: "No workout is scheduled because you marked this day unavailable."
+                            )
                 )
                 continue
             }
@@ -242,11 +254,58 @@ struct WeeklyPlanGenerator: Sendable {
             startDate: monday,
             endDate: day(6),
             status: .active,
-            generationReason: reason(from: analysis),
+            generationReason: reason(from: analysis, parameters: parameters),
             generationReasonCode: PlanGenerationReason.from(analysis.sports.map(\.status)),
             parameters: parameters,
             workouts: workouts
         )
+    }
+
+    /// A single successful ride already earns the sport engine's normal
+    /// five-minute step. Once recent history shows sustained, well-tolerated
+    /// cycling, use demonstrated duration to avoid weeks of tiny catch-up.
+    ///
+    /// This is intentionally cycling-specific: running impact and swimming
+    /// technique need their own progression rules. Safety/weekly analysis must
+    /// still say progress before historical evidence can accelerate anything.
+    private func applyingSustainedEvidenceProgression(
+        _ parameters: TrainingParameters,
+        previous: TrainingParameters,
+        analysis: WeeklyAnalysis
+    ) -> TrainingParameters {
+        guard let capability,
+              capability.recoveryState == .stable,
+              capability.recentMissedOrSkippedSessions == 0,
+              (capability.recentAdherence ?? 0) >= 0.85,
+              capability.recentCompletedSessions >= 6,
+              let cycling = analysis.analysis(for: .cycling),
+              cycling.status == .progress,
+              cycling.completedEverySession,
+              cycling.highestPain <= 1,
+              (cycling.averageRPE ?? 10) <= 5 else {
+            return parameters
+        }
+
+        let demonstrated = capability.cycling.bestRecentDurationSeconds
+        guard demonstrated > 0 else { return parameters }
+
+        var next = parameters
+        // HealthKit duration is total ride time, while rideWorkSeconds excludes
+        // warm-up/cooldown. Translate like-for-like before using it as evidence.
+        let demonstratedWork = max(
+            demonstrated - previous.rideWarmUpSeconds - previous.rideCooldownSeconds,
+            TrainingParameters.Limits.minimumRideWorkSeconds
+        )
+
+        // Meaningful but bounded adaptation: sustained evidence may advance at
+        // most ten work minutes in one generated week. The normal engine has
+        // already supplied a five-minute increase.
+        let evidenceTarget = min(
+            demonstratedWork,
+            previous.rideWorkSeconds + 10 * 60
+        )
+        next.rideWorkSeconds = max(next.rideWorkSeconds, evidenceTarget)
+        return next
     }
 
     private func recoveryGoal(for recovering: Set<Sport>) -> String? {
@@ -264,19 +323,38 @@ struct WeeklyPlanGenerator: Sendable {
         }
     }
 
-    /// New onboarding stores one daily limit. The minimum also gives a safe
-    /// interpretation to older profiles that still have mixed per-day limits.
+    /// New onboarding stores one daily limit. For older profiles with mixed per-day limits, use the largest window here;
+    /// placement still validates every individual day's limit.
     private func trainingMinuteCap(in schedule: AthleteSchedule) -> Int? {
-        schedule.availableDays.compactMap(\.maxDurationMinutes).min()
+        schedule.availableDays.compactMap(\.maxDurationMinutes).max()
     }
 
-    private func reason(from analysis: WeeklyAnalysis) -> String {
-        guard !analysis.sports.isEmpty else {
-            return "Repeat of the previous week."
+    private func reason(from analysis: WeeklyAnalysis, parameters: TrainingParameters) -> String {
+        var analysisReason = analysis.sports.isEmpty
+            ? "Repeat of the previous week."
+            : analysis.sports
+                .map { "\($0.sport.displayName): \($0.status.displayName.lowercased()) — \($0.adjustment.summary.lowercased())." }
+                .joined(separator: " ")
+
+        if let capability,
+           let cycling = analysis.analysis(for: .cycling),
+           cycling.status == .progress,
+           capability.recentCompletedSessions >= 6,
+           capability.cycling.bestRecentDurationSeconds > 0,
+           parameters.rideWorkSeconds >= capability.cycling.prescribedWorkSeconds + 10 * 60 {
+            analysisReason += " Cycling also advanced from your recent completed-ride evidence, not only the last ride."
         }
 
-        return analysis.sports
-            .map { "\($0.sport.displayName): \($0.status.displayName.lowercased()) — \($0.adjustment.summary.lowercased())." }
-            .joined(separator: " ")
+        guard let availableMinutes = schedule.availableDays.compactMap(\.maxDurationMinutes).max() else {
+            return analysisReason
+        }
+
+        let longestPlannedMinutes = durations(from: parameters)
+            .values
+            .map { Int(($0 / 60).rounded()) }
+            .max() ?? availableMinutes
+
+        guard longestPlannedMinutes < availableMinutes else { return analysisReason }
+        return analysisReason + " You selected \(availableMinutes) minutes per training day. Normal sessions use most of that window; any shorter session is intentional for its workout type, recovery need or training phase."
     }
 }

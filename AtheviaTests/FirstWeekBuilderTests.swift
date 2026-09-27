@@ -37,6 +37,29 @@ struct FirstWeekBuilderTests {
         )
     }
 
+    @Test("Recovery counts as a planned workout while rest does not")
+    func recoveryAndRestHaveDifferentCompletionSemantics() {
+        let date = monday()
+        let run = PlannedWorkout(date: date, discipline: .running, title: "Run")
+        let recovery = PrescribedSessions.recoveryDay(on: date.addingTimeInterval(24 * 60 * 60))
+        let rest = PrescribedSessions.restDay(on: date.addingTimeInterval(2 * 24 * 60 * 60))
+        let plan = WeeklyPlan(
+            weekNumber: 1,
+            startDate: date,
+            endDate: date.addingTimeInterval(6 * 24 * 60 * 60),
+            workouts: [run, recovery, rest]
+        )
+
+        #expect(plan.prescribedWorkouts.count == 2)
+        #expect(plan.prescribedTrainingSessions.count == 1)
+        #expect(recovery.acceptsFeedback == false)
+        #expect(recovery.canCompleteWithoutFeedback)
+        recovery.completeWithoutFeedback()
+        #expect(recovery.isCompleted)
+        #expect(rest.acceptsFeedback == false)
+        #expect(rest.canCompleteWithoutFeedback == false)
+    }
+
     @Test("The first week is built from the assessment, not a seed")
     func firstWeekComesFromTheAssessment() throws {
         let plan = try builder.build(setup: setup(), poolLengthMeters: 25, startDate: monday())
@@ -198,7 +221,7 @@ struct FirstWeekBuilderTests {
         )
 
         let rides = plan.trainingSessions.filter { $0.discipline == .cycling }
-        #expect(rides.count == 4)
+        #expect(rides.count == 7)
         #expect(rides.allSatisfy {
             guard let duration = $0.estimatedDurationSeconds else { return false }
             return duration > 0 && duration <= TimeInterval(60 * 60)
@@ -256,13 +279,13 @@ struct FirstWeekBuilderTests {
         #expect(first.orderedWorkouts.map(\.discipline) == second.orderedWorkouts.map(\.discipline))
     }
 
-    @Test("Availability is a ceiling and unused days become recovery")
+    @Test("Unused availability is rest rather than fake recovery")
     func availableDaysUseExperienceAwareCapacity() throws {
         let plan = try builder.build(setup: setup(), poolLengthMeters: 25, startDate: monday())
 
-        #expect(plan.orderedWorkouts.contains { $0.discipline == .rest } == false)
         #expect(plan.trainingSessions.count == 4)
-        #expect(plan.orderedWorkouts.filter { $0.discipline == .recovery }.count == 3)
+        #expect(plan.orderedWorkouts.filter { $0.discipline == .rest }.count == 3)
+        #expect(plan.orderedWorkouts.filter { $0.discipline == .recovery }.isEmpty)
     }
 
     @Test("Experienced Run and Cycle uses five of six available days")
@@ -362,12 +385,13 @@ struct FirstWeekBuilderTests {
         )
 
         #expect(beginner.trainingSessions.count == 3)
-        #expect(beginner.orderedWorkouts.filter { $0.discipline == .recovery }.count == 3)
+        #expect(beginner.orderedWorkouts.filter { $0.discipline == .rest }.count == 3)
+        #expect(beginner.orderedWorkouts.filter { $0.discipline == .recovery }.isEmpty)
         #expect(established.trainingSessions.count == 6)
         #expect(established.orderedWorkouts.filter { $0.discipline == .recovery }.isEmpty)
     }
 
-    @Test("Running-only availability uses recovery between runs")
+    @Test("Running-only availability leaves rest between runs")
     func runningOnlyUsesRecoverySlots() throws {
         let schedule = AthleteSchedule(
             days: Weekday.trainingWeek.map {
@@ -392,7 +416,8 @@ struct FirstWeekBuilderTests {
         )
 
         #expect(plan.orderedWorkouts.filter { $0.discipline == .running }.count == 3)
-        #expect(plan.orderedWorkouts.filter { $0.discipline == .recovery }.count == 3)
+        #expect(plan.orderedWorkouts.filter { $0.discipline == .recovery }.isEmpty)
+        #expect(plan.orderedWorkouts.filter { $0.discipline == .rest }.count == 4)
         #expect(plan.orderedWorkouts.last?.discipline == .rest)
     }
 
@@ -458,7 +483,7 @@ struct FirstWeekBuilderTests {
             startDate: start
         )
         #expect(build.trainingSessions.contains {
-            $0.title == "Easy Run" || $0.title == "Long Easy Run"
+            $0.title == "Easy Run" || $0.title == "Longer Comfortable Run"
         })
 
         let specific = try phaseBuilder.build(
@@ -481,7 +506,7 @@ struct FirstWeekBuilderTests {
             poolLengthMeters: 25,
             startDate: start
         )
-        #expect(raceWeek.trainingSessions.contains { $0.title == "Race-Week Easy Run" })
+        #expect(raceWeek.trainingSessions.contains { $0.title == "Short Easy Run Before Your Event" })
     }
 
     @Test("Event inside first week replaces recovery or normal training")
@@ -630,7 +655,7 @@ struct FirstWeekBuilderTests {
         )
 
         #expect(plan.trainingSessions.contains { $0.title == "Open-Water Preparation" })
-        #expect(plan.trainingSessions.contains { $0.title == "Bike + Run Brick" })
+        #expect(plan.trainingSessions.contains { $0.title == "Bike, Then Run" })
         #expect(!plan.trainingSessions.contains { $0.title == "Bike + Run Race Rehearsal" })
     }
 

@@ -48,7 +48,7 @@ struct FirstWeekBuilder: Sendable {
             goal: setup.goal,
             poolLengthMeters: poolLengthMeters
         )
-        .capped(toTrainingMinutes: trainingMinuteCap(in: available))
+        .fillingTrainingWindow(minutes: trainingMinuteCap(in: available))
 
         let selectedSports = setup.preferences.filter(\.isTrained).map(\.sport)
         let capability = capabilityBuilder.build(
@@ -117,11 +117,16 @@ struct FirstWeekBuilder: Sendable {
             }
 
             // Days already gone by the time setup finished are rest, not a
-            // session the athlete silently failed to do. Every remaining day
-            // the athlete marked available receives either training or a
-            // recovery session.
+            // session the athlete silently failed to do. An available day that
+            // does not need training is also rest; Recovery is prescribed only
+            // when the training model has an actual recovery reason.
             if weekday < firstWeekday {
-                workouts.append(PrescribedSessions.restDay(on: date))
+                workouts.append(
+                    PrescribedSessions.restDay(
+                        on: date,
+                        reason: "This day had already passed when your plan was created."
+                    )
+                )
                 continue
             }
 
@@ -129,8 +134,11 @@ struct FirstWeekBuilder: Sendable {
             guard let sport = discipline.sport else {
                 workouts.append(
                     available.isAvailable(on: weekday)
-                        ? PrescribedSessions.recoveryDay(on: date)
-                        : PrescribedSessions.restDay(on: date)
+                        ? PrescribedSessions.engagementRecoveryDay(on: date, for: selectedSports)
+                        : PrescribedSessions.restDay(
+                            on: date,
+                            reason: "No workout is scheduled because you marked this day unavailable."
+                        )
                 )
                 continue
             }
@@ -194,7 +202,7 @@ struct FirstWeekBuilder: Sendable {
             startDate: monday,
             endDate: calendar.date(byAdding: .day, value: 6, to: monday) ?? monday,
             status: .active,
-            generationReason: reason(for: setup, shape: shape),
+            generationReason: reason(for: setup, shape: shape, parameters: parameters),
             generationReasonCode: .initialAssessment,
             parameters: parameters,
             workouts: workouts
@@ -226,13 +234,14 @@ struct FirstWeekBuilder: Sendable {
         }
     }
 
-    /// New onboarding uses one time limit for every training day. Taking the
-    /// smallest stated value also keeps legacy profiles with mixed limits safe.
+    /// New onboarding uses one time limit for every training day. Using the largest available window preserves the athlete's capability-based
+    /// prescription; the week-shape planner then places that session only on days
+    /// whose individual time limit can actually accommodate it.
     private func trainingMinuteCap(in schedule: AthleteSchedule) -> Int? {
-        schedule.availableDays.compactMap(\.maxDurationMinutes).min()
+        schedule.availableDays.compactMap(\.maxDurationMinutes).max()
     }
 
-    private func reason(for setup: AthleteSetup, shape: WeekShape) -> String {
+    private func reason(for setup: AthleteSetup, shape: WeekShape, parameters: TrainingParameters) -> String {
         let sports = shape.disciplines
             .compactMap(\.sport)
             .reduce(into: [Sport: Int]()) { counts, sport in counts[sport, default: 0] += 1 }
@@ -243,10 +252,23 @@ struct FirstWeekBuilder: Sendable {
         let opening = "Built from your \(setup.objective.displayName.lowercased()) goal and what you can do today"
         guard !sports.isEmpty else { return opening + "." }
 
+        let selectedMinutes = setup.schedule.availableDays.compactMap(\.maxDurationMinutes).max()
+        let plannedMinutes = shape.disciplines
+            .compactMap(\.sport)
+            .compactMap { durations(from: parameters)[$0] }
+            .map { Int(($0 / 60).rounded()) }
+            .max()
+        let timeExplanation: String
+        if let selectedMinutes, let plannedMinutes, plannedMinutes < selectedMinutes {
+            timeExplanation = " You selected \(selectedMinutes) minutes per training day. Normal sessions are sized to use most of that window; shorter sessions here are intentional for the workout type or training phase."
+        } else {
+            timeExplanation = ""
+        }
+
         let unfitted = shape.fittedEverything
             ? ""
             : " Some sessions did not fit your availability and were left out."
 
-        return "\(opening): \(sports). Starting conservatively so Athevia can learn how you respond.\(unfitted)"
+        return "\(opening): \(sports). Starting conservatively so Athevia can learn how you respond.\(timeExplanation)\(unfitted)"
     }
 }

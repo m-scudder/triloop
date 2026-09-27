@@ -58,6 +58,21 @@ final class WeeklyPlan {
         workouts.sorted { $0.date < $1.date }
     }
 
+    /// Active items the athlete is asked to complete. Recovery belongs here;
+    /// Rest does not.
+    var plannedWorkouts: [PlannedWorkout] {
+        orderedWorkouts.filter { $0.discipline.isPlannedWorkout }
+    }
+
+    var prescribedWorkouts: [PlannedWorkout] {
+        plannedWorkouts.filter { $0.origin.isPrescribedByAthevia }
+    }
+
+    var completedPrescribedWorkouts: [PlannedWorkout] {
+        prescribedWorkouts.filter(\.isCompleted)
+    }
+
+    /// Physiological training only. Used by capability, progression and load.
     var trainingSessions: [PlannedWorkout] {
         orderedWorkouts.filter { $0.discipline.isTrainingSession }
     }
@@ -71,9 +86,9 @@ final class WeeklyPlan {
     }
 
     var adherenceShare: Double? {
-        let prescribed = prescribedTrainingSessions
+        let prescribed = prescribedWorkouts
         guard !prescribed.isEmpty else { return nil }
-        return Double(completedPrescribedTrainingSessions.count) / Double(prescribed.count)
+        return Double(completedPrescribedWorkouts.count) / Double(prescribed.count)
     }
 
     func contains(_ date: Date, calendar: Calendar = .current) -> Bool {

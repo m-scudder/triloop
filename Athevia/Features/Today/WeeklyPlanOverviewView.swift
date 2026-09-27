@@ -10,7 +10,7 @@ struct WeeklyPlanOverviewView: View {
     /// This card describes the plan, not every activity recorded this week.
     /// Extra Health workouts remain in history/analytics but must not inflate
     /// the planned-session denominator or sport mix shown on Home.
-    private var sessions: [PlannedWorkout] { plan.prescribedTrainingSessions }
+    private var sessions: [PlannedWorkout] { plan.prescribedWorkouts }
 
     private var completedCount: Int {
         sessions.filter(\.isCompleted).count
@@ -18,6 +18,10 @@ struct WeeklyPlanOverviewView: View {
 
     private var plannedSeconds: TimeInterval {
         sessions.compactMap(\.estimatedDurationSeconds).reduce(0, +)
+    }
+
+    private var recoveryCount: Int {
+        sessions.count { $0.discipline == .recovery }
     }
 
     private var activeSports: [Sport] {
@@ -65,6 +69,12 @@ struct WeeklyPlanOverviewView: View {
 
                     ProgressView(value: progress)
                         .tint(.accentColor)
+                }
+
+                if recoveryCount > 0 {
+                    Label("\(recoveryCount) recovery workout\(recoveryCount == 1 ? "" : "s")", systemImage: Discipline.recovery.symbolName)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
 
                 if !activeSports.isEmpty {
