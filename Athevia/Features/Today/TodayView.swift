@@ -33,6 +33,10 @@ struct TodayView: View {
                         WeeklyPlanOverviewView(plan: plan)
                     }
 
+                    if let profile = profiles.first {
+                        athleteCard(profile)
+                    }
+
                     if let setup = profiles.first?.setup,
                        setup.objective.event?.eventDate != nil {
                         EventCountdownView(objective: setup.objective)
@@ -89,18 +93,15 @@ struct TodayView: View {
             NavigationLink {
                 TrainingProfileView(profile: profile)
             } label: {
-                Group {
-                    if let monogram = monogram(of: profile.name) {
-                        Text(monogram)
-                            .font(.footnote.weight(.semibold))
-                    } else {
-                        Image(systemName: "person.fill")
-                            .font(.footnote)
-                    }
-                }
-                .foregroundStyle(.primary)
-                .frame(width: 30, height: 30)
+                AthleteAvatarView(
+                    avatar: profile.setup?.avatar ?? .starter,
+                    sport: profile.setup?.selectedSports.first ?? .running,
+                    size: 52
+                )
+                .frame(width: 32, height: 32)
+                .clipped()
                 .background(AtheviaAdaptiveStyle(.fill.tertiary, gaming: .raisedSurface), in: .circle)
+                .clipShape(.circle)
             }
             .accessibilityLabel("Training profile")
         }
@@ -109,6 +110,57 @@ struct TodayView: View {
     private func monogram(of name: String) -> String? {
         guard let first = name.trimmingCharacters(in: .whitespacesAndNewlines).first else { return nil }
         return String(first).uppercased()
+    }
+
+    private func athleteCard(_ profile: AthleteProfile) -> some View {
+        let setup = profile.setup ?? AthleteSetup()
+        let sport = setup.selectedSports.first ?? .running
+
+        return NavigationLink {
+            TrainingProfileView(profile: profile)
+        } label: {
+            HStack(spacing: 14) {
+                AthleteAvatarView(
+                    avatar: setup.avatar,
+                    sport: sport,
+                    size: 112
+                )
+                .frame(width: 82, height: 82)
+                .clipped()
+
+                VStack(alignment: .leading, spacing: 5) {
+                    SectionEyebrow(text: "My Athlete")
+
+                    Text(profile.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Your athlete" : profile.name)
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+
+                    Text("Your gear and identity grow from completed training.")
+                        .font(.caption)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+                        .multilineTextAlignment(.leading)
+                        .lineLimit(2)
+                }
+
+                Spacer(minLength: 6)
+
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(14)
+            .background(
+                AtheviaAdaptiveStyle(.background.secondary, gaming: .surface),
+                in: .rect(cornerRadius: 18)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(AtheviaAdaptiveStyle(.separator.opacity(0.45), gaming: .border), lineWidth: 0.5)
+            }
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("My Athlete")
     }
 
     private func checkInPrompt(_ pending: PlannedWorkout) -> some View {
