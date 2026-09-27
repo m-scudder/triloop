@@ -1,7 +1,65 @@
 import SwiftUI
 
-struct AthleteAvatarIntroStepView: View {
+private struct AthleteOnboardingHero<Overlay: View>: View {
+    let avatar: AthleteAvatar
+    let sport: Sport
+    var pose: AvatarPose = .neutral
+    var height: CGFloat = 440
+    @ViewBuilder var overlay: Overlay
+
     @Environment(\.atheviaTheme) private var theme
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            sport.discipline.themedTint(theme).opacity(0.30),
+                            Color(red: 0.075, green: 0.105, blue: 0.16),
+                            Color(red: 0.018, green: 0.028, blue: 0.05)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+
+            Circle()
+                .fill(sport.discipline.themedTint(theme).opacity(0.20))
+                .frame(width: 280, height: 280)
+                .blur(radius: 28)
+                .offset(x: 100, y: -110)
+
+            AthleteAvatarView(
+                avatar: avatar,
+                sport: sport,
+                pose: pose,
+                size: height * 0.90
+            )
+            .frame(maxWidth: .infinity)
+            .frame(height: height - 28)
+
+            LinearGradient(
+                colors: [.clear, .black.opacity(0.72)],
+                startPoint: .center,
+                endPoint: .bottom
+            )
+            .clipShape(.rect(cornerRadius: 30))
+
+            overlay
+                .padding(20)
+        }
+        .frame(height: height)
+        .clipShape(.rect(cornerRadius: 30))
+        .overlay {
+            RoundedRectangle(cornerRadius: 30)
+                .stroke(.white.opacity(0.10), lineWidth: 1)
+        }
+        .shadow(color: .black.opacity(0.24), radius: 26, y: 14)
+    }
+}
+
+struct AthleteAvatarIntroStepView: View {
     @Bindable var model: OnboardingModel
 
     private var primarySport: Sport {
@@ -10,78 +68,49 @@ struct AthleteAvatarIntroStepView: View {
 
     var body: some View {
         OnboardingStep(primaryTitle: "Create my athlete", primary: model.advance) {
-            VStack(spacing: 22) {
-                Spacer(minLength: 4)
+            VStack(spacing: 18) {
+                AthleteOnboardingHero(
+                    avatar: model.avatar,
+                    sport: primarySport,
+                    height: 500
+                ) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("ATHEVIA")
+                            .font(.caption.weight(.bold))
+                            .tracking(2.2)
+                            .foregroundStyle(.white.opacity(0.70))
 
-                ZStack {
-                    RoundedRectangle(cornerRadius: 30, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color(red: 0.055, green: 0.075, blue: 0.12),
-                                    Color(red: 0.015, green: 0.02, blue: 0.04)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
+                        Text("Build your athlete")
+                            .font(.largeTitle.weight(.bold))
+                            .foregroundStyle(.white)
 
-                    Circle()
-                        .fill(primarySport.discipline.themedTint(theme).opacity(0.14))
-                        .frame(width: 230, height: 230)
-                        .blur(radius: 8)
-                        .offset(x: 80, y: -90)
+                        Text("Train. Progress. Become.")
+                            .font(.headline)
+                            .foregroundStyle(.white.opacity(0.82))
 
-                    AthleteAvatarView(
-                        avatar: model.avatar,
-                        sport: primarySport,
-                        size: 330
-                    )
-                    .padding(.top, 18)
-                }
-                .frame(height: 410)
-                .clipShape(.rect(cornerRadius: 30))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 30, style: .continuous)
-                        .stroke(.white.opacity(0.08), lineWidth: 1)
-                }
-                .shadow(color: .black.opacity(0.20), radius: 24, y: 12)
-
-                VStack(spacing: 8) {
-                    Text("Build your athlete")
-                        .font(.largeTitle.weight(.bold))
-                        .multilineTextAlignment(.center)
-
-                    Text("A visual record of the athlete you are becoming. Train, reach milestones, and earn gear that stays part of your journey.")
-                        .font(.body)
-                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
+                        Text("Your athlete evolves from real training, milestones and earned gear.")
+                            .font(.subheadline)
+                            .foregroundStyle(.white.opacity(0.68))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
                 HStack(spacing: 10) {
-                    principle("figure.run", "Real training")
-                    principle("medal.fill", "Earned gear")
-                    principle("person.crop.square", "Your style")
+                    valuePill("figure.run", "Train")
+                    valuePill("medal.fill", "Progress")
+                    valuePill("tshirt.fill", "Unlock")
                 }
             }
         }
     }
 
-    private func principle(_ symbol: String, _ text: String) -> some View {
-        VStack(spacing: 8) {
-            Image(systemName: symbol)
-                .font(.title3)
-            Text(text)
-                .font(.caption.weight(.semibold))
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity, minHeight: 82)
-        .padding(10)
-        .background(
-            theme.color(.raisedSurface, classic: Color(uiColor: .secondarySystemBackground)),
-            in: .rect(cornerRadius: 18)
-        )
+    private func valuePill(_ symbol: String, _ title: String) -> some View {
+        Label(title, systemImage: symbol)
+            .font(.caption.weight(.semibold))
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 11)
+            .background(AtheviaAdaptiveStyle(.background.secondary, gaming: .surface), in: .capsule)
     }
 }
 
@@ -100,62 +129,73 @@ struct AthleteAvatarAppearanceStepView: View {
         model.selectedSports.first ?? .running
     }
 
-    private let columns = [
-        GridItem(.flexible(), spacing: 10),
-        GridItem(.flexible(), spacing: 10),
-        GridItem(.flexible(), spacing: 10)
-    ]
-
     var body: some View {
         OnboardingStep(primary: model.advance) {
             OnboardingHeader(
-                title: "Make it yours",
-                subtitle: "Keep it simple now. Everything here can be changed later."
+                title: "Customize appearance",
+                subtitle: "Your athlete, your journey."
             )
 
-            avatarStage
+            AthleteOnboardingHero(
+                avatar: model.avatar,
+                sport: primarySport,
+                height: 390
+            ) {
+                HStack {
+                    Text(model.avatar.presentation.displayName)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                    Spacer()
+                    Text(model.avatar.bodyPreset.displayName)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.65))
+                }
+            }
 
-            VStack(alignment: .leading, spacing: 16) {
-                SectionEyebrow(text: "Presentation")
+            VStack(spacing: 18) {
                 Picker("Presentation", selection: binding.presentation) {
                     ForEach(AvatarPresentation.allCases) { presentation in
                         Text(presentation.displayName).tag(presentation)
                     }
                 }
-                .labelsHidden()
                 .pickerStyle(.segmented)
 
-                SectionEyebrow(text: "Skin tone")
-                HStack(spacing: 12) {
-                    ForEach(AvatarSkinTone.allCases) { tone in
-                        skinToneButton(tone)
-                    }
-                }
-
-                SectionEyebrow(text: "Hair")
-                LazyVGrid(columns: columns, spacing: 10) {
-                    ForEach(AvatarHairStyle.allCases) { style in
-                        choice(
-                            style.displayName,
-                            selected: model.avatar.hairStyle == style
-                        ) {
-                            var avatar = model.avatar
-                            avatar.hairStyle = style
-                            model.choose(avatar: avatar)
+                appearanceSection("Skin tone") {
+                    HStack(spacing: 12) {
+                        ForEach(AvatarSkinTone.allCases) { tone in
+                            skinToneButton(tone)
                         }
                     }
                 }
 
-                SectionEyebrow(text: "Build")
-                HStack(spacing: 10) {
-                    ForEach(AvatarBodyPreset.allCases) { preset in
-                        choice(
-                            preset.displayName,
-                            selected: model.avatar.bodyPreset == preset
-                        ) {
-                            var avatar = model.avatar
-                            avatar.bodyPreset = preset
-                            model.choose(avatar: avatar)
+                appearanceSection("Hair") {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 10) {
+                            ForEach(AvatarHairStyle.allCases) { style in
+                                choice(
+                                    style.displayName,
+                                    selected: model.avatar.hairStyle == style
+                                ) {
+                                    var avatar = model.avatar
+                                    avatar.hairStyle = style
+                                    model.choose(avatar: avatar)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                appearanceSection("Build") {
+                    HStack(spacing: 10) {
+                        ForEach(AvatarBodyPreset.allCases) { preset in
+                            choice(
+                                preset.displayName,
+                                selected: model.avatar.bodyPreset == preset
+                            ) {
+                                var avatar = model.avatar
+                                avatar.bodyPreset = preset
+                                model.choose(avatar: avatar)
+                            }
                         }
                     }
                 }
@@ -163,29 +203,16 @@ struct AthleteAvatarAppearanceStepView: View {
         }
     }
 
-    private var avatarStage: some View {
-        AthleteAvatarView(
-            avatar: model.avatar,
-            sport: primarySport,
-            size: 300
-        )
-        .frame(maxWidth: .infinity)
-        .frame(height: 320)
-        .background(
-            LinearGradient(
-                colors: [
-                    theme.color(.raisedSurface, classic: Color(uiColor: .secondarySystemBackground)),
-                    theme.color(.surface, classic: Color(uiColor: .systemBackground))
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            ),
-            in: .rect(cornerRadius: 26)
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: 26)
-                .strokeBorder(theme.color(.border, classic: Color.secondary.opacity(0.14)), lineWidth: 0.5)
+    private func appearanceSection<Content: View>(
+        _ title: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+            content()
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func skinToneButton(_ tone: AvatarSkinTone) -> some View {
@@ -197,7 +224,7 @@ struct AthleteAvatarAppearanceStepView: View {
             let rgb = tone.rgb
             Circle()
                 .fill(Color(red: rgb.0, green: rgb.1, blue: rgb.2))
-                .frame(width: 36, height: 36)
+                .frame(width: 38, height: 38)
                 .overlay {
                     if model.avatar.skinTone == tone {
                         Circle()
@@ -207,21 +234,20 @@ struct AthleteAvatarAppearanceStepView: View {
                 }
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(tone.rawValue)
-        .accessibilityAddTraits(model.avatar.skinTone == tone ? .isSelected : [])
     }
 
     private func choice(_ title: String, selected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
                 .font(.subheadline.weight(.semibold))
-                .frame(maxWidth: .infinity, minHeight: 44)
-                .foregroundStyle(selected ? theme.color(.onAccent, classic: .white) : .primary)
+                .foregroundStyle(selected ? .white : .primary)
+                .padding(.horizontal, 16)
+                .frame(minHeight: 42)
                 .background(
                     selected
                         ? theme.color(.accent, classic: .blue)
                         : theme.color(.raisedSurface, classic: Color(uiColor: .secondarySystemBackground)),
-                    in: .rect(cornerRadius: 13)
+                    in: .capsule
                 )
         }
         .buttonStyle(.plain)
@@ -240,8 +266,8 @@ struct AthleteAvatarOutfitStepView: View {
     var body: some View {
         OnboardingStep(primary: model.advance) {
             OnboardingHeader(
-                title: "Your first kit",
-                subtitle: "Start with a clean performance setup. More pieces unlock from real training."
+                title: "Your starter kit",
+                subtitle: "Start here and unlock new equipment as you train."
             )
 
             if availableSports.count > 1 {
@@ -253,55 +279,56 @@ struct AthleteAvatarOutfitStepView: View {
                 .pickerStyle(.segmented)
             }
 
-            AthleteAvatarView(
+            AthleteOnboardingHero(
                 avatar: model.avatar,
                 sport: selectedSport,
-                size: 330
-            )
-            .frame(maxWidth: .infinity)
-            .frame(height: 350)
-            .background(
-                LinearGradient(
-                    colors: [
-                        selectedSport.discipline.themedTint(theme).opacity(0.14),
-                        theme.color(.surface, classic: Color(uiColor: .systemBackground))
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                ),
-                in: .rect(cornerRadius: 28)
-            )
+                height: 430
+            ) {
+                HStack {
+                    Text(selectedSport.displayName)
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                    Spacer()
+                    Label("Starter kit", systemImage: "checkmark.circle.fill")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.72))
+                }
+            }
 
-            VStack(alignment: .leading, spacing: 12) {
-                SectionEyebrow(text: "Included")
+            VStack(spacing: 10) {
                 ForEach(AvatarGearCatalog.items(for: selectedSport).filter(\.isStarterUnlocked)) { item in
-                    HStack(spacing: 12) {
+                    HStack(spacing: 14) {
                         Image(systemName: item.symbol)
                             .font(.title3)
-                            .frame(width: 34)
+                            .frame(width: 42, height: 42)
+                            .background(
+                                selectedSport.discipline.themedTint(theme).opacity(0.12),
+                                in: .rect(cornerRadius: 13)
+                            )
+
                         VStack(alignment: .leading, spacing: 2) {
                             Text(item.name)
                                 .font(.subheadline.weight(.semibold))
-                            Text("Starter gear")
+                            Text(item.category.displayName)
                                 .font(.caption)
-                                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+                                .foregroundStyle(.secondary)
                         }
+
                         Spacer()
+
                         Image(systemName: "checkmark.circle.fill")
                             .foregroundStyle(selectedSport.discipline.themedTint(theme))
                     }
                     .padding(14)
                     .background(
-                        theme.color(.raisedSurface, classic: Color(uiColor: .secondarySystemBackground)),
-                        in: .rect(cornerRadius: 16)
+                        theme.color(.surface, classic: Color(uiColor: .secondarySystemBackground)),
+                        in: .rect(cornerRadius: 18)
                     )
                 }
             }
         }
         .onAppear {
-            if let first = availableSports.first {
-                selectedSport = first
-            }
+            selectedSport = availableSports.first ?? .running
         }
     }
 }
@@ -315,57 +342,42 @@ struct AthleteAvatarReadyStepView: View {
     }
 
     var body: some View {
-        OnboardingStep(primaryTitle: "Continue setup", primary: model.advance) {
-            VStack(spacing: 22) {
-                OnboardingHeader(
-                    title: "Your athlete is ready",
-                    subtitle: "This is the starting point. Your gear collection grows as your real training history grows."
+        OnboardingStep(primaryTitle: "Let's go", primary: model.advance) {
+            VStack(spacing: 18) {
+                AthleteOnboardingHero(
+                    avatar: model.avatar,
+                    sport: primarySport,
+                    pose: .neutral,
+                    height: 500
+                ) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("YOUR ATHLETE IS READY")
+                            .font(.caption.weight(.bold))
+                            .tracking(1.6)
+                            .foregroundStyle(.white.opacity(0.66))
+
+                        Text("Train. Unlock gear. Reach your goals.")
+                            .font(.title2.weight(.bold))
+                            .foregroundStyle(.white)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                rewardRow(
+                    icon: "trophy.fill",
+                    title: "Complete your first workout",
+                    detail: "Unlock new training gear"
                 )
-
-                ZStack {
-                    RoundedRectangle(cornerRadius: 30, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color(red: 0.06, green: 0.08, blue: 0.13),
-                                    Color(red: 0.015, green: 0.02, blue: 0.04)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-
-                    AthleteAvatarView(
-                        avatar: model.avatar,
-                        sport: primarySport,
-                        size: 330
-                    )
-                }
-                .frame(height: 390)
-                .clipShape(.rect(cornerRadius: 30))
-
-                VStack(alignment: .leading, spacing: 10) {
-                    rewardRow(
-                        icon: "shoe.fill",
-                        title: "First workout",
-                        detail: "Your first earned gear reward"
-                    )
-                    rewardRow(
-                        icon: "tshirt.fill",
-                        title: "Build consistency",
-                        detail: "Unlock performance pieces from completed training"
-                    )
-                    rewardRow(
-                        icon: "medal.fill",
-                        title: "Reach milestones",
-                        detail: "Milestone pieces mark what you have actually achieved"
-                    )
-                }
-
-                Text("Cosmetic rewards never change your training plan or capability rating.")
-                    .font(.footnote)
-                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
-                    .multilineTextAlignment(.center)
+                rewardRow(
+                    icon: "chart.bar.fill",
+                    title: "Build consistency",
+                    detail: "Unlock performance items"
+                )
+                rewardRow(
+                    icon: "medal.fill",
+                    title: "Reach milestones",
+                    detail: "Earn special rewards"
+                )
             }
         }
     }
@@ -374,9 +386,10 @@ struct AthleteAvatarReadyStepView: View {
         HStack(spacing: 14) {
             Image(systemName: icon)
                 .font(.title3)
-                .frame(width: 42, height: 42)
+                .foregroundStyle(theme.color(.accent, classic: .blue))
+                .frame(width: 44, height: 44)
                 .background(
-                    theme.color(.raisedSurface, classic: Color(uiColor: .secondarySystemBackground)),
+                    theme.color(.accent, classic: .blue).opacity(0.10),
                     in: .circle
                 )
 
@@ -385,14 +398,15 @@ struct AthleteAvatarReadyStepView: View {
                     .font(.subheadline.weight(.semibold))
                 Text(detail)
                     .font(.caption)
-                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+                    .foregroundStyle(.secondary)
             }
-            Spacer(minLength: 0)
+
+            Spacer()
         }
         .padding(14)
         .background(
             theme.color(.surface, classic: Color(uiColor: .secondarySystemBackground)),
-            in: .rect(cornerRadius: 16)
+            in: .rect(cornerRadius: 18)
         )
     }
 }
