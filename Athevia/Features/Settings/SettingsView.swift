@@ -54,7 +54,6 @@ struct SettingsView: View {
             }
             .atheviaList()
             .atheviaScreen()
-            .navigationTitle("Settings")
             .task(id: scenePhase) {
                 guard scenePhase == .active else { return }
                 watch.refresh()
