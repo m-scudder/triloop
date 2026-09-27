@@ -83,6 +83,16 @@ struct TrainingProfileView: View {
                 .padding(.vertical, 6)
             }
             .accessibilityLabel("Athlete details, \(profileDisplayName)")
+
+            NavigationLink {
+                AthleteAvatarStudioView(
+                    avatar: avatarBinding,
+                    selectedSports: selectedTrainingSports.isEmpty ? [.running] : selectedTrainingSports
+                )
+            } label: {
+                Label("My Athlete", systemImage: "figure.run")
+            }
+            .accessibilityIdentifier("profile.avatar")
         }
     }
 
@@ -627,18 +637,15 @@ struct TrainingProfileView: View {
     // MARK: - Overview values
 
     private var profileAvatar: some View {
-        Group {
-            if let monogram {
-                Text(monogram)
-                    .font(.headline.weight(.semibold))
-            } else {
-                Image(systemName: "person.fill")
-                    .font(.headline)
-            }
-        }
-        .foregroundStyle(.primary)
-        .frame(width: 52, height: 52)
+        AthleteAvatarView(
+            avatar: setup.avatar,
+            sport: selectedTrainingSports.first ?? .running,
+            size: 82
+        )
+        .frame(width: 58, height: 58)
+        .clipped()
         .background(AtheviaAdaptiveStyle(.fill.tertiary, gaming: .raisedSurface), in: .circle)
+        .clipShape(.circle)
     }
 
     private var profileDisplayName: String {
@@ -762,6 +769,13 @@ struct TrainingProfileView: View {
         Binding(
             get: { profile.name },
             set: { profile.name = $0; save() }
+        )
+    }
+
+    private var avatarBinding: Binding<AthleteAvatar> {
+        Binding(
+            get: { setup.avatar },
+            set: { avatar in update { $0.avatar = avatar } }
         )
     }
 
