@@ -125,6 +125,7 @@ struct TodayView: View {
         return NavigationLink {
             AthleteIdentityView(
                 avatar: avatarBinding(for: profile),
+                athleteName: profile.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Your Athlete" : profile.name,
                 selectedSports: setup.selectedSports,
                 plans: plans,
                 setup: setup
