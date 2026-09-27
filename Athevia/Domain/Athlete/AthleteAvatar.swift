@@ -198,7 +198,8 @@ struct AvatarRewardEvaluator: Sendable {
 
 enum AvatarGearCatalog {
     static let items: [AvatarGearItem] = [
-        .init(id: .runTopLavender, name: "Lavender Performance Top", category: .top, sport: .running, symbol: "tshirt.fill", unlockRule: .starter),\n        .init(id: .runTopGraphite, name: "Graphite Run Top", category: .top, sport: .running, symbol: "tshirt.fill", unlockRule: .milestone(.firstRun)),
+        .init(id: .runTopLavender, name: "Lavender Performance Top", category: .top, sport: .running, symbol: "tshirt.fill", unlockRule: .starter),
+        .init(id: .runTopGraphite, name: "Graphite Run Top", category: .top, sport: .running, symbol: "tshirt.fill", unlockRule: .milestone(.firstRun)),
         .init(id: .runTopIvory, name: "Ivory Performance Top", category: .top, sport: .running, symbol: "tshirt", unlockRule: .completedSportWorkouts(.running, 3)),
         .init(id: .runTopCobalt, name: "Cobalt Tempo Top", category: .top, sport: .running, symbol: "tshirt.fill", unlockRule: .milestone(.firstCompleteTrainingWeek)),
         .init(id: .runShortBlack, name: "Run Short — Black", category: .bottom, sport: .running, symbol: "figure.run", unlockRule: .starter),
@@ -311,6 +312,30 @@ enum AvatarHairColor: String, Codable, CaseIterable, Identifiable, Sendable {
     }
 }
 
+enum AvatarPose: String, Codable, CaseIterable, Identifiable, Sendable {
+    case neutral
+    case runReady
+    case running
+    case cycling
+    case swimming
+    case recovery
+    case celebration
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .neutral: "Neutral"
+        case .runReady: "Run ready"
+        case .running: "Running"
+        case .cycling: "Cycling"
+        case .swimming: "Swimming"
+        case .recovery: "Recovery"
+        case .celebration: "Celebration"
+        }
+    }
+}
+
 enum AvatarBodyPreset: String, Codable, CaseIterable, Identifiable, Sendable {
     case lean
     case balanced
@@ -365,6 +390,7 @@ struct AvatarLoadout: Codable, Equatable, Sendable {
 }
 
 enum AvatarGearID: String, Codable, CaseIterable, Identifiable, Hashable, Sendable {
+    case runTopLavender
     case runTopGraphite
     case runTopIvory
     case runTopCobalt
