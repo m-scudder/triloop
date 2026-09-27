@@ -12,7 +12,7 @@ The export preserves:
 - USD Preview Surface materials
 
 The file is intentionally a single modular character package. RealityKit changes
-mesh visibility, materials and body blend-shape weights at runtime.
+body / hair / gear mesh visibility, materials and skeletal pose at runtime.
 """
 
 import argparse
