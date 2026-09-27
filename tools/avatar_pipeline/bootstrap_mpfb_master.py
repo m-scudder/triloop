@@ -44,8 +44,8 @@ def parse_args():
     parser.add_argument("--poses", required=True)
     parser.add_argument("--hair-keywords", default="bun,ponytail,updo,tied")
     parser.add_argument("--top-keywords", default="tank,sport,top,shirt")
-    parser.add_argument("--bottom-keywords", default="short,sport")
-    parser.add_argument("--shoe-keywords", default="shoe,sneaker,trainer")
+    parser.add_argument("--bottom-keywords", default="jeans_shorts,shorts,short")
+    parser.add_argument("--shoe-keywords", default="shoes01")
     return parser.parse_args(args_after_double_dash())
 
 
