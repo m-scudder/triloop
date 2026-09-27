@@ -57,12 +57,21 @@ def main():
         if bpy.data.materials.get(name) is None:
             missing.append("material:" + name)
 
-    body = bpy.data.objects.get("BODY__feminine")
+    body = bpy.data.objects.get("BODY__feminine") or bpy.data.objects.get("BODY__masculine")
     if body is not None:
         keys = getattr(getattr(body.data, "shape_keys", None), "key_blocks", None)
-        for key_name in ("BODY__lean", "BODY__powerful"):
-            if keys is None or keys.get(key_name) is None:
-                missing.append("shapeKey:" + key_name)
+        expected = ["Basis", "BODY__lean", "BODY__powerful"]
+        if keys is None:
+            missing.append("shapeKeys:" + ",".join(expected))
+        else:
+            actual = [key.name for key in keys]
+            if actual != expected:
+                missing.append(
+                    "shapeKeyContract:expected="
+                    + ",".join(expected)
+                    + ";actual="
+                    + ",".join(actual)
+                )
 
     for pose_name in poses:
         if bpy.data.actions.get("POSE__" + pose_name) is None:
