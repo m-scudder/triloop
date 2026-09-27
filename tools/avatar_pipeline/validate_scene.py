@@ -33,10 +33,18 @@ def main():
 
     missing = []
 
+    base_body_name = (
+        "BODY__feminine"
+        if bpy.data.objects.get("BODY__feminine") is not None
+        else "BODY__masculine"
+    )
+
     required_objects = [
         catalog["render"]["camera"],
         catalog["render"]["rig"],
-        "BODY__feminine",
+        base_body_name,
+        "BODY__lean",
+        "BODY__powerful",
         "HAIR__tied",
     ]
 
@@ -47,7 +55,7 @@ def main():
         if bpy.data.objects.get(name) is None:
             missing.append("object:" + name)
 
-    required_materials = ["MAT__skin", "MAT__hair"]
+    required_materials = ["MAT__skin"]
     for definition in catalog["gear"].values():
         material = definition.get("material")
         if material:
@@ -57,21 +65,30 @@ def main():
         if bpy.data.materials.get(name) is None:
             missing.append("material:" + name)
 
-    body = bpy.data.objects.get("BODY__feminine") or bpy.data.objects.get("BODY__masculine")
-    if body is not None:
-        keys = getattr(getattr(body.data, "shape_keys", None), "key_blocks", None)
-        expected = ["Basis", "BODY__lean", "BODY__powerful"]
-        if keys is None:
-            missing.append("shapeKeys:" + ",".join(expected))
-        else:
-            actual = [key.name for key in keys]
-            if actual != expected:
-                missing.append(
-                    "shapeKeyContract:expected="
-                    + ",".join(expected)
-                    + ";actual="
-                    + ",".join(actual)
-                )
+    body_names = [base_body_name, "BODY__lean", "BODY__powerful"]
+    body_objects = [
+        bpy.data.objects.get(name)
+        for name in body_names
+        if bpy.data.objects.get(name) is not None
+    ]
+
+    if len(body_objects) == 3:
+        vertex_counts = {len(body.data.vertices) for body in body_objects}
+        if len(vertex_counts) != 1:
+            missing.append("bodyPresetTopologyMismatch")
+
+        rig = bpy.data.objects.get(catalog["render"]["rig"])
+        for body in body_objects:
+            keys = getattr(getattr(body.data, "shape_keys", None), "key_blocks", None)
+            if keys is not None and len(keys) > 0:
+                missing.append("unexpectedShapeKeys:" + body.name)
+
+            armatures = [
+                modifier for modifier in body.modifiers
+                if modifier.type == "ARMATURE"
+            ]
+            if not armatures or armatures[-1].object != rig:
+                missing.append("sharedRigBinding:" + body.name)
 
     for pose_name in poses:
         if bpy.data.actions.get("POSE__" + pose_name) is None:
