@@ -380,21 +380,36 @@ def main():
             material_name,
         )
 
-    hair_definition = find_asset(
-        AssetService,
-        "hair",
-        args.hair_keywords,
-        used,
-    )
-    used.add(hair_definition["full_path"])
-    add_asset(
-        HumanService,
-        balanced,
-        hair_definition,
-        "hair",
-        "HAIR__tied",
-        "MAT__hair",
-    )
+    # Athevia hair choices are independent rigged meshes on the same athlete.
+    # The free MPFB system pack gives us enough geometry to make hair switching
+    # genuinely dynamic instead of swapping full-character images.
+    hair_specs = [
+        ("cropped", "short01,short02,short"),
+        ("swept", "short03,short02,short"),
+        ("tied", "ponytail01,ponytail"),
+        ("textured", "afro01,afro"),
+        ("long", "long01,long"),
+        ("closeCut", "short04,short01,short"),
+    ]
+
+    hair_definitions = {}
+    for style_name, keywords in hair_specs:
+        definition = find_asset(
+            AssetService,
+            "hair",
+            keywords,
+            used,
+        )
+        used.add(definition["full_path"])
+        hair_definitions[style_name] = definition
+        add_asset(
+            HumanService,
+            balanced,
+            definition,
+            "hair",
+            "HAIR__" + style_name,
+            "MAT__hair__" + style_name,
+        )
 
     top_definition = find_asset(
         AssetService,
@@ -469,7 +484,8 @@ def main():
     bpy.ops.wm.save_as_mainfile(filepath=output)
 
     print("Saved Athevia master athlete:", output)
-    print("Selected hair:", hair_definition["full_path"])
+    for style_name, definition in hair_definitions.items():
+        print("Selected hair " + style_name + ":", definition["full_path"])
     print("Selected top:", top_definition["full_path"])
     print("Selected bottom:", bottom_definition["full_path"])
     print("Selected shoes:", shoe_definition["full_path"])
