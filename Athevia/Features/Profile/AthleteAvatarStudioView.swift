@@ -110,22 +110,21 @@ private enum AthleteRealityConfigurator {
         avatar: AthleteAvatar,
         sport: Sport
     ) {
-        // The first 3D package has one production hair mesh and one base gear
-        // mesh per slot. As new meshes are added they follow this same naming
-        // contract and become runtime-selectable without changing the UI model.
         setPrefix("HAIR__", enabledName: hairEntityName(avatar.hairStyle), in: root)
 
-        let loadout = avatar.loadout(for: sport)
-        setPrefix("GEAR__runTop", enabledName: "GEAR__runTopPerformance", in: root)
-        setPrefix("GEAR__runShort", enabledName: "GEAR__runShort", in: root)
-        setPrefix("GEAR__runShoe", enabledName: "GEAR__runShoe", in: root)
+        let allGear = descendants(of: root).filter { $0.name.hasPrefix("GEAR__") }
+        for entity in allGear {
+            entity.isEnabled = false
+        }
 
-        // Hide sport-specific assets until their corresponding production mesh
-        // exists in the USDZ. The naming contract remains stable.
-        for entity in descendants(of: root) {
-            if entity.name.hasPrefix("GEAR__cycle") || entity.name.hasPrefix("GEAR__swim") {
-                entity.isEnabled = entity.name == gearEntityName(for: loadout, sport: sport)
-            }
+        let desired = gearEntityNames(for: avatar.loadout(for: sport), sport: sport)
+        let availableNames = Set(allGear.map(\.name))
+        let effective = desired.allSatisfy(availableNames.contains)
+            ? desired
+            : starterRunningGear
+
+        for entity in allGear where effective.contains(entity.name) {
+            entity.isEnabled = true
         }
     }
 
@@ -140,27 +139,32 @@ private enum AthleteRealityConfigurator {
     }
 
     private static func hairEntityName(_ style: AvatarHairStyle) -> String {
-        switch style {
-        case .tied:
-            "HAIR__tied"
-        default:
-            // Until the requested hairstyle mesh is exported, remain on a
-            // production 3D mesh rather than dropping to a 2D/geometric avatar.
-            "HAIR__tied"
-        }
+        "HAIR__" + style.rawValue
     }
 
-    private static func gearEntityName(
+    private static let starterRunningGear: Set<String> = [
+        "GEAR__runTopPerformance",
+        "GEAR__runShort",
+        "GEAR__runShoe"
+    ]
+
+    private static func gearEntityNames(
         for loadout: AvatarLoadout,
         sport: Sport
-    ) -> String {
+    ) -> Set<String> {
         switch sport {
         case .running:
-            "GEAR__runTopPerformance"
+            starterRunningGear
         case .cycling:
-            "GEAR__cycleJersey"
+            [
+                "GEAR__cycleJersey",
+                "GEAR__cycleBib",
+                "GEAR__cycleShoe"
+            ]
         case .swimming:
-            "GEAR__swimSuit"
+            [
+                "GEAR__swimSuit"
+            ]
         }
     }
 
@@ -176,7 +180,7 @@ private enum AthleteRealityConfigurator {
             roughness: 0.62
         )
         recolor(
-            entityNamed: "HAIR__tied",
+            entityNamed: hairEntityName(avatar.hairStyle),
             in: root,
             color: color(avatar.hairColor.rgb),
             roughness: 0.48
@@ -213,18 +217,25 @@ private enum AthleteRealityConfigurator {
         color: UIColor,
         roughness: Float
     ) {
-        guard let entity = root.findEntity(named: name),
-              var model = entity.components[ModelComponent.self] else {
-            return
-        }
+        guard let entity = root.findEntity(named: name) else { return }
 
         let material = SimpleMaterial(
             color: color,
             roughness: .float(roughness),
             isMetallic: false
         )
-        model.materials = Array(repeating: material, count: max(model.materials.count, 1))
-        entity.components.set(model)
+
+        for candidate in descendants(of: entity) {
+            guard var model = candidate.components[ModelComponent.self] else {
+                continue
+            }
+
+            model.materials = Array(
+                repeating: material,
+                count: max(model.materials.count, 1)
+            )
+            candidate.components.set(model)
+        }
     }
 
     private static func applyBodyPreset(
@@ -232,17 +243,18 @@ private enum AthleteRealityConfigurator {
         avatar: AthleteAvatar
     ) {
         guard let body = root.findEntity(named: bodyEntityName(avatar.presentation)),
-              let model = body.components[ModelComponent.self] else {
+              let modelEntity = firstModelEntity(in: body),
+              let model = modelEntity.components[ModelComponent.self] else {
             return
         }
 
         let mapping = BlendShapeWeightsMapping(meshResource: model.mesh)
-        var component = body.components[BlendShapeWeightsComponent.self]
+        var component = modelEntity.components[BlendShapeWeightsComponent.self]
             ?? BlendShapeWeightsComponent(weightsMapping: mapping)
         var set = component.weightSet
 
         guard var data = set.default else {
-            body.components.set(component)
+            modelEntity.components.set(component)
             return
         }
 
@@ -267,7 +279,7 @@ private enum AthleteRealityConfigurator {
         data.weights = weights
         set.default = data
         component.weightSet = set
-        body.components.set(component)
+        modelEntity.components.set(component)
     }
 
     private static func applyPose(root: Entity, pose: AvatarPose) {
@@ -292,6 +304,19 @@ private enum AthleteRealityConfigurator {
             transforms[index] = transform
         }
         model.jointTransforms = transforms
+    }
+
+    private static func firstModelEntity(in root: Entity) -> Entity? {
+        if root.components[ModelComponent.self] != nil {
+            return root
+        }
+
+        for child in root.children {
+            if let entity = firstModelEntity(in: child) {
+                return entity
+            }
+        }
+        return nil
     }
 
     private static func firstSkinnedModel(in root: Entity) -> ModelEntity? {
