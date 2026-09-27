@@ -34,6 +34,13 @@ struct AthleteIdentityView: View {
         AvatarRewardEvaluator().evaluate(setup: setup, plans: plans)
     }
 
+    private var journey: TrainingJourney {
+        TrainingJourneyPlanner().plan(
+            setup: setup,
+            recentPlans: Array(plans.prefix(4))
+        )
+    }
+
     var body: some View {
         ScrollView {
             VStack(spacing: 18) {
@@ -145,7 +152,7 @@ struct AthleteIdentityView: View {
                     .tracking(1.7)
                     .foregroundStyle(.white.opacity(0.62))
 
-                Text("Foundation Phase")
+                Text(journey.phase.displayName)
                     .font(.title2.weight(.bold))
                     .foregroundStyle(.white)
 
@@ -345,7 +352,7 @@ struct AthleteIdentityView: View {
                 value: "\(rewards.unlockedGearIDs.count)",
                 label: "Gear unlocked"
             )
-            Divider().frame(height: 38)
+            Divider().frame(height: 38).overlay(.white.opacity(0.10))
             metric(
                 value: "\(rewards.milestones.count)",
                 label: "Milestones"
@@ -364,10 +371,11 @@ struct AthleteIdentityView: View {
         VStack(spacing: 3) {
             Text(value)
                 .font(.title3.weight(.bold))
+                .foregroundStyle(.white)
                 .monospacedDigit()
             Text(label)
                 .font(.caption)
-                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+                .foregroundStyle(.white.opacity(0.55))
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
