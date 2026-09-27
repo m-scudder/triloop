@@ -83,6 +83,8 @@ def main():
                     args.blender,
                     "-b",
                     args.master,
+                    "--python-exit-code",
+                    "1",
                     "--python",
                     render_script,
                     "--",
@@ -95,6 +97,12 @@ def main():
                 ]
                 print("Rendering:", name)
                 subprocess.run(command, check=True)
+
+                if not os.path.isfile(output) or os.path.getsize(output) == 0:
+                    raise RuntimeError(
+                        "Blender finished without producing render: " + output
+                    )
+
                 rendered.append(name)
             finally:
                 os.unlink(config_path)
