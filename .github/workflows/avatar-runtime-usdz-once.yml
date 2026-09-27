@@ -99,4 +99,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           git commit -m "Add dynamic RealityKit athlete packages"
+          git pull --rebase origin feat/athlete-avatar-experience
           git push origin HEAD:feat/athlete-avatar-experience
