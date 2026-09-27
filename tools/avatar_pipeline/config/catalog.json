@@ -1,0 +1,77 @@
+{
+  "render": {
+    "width": 2048,
+    "height": 2732,
+    "samples": 128,
+    "camera": "CAMERA__avatar",
+    "rig": "RIG__athlete"
+  },
+  "skinTones": {
+    "light": "#EFC7AB",
+    "warmLight": "#DBA884",
+    "warmMedium": "#BA7D57",
+    "medium": "#945E40",
+    "deep": "#633D2B",
+    "rich": "#3D241A"
+  },
+  "hairColors": {
+    "midnight": "#0D0D12",
+    "espresso": "#26140D",
+    "chestnut": "#4D2414",
+    "copper": "#853317",
+    "sand": "#AA7F47",
+    "silver": "#8C8F99"
+  },
+  "bodies": {
+    "lean": {
+      "leanShape": 1.0,
+      "powerfulShape": 0.0
+    },
+    "balanced": {
+      "leanShape": 0.0,
+      "powerfulShape": 0.0
+    },
+    "powerful": {
+      "leanShape": 0.0,
+      "powerfulShape": 1.0
+    }
+  },
+  "hair": {
+    "tied": {
+      "object": "HAIR__tied",
+      "material": "MAT__hair"
+    }
+  },
+  "gear": {
+    "runTopLavender": {
+      "object": "GEAR__runTopPerformance",
+      "material": "MAT__runTopPerformance",
+      "color": "#796CE0"
+    },
+    "runTopIvory": {
+      "object": "GEAR__runTopPerformance",
+      "material": "MAT__runTopPerformance",
+      "color": "#EDEAE2"
+    },
+    "runTopCobalt": {
+      "object": "GEAR__runTopPerformance",
+      "material": "MAT__runTopPerformance",
+      "color": "#3452D1"
+    },
+    "runShortBlack": {
+      "object": "GEAR__runShort",
+      "material": "MAT__runShort",
+      "color": "#15171B"
+    },
+    "runShoeWhite": {
+      "object": "GEAR__runShoe",
+      "material": "MAT__runShoe",
+      "color": "#F1F1EE"
+    },
+    "runShoeCobalt": {
+      "object": "GEAR__runShoe",
+      "material": "MAT__runShoe",
+      "color": "#3158D6"
+    }
+  }
+}
