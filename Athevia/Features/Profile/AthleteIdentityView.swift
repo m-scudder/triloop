@@ -428,10 +428,12 @@ struct AthleteRewardJourneyView: View {
             VStack(alignment: .leading, spacing: 14) {
                 OnboardingHeader(
                     title: "Earned, not bought",
-                    subtitle: "The first reward set is tied to real training evidence. These are previews; unlock evaluation comes next."
+                    subtitle: "Rewards unlock from completed training and verified milestones. Nothing here changes your training plan."
                 )
 
                 ForEach(rewardItems) { item in
+                    let unlocked = rewards.isUnlocked(item)
+
                     HStack(spacing: 14) {
                         ZStack {
                             RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -451,7 +453,10 @@ struct AthleteRewardJourneyView: View {
 
                         Spacer(minLength: 8)
 
-                        if !unlocked {
+                        if unlocked {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                        } else {
                             Image(systemName: "lock.fill")
                                 .foregroundStyle(.tertiary)
                         }
