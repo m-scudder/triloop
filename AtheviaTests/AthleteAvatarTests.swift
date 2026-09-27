@@ -76,11 +76,13 @@ struct AthleteAvatarTests {
             status: .completed
         )
         workout.importedSummary = ImportedWorkoutSummary(
-            sourceIdentifier: "avatar-test-5k",
+            healthKitUUID: UUID(),
+            sport: .running,
             startDate: date,
             endDate: date.addingTimeInterval(1_800),
             duration: 1_800,
-            distanceMeters: 5_000
+            distanceMeters: 5_000,
+            source: "avatar-test"
         )
         let plan = WeeklyPlan(
             weekNumber: 1,
