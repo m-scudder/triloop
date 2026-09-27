@@ -113,7 +113,7 @@ struct PlanView: View {
             .atheviaScreen()
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink {
