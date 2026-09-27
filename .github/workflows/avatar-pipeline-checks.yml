@@ -1,0 +1,29 @@
+name: Avatar Pipeline Checks
+
+on:
+  pull_request:
+    paths:
+      - "Athevia/Domain/Athlete/AthleteAvatar.swift"
+      - "Athevia/Features/Profile/AthleteAvatarStudioView.swift"
+      - "tools/avatar_pipeline/**"
+  push:
+    branches:
+      - feat/athlete-avatar-experience
+    paths:
+      - "Athevia/Domain/Athlete/AthleteAvatar.swift"
+      - "Athevia/Features/Profile/AthleteAvatarStudioView.swift"
+      - "tools/avatar_pipeline/**"
+
+jobs:
+  validate-avatar-pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compile Python pipeline scripts
+        run: |
+          python3 -m py_compile             tools/avatar_pipeline/render_avatar.py             tools/avatar_pipeline/render_matrix.py             tools/avatar_pipeline/export_xcassets.py             tools/avatar_pipeline/bootstrap_mpfb_master.py             tools/avatar_pipeline/validate_scene.py             tools/avatar_pipeline/validate_config.py
+
+      - name: Validate avatar catalog and render matrix
+        run: |
+          python3 tools/avatar_pipeline/validate_config.py             --catalog tools/avatar_pipeline/config/catalog.json             --matrix tools/avatar_pipeline/config/vertical_slice.json             --poses tools/avatar_pipeline/config/poses.json             --swift-avatar Athevia/Domain/Athlete/AthleteAvatar.swift
