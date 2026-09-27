@@ -355,6 +355,6 @@ struct WeeklyPlanGenerator: Sendable {
             .max() ?? availableMinutes
 
         guard longestPlannedMinutes < availableMinutes else { return analysisReason }
-        return analysisReason + " You have up to \(availableMinutes) minutes available; Athevia is deliberately using shorter sessions because the current training load is enough for this stage."
+        return analysisReason + " You selected \(availableMinutes) minutes per training day. Normal sessions use most of that window; any shorter session is intentional for its workout type, recovery need or training phase."
     }
 }
