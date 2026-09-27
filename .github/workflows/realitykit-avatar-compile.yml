@@ -24,3 +24,5 @@ jobs:
           xcodebuild             -project Athevia.xcodeproj             -scheme Athevia             -sdk iphonesimulator             -destination 'generic/platform=iOS Simulator'             CODE_SIGNING_ALLOWED=NO             CODE_SIGNING_REQUIRED=NO             build | tee /tmp/athevia-build.log
 
 # retry after compile fix
+
+# retry after RealityView load fix
