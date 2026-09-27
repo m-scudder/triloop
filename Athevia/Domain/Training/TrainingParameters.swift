@@ -118,6 +118,45 @@ extension TrainingParameters {
         return next
     }
 
+    /// Sizes ordinary training to use the athlete's stated daily window.
+    ///
+    /// Availability is a real session budget, not just a ceiling. We keep a
+    /// small buffer so setup/transitions do not make a "60 min" choice feel
+    /// misleading. Safety reductions, recovery and taper are applied elsewhere
+    /// and are deliberately allowed to be shorter.
+    func fillingTrainingWindow(minutes: Int?, bufferMinutes: Int = 5) -> TrainingParameters {
+        guard let minutes, minutes > 0 else { return self }
+
+        let target = TimeInterval(max(minutes - bufferMinutes, 1) * 60)
+        var next = self
+
+        let rideWorkBudget = max(
+            target - next.rideWarmUpSeconds - next.rideCooldownSeconds,
+            Limits.minimumRideWorkSeconds
+        )
+        next.rideWorkSeconds = max(next.rideWorkSeconds, rideWorkBudget)
+
+        if next.runIsContinuous {
+            let runWorkBudget = max(
+                target - next.runWarmUpSeconds - next.runCooldownSeconds,
+                Limits.minimumContinuousRunSeconds
+            )
+            next.runContinuousSeconds = max(next.runContinuousSeconds, runWorkBudget)
+        } else {
+            let runWorkBudget = max(
+                target - next.runWarmUpSeconds - next.runCooldownSeconds,
+                0
+            )
+            let repeatSeconds = next.runIntervalSeconds + next.runWalkSeconds
+            if repeatSeconds > 0 {
+                let targetRepeats = Int((runWorkBudget / repeatSeconds).rounded(.down))
+                next.runRepeatCount = max(next.runRepeatCount, max(targetRepeats, 1))
+            }
+        }
+
+        return next.capped(toTrainingMinutes: minutes)
+    }
+
     func applying(_ adjustment: TrainingAdjustment, to sport: Sport) -> TrainingParameters {
         var next = self
 
