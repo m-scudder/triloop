@@ -8,6 +8,7 @@ import SwiftUI
 /// immediately. Training-impacting edits automatically rebuild only unresolved
 /// future workouts; recorded history remains immutable.
 struct TrainingProfileView: View {
+    @Environment(\.atheviaTheme) private var theme
     @Environment(\.modelContext) private var modelContext
     @Bindable var profile: AthleteProfile
     @Query(sort: \WeeklyPlan.startDate) private var plans: [WeeklyPlan]
@@ -25,11 +26,17 @@ struct TrainingProfileView: View {
 
     var body: some View {
         List {
+            Group {
             identitySection
             historySection
             trainingSection
             preferencesSection
+            planSection
+            }
+            .atheviaListRow()
         }
+        .atheviaList()
+        .atheviaScreen()
         .navigationTitle("Training Profile")
         .navigationBarTitleDisplayMode(.inline)
         .task {
@@ -69,7 +76,7 @@ struct TrainingProfileView: View {
                             }
                         }
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                         .lineLimit(1)
                     }
                 }
@@ -90,9 +97,9 @@ struct TrainingProfileView: View {
             if historyPlans.isEmpty {
                 HStack(spacing: 10) {
                     Image(systemName: "clock.arrow.circlepath")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                     Text("No workout history yet")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 }
             } else {
                 ForEach(Array(historyPlans.prefix(3))) { plan in
@@ -116,7 +123,7 @@ struct TrainingProfileView: View {
 
                             Text("\(historyPlans.count)")
                                 .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                         }
                     }
                 }
@@ -130,6 +137,22 @@ struct TrainingProfileView: View {
             .sorted { $0.startDate > $1.startDate }
     }
 
+    @ViewBuilder
+    private var impactSection: some View {
+        let impact = pendingImpact
+        if impact.isTrainingImpacting {
+            Section {
+                Label("Upcoming training needs review", systemImage: "info.circle")
+                    .font(.subheadline.weight(.medium))
+
+                Text(impact.reasons.map(\.displayName).joined(separator: " · "))
+                    .font(.caption)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+            } footer: {
+                Text("Your completed and reported workouts stay unchanged. Use the Plan actions below when you want these edits applied to the days still ahead.")
+            }
+        }
+    }
 
     private var trainingSection: some View {
         Section("Training") {
@@ -242,6 +265,7 @@ struct TrainingProfileView: View {
 
     private var identityEditor: some View {
         Form {
+            Group {
             Section("Athlete") {
                 TextField("Name (optional)", text: nameBinding)
                     .textInputAutocapitalization(.words)
@@ -257,7 +281,11 @@ struct TrainingProfileView: View {
                     value: TrainingFormatter.shortDate(profile.trainingStartDate, includeYear: true)
                 )
             }
+            }
+            .atheviaListRow()
         }
+        .atheviaList()
+        .atheviaScreen()
         .navigationTitle("Athlete")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -266,6 +294,7 @@ struct TrainingProfileView: View {
         let draft = objectiveDraft ?? setup.objective
 
         return Form {
+            Group {
             Section {
                 LazyVGrid(
                     columns: [GridItem(.flexible()), GridItem(.flexible())],
@@ -315,7 +344,11 @@ struct TrainingProfileView: View {
                     .padding(.vertical, 4)
                 }
             }
+            }
+            .atheviaListRow()
         }
+        .atheviaList()
+        .atheviaScreen()
         .navigationTitle("Goal")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
@@ -328,6 +361,7 @@ struct TrainingProfileView: View {
 
     private var abilityEditor: some View {
         Form {
+            Group {
             if preferences.first(where: { $0.sport == .running })?.isTrained == true {
                 Section("Running") {
                     abilityGrid(RunningBaseline.allCases) { baseline in
@@ -381,13 +415,18 @@ struct TrainingProfileView: View {
                     }
                 }
             }
+            }
+            .atheviaListRow()
         }
+        .atheviaList()
+        .atheviaScreen()
         .navigationTitle("Current Ability")
         .navigationBarTitleDisplayMode(.inline)
     }
 
     private var openWaterEditor: some View {
         Form {
+            Group {
             Section {
                 Toggle(
                     "Open-water training available",
@@ -404,13 +443,18 @@ struct TrainingProfileView: View {
             } footer: {
                 Text("Athevia only prescribes open-water preparation when all three are confirmed and your current swim capability supports it. Pool training remains available otherwise.")
             }
+            }
+            .atheviaListRow()
         }
+        .atheviaList()
+        .atheviaScreen()
         .navigationTitle("Open Water")
         .navigationBarTitleDisplayMode(.inline)
     }
 
     private var availabilityEditor: some View {
         Form {
+            Group {
             Section {
                 HStack(spacing: 6) {
                     ForEach(Weekday.trainingWeek, id: \.self) { weekday in
@@ -427,13 +471,18 @@ struct TrainingProfileView: View {
                     Text("Choose at least two days so Athevia can build a usable week.")
                 }
             }
+            }
+            .atheviaListRow()
         }
+        .atheviaList()
+        .atheviaScreen()
         .navigationTitle("Training Days")
         .navigationBarTitleDisplayMode(.inline)
     }
 
     private var trainingMixEditor: some View {
         Form {
+            Group {
             Section {
                 ForEach(preferences, id: \.sport) { preference in
                     Picker(preference.sport.displayName, selection: sessionsBinding(preference.sport)) {
@@ -448,7 +497,11 @@ struct TrainingProfileView: View {
             } footer: {
                 Text("Adding a new sport asks for your current starting point before Athevia rebuilds upcoming training. Existing sport progress and completed workouts are preserved.")
             }
+            }
+            .atheviaListRow()
         }
+        .atheviaList()
+        .atheviaScreen()
         .navigationTitle("Training Mix")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -525,6 +578,7 @@ struct TrainingProfileView: View {
 
     private var swimmingEditor: some View {
         Form {
+            Group {
             Section {
                 Picker("Pool length", selection: poolBinding) {
                     Text("25 m").tag(25.0)
@@ -537,13 +591,18 @@ struct TrainingProfileView: View {
             } footer: {
                 Text("Pool length is used to turn swim distances into lengths and to interpret completed sessions.")
             }
+            }
+            .atheviaListRow()
         }
+        .atheviaList()
+        .atheviaScreen()
         .navigationTitle("Swimming")
         .navigationBarTitleDisplayMode(.inline)
     }
 
     private var heartRateEditor: some View {
         Form {
+            Group {
             Section {
                 Toggle("Use my age for zones", isOn: usesBirthDate)
                     .toggleStyle(AtheviaToggleStyle())
@@ -561,7 +620,11 @@ struct TrainingProfileView: View {
             } footer: {
                 Text(zoneFooter)
             }
+            }
+            .atheviaListRow()
         }
+        .atheviaList()
+        .atheviaScreen()
         .navigationTitle("Heart-rate Zones")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -580,7 +643,7 @@ struct TrainingProfileView: View {
         }
         .foregroundStyle(.primary)
         .frame(width: 52, height: 52)
-        .background(.fill.tertiary, in: .circle)
+        .background(AtheviaAdaptiveStyle(.fill.tertiary, gaming: .raisedSurface), in: .circle)
     }
 
     private var profileDisplayName: String {
@@ -666,10 +729,10 @@ struct TrainingProfileView: View {
         } label: {
             Text(weekday.initial)
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(selected ? Color.white : Color.primary)
+                .foregroundStyle(selected ? theme.color(.onAccent, classic: .white) : theme.color(.text, classic: .primary))
                 .frame(maxWidth: .infinity, minHeight: 44)
                 .background(
-                    selected ? Color.blue : Color(uiColor: .tertiarySystemFill),
+                    selected ? theme.color(.accent, classic: .blue) : theme.color(.raisedSurface, classic: Color(uiColor: .tertiarySystemFill)),
                     in: .rect(cornerRadius: 11)
                 )
         }
@@ -925,13 +988,18 @@ private struct WeeklyHistoryListView: View {
 
     var body: some View {
         List(plans) { plan in
+            Group {
             NavigationLink {
                 WeekReviewView(plan: plan)
             } label: {
                 WeeklyHistoryRow(plan: plan)
             }
             .accessibilityIdentifier("history.week.\(plan.weekNumber)")
+            }
+            .atheviaListRow()
         }
+        .atheviaList()
+        .atheviaScreen()
         .navigationTitle("Workout History")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -955,7 +1023,7 @@ private struct WeeklyHistoryRow: View {
             Image(systemName: "calendar")
                 .font(.subheadline.weight(.semibold))
                 .frame(width: 34, height: 34)
-                .background(.fill.tertiary, in: .circle)
+                .background(AtheviaAdaptiveStyle(.fill.tertiary, gaming: .raisedSurface), in: .circle)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(TrainingFormatter.weekRange(start: plan.startDate, end: plan.endDate))
@@ -964,7 +1032,7 @@ private struct WeeklyHistoryRow: View {
 
                 Text(summary)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                     .lineLimit(1)
             }
 
@@ -974,7 +1042,7 @@ private struct WeeklyHistoryRow: View {
                 VStack(alignment: .trailing, spacing: 2) {
                     Text("Plan completed")
                         .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
 
                     Text("\(Int((adherence * 100).rounded()))%")
                         .font(.subheadline.weight(.semibold))
@@ -1012,7 +1080,7 @@ private struct ProfileNavigationRow: View {
 
             Text(value)
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 .multilineTextAlignment(.trailing)
                 .lineLimit(2)
                 .minimumScaleFactor(0.85)
@@ -1021,6 +1089,8 @@ private struct ProfileNavigationRow: View {
 }
 
 private struct TrainingDaysSummaryRow: View {
+    @Environment(\.atheviaTheme) private var theme
+
     let schedule: AthleteSchedule
 
     var body: some View {
@@ -1036,11 +1106,11 @@ private struct TrainingDaysSummaryRow: View {
                 ForEach(Weekday.trainingWeek, id: \.self) { weekday in
                     Text(weekday.initial)
                         .font(.caption2.weight(.semibold))
-                        .foregroundStyle(schedule.isAvailable(on: weekday) ? Color.onFocusSurface : Color.secondary)
+                        .foregroundStyle(schedule.isAvailable(on: weekday) ? theme.color(.text, classic: Color.onFocusSurface) : Color.secondary)
                         .frame(width: 20, height: 20)
                         .background(
                             schedule.isAvailable(on: weekday)
-                                ? AnyShapeStyle(Color.focusSurface)
+                                ? AnyShapeStyle(theme.color(.raisedSurface, classic: Color.focusSurface))
                                 : AnyShapeStyle(.fill.tertiary),
                             in: .circle
                         )
@@ -1051,3 +1121,4 @@ private struct TrainingDaysSummaryRow: View {
         }
     }
 }
+

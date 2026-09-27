@@ -7,6 +7,8 @@ import SwiftUI
 /// built and reasoned about in, so a swipe moves a whole week rather than
 /// leaving days from two weeks side by side.
 struct DateStrip: View {
+    @Environment(\.atheviaTheme) private var theme
+
     let workouts: [PlannedWorkout]
     @Binding var selection: Date
     var calendar: Calendar = .current
@@ -108,7 +110,7 @@ struct DateStrip: View {
         let isSkipped = day.workouts.allSatisfy(\.isSkipped)
         // Matches the first stop of the tile's gradient rather than whichever
         // session happens to be first in the day.
-        let tint = day.sports.first?.discipline.tint ?? workout.discipline.tint
+        let tint = day.sports.first?.discipline.themedTint(theme) ?? workout.discipline.themedTint(theme)
 
         return VStack(spacing: 6) {
             Text(TrainingFormatter.weekdayInitial(for: day.date))
@@ -149,7 +151,7 @@ struct DateStrip: View {
         if isSkipped || sports.isEmpty {
             Image(systemName: isSkipped ? "slash.circle" : day.representative.discipline.symbolName)
                 .font(.footnote)
-                .foregroundStyle(isSelected ? .white : (isSkipped ? Color.secondary : day.representative.discipline.tint))
+                .foregroundStyle(isSelected ? .white : (isSkipped ? Color.secondary : day.representative.discipline.themedTint(theme)))
                 .frame(height: 16)
         } else {
             HStack(spacing: 2) {
@@ -157,7 +159,7 @@ struct DateStrip: View {
                     Image(systemName: sport.discipline.symbolName)
                         // Three glyphs have to fit the same tile as one.
                         .font(sports.count > 2 ? .caption2 : .footnote)
-                        .foregroundStyle(isSelected ? AnyShapeStyle(.white) : AnyShapeStyle(sport.discipline.tint))
+                        .foregroundStyle(isSelected ? AnyShapeStyle(.white) : AnyShapeStyle(sport.discipline.themedTint(theme)))
                 }
             }
             .frame(height: 16)
@@ -174,11 +176,11 @@ struct DateStrip: View {
         guard sports.count > 1 else {
             let discipline = day.representative.discipline
             return isSelected
-                ? AnyShapeStyle(discipline.gradient)
-                : AnyShapeStyle(discipline.tint.opacity(0.10))
+                ? AnyShapeStyle(discipline.themedGradient(theme))
+                : AnyShapeStyle(discipline.themedTint(theme).opacity(0.10))
         }
 
-        let colours = sports.map(\.discipline.surface)
+        let colours = sports.map { $0.discipline.themedSurface(theme) }
         return AnyShapeStyle(
             LinearGradient(
                 colors: isSelected ? colours : colours.map { $0.opacity(0.14) },

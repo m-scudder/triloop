@@ -21,7 +21,7 @@ struct OptionCard: View {
                     if let detail {
                         Text(detail)
                             .font(.footnote)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                             .multilineTextAlignment(.leading)
                     }
                 }
@@ -36,7 +36,7 @@ struct OptionCard: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(isSelected ? AnyShapeStyle(Color.accentColor.opacity(0.12)) : AnyShapeStyle(.background.secondary))
+                    .fill(isSelected ? AnyShapeStyle(Color.accentColor.opacity(0.12)) : AnyShapeStyle(AtheviaAdaptiveStyle(.background.secondary, gaming: .surface)))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -65,7 +65,7 @@ struct OnboardingHeader: View {
             if let subtitle {
                 Text(subtitle)
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -122,11 +122,10 @@ struct OnboardingStep<Content: View>: View {
             .padding(.horizontal, 20)
             .padding(.top, 12)
             .padding(.bottom, 8)
-            .background(.bar)
+            .background(AtheviaAdaptiveStyle(.bar, gaming: .surface))
         }
     }
 }
-
 
 /// Dismisses the keyboard when the athlete taps outside an editable control.
 /// The recognizer never cancels the underlying SwiftUI tap, and deliberately

@@ -25,13 +25,13 @@ struct ScorePicker: View {
                         .frame(maxWidth: .infinity, minHeight: 44)
                         .background(
                             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .fill(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(.fill.tertiary))
+                                .fill(isSelected ? AnyShapeStyle(AtheviaAdaptiveStyle(.tint, gaming: .accent)) : AnyShapeStyle(AtheviaAdaptiveStyle(.fill.tertiary, gaming: .raisedSurface)))
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 10, style: .continuous)
                                 .strokeBorder(.separator, lineWidth: isSelected ? 0 : 0.5)
                         )
-                        .foregroundStyle(isSelected ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
+                        .foregroundStyle(isSelected ? AnyShapeStyle(AtheviaAdaptiveStyle(.white, gaming: .onAccent)) : AnyShapeStyle(.primary))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("\(accessibilityPrefix) \(value)")
@@ -65,13 +65,13 @@ struct ChipGrid<Value: Hashable & Identifiable>: View {
                         .frame(maxWidth: .infinity, minHeight: 44)
                         .background(
                             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .fill(selected ? AnyShapeStyle(.tint) : AnyShapeStyle(.fill.tertiary))
+                                .fill(selected ? AnyShapeStyle(AtheviaAdaptiveStyle(.tint, gaming: .accent)) : AnyShapeStyle(AtheviaAdaptiveStyle(.fill.tertiary, gaming: .raisedSurface)))
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 10, style: .continuous)
                                 .strokeBorder(.separator, lineWidth: selected ? 0 : 0.5)
                         )
-                        .foregroundStyle(selected ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
+                        .foregroundStyle(selected ? AnyShapeStyle(AtheviaAdaptiveStyle(.white, gaming: .onAccent)) : AnyShapeStyle(.primary))
                 }
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(selected ? [.isSelected] : [])

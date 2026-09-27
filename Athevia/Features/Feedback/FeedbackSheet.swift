@@ -24,7 +24,7 @@ struct FeedbackSheet: View {
                             .font(.subheadline.weight(.medium))
                         Text(TrainingFormatter.shortDate(workout.date, includeYear: true))
                             .font(.footnote)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                     }
 
                     effortSection
@@ -40,6 +40,7 @@ struct FeedbackSheet: View {
                 }
                 .padding(20)
             }
+            .atheviaScreen()
             .navigationTitle("How did that workout feel?")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -63,6 +64,7 @@ struct FeedbackSheet: View {
                 Text(failure ?? "")
             }
         }
+        .atheviaScreen()
     }
 
     private var showingFailure: Binding<Bool> {
@@ -86,7 +88,7 @@ struct FeedbackSheet: View {
                 Text("Max effort")
             }
             .font(.caption)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
         }
     }
 
@@ -96,7 +98,7 @@ struct FeedbackSheet: View {
                 .font(.subheadline.weight(.semibold))
             Text(detail)
                 .font(.footnote)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
         }
     }
 
@@ -110,12 +112,12 @@ struct FeedbackSheet: View {
             )
             Text(PainScale.label(for: draft.painScore))
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
 
             if draft.reportsPain {
                 Text("If yes, where?")
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                     .padding(.top, 4)
 
                 ChipGrid(
@@ -151,9 +153,9 @@ struct FeedbackSheet: View {
                                 .font(.title3)
                                 .frame(width: 44, height: 44)
                                 .background(
-                                    Circle().fill(selected ? AnyShapeStyle(.tint) : AnyShapeStyle(.fill.tertiary))
+                                    Circle().fill(selected ? AnyShapeStyle(AtheviaAdaptiveStyle(.tint, gaming: .accent)) : AnyShapeStyle(AtheviaAdaptiveStyle(.fill.tertiary, gaming: .raisedSurface)))
                                 )
-                                .foregroundStyle(selected ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
+                                .foregroundStyle(selected ? AnyShapeStyle(AtheviaAdaptiveStyle(.white, gaming: .onAccent)) : AnyShapeStyle(AtheviaAdaptiveStyle(.primary, gaming: .text)))
                             Text(feeling.displayName)
                                 .font(.caption2)
                                 .foregroundStyle(selected ? .primary : .secondary)
@@ -200,7 +202,7 @@ struct FeedbackSheet: View {
             .padding(12)
             .background(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(.fill.tertiary)
+                    .fill(AtheviaAdaptiveStyle(.fill.tertiary, gaming: .raisedSurface))
             )
         }
     }
@@ -271,3 +273,4 @@ struct FeedbackSheet: View {
         .modelContainer(PreviewData.container)
 }
 #endif
+

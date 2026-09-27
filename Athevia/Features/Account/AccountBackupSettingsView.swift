@@ -16,6 +16,7 @@ struct AccountBackupSettingsView: View {
 
     var body: some View {
         List {
+            Group {
             switch authentication.state {
             case .signedIn(let session):
                 LabeledContent("Backup", value: lastBackupText)
@@ -44,7 +45,11 @@ struct AccountBackupSettingsView: View {
                     Text("Connect an account to back up training from this iPhone.")
                 }
             }
+            }
+            .atheviaListRow()
         }
+        .atheviaList()
+        .atheviaScreen()
         .navigationTitle("Backup")
         .atheviaProgress(progressMessage)
         .navigationBarTitleDisplayMode(.inline)
@@ -210,3 +215,4 @@ struct AccountBackupSettingsView: View {
     }
 
 }
+

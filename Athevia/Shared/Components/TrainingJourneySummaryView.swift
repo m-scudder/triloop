@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct TrainingJourneySummaryView: View {
+    @Environment(\.atheviaTheme) private var theme
+
     let journey: TrainingJourney
     var showsEventReadiness: Bool = true
 
@@ -17,7 +19,7 @@ struct TrainingJourneySummaryView: View {
                         if let weeks = journey.weeksRemaining {
                             Text("\(weeks) wk")
                                 .font(.subheadline.monospacedDigit())
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                         }
                     }
 
@@ -40,14 +42,14 @@ struct TrainingJourneySummaryView: View {
                     ForEach(journey.sportPriorities.prefix(3)) { priority in
                         HStack(spacing: 10) {
                             Image(systemName: priority.sport.discipline.symbolName)
-                                .foregroundStyle(priority.sport.discipline.tint)
+                                .foregroundStyle(priority.sport.discipline.themedTint(theme))
                                 .frame(width: 24)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(priority.sport.displayName)
                                     .font(.subheadline.weight(.semibold))
                                 Text(priority.reason)
                                     .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                             }
                         }
                     }
@@ -59,7 +61,7 @@ struct TrainingJourneySummaryView: View {
                             Divider()
                             Text(gap.message)
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                         }
                     }
                 }
@@ -68,3 +70,4 @@ struct TrainingJourneySummaryView: View {
         .accessibilityElement(children: .contain)
     }
 }
+

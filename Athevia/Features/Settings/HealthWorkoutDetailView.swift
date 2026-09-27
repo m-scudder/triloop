@@ -38,11 +38,11 @@ struct HealthWorkoutDetailView: View {
                 } else if let failure {
                     Text(failure)
                         .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 } else if samples != nil {
                     Text("Health holds no heart rate or pace samples for this session.")
                         .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 } else {
                     ProgressView()
                 }
@@ -50,6 +50,7 @@ struct HealthWorkoutDetailView: View {
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .atheviaScreen()
         .navigationTitle(record.activityName)
         .navigationBarTitleDisplayMode(.inline)
         .task { await loadSamples() }
@@ -63,13 +64,13 @@ struct HealthWorkoutDetailView: View {
             if let source = record.sourceName {
                 Text("Recorded by \(source)")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
 
             if !record.isTrainedByAthevia {
                 Text("Athevia does not train this activity. Everything Health recorded is shown; only pace and cadence are withheld, because they would read as performance in a session that never measured it.")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                     .padding(.top, 4)
             }
         }
@@ -116,7 +117,7 @@ struct HealthWorkoutDetailView: View {
     private func fact(_ name: String, _ value: String?) -> some View {
         HStack {
             Text(name)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             Spacer()
             Text(value ?? "Not recorded")
                 .foregroundStyle(value == nil ? .secondary : .primary)
@@ -134,3 +135,4 @@ struct HealthWorkoutDetailView: View {
         }
     }
 }
+

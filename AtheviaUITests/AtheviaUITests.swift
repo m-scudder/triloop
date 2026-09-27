@@ -246,6 +246,65 @@ final class AtheviaUITests: XCTestCase {
     }
 
     @MainActor
+    func testGamingThemeSwitchPersistsAndKeepsNavigation() throws {
+        let app = densityApp()
+        app.launch()
+        let settings = app.tabBars.buttons["Settings"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 10))
+        settings.tap()
+        XCTAssertFalse(app.switches["settings.gamingTheme"].exists)
+        let simulator = app.buttons["settings.simulateTraining"]
+        reveal(simulator, in: app)
+        XCTAssertTrue(simulator.waitForExistence(timeout: 5))
+        simulator.tap()
+        let toggle = app.switches["settings.gamingTheme"]
+        reveal(toggle, in: app)
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+        if toggle.value as? String == "1" { toggle.tap() }
+        toggle.tap()
+        XCTAssertEqual(toggle.value as? String, "1")
+        let colors = app.buttons["settings.themeColors"]
+        reveal(colors, in: app)
+        colors.tap()
+        for id in ["neon", "ember", "aurora", "midnight", "rose", "cobalt", "graphite", "ocean"] {
+            let option = app.buttons["settings.palette.\(id)"]
+            reveal(option, in: app)
+            XCTAssertTrue(option.waitForExistence(timeout: 5))
+            option.tap()
+            XCTAssertEqual(option.value as? String, "Selected")
+            attachScreenshot(app, name: "Gaming palette \(id)")
+        }
+        attachScreenshot(app, name: "Gaming Settings")
+        for title in ["Home", "Plan", "Progress"] {
+            let tab = app.tabBars.buttons[title]
+            XCTAssertTrue(tab.exists)
+            tab.tap()
+            attachScreenshot(app, name: "Gaming \(title)")
+        }
+        app.terminate()
+        app.launch()
+        XCTAssertTrue(settings.waitForExistence(timeout: 10))
+        settings.tap()
+        reveal(simulator, in: app)
+        simulator.tap()
+        reveal(toggle, in: app)
+        XCTAssertEqual(toggle.value as? String, "1")
+        reveal(colors, in: app)
+        colors.tap()
+        let savedPalette = app.buttons["settings.palette.ocean"]
+        reveal(savedPalette, in: app)
+        XCTAssertEqual(savedPalette.value as? String, "Selected")
+        let originalPalette = app.buttons["settings.palette.neon"]
+        reveal(originalPalette, in: app)
+        originalPalette.tap()
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        reveal(toggle, in: app)
+        toggle.tap()
+        XCTAssertEqual(toggle.value as? String, "0")
+        attachScreenshot(app, name: "Classic restored")
+    }
+
+    @MainActor
     private func densityApp() -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = [
@@ -327,3 +386,4 @@ final class AtheviaUITests: XCTestCase {
         add(attachment)
     }
 }
+

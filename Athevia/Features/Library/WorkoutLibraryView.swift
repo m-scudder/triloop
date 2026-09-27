@@ -13,6 +13,7 @@ struct WorkoutLibraryView: View {
 
     var body: some View {
         List {
+            Group {
             Section {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Custom Workouts")
@@ -20,7 +21,7 @@ struct WorkoutLibraryView: View {
 
                     Text("Build your own run, ride, or swim and add it to your training week.")
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
 
                     Button("How it works") {
                         isShowingCustomWorkoutExplainer = true
@@ -60,7 +61,11 @@ struct WorkoutLibraryView: View {
                     row(template)
                 }
             }
+            }
+            .atheviaListRow()
         }
+        .atheviaList()
+        .atheviaScreen()
         .navigationTitle("Workouts")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $isShowingCustomWorkoutExplainer) {
@@ -113,7 +118,7 @@ struct WorkoutLibraryView: View {
 
                 Text(subtitle(template))
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
         }
     }
@@ -144,7 +149,7 @@ private struct CustomWorkoutExplainerView: View {
                             .font(.title2.weight(.semibold))
 
                         Text("Create a run, ride, or swim that fits what you want to do, then add it to your current training week.")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                     }
 
                     ExplainerStep(
@@ -170,12 +175,13 @@ private struct CustomWorkoutExplainerView: View {
 
                     Text("Custom workouts are sessions you choose yourself. They are kept separate from the training Athevia prescribed for you.")
                         .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                         .padding(.top, 4)
                 }
                 .padding(20)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .atheviaScreen()
             .navigationTitle("Custom Workouts")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -184,6 +190,7 @@ private struct CustomWorkoutExplainerView: View {
                 }
             }
         }
+        .atheviaScreen()
         .presentationDetents([.medium, .large])
     }
 }
@@ -198,7 +205,7 @@ private struct ExplainerStep: View {
             Text("\\(number)")
                 .font(.subheadline.weight(.semibold))
                 .frame(width: 28, height: 28)
-                .background(.fill.tertiary, in: Circle())
+                .background(AtheviaAdaptiveStyle(.fill.tertiary, gaming: .raisedSurface), in: Circle())
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
@@ -206,7 +213,7 @@ private struct ExplainerStep: View {
 
                 Text(detail)
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
         }
     }
@@ -231,7 +238,7 @@ struct WorkoutTemplateDetailView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(template.sport.displayName.uppercased())
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                         .tracking(0.8)
 
                     Text(template.name)
@@ -242,14 +249,14 @@ struct WorkoutTemplateDetailView: View {
                             HStack {
                                 Text(template.category.displayName)
                                     .font(.subheadline)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                                 Spacer()
                                 InfoButton(title: template.name, explanation: template.purpose)
                             }
                         } else {
                             Text(template.purpose)
                                 .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                         }
                     }
                 }
@@ -293,6 +300,7 @@ struct WorkoutTemplateDetailView: View {
             .padding(.bottom, 32)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .atheviaScreen()
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .task {
@@ -327,6 +335,7 @@ struct AddToPlanSheet: View {
     var body: some View {
         NavigationStack {
             List {
+                Group {
                 Section {
                     DatePicker(
                         "Day",
@@ -343,20 +352,20 @@ struct AddToPlanSheet: View {
                     switch conflict {
                     case .none:
                         Text("Nothing else is planned for this day.")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
 
                         Button("Add \(template.name)") { add(resolving: .alongside) }
 
                     case .session(_, let title):
                         Text("\(title) is already planned for this day.")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
 
                         Button("Add alongside \(title)") { add(resolving: .alongside) }
                         Button("Replace \(title)", role: .destructive) { add(resolving: .replace) }
 
                     case .completedSession(_, let title):
                         Text("You have already trained \(title) on this day.")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
 
                         Button("Add alongside it") { add(resolving: .alongside) }
                     }
@@ -365,7 +374,11 @@ struct AddToPlanSheet: View {
                 } footer: {
                     Text("Workouts you add are training you chose to do. They are not counted as part of the plan Athevia set you.")
                 }
+                }
+                .atheviaListRow()
             }
+            .atheviaList()
+            .atheviaScreen()
             .navigationTitle("Add to Plan")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -380,6 +393,7 @@ struct AddToPlanSheet: View {
             }
             .task { date = max(plan.startDate, min(.now, plan.endDate)) }
         }
+        .atheviaScreen()
     }
 
     private var showingFailure: Binding<Bool> {
@@ -409,3 +423,4 @@ struct AddToPlanSheet: View {
         }
     }
 }
+

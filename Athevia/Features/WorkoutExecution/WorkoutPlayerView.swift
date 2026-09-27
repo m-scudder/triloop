@@ -4,6 +4,8 @@ import SwiftUI
 /// Executes the exact prescription already stored on the workout.
 /// Opening this screen prepares audio when enabled, then starts execution.
 struct WorkoutPlayerView: View {
+    @Environment(\.atheviaTheme) private var theme
+
     let workout: PlannedWorkout
     let onFinish: (WorkoutExecutionResult) -> Void
     let onCancel: () -> Void
@@ -87,6 +89,7 @@ struct WorkoutPlayerView: View {
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 24)
+            .atheviaScreen()
             .navigationTitle(workout.discipline.displayName)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbar }
@@ -105,6 +108,7 @@ struct WorkoutPlayerView: View {
                 Text("This workout is still in progress and will not be saved.")
             }
         }
+        .atheviaScreen()
         // Keep lifecycle work on the stable container, not the phase-specific
         // Group: changing from preparation to playback must not cancel audio.
         .task { await prepareWorkout() }
@@ -131,7 +135,7 @@ struct WorkoutPlayerView: View {
             } else {
                 ProgressView("Preparing workout…")
                 Text("Preparing spoken cues before the workout starts.")
-                    .font(.footnote).foregroundStyle(.secondary)
+                    .font(.footnote).foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
             Button("Cancel", action: cancelWorkout)
         }
@@ -141,11 +145,12 @@ struct WorkoutPlayerView: View {
     private var audioControls: some View {
         NavigationStack {
             Form {
+                Group {
                 Section("Coach volume") {
                     Slider(value: $coachingVolume, in: 0.1...1)
                         .accessibilityLabel("Coach volume")
                     Text("Your phone's media volume also controls what you hear.")
-                        .font(.footnote).foregroundStyle(.secondary)
+                        .font(.footnote).foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 }
                 Button("Continue without Audio Coaching") {
                     coach.stop()
@@ -154,10 +159,15 @@ struct WorkoutPlayerView: View {
                     showingAudioControls = false
                     if engine.phase == .finished { completeTrackedWorkout() }
                 }
+                }
+                .atheviaListRow()
             }
+            .atheviaList()
+            .atheviaScreen()
             .navigationTitle("Audio coaching")
             .toolbar { Button("Done") { showingAudioControls = false } }
         }
+        .atheviaScreen()
         .presentationDetents([.medium])
     }
 
@@ -169,13 +179,13 @@ struct WorkoutPlayerView: View {
                 VStack(spacing: 10) {
                     Text("STEP \(engine.currentIndex + 1) OF \(engine.plan.steps.count)")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                         .tracking(0.8)
 
                     if let repetition = step.repetitionLabel {
                         Text(repetition)
                             .font(.subheadline.weight(.medium))
-                            .foregroundStyle(workout.discipline.tint)
+                            .foregroundStyle(workout.discipline.themedTint(theme))
                     }
 
                     Text(step.title)
@@ -190,7 +200,7 @@ struct WorkoutPlayerView: View {
 
                     Text(clockCaption(for: step))
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
 
                     if recordsGPS, activeMetricSport == .running || activeMetricSport == .cycling {
                         liveGPSMetrics
@@ -201,7 +211,7 @@ struct WorkoutPlayerView: View {
                         Text(instructions)
                             .font(.body)
                             .multilineTextAlignment(.center)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                             .padding(.top, 6)
                     }
                 }
@@ -210,21 +220,21 @@ struct WorkoutPlayerView: View {
 
                 if let message = coach.message ?? audioSetupMessage {
                     Text(message)
-                        .font(.footnote).foregroundStyle(.secondary)
+                        .font(.footnote).foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                         .multilineTextAlignment(.center).padding(.bottom, 12)
                 }
 
                 if let next = engine.nextStep {
                     HStack {
                         Text("Next")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                         Spacer()
                         Text(next.title)
                             .fontWeight(.medium)
                     }
                     .font(.subheadline)
                     .padding(14)
-                    .background(.fill.tertiary, in: .rect(cornerRadius: 14))
+                    .background(AtheviaAdaptiveStyle(.fill.tertiary, gaming: .raisedSurface), in: .rect(cornerRadius: 14))
                     .padding(.bottom, 18)
                 }
 
@@ -252,11 +262,11 @@ struct WorkoutPlayerView: View {
         case .denied, .restricted:
             Label("GPS unavailable — workout timing continues", systemImage: "location.slash")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
         case .unavailable:
             Label("Location services unavailable", systemImage: "location.slash")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
         default:
             VStack(spacing: 8) {
                 HStack(spacing: 28) {
@@ -271,7 +281,7 @@ struct WorkoutPlayerView: View {
 
                 Label("GPS continues with the screen locked or app in background", systemImage: "location.fill")
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
         }
     }
@@ -283,7 +293,7 @@ struct WorkoutPlayerView: View {
                 .monospacedDigit()
             Text(label)
                 .font(.caption2)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
         }
     }
 
@@ -293,7 +303,7 @@ struct WorkoutPlayerView: View {
 
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 58))
-                .foregroundStyle(.green)
+                .foregroundStyle(AtheviaAdaptiveStyle(.green, gaming: .success))
 
             VStack(spacing: 6) {
                 Text("Workout complete")
@@ -303,7 +313,7 @@ struct WorkoutPlayerView: View {
                     .monospacedDigit()
                 Text("Active time")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
 
             if recordsGPS, locationTracker.snapshot.distanceMeters > 0 {
@@ -342,7 +352,7 @@ struct WorkoutPlayerView: View {
                     .accessibilityLabel("Audio coaching controls")
                 }
                 Button("End") { showingEndConfirmation = true }
-                    .foregroundStyle(.red)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.red, gaming: .danger))
             }
         }
     }
@@ -819,3 +829,4 @@ struct WorkoutPlayerView: View {
         )
     }
 }
+

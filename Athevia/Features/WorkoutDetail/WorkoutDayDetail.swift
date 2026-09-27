@@ -2,6 +2,8 @@ import SwiftData
 import SwiftUI
 
 struct WorkoutDayDetail: View {
+    @Environment(\.atheviaTheme) private var theme
+
     let workout: PlannedWorkout
     // Home can still open this view for reference, but plan-management actions
     // belong to the Plan tab and are enabled there explicitly.
@@ -60,7 +62,7 @@ struct WorkoutDayDetail: View {
                 if let actionMessage {
                     Text(actionMessage)
                         .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 }
             }
             .padding(20)
@@ -141,7 +143,7 @@ struct WorkoutDayDetail: View {
             } else if workout.importedSummary != nil, let samplesFailure {
                 Text(samplesFailure)
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             } else if workout.importedSummary == nil, workout.hasReport {
                 manualSessionNotice
             }
@@ -186,7 +188,7 @@ struct WorkoutDayDetail: View {
         VStack(alignment: .center, spacing: 2) {
             Text(label)
                 .font(.caption2.weight(.medium))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             Text(value)
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.primary)
@@ -242,13 +244,13 @@ struct WorkoutDayDetail: View {
             if let provenance = WorkoutEvidencePresentation.provenance(workout.origin) {
                 Text(provenance)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
 
             if !workout.goal.isEmpty {
                 Text(workout.goal)
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
 
             availabilityExplanation
@@ -256,7 +258,7 @@ struct WorkoutDayDetail: View {
             if workout.discipline == .rest {
                 Text("No workout to complete today.")
                     .font(.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             } else {
                 WorkoutPrescriptionView(workout: workout)
             }
@@ -337,6 +339,7 @@ struct WorkoutDayDetail: View {
         if let plan = workout.plan {
             NavigationStack {
                 Form {
+                    Group {
                     if max(plan.startDate, Calendar.current.startOfDay(for: .now)) <= plan.endDate {
                         DatePicker(
                             "Move to",
@@ -348,7 +351,7 @@ struct WorkoutDayDetail: View {
                     }
 
                     if let moveFailure {
-                        Text(moveFailure).foregroundStyle(.red)
+                        Text(moveFailure).foregroundStyle(AtheviaAdaptiveStyle(.red, gaming: .danger))
                     }
 
                     Button("Move Workout") {
@@ -362,7 +365,11 @@ struct WorkoutDayDetail: View {
                         }
                     }
                     .disabled(Calendar.current.isDate(moveDate, inSameDayAs: workout.date))
+                    }
+                    .atheviaListRow()
                 }
+                .atheviaList()
+                .atheviaScreen()
                 .navigationTitle("Move Workout")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
@@ -371,6 +378,7 @@ struct WorkoutDayDetail: View {
                     }
                 }
             }
+            .atheviaScreen()
         }
     }
 
@@ -386,7 +394,7 @@ struct WorkoutDayDetail: View {
                 .foregroundStyle(tint)
             Text(detail)
                 .font(.footnote)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
@@ -461,7 +469,7 @@ struct WorkoutDayDetail: View {
         case .failure(.noCeiling):
             Text(HeartRateZoneResolver.Unavailable.noCeiling.message)
                 .font(.footnote)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
         case .failure(.noHeartRateSamples):
             EmptyView()
         }
@@ -485,7 +493,7 @@ struct WorkoutDayDetail: View {
                                 .font(.title3.weight(.semibold))
                             Text(WorkoutEvidencePresentation.source(reading.evidence))
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                             WhyButton(explanation: WorkoutEvidencePresentation.intensity(reading))
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -499,7 +507,7 @@ struct WorkoutDayDetail: View {
                                 .monospacedDigit()
                             Text(WorkoutEvidencePresentation.source(load.provenance))
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .overlay(alignment: .topTrailing) {
@@ -518,12 +526,12 @@ struct WorkoutDayDetail: View {
             SectionEyebrow(text: "Recorded manually")
             Text("Sensor-based charts, heart rate and pace detail aren't available for this workout.")
                 .font(.footnote)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
 
             if let importMessage {
                 Text(importMessage)
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
 
             Button(isImporting ? "Looking…" : "Check Apple Health") {
@@ -576,9 +584,9 @@ struct WorkoutDayDetail: View {
         HStack(alignment: .top, spacing: 14) {
             Image(systemName: workout.discipline.symbolName)
                 .font(.title3)
-                .foregroundStyle(workout.discipline.tint)
+                .foregroundStyle(workout.discipline.themedTint(theme))
                 .frame(width: 52, height: 52)
-                .background(workout.discipline.tint.opacity(0.14), in: .circle)
+                .background(workout.discipline.themedTint(theme).opacity(0.14), in: .circle)
 
             VStack(alignment: .leading, spacing: 2) {
                 HStack(alignment: .firstTextBaseline, spacing: 7) {
@@ -588,7 +596,7 @@ struct WorkoutDayDetail: View {
 
                     if workout.status == .completed {
                         Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
+                            .foregroundStyle(AtheviaAdaptiveStyle(.green, gaming: .success))
                             .accessibilityLabel("Completed")
                     }
                 }
@@ -596,7 +604,7 @@ struct WorkoutDayDetail: View {
                 if let summary = WorkoutSummaryText.make(for: workout) {
                     Text(summary)
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 }
             }
 
@@ -621,3 +629,4 @@ struct WorkoutDayDetail: View {
         }
     }
 }
+

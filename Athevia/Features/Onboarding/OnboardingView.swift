@@ -17,6 +17,7 @@ struct OnboardingView: View {
                         .navigationBarTitleDisplayMode(.inline)
                         .toolbar { toolbar(model) }
                 }
+                .atheviaScreen()
                 .alert("Setup", isPresented: alert(model)) {
                     Button("OK", role: .cancel) {}
                 } message: {
@@ -90,3 +91,4 @@ struct OnboardingView: View {
         .modelContainer(PreviewData.container)
 }
 #endif
+

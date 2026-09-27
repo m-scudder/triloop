@@ -24,6 +24,8 @@ struct RootView: View {
     @State private var accountReady = false
     @State private var isErasingLocalData = false
     @AppStorage("automaticallyImportWorkouts") private var automaticallyImport = true
+    @AppStorage(AtheviaTheme.preferenceKey) private var gamingThemeEnabled = false
+    @AppStorage(GamingPalette.preferenceKey) private var gamingPalette = GamingPalette.neon.rawValue
     @AppStorage("automaticallyScheduleWorkouts") private var automaticallySchedule = true
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.modelContext) private var modelContext
@@ -66,7 +68,16 @@ struct RootView: View {
             }
         }
         .symbolRenderingMode(.monochrome)
-        .tint(Color.primary)
+        .atheviaTheme(AtheviaTheme(gamingEnabled: gamingThemeEnabled, palette: GamingPalette.resolve(gamingPalette)))
+        .onChange(of: gamingPalette) { _, _ in
+            Task { await WorkoutLiveActivityController.refreshTheme() }
+        }
+        .onChange(of: gamingThemeEnabled) { _, _ in
+            // Style changes never recreate navigation or the workout session.
+            // watchAppFingerprint includes this preference and queues the
+            // existing payload sync while the scene is active.
+            Task { await WorkoutLiveActivityController.refreshTheme() }
+        }
         .onChange(of: backupFingerprint) { _, _ in
             scheduleAutomaticBackupIfNeeded()
         }

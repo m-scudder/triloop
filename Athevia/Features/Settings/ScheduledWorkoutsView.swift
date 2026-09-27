@@ -12,6 +12,7 @@ struct ScheduledWorkoutsView: View {
 
     var body: some View {
         List {
+            Group {
             Section("Status") {
                 LabeledContent("Paired Watch available", value: watch.canSchedule ? "Yes" : "No")
                 LabeledContent("Time zone", value: TimeZone.current.identifier)
@@ -24,13 +25,13 @@ struct ScheduledWorkoutsView: View {
             Section {
                 Text("This is the schedule returned by Apple on your iPhone. It does not confirm delivery or visibility on your Watch.")
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
 
             Section("Scheduled") {
                 if entries.isEmpty {
                     Text("Nothing scheduled.")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 }
                 ForEach(Array(entries.enumerated()), id: \.offset) { _, entry in
                     VStack(alignment: .leading, spacing: 2) {
@@ -38,7 +39,7 @@ struct ScheduledWorkoutsView: View {
                             .font(.subheadline.weight(.medium))
                         Text(entry.date.map { TrainingFormatter.shortDateTime($0) } ?? "No date")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                         // Drives Today's "finished, waiting to sync" state.
                         Text(entry.isComplete ? "Marked complete" : "Not yet complete")
                             .font(.caption2)
@@ -49,10 +50,15 @@ struct ScheduledWorkoutsView: View {
                     }
                 }
             }
+            }
+            .atheviaListRow()
         }
+        .atheviaList()
+        .atheviaScreen()
         .navigationTitle("Apple Watch schedule")
         .navigationBarTitleDisplayMode(.inline)
         .refreshable { await refresh() }
         .task { await refresh() }
     }
 }
+

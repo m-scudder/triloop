@@ -38,13 +38,13 @@ struct ConnectionsStepView: View {
                     .font(.headline)
 
                 Text("Import completed workouts.")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
 
                 if healthStatus == .authorized {
                     Label("Connected", systemImage: "checkmark.circle")
                 } else if healthStatus == .unavailable {
                     Text("Unavailable on this device.")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 } else {
                     Button("Connect Apple Health", action: connectHealth)
                         .buttonStyle(SecondaryActionButtonStyle())
@@ -60,11 +60,11 @@ struct ConnectionsStepView: View {
                         .font(.headline)
 
                     Text("Send workouts to Watch.")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
 
                     if !scheduler.isSupported || watchStatus == .restricted {
                         Text("Workout scheduling unavailable.")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                     } else if watchStatus == .authorized {
                         Label("Connected", systemImage: "checkmark.circle")
                     } else {
@@ -118,3 +118,4 @@ struct ConnectionsStepView: View {
         }
     }
 }
+

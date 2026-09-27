@@ -8,12 +8,16 @@ struct ExplanationSheet<Content: View>: View {
     var body: some View {
         NavigationStack {
             List {
+                Group {
                 Text(title)
                     .font(.title2.weight(.semibold))
                     .accessibilityAddTraits(.isHeader)
                     .accessibilityIdentifier("explanation.heading")
                 content()
+                }
+                .atheviaListRow()
             }
+            .atheviaList()
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button { dismiss() } label: {
@@ -24,6 +28,7 @@ struct ExplanationSheet<Content: View>: View {
                 }
             }
         }
+        .atheviaScreen()
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
     }

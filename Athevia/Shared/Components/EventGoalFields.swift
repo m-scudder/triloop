@@ -199,7 +199,7 @@ struct EventGoalFields: View {
         ForEach(Array(issues.enumerated()), id: \.offset) { _, issue in
             Label(issue.message, systemImage: "info.circle")
                 .font(.footnote)
-                .foregroundStyle(.orange)
+                .foregroundStyle(AtheviaAdaptiveStyle(.orange, gaming: .warning))
                 .accessibilityLabel(issue.message)
         }
     }
@@ -313,7 +313,7 @@ private struct EventDistanceTextField: View {
 
             Text(unit)
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
         }
         .onAppear(perform: syncText)
         .frame(minHeight: 44)
@@ -326,3 +326,4 @@ private struct EventDistanceTextField: View {
         if text != rendered { text = rendered }
     }
 }
+

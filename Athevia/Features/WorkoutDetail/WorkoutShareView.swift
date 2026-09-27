@@ -188,7 +188,7 @@ struct WorkoutShareView: View {
                     if background == .transparent {
                         Text("PNG with a transparent background, ready to layer over your own photo.")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     routeControls
@@ -196,7 +196,7 @@ struct WorkoutShareView: View {
                         HStack {
                             Text("Map unavailable. Your route will still be shared.")
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                             Spacer()
                             Button("Retry") { mapRetry += 1 }
                         }
@@ -212,8 +212,9 @@ struct WorkoutShareView: View {
                 .disabled(!canShare)
                 .padding(.horizontal, 20)
                 .padding(.vertical, 12)
-                .background(.bar)
+                .background(AtheviaAdaptiveStyle(.bar, gaming: .surface))
             }
+            .atheviaScreen()
             .navigationTitle("Share workout")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -237,6 +238,7 @@ struct WorkoutShareView: View {
                 Text(exportError ?? "Please try again.")
             }
         }
+        .atheviaScreen()
     }
 
     private var card: some View {
@@ -289,14 +291,14 @@ struct WorkoutShareView: View {
             Toggle("Include GPS route", isOn: $showsRoute)
         } else if isLoadingRoute {
             HStack {
-                Text("Loading GPS route…").foregroundStyle(.secondary)
+                Text("Loading GPS route…").foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 Spacer()
             }
         } else {
             HStack(alignment: .top) {
                 Text(routeMessage ?? "No GPS route recorded for this workout.")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 Spacer()
                 if let summary = workout.importedSummary, !["Athevia iPhone", "Athevia iPhone"].contains(summary.source) {
                     Button("Retry") { routeRequest += 1 }
@@ -433,3 +435,4 @@ private struct WorkoutActivityView: UIViewControllerRepresentable {
     }
     func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
 }
+

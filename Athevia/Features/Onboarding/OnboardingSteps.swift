@@ -13,7 +13,7 @@ struct WelcomeStepView: View {
                         .font(.largeTitle.weight(.bold))
                     Text("Training that adapts to you.")
                         .font(.title3)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 }
                 .padding(.top, 40)
 
@@ -31,7 +31,7 @@ struct WelcomeStepView: View {
                 if isUpgrade {
                     Text("Your training history stays exactly as it is.")
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 }
 
                 Spacer(minLength: 0)
@@ -211,16 +211,16 @@ struct PoolStepView: View {
                                 }
                             }
                         Text("m")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                     }
                     .padding(14)
-                    .background(.background.secondary, in: .rect(cornerRadius: 14))
+                    .background(AtheviaAdaptiveStyle(.background.secondary, gaming: .surface), in: .rect(cornerRadius: 14))
 
                     if !customLength.isEmpty,
                        Double(customLength).map({ !PoolLength.isValid($0) }) ?? true {
                         Text("Enter a length between \(Int(PoolLength.permittedRange.lowerBound)) and \(Int(PoolLength.permittedRange.upperBound)) metres.")
                             .font(.footnote)
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(AtheviaAdaptiveStyle(.orange, gaming: .warning))
                     }
                 }
             }
@@ -230,3 +230,4 @@ struct PoolStepView: View {
         }
     }
 }
+

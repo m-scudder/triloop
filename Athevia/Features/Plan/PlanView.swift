@@ -68,7 +68,7 @@ struct PlanView: View {
                                     Text(focus.kind.displayName)
                                 }
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                                 .padding(.horizontal, 20)
                                 .padding(.bottom, 10)
                             }
@@ -110,6 +110,7 @@ struct PlanView: View {
                     }
                 }
             }
+            .atheviaScreen()
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -133,6 +134,7 @@ struct PlanView: View {
             }
             .onAppear(perform: selectSensibleDay)
         }
+        .atheviaScreen()
     }
 
     private var title: String {
@@ -223,8 +225,16 @@ private struct PlanWatchAction: View {
                     .padding(.horizontal, 20)
                     .padding(.vertical, 12)
 
+                    if isScheduledOnWatch {
+                        Text("Scheduled. Watch sync may still be pending.")
+                            .font(.caption)
+                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 20)
+                            .padding(.bottom, 12)
+                    }
                 }
-                .background(.regularMaterial)
+                .background(AtheviaAdaptiveStyle(.regularMaterial, gaming: .surface))
             }
         }
         .task(id: scenePhase) {
@@ -316,3 +326,4 @@ private struct PlanWatchAction: View {
         .modelContainer(PreviewData.container)
 }
 #endif
+

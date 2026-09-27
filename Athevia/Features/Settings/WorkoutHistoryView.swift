@@ -77,6 +77,7 @@ struct WorkoutHistoryView: View {
 
     var body: some View {
         List {
+            Group {
             Section {
                 Picker("Range", selection: $range) {
                     ForEach(HistoryRange.allCases) { Text($0.rawValue).tag($0) }
@@ -106,7 +107,11 @@ struct WorkoutHistoryView: View {
             }
 
             content
+            }
+            .atheviaListRow()
         }
+        .atheviaList()
+        .atheviaScreen()
         .navigationTitle("Workout History")
         .navigationBarTitleDisplayMode(.inline)
         .searchable(
@@ -126,29 +131,29 @@ struct WorkoutHistoryView: View {
                 HStack(spacing: 10) {
                     ProgressView()
                     Text("Reading Health…")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 }
             }
 
         case .unsupported:
             Section {
                 Text("This provider has no workout history to read.")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
 
         case .failed(let reason):
             Section("Query failed") {
                 Text(reason)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
 
         case .loaded(let records) where records.isEmpty:
             Section {
                 Text("No workouts in this range.")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 Text("If you expected some, Health may not have granted read access — a denied read returns no samples rather than an error.")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
 
         case .loaded(let records):
@@ -157,7 +162,7 @@ struct WorkoutHistoryView: View {
             if matching.isEmpty {
                 Section {
                     Text(emptyReason(total: records.count))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 }
             } else {
                 summary(matching)
@@ -179,7 +184,7 @@ struct WorkoutHistoryView: View {
         if analysisSessions.isEmpty {
             Section("Analysis") {
                 Text("No running, swimming or cycling in this selection.")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
         } else {
             Section {
@@ -272,7 +277,7 @@ struct WorkoutHistoryView: View {
                     }
                     Spacer()
                     Text("\(entry.count)")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                         .monospacedDigit()
                 }
             }
@@ -363,12 +368,12 @@ private struct HistoryRow: View {
                 Spacer()
                 Text(TrainingFormatter.shortDateTime(record.start, includeYear: true))
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
 
             Text(detail)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
 
             if let source = record.sourceName {
                 Text(source)
@@ -403,3 +408,4 @@ private struct HistoryRow: View {
         return parts.joined(separator: " · ")
     }
 }
+

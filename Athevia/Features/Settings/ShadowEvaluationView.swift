@@ -19,12 +19,13 @@ struct ShadowEvaluationView: View {
 
     var body: some View {
         List {
+            Group {
             if isLoading {
                 Section {
                     HStack(spacing: 10) {
                         ProgressView()
                         Text("Reading recovery data…")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                     }
                 }
             } else {
@@ -38,7 +39,11 @@ struct ShadowEvaluationView: View {
                 workload(signals.workload)
                 recoverySection(signals.recovery)
             }
+            }
+            .atheviaListRow()
         }
+        .atheviaList()
+        .atheviaScreen()
         .navigationTitle("Shadow evaluation")
         .navigationBarTitleDisplayMode(.inline)
         .task { await loadRecovery() }
@@ -52,7 +57,7 @@ struct ShadowEvaluationView: View {
             ForEach(observation.reasons, id: \.self) { reason in
                 Text(reason)
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
         } header: {
             Text("Comparison")
@@ -77,7 +82,7 @@ struct ShadowEvaluationView: View {
         Section("Recovery") {
             if signals.isEmpty {
                 Text("No recovery baselines yet.")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             } else {
                 ForEach(RecoveryMetricKey.allCases, id: \.self) { metric in
                     if let standing = signals.standings[metric] {
@@ -149,3 +154,4 @@ struct ShadowEvaluationView: View {
     }
 }
 #endif
+

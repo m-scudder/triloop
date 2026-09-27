@@ -28,14 +28,14 @@ struct NextWeekPreviewView: View {
             VStack(alignment: .leading, spacing: 16) {
                 Text(TrainingFormatter.weekRange(start: plan.startDate, end: plan.endDate))
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
 
                 Text("Based on your Week \(previousWeek.weekNumber) analysis")
                     .font(.caption.weight(.medium))
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
-                    .background(.fill.tertiary, in: .capsule)
-                    .foregroundStyle(.secondary)
+                    .background(AtheviaAdaptiveStyle(.fill.tertiary, gaming: .raisedSurface), in: .capsule)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
 
                 Card(padding: 4) {
                     VStack(spacing: 0) {
@@ -79,6 +79,7 @@ struct NextWeekPreviewView: View {
             .padding(.horizontal, 20)
             .padding(.bottom, 24)
         }
+        .atheviaScreen()
         .navigationTitle("Week \(plan.weekNumber) Preview")
         .navigationBarTitleDisplayMode(.large)
         .alert("Week not created", isPresented: showingFailure) {
@@ -102,3 +103,4 @@ struct NextWeekPreviewView: View {
         Binding(get: { failure != nil }, set: { if !$0 { failure = nil } })
     }
 }
+

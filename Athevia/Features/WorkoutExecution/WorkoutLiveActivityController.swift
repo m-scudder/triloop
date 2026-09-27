@@ -11,6 +11,8 @@ struct WorkoutActivityAttributes: ActivityAttributes {
         var timerStartedAt: Date?
         var timerEndsAt: Date?
         var frozenSeconds: TimeInterval
+        var gamingThemeEnabled: Bool? = nil
+        var gamingPalette: String? = nil
     }
 
     var workoutTitle: String
@@ -23,6 +25,42 @@ struct WorkoutActivityAttributes: ActivityAttributes {
 @MainActor
 final class WorkoutLiveActivityController {
     private var activity: Activity<WorkoutActivityAttributes>?
+    private static var pending: [String: (id: UUID, task: Task<Void, Never>)] = [:]
+
+    private static func themed(_ state: WorkoutActivityAttributes.ContentState) -> WorkoutActivityAttributes.ContentState {
+        var copy = state
+        copy.gamingThemeEnabled = AtheviaTheme.stored().isGaming
+        copy.gamingPalette = GamingPalette.stored().rawValue
+        return copy
+    }
+
+    /// Serialize cosmetic updates with step/timer updates. Read the activity's
+    /// latest state inside the queue so a theme change cannot restore an old step.
+    private static func enqueue(
+        for activity: Activity<WorkoutActivityAttributes>,
+        operation: @escaping @MainActor () async -> Void
+    ) -> Task<Void, Never> {
+        let previous = pending[activity.id]?.task
+        let id = UUID()
+        let task = Task { @MainActor in
+            await previous?.value
+            await operation()
+            if pending[activity.id]?.id == id { pending[activity.id] = nil }
+        }
+        pending[activity.id] = (id, task)
+        return task
+    }
+
+    static func refreshTheme() async {
+        for activity in Activity<WorkoutActivityAttributes>.activities {
+            let task = enqueue(for: activity) {
+                guard activity.activityState == .active || activity.activityState == .stale else { return }
+                let content = ActivityContent(state: themed(activity.content.state), staleDate: activity.content.staleDate)
+                await activity.update(content)
+            }
+            await task.value
+        }
+    }
 
     func start(
         workoutTitle: String,
@@ -39,7 +77,7 @@ final class WorkoutLiveActivityController {
         do {
             activity = try Activity.request(
                 attributes: attributes,
-                content: ActivityContent(state: state, staleDate: nil),
+                content: ActivityContent(state: Self.themed(state), staleDate: nil),
                 pushType: nil
             )
         } catch {
@@ -50,18 +88,18 @@ final class WorkoutLiveActivityController {
 
     func update(_ state: WorkoutActivityAttributes.ContentState) {
         guard let activity else { return }
-        Task {
-            await activity.update(ActivityContent(state: state, staleDate: nil))
+        Self.enqueue(for: activity) {
+            await activity.update(ActivityContent(state: Self.themed(state), staleDate: nil))
         }
     }
 
     func end(finalState: WorkoutActivityAttributes.ContentState?) {
         guard let activity else { return }
         self.activity = nil
-        Task {
+        Self.enqueue(for: activity) {
             if let finalState {
                 await activity.end(
-                    ActivityContent(state: finalState, staleDate: nil),
+                    ActivityContent(state: Self.themed(finalState), staleDate: nil),
                     dismissalPolicy: .immediate
                 )
             } else {

@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct StartingPointStepView: View {
+    @Environment(\.atheviaTheme) private var theme
+
     @Bindable var model: OnboardingModel
     @State private var poolText = ""
     @State private var customPoolSelected = false
@@ -24,12 +26,12 @@ struct StartingPointStepView: View {
             if model.selectedSports.isEmpty {
                 Label("Select at least one sport.", systemImage: "info.circle")
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             } else if model.isSportSelected(.swimming),
                       !PoolLength.isValid(model.poolLengthMeters) {
                 Label("Choose a valid pool length.", systemImage: "info.circle")
                     .font(.footnote)
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.orange, gaming: .warning))
             }
         }
     }
@@ -50,7 +52,7 @@ struct StartingPointStepView: View {
                         .font(.title3)
                         .foregroundStyle(
                             selected
-                                ? AnyShapeStyle(sport.discipline.tint)
+                                ? AnyShapeStyle(sport.discipline.themedTint(theme))
                                 : AnyShapeStyle(.secondary)
                         )
 
@@ -64,7 +66,7 @@ struct StartingPointStepView: View {
                         if selected {
                             Text(summary(sport))
                                 .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                                 .lineLimit(2)
                         }
                     }
@@ -94,11 +96,11 @@ struct StartingPointStepView: View {
                 .padding(14)
             }
         }
-        .background(.background.secondary, in: .rect(cornerRadius: 16))
+        .background(AtheviaAdaptiveStyle(.background.secondary, gaming: .surface), in: .rect(cornerRadius: 16))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .strokeBorder(
-                    selected ? sport.discipline.tint.opacity(0.75) : Color.secondary.opacity(0.18),
+                    selected ? sport.discipline.themedTint(theme).opacity(0.75) : Color.secondary.opacity(0.18),
                     lineWidth: selected ? 1.5 : 0.5
                 )
         )
@@ -121,7 +123,7 @@ struct StartingPointStepView: View {
                     AtheviaChoiceChip(
                         title: shortLabel(baseline),
                         isSelected: model.setup.baseline.running == baseline,
-                        tint: sport.discipline.tint
+                        tint: sport.discipline.themedTint(theme)
                     ) {
                         model.choose(running: baseline)
                     }
@@ -132,7 +134,7 @@ struct StartingPointStepView: View {
                     AtheviaChoiceChip(
                         title: baseline.displayName,
                         isSelected: model.setup.baseline.swimming == baseline,
-                        tint: sport.discipline.tint
+                        tint: sport.discipline.themedTint(theme)
                     ) {
                         model.choose(swimming: baseline)
                     }
@@ -143,7 +145,7 @@ struct StartingPointStepView: View {
                     AtheviaChoiceChip(
                         title: shortLabel(baseline),
                         isSelected: model.setup.baseline.cycling == baseline,
-                        tint: sport.discipline.tint
+                        tint: sport.discipline.themedTint(theme)
                     ) {
                         model.choose(cycling: baseline)
                     }
@@ -255,3 +257,4 @@ struct StartingPointStepView: View {
         }
     }
 }
+

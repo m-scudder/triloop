@@ -15,7 +15,7 @@ struct RecordedWorkoutView: View {
             VStack(alignment: .leading, spacing: 16) {
                 HStack(spacing: 8) {
                     Image(systemName: "checkmark.seal.fill")
-                        .foregroundStyle(.green)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.green, gaming: .success))
                     Text("Completed")
                         .font(.subheadline.weight(.semibold))
                 }
@@ -26,7 +26,7 @@ struct RecordedWorkoutView: View {
                         .monospacedDigit()
                     Text(subheadline)
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 }
 
                 completionBar
@@ -53,7 +53,7 @@ struct RecordedWorkoutView: View {
                  ? "Full session completed"
                  : "\(Int((ratio * 100).rounded()))% of the planned session")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
         }
     }
 
@@ -103,3 +103,4 @@ struct RecordedWorkoutView: View {
         return Array(stats.prefix(2))
     }
 }
+
