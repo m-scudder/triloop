@@ -428,24 +428,32 @@ struct AthleteWardrobeView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 18) {
-                AthleteAvatarView(
-                    avatar: avatar,
-                    sport: selectedSport,
-                    size: 270
-                )
-                .frame(maxWidth: .infinity)
-                .frame(height: 290)
-                .background(
-                    LinearGradient(
-                        colors: [
-                            selectedSport.discipline.themedTint(theme).opacity(0.13),
-                            theme.color(.surface, classic: Color(uiColor: .systemBackground))
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    ),
-                    in: .rect(cornerRadius: 26)
-                )
+                HStack(spacing: 12) {
+                    AthleteAvatarView(
+                        avatar: avatar,
+                        sport: selectedSport,
+                        size: 92
+                    )
+                    .frame(width: 70, height: 82)
+                    .clipped()
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("YOUR WARDROBE")
+                            .font(.caption2.weight(.bold))
+                            .tracking(1.3)
+                            .foregroundStyle(.white.opacity(0.52))
+                        Text("Equip what you've earned")
+                            .font(.headline)
+                            .foregroundStyle(.white)
+                        Text("\(rewards.unlockedGearIDs.count) pieces unlocked")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.58))
+                    }
+
+                    Spacer()
+                }
+                .padding(14)
+                .background(.white.opacity(0.055), in: .rect(cornerRadius: 20))
 
                 if sports.count > 1 {
                     Picker("Sport", selection: $selectedSport) {
@@ -505,19 +513,32 @@ struct AthleteWardrobeView: View {
         return Button {
             selectedCategory = category
         } label: {
-            Text(category.displayName)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(selected ? theme.color(.onAccent, classic: .white) : .primary)
-                .padding(.horizontal, 14)
-                .frame(minHeight: 38)
-                .background(
-                    selected
-                        ? theme.color(.accent, classic: .blue)
-                        : theme.color(.raisedSurface, classic: Color(uiColor: .secondarySystemBackground)),
-                    in: .capsule
-                )
+            VStack(spacing: 5) {
+                Image(systemName: categorySymbol(category))
+                    .font(.subheadline.weight(.semibold))
+                Text(category.displayName)
+                    .font(.caption2.weight(.semibold))
+            }
+            .foregroundStyle(selected ? .white : .white.opacity(0.60))
+            .frame(width: 72, height: 54)
+            .background(
+                selected
+                    ? theme.color(.accent, classic: .blue)
+                    : Color.white.opacity(0.055),
+                in: .rect(cornerRadius: 16)
+            )
         }
         .buttonStyle(.plain)
+    }
+
+    private func categorySymbol(_ category: AvatarGearCategory) -> String {
+        switch category {
+        case .top: "tshirt.fill"
+        case .bottom: "figure.walk"
+        case .footwear: "shoe.fill"
+        case .headwear: "baseballcap.fill"
+        case .accessory: "eyeglasses"
+        }
     }
 
     private func gearCard(_ item: AvatarGearItem) -> some View {
