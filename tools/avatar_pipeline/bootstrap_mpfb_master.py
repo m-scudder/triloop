@@ -153,6 +153,21 @@ def evaluated_mesh_copy(obj, name):
 def bake_athevia_body_variants(base, lean, powerful):
     """Leave exactly Basis + lean + powerful on the runtime body."""
 
+    # Vertex-group membership/weights live on mesh vertices. Snapshot them
+    # before replacing the mesh data so MPFB's canonical rig and helper groups
+    # remain byte-for-byte equivalent from the rig fitter's perspective.
+    vertex_group_weights = []
+    for vertex in base.data.vertices:
+        for membership in vertex.groups:
+            vertex_group_weights.append(
+                (vertex.index, membership.group, membership.weight)
+            )
+
+    group_names = {
+        group.index: group.name
+        for group in base.vertex_groups
+    }
+
     balanced_mesh = evaluated_mesh_copy(base, "MESH__bodyBalanced")
     lean_mesh = evaluated_mesh_copy(lean, "MESH__bodyLean")
     powerful_mesh = evaluated_mesh_copy(powerful, "MESH__bodyPowerful")
@@ -169,8 +184,15 @@ def bake_athevia_body_variants(base, lean, powerful):
     old_mesh = base.data
     base.data = balanced_mesh
 
-    # Object-level vertex groups survive the mesh replacement and still point
-    # at the same vertex indices. The rig is attached only after this bake.
+    # Rehydrate deform weights onto the baked mesh.
+    for vertex_index, group_index, weight in vertex_group_weights:
+        group_name = group_names.get(group_index)
+        if group_name is None:
+            continue
+        group = base.vertex_groups.get(group_name)
+        if group is not None:
+            group.add([vertex_index], weight, "REPLACE")
+
     if old_mesh.users == 0:
         bpy.data.meshes.remove(old_mesh)
 
