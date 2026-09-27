@@ -110,34 +110,31 @@ struct AthleteIdentityView: View {
 
     private var hero: some View {
         ZStack(alignment: .bottomLeading) {
-            RoundedRectangle(cornerRadius: 30, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            selectedSport.discipline.themedTint(theme).opacity(0.30),
-                            Color(red: 0.055, green: 0.085, blue: 0.13),
-                            Color(red: 0.015, green: 0.025, blue: 0.045)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
+            Image("AthleteProfileAlpineBackground")
+                .resizable()
+                .scaledToFill()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
 
-            Circle()
-                .fill(selectedSport.discipline.themedTint(theme).opacity(0.22))
-                .frame(width: 270, height: 270)
-                .blur(radius: 24)
-                .offset(x: 105, y: -120)
+            LinearGradient(
+                colors: [
+                    selectedSport.discipline.themedTint(theme).opacity(0.10),
+                    .clear,
+                    Color.black.opacity(0.20)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
 
             AthleteAvatarView(
                 avatar: avatar,
                 sport: selectedSport,
                 pose: .neutral,
-                size: 390
+                size: 420
             )
             .frame(maxWidth: .infinity)
-            .frame(height: 390)
-            .offset(y: -6)
+            .frame(height: 405)
+            .offset(y: -2)
 
             LinearGradient(
                 colors: [.clear, .black.opacity(0.76)],
