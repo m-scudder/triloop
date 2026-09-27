@@ -76,7 +76,7 @@ struct MultisportTrainingPolicy: Sendable {
               !recoveringSports.contains(.running) else {
             return false
         }
-        return journey.weeklyObjectives.contains { $0.kind == .brickChange from bike to run }
+        return journey.weeklyObjectives.contains { $0.kind == .brickTransition }
     }
 
     func canScheduleRaceSimulation(
