@@ -24,22 +24,42 @@
   },
   "bodies": {
     "lean": {
-      "leanShape": 1.0,
-      "powerfulShape": 0.0
+      "leanShape": 1,
+      "powerfulShape": 0
     },
     "balanced": {
-      "leanShape": 0.0,
-      "powerfulShape": 0.0
+      "leanShape": 0,
+      "powerfulShape": 0
     },
     "powerful": {
-      "leanShape": 0.0,
-      "powerfulShape": 1.0
+      "leanShape": 0,
+      "powerfulShape": 1
     }
   },
   "hair": {
+    "cropped": {
+      "object": "HAIR__cropped",
+      "material": "MAT__hair__cropped"
+    },
+    "swept": {
+      "object": "HAIR__swept",
+      "material": "MAT__hair__swept"
+    },
     "tied": {
       "object": "HAIR__tied",
-      "material": "MAT__hair"
+      "material": "MAT__hair__tied"
+    },
+    "textured": {
+      "object": "HAIR__textured",
+      "material": "MAT__hair__textured"
+    },
+    "long": {
+      "object": "HAIR__long",
+      "material": "MAT__hair__long"
+    },
+    "closeCut": {
+      "object": "HAIR__closeCut",
+      "material": "MAT__hair__closeCut"
     }
   },
   "gear": {
