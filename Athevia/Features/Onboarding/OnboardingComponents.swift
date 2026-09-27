@@ -123,6 +123,10 @@ struct OnboardingStep<Content: View>: View {
             .padding(.top, 12)
             .padding(.bottom, 8)
             .background(AtheviaAdaptiveStyle(.bar, gaming: .surface))
+            // Keep the primary action anchored to the screen bottom. The
+            // keyboard should cover it while numeric input is active instead
+            // of lifting Continue above the keyboard.
+            .ignoresSafeArea(.keyboard, edges: .bottom)
         }
     }
 }
