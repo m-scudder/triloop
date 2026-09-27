@@ -183,12 +183,12 @@ struct WeeklyPlanGenerator: Sendable {
                             on: date,
                             goal: recoveryGoal(for: recovering)
                         )
-                        : PrescribedSessions.restDay(
-                            on: date,
-                            reason: schedule.isAvailable(on: Weekday.trainingWeek[offset])
-                                ? "You are available today, but another training session is not needed for your current training load."
-                                : "No workout is scheduled because you marked this day unavailable."
-                        )
+                        : schedule.isAvailable(on: Weekday.trainingWeek[offset])
+                            ? PrescribedSessions.engagementRecoveryDay(on: date, for: selectedSports)
+                            : PrescribedSessions.restDay(
+                                on: date,
+                                reason: "No workout is scheduled because you marked this day unavailable."
+                            )
                 )
                 continue
             }
