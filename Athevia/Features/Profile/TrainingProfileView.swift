@@ -85,7 +85,7 @@ struct TrainingProfileView: View {
             .accessibilityLabel("Athlete details, \(profileDisplayName)")
 
             NavigationLink {
-                AthleteAvatarStudioView(
+                AthleteIdentityView(
                     avatar: avatarBinding,
                     selectedSports: selectedTrainingSports.isEmpty ? [.running] : selectedTrainingSports
                 )
