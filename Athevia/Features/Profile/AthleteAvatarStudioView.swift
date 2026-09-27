@@ -32,6 +32,8 @@ struct AthleteAvatarView: View {
 
     private var topColor: Color {
         switch loadout.top {
+        case .runTopLavender:
+            Color(red: 0.47, green: 0.42, blue: 0.88)
         case .runTopIvory:
             Color(red: 0.92, green: 0.91, blue: 0.88)
         case .runTopCobalt, .cycleJerseyCobalt, .swimSuitCobalt:
@@ -65,24 +67,51 @@ struct AthleteAvatarView: View {
         }
     }
 
-    var body: some View {
-        ZStack {
-            Ellipse()
-                .fill(.black.opacity(0.10))
-                .frame(width: size * 0.42, height: size * 0.055)
-                .offset(y: size * 0.42)
-                .blur(radius: 3)
-
-            legs
-            torso
-            arms
-            head
-            hairShape
-            headwearLayer
-            accessoryLayer
+    private var productionAssetName: String? {
+        guard sport == .running,
+              avatar.presentation == .feminine,
+              avatar.skinTone == .warmMedium,
+              avatar.hairStyle == .tied,
+              avatar.hairColor == .espresso,
+              avatar.bodyPreset == .balanced,
+              loadout.top == .runTopLavender,
+              loadout.bottom == .runShortBlack,
+              loadout.footwear == .runShoeWhite,
+              loadout.headwear == nil,
+              loadout.accessory == nil else {
+            return nil
         }
-        .frame(width: size * 0.68, height: size)
-        .drawingGroup()
+
+        return "AvatarFemaleBalancedStarterRun"
+    }
+
+    var body: some View {
+        Group {
+            if let productionAssetName {
+                Image(productionAssetName)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: size * 0.72, height: size)
+            } else {
+                ZStack {
+                    Ellipse()
+                        .fill(.black.opacity(0.10))
+                        .frame(width: size * 0.42, height: size * 0.055)
+                        .offset(y: size * 0.42)
+                        .blur(radius: 3)
+
+                    legs
+                    torso
+                    arms
+                    head
+                    hairShape
+                    headwearLayer
+                    accessoryLayer
+                }
+                .frame(width: size * 0.68, height: size)
+                .drawingGroup()
+            }
+        }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Athlete avatar")
     }
