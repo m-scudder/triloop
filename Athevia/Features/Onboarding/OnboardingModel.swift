@@ -64,6 +64,10 @@ final class OnboardingModel {
         Sport.allCases.filter(isSportSelected)
     }
 
+    var avatar: AthleteAvatar {
+        setup.avatar
+    }
+
     var objectiveValidationIssues: [TrainingObjectiveValidationIssue] {
         setup.objectiveValidationIssues(asOf: minimumStartDate, calendar: calendar)
     }
@@ -157,6 +161,11 @@ final class OnboardingModel {
 
     func choose(stroke: SwimStroke) {
         setup.baseline.stroke = stroke
+        persist()
+    }
+
+    func choose(avatar: AthleteAvatar) {
+        setup.avatar = avatar
         persist()
     }
 
