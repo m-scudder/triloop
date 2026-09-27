@@ -18,11 +18,50 @@ struct AthleteAvatarView: View {
         return Color(red: rgb.0, green: rgb.1, blue: rgb.2)
     }
 
-    private var accent: Color {
+    private var loadout: AvatarLoadout {
+        avatar.loadout(for: sport)
+    }
+
+    private var sportAccent: Color {
         switch sport {
         case .running: Color(red: 0.32, green: 0.42, blue: 0.96)
         case .cycling: Color(red: 0.12, green: 0.70, blue: 0.65)
         case .swimming: Color(red: 0.12, green: 0.60, blue: 0.92)
+        }
+    }
+
+    private var topColor: Color {
+        switch loadout.top {
+        case .runTopIvory:
+            Color(red: 0.92, green: 0.91, blue: 0.88)
+        case .runTopCobalt, .cycleJerseyCobalt, .swimSuitCobalt:
+            Color(red: 0.18, green: 0.32, blue: 0.88)
+        case .cycleJerseyGraphite, .runTopGraphite, .swimSuitGraphite:
+            Color(red: 0.12, green: 0.13, blue: 0.16)
+        default:
+            sportAccent
+        }
+    }
+
+    private var bottomColor: Color {
+        switch loadout.bottom {
+        case .runShortSlate:
+            Color(red: 0.22, green: 0.24, blue: 0.29)
+        default:
+            Color(red: 0.07, green: 0.08, blue: 0.10)
+        }
+    }
+
+    private var footwearColor: Color {
+        switch loadout.footwear {
+        case .runShoeCobalt:
+            Color(red: 0.18, green: 0.32, blue: 0.88)
+        case .cycleShoeBlack:
+            Color(red: 0.06, green: 0.07, blue: 0.09)
+        case .barefoot:
+            skin
+        default:
+            Color(red: 0.94, green: 0.94, blue: 0.92)
         }
     }
 
@@ -39,6 +78,8 @@ struct AthleteAvatarView: View {
             arms
             head
             hairShape
+            headwearLayer
+            accessoryLayer
         }
         .frame(width: size * 0.68, height: size)
         .drawingGroup()
@@ -67,7 +108,7 @@ struct AthleteAvatarView: View {
 
     private var shoe: some View {
         Capsule()
-            .fill(Color.white)
+            .fill(footwearColor)
             .overlay {
                 Capsule()
                     .stroke(.black.opacity(0.12), lineWidth: 1)
@@ -80,7 +121,7 @@ struct AthleteAvatarView: View {
             RoundedRectangle(cornerRadius: size * 0.08, style: .continuous)
                 .fill(
                     LinearGradient(
-                        colors: [accent.opacity(0.96), accent.opacity(0.72)],
+                        colors: [topColor.opacity(0.98), topColor.opacity(0.76)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -91,7 +132,7 @@ struct AthleteAvatarView: View {
                 )
 
             RoundedRectangle(cornerRadius: size * 0.035, style: .continuous)
-                .fill(Color(red: 0.08, green: 0.09, blue: 0.11))
+                .fill(bottomColor)
                 .frame(width: size * 0.30, height: size * 0.12)
                 .offset(y: -size * 0.018)
         }
@@ -170,6 +211,76 @@ struct AthleteAvatarView: View {
                         .frame(width: size * 0.155, height: size * 0.19)
                         .offset(y: -size * 0.255)
                 }
+        }
+    }
+    @ViewBuilder
+    private var headwearLayer: some View {
+        switch loadout.headwear {
+        case .runCapBlack:
+            ZStack {
+                Capsule()
+                    .fill(Color(red: 0.06, green: 0.07, blue: 0.09))
+                    .frame(width: size * 0.19, height: size * 0.07)
+                Capsule()
+                    .fill(Color(red: 0.06, green: 0.07, blue: 0.09))
+                    .frame(width: size * 0.10, height: size * 0.025)
+                    .offset(x: size * 0.075, y: size * 0.025)
+            }
+            .offset(y: -size * 0.32)
+
+        case .cycleHelmetBlack, .cycleHelmetWhite:
+            let helmetColor = loadout.headwear == .cycleHelmetWhite
+                ? Color(red: 0.92, green: 0.93, blue: 0.94)
+                : Color(red: 0.05, green: 0.06, blue: 0.08)
+
+            ZStack {
+                Ellipse()
+                    .fill(helmetColor)
+                    .frame(width: size * 0.20, height: size * 0.10)
+                HStack(spacing: size * 0.016) {
+                    Capsule().fill(.black.opacity(0.28))
+                    Capsule().fill(.black.opacity(0.28))
+                    Capsule().fill(.black.opacity(0.28))
+                }
+                .frame(width: size * 0.13, height: size * 0.018)
+            }
+            .offset(y: -size * 0.325)
+
+        case .swimCapBlack, .swimCapWhite:
+            Ellipse()
+                .fill(
+                    loadout.headwear == .swimCapWhite
+                        ? Color(red: 0.93, green: 0.94, blue: 0.95)
+                        : Color(red: 0.05, green: 0.06, blue: 0.08)
+                )
+                .frame(width: size * 0.185, height: size * 0.105)
+                .offset(y: -size * 0.315)
+
+        case .none:
+            EmptyView()
+
+        default:
+            EmptyView()
+        }
+    }
+
+    @ViewBuilder
+    private var accessoryLayer: some View {
+        if loadout.accessory == .swimGogglesSmoke {
+            HStack(spacing: size * 0.01) {
+                Capsule()
+                    .fill(Color.black.opacity(0.72))
+                    .frame(width: size * 0.055, height: size * 0.025)
+                Capsule()
+                    .fill(Color.black.opacity(0.72))
+                    .frame(width: size * 0.055, height: size * 0.025)
+            }
+            .overlay {
+                Capsule()
+                    .fill(Color.black.opacity(0.55))
+                    .frame(width: size * 0.02, height: size * 0.008)
+            }
+            .offset(y: -size * 0.255)
         }
     }
 }
