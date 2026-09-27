@@ -26,11 +26,14 @@ struct AthleteSetup: Codable, Equatable, Sendable {
         case health
         case watch
         case avatar
+        case avatarAppearance
+        case avatarOutfit
+        case avatarReady
         case preview
         case complete
         case safety
 
-        static let onboardingFlow: [Stage] = [.running, .avatar, .days, .preview]
+        static let onboardingFlow: [Stage] = [.running, .avatar, .avatarAppearance, .avatarOutfit, .avatarReady, .days, .preview]
 
         var consolidated: Stage {
             switch self {
@@ -38,6 +41,9 @@ struct AthleteSetup: Codable, Equatable, Sendable {
             case .about, .goal: .days
             case .swimming, .cycling, .pool: .running
             case .avatar: .avatar
+            case .avatarAppearance: .avatarAppearance
+            case .avatarOutfit: .avatarOutfit
+            case .avatarReady: .avatarReady
             case .commitment: .days
             case .health, .watch, .safety: .preview
             default: self
