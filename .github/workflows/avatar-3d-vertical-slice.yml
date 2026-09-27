@@ -1,0 +1,120 @@
+name: Build Avatar 3D Vertical Slice
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-avatar-vertical-slice:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out Athevia
+        uses: actions/checkout@v4
+
+      - name: Download Blender 4.5 LTS
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 \
+            https://download.blender.org/release/Blender4.5/blender-4.5.14-linux-x64.tar.xz \
+            --output /tmp/blender.tar.xz
+          mkdir -p /tmp/blender
+          tar -xJf /tmp/blender.tar.xz -C /tmp/blender --strip-components=1
+          /tmp/blender/blender --version
+
+      - name: Install MPFB extension
+        shell: bash
+        run: |
+          set -euo pipefail
+          /tmp/blender/blender --online-mode --command extension install -s -e mpfb
+
+      - name: Download free avatar asset packs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/athevia-avatar-packs
+
+          curl --fail --location --retry 3 \
+            https://files2.makehumancommunity.org/asset_packs/makehuman_system_assets/makehuman_system_assets_cc0.zip \
+            --output /tmp/athevia-avatar-packs/system.zip
+
+          curl --fail --location --retry 3 \
+            https://files2.makehumancommunity.org/asset_packs/shirts01/shirts01_cc0.zip \
+            --output /tmp/athevia-avatar-packs/shirts.zip
+
+          curl --fail --location --retry 3 \
+            https://files2.makehumancommunity.org/asset_packs/shoes01/shoes01_cc0.zip \
+            --output /tmp/athevia-avatar-packs/shoes.zip
+
+          # Pants03 is CC-BY rather than CC0. It is used only for the first
+          # short-legged prototype garment and must retain attribution.
+          curl --fail --location --retry 3 \
+            https://files2.makehumancommunity.org/asset_packs/pants03/pants03_ccby.zip \
+            --output /tmp/athevia-avatar-packs/shorts.zip
+
+      - name: Install avatar asset packs
+        shell: bash
+        run: |
+          set -euo pipefail
+          /tmp/blender/blender -b \
+            --python tools/avatar_pipeline/install_asset_packs.py -- \
+            --pack /tmp/athevia-avatar-packs/system.zip \
+            --pack /tmp/athevia-avatar-packs/shirts.zip \
+            --pack /tmp/athevia-avatar-packs/shoes.zip \
+            --pack /tmp/athevia-avatar-packs/shorts.zip
+
+      - name: Bootstrap master athlete
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/athevia-avatar
+          /tmp/blender/blender -b \
+            --python tools/avatar_pipeline/bootstrap_mpfb_master.py -- \
+            --output /tmp/athevia-avatar/athevia-athlete-master.blend \
+            --presentation feminine \
+            --poses tools/avatar_pipeline/config/poses.json
+
+      - name: Validate master athlete
+        shell: bash
+        run: |
+          set -euo pipefail
+          /tmp/blender/blender -b \
+            /tmp/athevia-avatar/athevia-athlete-master.blend \
+            --python tools/avatar_pipeline/validate_scene.py -- \
+            --catalog tools/avatar_pipeline/config/catalog.json \
+            --poses tools/avatar_pipeline/config/poses.json
+
+      - name: Render vertical slice
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/athevia-avatar/renders
+          python3 tools/avatar_pipeline/render_matrix.py \
+            --blender /tmp/blender/blender \
+            --master /tmp/athevia-avatar/athevia-athlete-master.blend \
+            --matrix tools/avatar_pipeline/config/vertical_slice.json \
+            --catalog tools/avatar_pipeline/config/catalog.json \
+            --output /tmp/athevia-avatar/renders
+
+      - name: Package Xcode asset preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/athevia-avatar/xcassets
+          python3 tools/avatar_pipeline/export_xcassets.py \
+            --renders /tmp/athevia-avatar/renders \
+            --asset-catalog /tmp/athevia-avatar/xcassets
+
+      - name: Upload vertical-slice artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: athevia-avatar-3d-vertical-slice
+          path: |
+            /tmp/athevia-avatar/athevia-athlete-master.blend
+            /tmp/athevia-avatar/renders
+            /tmp/athevia-avatar/xcassets
+          retention-days: 7
