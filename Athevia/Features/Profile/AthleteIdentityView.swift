@@ -4,11 +4,17 @@ struct AthleteIdentityView: View {
     @Environment(\.atheviaTheme) private var theme
     @Binding var avatar: AthleteAvatar
     var selectedSports: [Sport]
+    var plans: [WeeklyPlan]
+    var setup: AthleteSetup
 
     @State private var selectedSport: Sport = .running
 
     private var sports: [Sport] {
         selectedSports.isEmpty ? [.running] : selectedSports
+    }
+
+    private var rewards: AvatarRewardSnapshot {
+        AvatarRewardEvaluator().evaluate(setup: setup, plans: plans)
     }
 
     var body: some View {
@@ -46,7 +52,8 @@ struct AthleteIdentityView: View {
                             AthleteWardrobeView(
                                 avatar: $avatar,
                                 sports: sports,
-                                initialSport: selectedSport
+                                initialSport: selectedSport,
+                                rewards: rewards
                             )
                         } label: {
                             identityRow(
@@ -59,7 +66,7 @@ struct AthleteIdentityView: View {
                         Divider().padding(.leading, 46)
 
                         NavigationLink {
-                            AthleteRewardJourneyView(sports: sports)
+                            AthleteRewardJourneyView(sports: sports, rewards: rewards)
                         } label: {
                             identityRow(
                                 symbol: "medal.fill",
@@ -70,6 +77,7 @@ struct AthleteIdentityView: View {
                     }
                 }
 
+                progressCard
                 philosophyCard
             }
             .padding(.horizontal, 20)
@@ -155,6 +163,43 @@ struct AthleteIdentityView: View {
         .contentShape(.rect)
     }
 
+    private var progressCard: some View {
+        HStack(spacing: 0) {
+            metric(
+                value: "\(rewards.unlockedGearIDs.count)",
+                label: "Gear unlocked"
+            )
+            Divider().frame(height: 38)
+            metric(
+                value: "\(rewards.milestones.count)",
+                label: "Milestones"
+            )
+            Divider().frame(height: 38)
+            metric(
+                value: "\(rewards.runningCompleted + rewards.cyclingCompleted + rewards.swimmingCompleted)",
+                label: "Workouts"
+            )
+        }
+        .padding(.vertical, 16)
+        .background(
+            theme.color(.surface, classic: Color(uiColor: .secondarySystemBackground)),
+            in: .rect(cornerRadius: 20)
+        )
+    }
+
+    private func metric(value: String, label: String) -> some View {
+        VStack(spacing: 3) {
+            Text(value)
+                .font(.title3.weight(.bold))
+                .monospacedDigit()
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
     private var philosophyCard: some View {
         VStack(alignment: .leading, spacing: 8) {
             SectionEyebrow(text: "How it grows")
@@ -178,6 +223,7 @@ struct AthleteWardrobeView: View {
     @Binding var avatar: AthleteAvatar
     let sports: [Sport]
     let initialSport: Sport
+    let rewards: AvatarRewardSnapshot
 
     @State private var selectedSport: Sport
     @State private var selectedCategory: AvatarGearCategory = .top
@@ -185,11 +231,13 @@ struct AthleteWardrobeView: View {
     init(
         avatar: Binding<AthleteAvatar>,
         sports: [Sport],
-        initialSport: Sport
+        initialSport: Sport,
+        rewards: AvatarRewardSnapshot
     ) {
         _avatar = avatar
         self.sports = sports
         self.initialSport = initialSport
+        self.rewards = rewards
         _selectedSport = State(initialValue: initialSport)
     }
 
@@ -288,10 +336,10 @@ struct AthleteWardrobeView: View {
 
     private func gearCard(_ item: AvatarGearItem) -> some View {
         let equipped = isEquipped(item)
+        let unlocked = rewards.isUnlocked(item)
 
         return Button {
-            guard item.isStarterUnlocked else { return }
-            avatar.equip(item)
+            avatar.equip(item, isUnlocked: unlocked)
         } label: {
             VStack(alignment: .leading, spacing: 12) {
                 ZStack {
@@ -306,10 +354,10 @@ struct AthleteWardrobeView: View {
                     Image(systemName: item.symbol)
                         .font(.system(size: 34, weight: .medium))
                         .foregroundStyle(
-                            item.isStarterUnlocked ? AnyShapeStyle(.primary) : AnyShapeStyle(.tertiary)
+                            unlocked ? AnyShapeStyle(.primary) : AnyShapeStyle(.tertiary)
                         )
 
-                    if !item.isStarterUnlocked {
+                    if !unlocked {
                         VStack {
                             HStack {
                                 Spacer()
@@ -338,7 +386,7 @@ struct AthleteWardrobeView: View {
                         .multilineTextAlignment(.leading)
                         .lineLimit(2)
 
-                    Text(equipped ? "Equipped" : item.unlockText)
+                    Text(equipped ? "Equipped" : rewards.progressText(for: item))
                         .font(.caption)
                         .foregroundStyle(
                             equipped
@@ -356,7 +404,7 @@ struct AthleteWardrobeView: View {
             )
         }
         .buttonStyle(.plain)
-        .disabled(!item.isStarterUnlocked)
+        .disabled(!unlocked)
     }
 
     private func isEquipped(_ item: AvatarGearItem) -> Bool {
@@ -373,6 +421,7 @@ struct AthleteWardrobeView: View {
 
 struct AthleteRewardJourneyView: View {
     let sports: [Sport]
+    let rewards: AvatarRewardSnapshot
 
     var body: some View {
         ScrollView {
@@ -395,14 +444,14 @@ struct AthleteRewardJourneyView: View {
                         VStack(alignment: .leading, spacing: 3) {
                             Text(item.name)
                                 .font(.subheadline.weight(.semibold))
-                            Text(item.unlockText)
+                            Text(rewards.progressText(for: item))
                                 .font(.caption)
                                 .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                         }
 
                         Spacer(minLength: 8)
 
-                        if !item.isStarterUnlocked {
+                        if !unlocked {
                             Image(systemName: "lock.fill")
                                 .foregroundStyle(.tertiary)
                         }
