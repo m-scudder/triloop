@@ -11,7 +11,12 @@ struct AtheviaTheme: Equatable, Sendable {
     static let preferenceKey = "athevia.gamingThemeEnabled.v1"
 
     init(gamingEnabled: Bool, palette: GamingPalette = .neon) {
+        // Preview-only until the palette is ready for public release.
+        #if DEBUG
         isGaming = gamingEnabled
+        #else
+        isGaming = false
+        #endif
         self.palette = palette
     }
 

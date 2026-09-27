@@ -252,6 +252,11 @@ final class AtheviaUITests: XCTestCase {
         let settings = app.tabBars.buttons["Settings"]
         XCTAssertTrue(settings.waitForExistence(timeout: 10))
         settings.tap()
+        XCTAssertFalse(app.switches["settings.gamingTheme"].exists)
+        let simulator = app.buttons["settings.simulateTraining"]
+        reveal(simulator, in: app)
+        XCTAssertTrue(simulator.waitForExistence(timeout: 5))
+        simulator.tap()
         let toggle = app.switches["settings.gamingTheme"]
         reveal(toggle, in: app)
         XCTAssertTrue(toggle.waitForExistence(timeout: 5))
@@ -280,6 +285,8 @@ final class AtheviaUITests: XCTestCase {
         app.launch()
         XCTAssertTrue(settings.waitForExistence(timeout: 10))
         settings.tap()
+        reveal(simulator, in: app)
+        simulator.tap()
         reveal(toggle, in: app)
         XCTAssertEqual(toggle.value as? String, "1")
         reveal(colors, in: app)
