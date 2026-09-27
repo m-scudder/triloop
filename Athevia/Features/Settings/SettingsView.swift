@@ -54,6 +54,7 @@ struct SettingsView: View {
             }
             .atheviaList()
             .atheviaScreen()
+            .toolbar(.hidden, for: .navigationBar)
             .task(id: scenePhase) {
                 guard scenePhase == .active else { return }
                 watch.refresh()
