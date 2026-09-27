@@ -122,10 +122,10 @@ enum GamingPalette: String, CaseIterable, Identifiable, Sendable {
         case .highlight: 0x4FE5FF
         case .achievement: 0xFFD568
         case .running: 0xFF9B55
-        case .swimming: 0x4FE5FF
+        case .swimming: 0x38A7FF
         case .cycling: 0x65FFB4
         case .multisport: 0xBC8AFF
-        case .recovery: 0x70E9E0
+        case .recovery: 0xFFE45C
         case .rest: 0xB6A9C8
         case .danger: 0xFF939D
         case .warning: 0xFFD568
