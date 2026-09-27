@@ -59,13 +59,7 @@ jobs:
             --output /tmp/athevia-avatar-packs/shirts.zip
 
           curl --fail --location --retry 3 \
-            https://files2.makehumancommunity.org/asset_packs/shoes01/shoes01_cc0.zip \
-            --output /tmp/athevia-avatar-packs/shoes.zip
-
-          # Pants03 is CC-BY rather than CC0. It is used only for the first
-          # short-legged prototype garment and must retain attribution.
-          curl --fail --location --retry 3 \
-            https://files2.makehumancommunity.org/asset_packs/pants03/pants03_ccby.zip \
+            https://files2.makehumancommunity.org/asset_packs/pants01/pants01_cc0.zip \
             --output /tmp/athevia-avatar-packs/shorts.zip
 
       - name: Install avatar asset packs
@@ -76,7 +70,6 @@ jobs:
             --python tools/avatar_pipeline/install_asset_packs.py -- \
             --pack /tmp/athevia-avatar-packs/system.zip \
             --pack /tmp/athevia-avatar-packs/shirts.zip \
-            --pack /tmp/athevia-avatar-packs/shoes.zip \
             --pack /tmp/athevia-avatar-packs/shorts.zip
 
       - name: Bootstrap master athlete
