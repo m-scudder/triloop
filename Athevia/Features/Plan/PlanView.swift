@@ -203,7 +203,7 @@ private struct PlanWatchAction: View {
 
     var body: some View {
         Group {
-            if canSend {
+            if canSend && !isScheduledOnWatch {
                 VStack(spacing: 0) {
                     Divider()
                     Button(action: send) {
@@ -211,26 +211,18 @@ private struct PlanWatchAction: View {
                             if isSending || isCheckingWatch {
                                 ProgressView().tint(.white)
                             } else {
-                                Image(systemName: isScheduledOnWatch ? "checkmark.circle.fill" : "applewatch")
+                                Image(systemName: "applewatch")
                             }
                             Text(watchActionTitle)
                         }
                         .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(PrimaryActionButtonStyle())
-                    .disabled(isSending || isCheckingWatch || isScheduledOnWatch)
+                    .disabled(isSending || isCheckingWatch)
                     .accessibilityIdentifier("plan.sendToWatch")
                     .padding(.horizontal, 20)
                     .padding(.vertical, 12)
 
-                    if isScheduledOnWatch {
-                        Text("Scheduled. Watch sync may still be pending.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 20)
-                            .padding(.bottom, 12)
-                    }
                 }
                 .background(.regularMaterial)
             }
@@ -253,7 +245,7 @@ private struct PlanWatchAction: View {
     private var watchActionTitle: String {
         if isSending { return "Sending…" }
         if isCheckingWatch { return "Checking…" }
-        return isScheduledOnWatch ? "On Watch" : "Send to Watch"
+        return "Send to Watch"
     }
 
     @MainActor
