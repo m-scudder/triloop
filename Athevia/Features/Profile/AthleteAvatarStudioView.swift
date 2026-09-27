@@ -420,7 +420,7 @@ private enum AthleteRealityConfigurator {
     }
 
     private static func descendants(of root: Entity) -> [Entity] {
-        [root] + root.children.flatMap(descendants)
+        [root] + root.children.flatMap { descendants(of: $0) }
     }
 }
 
