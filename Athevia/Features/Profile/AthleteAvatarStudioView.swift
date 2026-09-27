@@ -1,13 +1,87 @@
 import SwiftUI
+import UIKit
 
 /// Production avatar presentation.
 ///
 /// Validated appearance/loadout combinations resolve to high-resolution rendered
 /// character assets. The vector construction remains only as a temporary fallback
 /// while the production catalog is expanded.
+private enum AvatarRenderAssetResolver {
+    static func assetName(
+        for avatar: AthleteAvatar,
+        sport: Sport,
+        pose: AvatarPose
+    ) -> String? {
+        let canonical = canonicalAssetName(
+            for: avatar,
+            sport: sport,
+            pose: pose
+        )
+
+        if UIImage(named: canonical) != nil {
+            return canonical
+        }
+
+        // Compatibility with the first proof-of-quality vertical slice.
+        guard pose == .neutral,
+              sport == .running,
+              avatar.presentation == .feminine,
+              avatar.skinTone == .warmMedium,
+              avatar.hairStyle == .tied,
+              avatar.hairColor == .espresso,
+              avatar.bodyPreset == .balanced else {
+            return nil
+        }
+
+        let loadout = avatar.loadout(for: sport)
+        guard loadout.bottom == .runShortBlack,
+              loadout.headwear == nil,
+              loadout.accessory == nil else {
+            return nil
+        }
+
+        switch (loadout.top, loadout.footwear) {
+        case (.runTopLavender, .runShoeWhite):
+            return "AvatarFemaleBalancedStarterRun"
+        case (.runTopIvory, .runShoeWhite):
+            return "AvatarFemaleBalancedRunTopIvory"
+        case (.runTopLavender, .runShoeCobalt):
+            return "AvatarFemaleBalancedRunShoeCobalt"
+        default:
+            return nil
+        }
+    }
+
+    static func canonicalAssetName(
+        for avatar: AthleteAvatar,
+        sport: Sport,
+        pose: AvatarPose
+    ) -> String {
+        let loadout = avatar.loadout(for: sport)
+        return [
+            "AvatarRender",
+            avatar.presentation.rawValue,
+            avatar.bodyPreset.rawValue,
+            avatar.skinTone.rawValue,
+            avatar.hairStyle.rawValue,
+            avatar.hairColor.rawValue,
+            sport.rawValue,
+            loadout.top.rawValue,
+            loadout.bottom.rawValue,
+            loadout.footwear.rawValue,
+            loadout.headwear?.rawValue ?? "none",
+            loadout.accessory?.rawValue ?? "none",
+            pose.rawValue
+        ]
+        .joined(separator: "__")
+    }
+}
+
+
 struct AthleteAvatarView: View {
     let avatar: AthleteAvatar
     var sport: Sport = .running
+    var pose: AvatarPose = .neutral
     var size: CGFloat = 280
 
     private var skin: Color {
@@ -70,28 +144,11 @@ struct AthleteAvatarView: View {
     }
 
     private var productionAssetName: String? {
-        guard sport == .running,
-              avatar.presentation == .feminine,
-              avatar.skinTone == .warmMedium,
-              avatar.hairStyle == .tied,
-              avatar.hairColor == .espresso,
-              avatar.bodyPreset == .balanced,
-              loadout.bottom == .runShortBlack,
-              loadout.headwear == nil,
-              loadout.accessory == nil else {
-            return nil
-        }
-
-        switch (loadout.top, loadout.footwear) {
-        case (.runTopLavender, .runShoeWhite):
-            return "AvatarFemaleBalancedStarterRun"
-        case (.runTopIvory, .runShoeWhite):
-            return "AvatarFemaleBalancedRunTopIvory"
-        case (.runTopLavender, .runShoeCobalt):
-            return "AvatarFemaleBalancedRunShoeCobalt"
-        default:
-            return nil
-        }
+        AvatarRenderAssetResolver.assetName(
+            for: avatar,
+            sport: sport,
+            pose: pose
+        )
     }
 
     var body: some View {
