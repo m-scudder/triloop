@@ -27,17 +27,17 @@ struct AthleteAvatar: Codable, Equatable, Sendable {
 
         switch item.sport {
         case .running:
-            apply(item.id, category: item.category, to: &runLoadout)
+            Self.apply(item.id, category: item.category, to: &runLoadout)
         case .cycling:
-            apply(item.id, category: item.category, to: &cycleLoadout)
+            Self.apply(item.id, category: item.category, to: &cycleLoadout)
         case .swimming:
-            apply(item.id, category: item.category, to: &swimLoadout)
+            Self.apply(item.id, category: item.category, to: &swimLoadout)
         case nil:
             break
         }
     }
 
-    private func apply(_ id: AvatarGearID, category: AvatarGearCategory, to loadout: inout AvatarLoadout) {
+    private static func apply(_ id: AvatarGearID, category: AvatarGearCategory, to loadout: inout AvatarLoadout) {
         switch category {
         case .top: loadout.top = id
         case .bottom: loadout.bottom = id
