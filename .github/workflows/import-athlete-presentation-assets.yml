@@ -1,0 +1,74 @@
+name: Import Athlete Presentation Assets
+
+on:
+  push:
+    branches:
+      - feat/athlete-avatar-experience
+    paths:
+      - ".github/workflows/import-athlete-presentation-assets.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  import-assets:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/athlete-avatar-experience
+
+      - name: Download production presentation assets
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p "Athevia/Resources/Assets.xcassets/AvatarMaleBalancedStarterRun.imageset"
+          curl --fail --location --retry 3             'https://dnznrvs05pmza.cloudfront.net/gemini/gemini-3-pro-image/images/9dcb502a-ec3f-4889-a0b9-abbf9d1ceee1/7e8c8443-06be-43b2-906a-ca35bc93d385/Using__input_as_the_exact_source__preserve_the_same_male_ath.png?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiZmU5ZTZkNGZkNzg5N2FhNiIsImJ1Y2tldCI6InJ1bndheS10YXNrLWFydGlmYWN0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc5MDY0NjczNX0.WFlL9YFd9vyatTJcNrv6gVk22Xr8UPrVB5j3cLFcG8g'             --output "Athevia/Resources/Assets.xcassets/AvatarMaleBalancedStarterRun.imageset/athevia-male-balanced-starter-run.png"
+
+          cat > "Athevia/Resources/Assets.xcassets/AvatarMaleBalancedStarterRun.imageset/Contents.json" <<'JSON'
+          {
+            "images" : [
+              {
+                "filename" : "athevia-male-balanced-starter-run.png",
+                "idiom" : "universal",
+                "scale" : "1x"
+              }
+            ],
+            "info" : {
+              "author" : "xcode",
+              "version" : 1
+            }
+          }
+          JSON
+
+          mkdir -p "Athevia/Resources/Assets.xcassets/AthleteProfileAlpineBackground.imageset"
+          curl --fail --location --retry 3             'https://dnznrvs05pmza.cloudfront.net/gemini/gemini-3-pro-image/images/d11511b5-d0b1-4fc7-bd81-c8e7b628a9f9/a240735a-067a-4cd2-989a-467f7dac077b/Premium_cinematic_alpine_endurance_sports_background_for_a_h.png?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiZjJiMjg2MjA4YTg2NTdjZCIsImJ1Y2tldCI6InJ1bndheS10YXNrLWFydGlmYWN0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc5MDY1MzIxNn0.oNODcA5LVrNjutzrwNvYCD2OBHRAQOyLzYVROOYXkQY'             --output "Athevia/Resources/Assets.xcassets/AthleteProfileAlpineBackground.imageset/athevia-athlete-profile-alpine.png"
+
+          cat > "Athevia/Resources/Assets.xcassets/AthleteProfileAlpineBackground.imageset/Contents.json" <<'JSON'
+          {
+            "images" : [
+              {
+                "filename" : "athevia-athlete-profile-alpine.png",
+                "idiom" : "universal",
+                "scale" : "1x"
+              }
+            ],
+            "info" : {
+              "author" : "xcode",
+              "version" : 1
+            }
+          }
+          JSON
+
+      - name: Commit imported assets and remove importer
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f ".github/workflows/import-athlete-presentation-assets.yml"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Add production athlete presentation assets"
+          git push origin HEAD:feat/athlete-avatar-experience
