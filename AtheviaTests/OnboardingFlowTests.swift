@@ -6,9 +6,9 @@ import Testing
 
 @MainActor
 struct OnboardingFlowTests {
-    @Test func flowHasThreeDecisionScreens() {
+    @Test func flowIncludesAthleteCreation() {
         let flow = AthleteSetup.Stage.onboardingFlow
-        #expect(flow == [.running, .days, .preview])
+        #expect(flow == [.running, .avatar, .days, .preview])
         for index in 0..<(flow.count - 1) {
             #expect(flow[index].next == flow[index + 1])
             #expect(flow[index + 1].previous == flow[index])
@@ -75,6 +75,8 @@ struct OnboardingFlowTests {
         #expect(model.stage == .running)
         model.toggleSport(.running)
         model.choose(running: .continuous10Minutes)
+        model.advance()
+        #expect(model.stage == .avatar)
         model.advance()
         #expect(model.stage == .days)
 
@@ -191,6 +193,7 @@ struct OnboardingFlowTests {
 
         model.toggleSport(.running)
         model.advance()
+        model.advance()
         model.toggleDay(.monday)
         model.toggleDay(.wednesday)
         model.setSharedMaxDuration(45)
@@ -222,6 +225,7 @@ struct OnboardingFlowTests {
         let model = OnboardingModel(context: context)
 
         model.toggleSport(.running)
+        model.advance()
         model.advance()
         model.toggleDay(.monday)
         model.toggleDay(.wednesday)
