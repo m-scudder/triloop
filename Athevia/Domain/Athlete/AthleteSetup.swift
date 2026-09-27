@@ -25,17 +25,19 @@ struct AthleteSetup: Codable, Equatable, Sendable {
         case pool
         case health
         case watch
+        case avatar
         case preview
         case complete
         case safety
 
-        static let onboardingFlow: [Stage] = [.running, .days, .preview]
+        static let onboardingFlow: [Stage] = [.running, .avatar, .days, .preview]
 
         var consolidated: Stage {
             switch self {
             case .welcome: .running
             case .about, .goal: .days
             case .swimming, .cycling, .pool: .running
+            case .avatar: .avatar
             case .commitment: .days
             case .health, .watch, .safety: .preview
             default: self
@@ -71,6 +73,7 @@ struct AthleteSetup: Codable, Equatable, Sendable {
     /// stores created before these concepts existed.
     private var openWaterConsentData: Data?
     private var eventStateData: Data?
+    private var avatarData: Data?
 
     /// Structured source of truth used by the app. It is computed so SwiftData
     /// never attempts to materialize EventSport/EventDistance from a missing
@@ -114,6 +117,18 @@ struct AthleteSetup: Codable, Equatable, Sendable {
         }
     }
 
+    var avatar: AthleteAvatar {
+        get {
+            guard let avatarData,
+                  let value = try? JSONDecoder().decode(AthleteAvatar.self, from: avatarData)
+            else { return .starter }
+            return value
+        }
+        set {
+            avatarData = try? JSONEncoder().encode(newValue)
+        }
+    }
+
     var eventState: AthleteEventState {
         get {
             guard objective.kind == .event else { return .upcoming }
@@ -145,6 +160,7 @@ struct AthleteSetup: Codable, Equatable, Sendable {
         objective: TrainingObjective? = nil,
         openWaterTrainingConsent: OpenWaterTrainingConsent = .unavailable,
         eventState: AthleteEventState = .upcoming,
+        avatar: AthleteAvatar = .starter,
         baseline: AthleteBaseline = AthleteBaseline(),
         birthDate: Date? = nil,
         schedule: AthleteSchedule = .empty,
@@ -158,6 +174,7 @@ struct AthleteSetup: Codable, Equatable, Sendable {
         self.objectiveData = try? JSONEncoder().encode(resolvedObjective)
         self.openWaterConsentData = try? JSONEncoder().encode(openWaterTrainingConsent)
         self.eventStateData = try? JSONEncoder().encode(eventState)
+        self.avatarData = try? JSONEncoder().encode(avatar)
         self.baseline = baseline
         self.birthDate = birthDate
         self.schedule = schedule
@@ -189,6 +206,7 @@ struct AthleteSetup: Codable, Equatable, Sendable {
         case objectiveData
         case openWaterConsentData
         case eventStateData
+        case avatarData
         case goal
         case baseline
         case birthDate
@@ -224,6 +242,7 @@ struct AthleteSetup: Codable, Equatable, Sendable {
         objectiveData = (try? container.decodeIfPresent(Data.self, forKey: .objectiveData)) ?? nil
         openWaterConsentData = (try? container.decodeIfPresent(Data.self, forKey: .openWaterConsentData)) ?? nil
         eventStateData = (try? container.decodeIfPresent(Data.self, forKey: .eventStateData)) ?? nil
+        avatarData = (try? container.decodeIfPresent(Data.self, forKey: .avatarData)) ?? nil
         baseline = value(.baseline, defaults.baseline)
         birthDate = (try? container.decodeIfPresent(Date.self, forKey: .birthDate)) ?? nil
         schedule = value(.schedule, defaults.schedule)
@@ -241,6 +260,7 @@ struct AthleteSetup: Codable, Equatable, Sendable {
         try container.encodeIfPresent(objectiveData, forKey: .objectiveData)
         try container.encodeIfPresent(openWaterConsentData, forKey: .openWaterConsentData)
         try container.encodeIfPresent(eventStateData, forKey: .eventStateData)
+        try container.encodeIfPresent(avatarData, forKey: .avatarData)
         try container.encode(goal, forKey: .goal)
         try container.encode(baseline, forKey: .baseline)
         try container.encodeIfPresent(birthDate, forKey: .birthDate)
