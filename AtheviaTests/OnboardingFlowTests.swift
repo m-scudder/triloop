@@ -8,7 +8,7 @@ import Testing
 struct OnboardingFlowTests {
     @Test func flowIncludesAthleteCreation() {
         let flow = AthleteSetup.Stage.onboardingFlow
-        #expect(flow == [.running, .avatar, .days, .preview])
+        #expect(flow == [.running, .avatar, .avatarAppearance, .avatarOutfit, .avatarReady, .days, .preview])
         for index in 0..<(flow.count - 1) {
             #expect(flow[index].next == flow[index + 1])
             #expect(flow[index + 1].previous == flow[index])
@@ -78,6 +78,12 @@ struct OnboardingFlowTests {
         model.advance()
         #expect(model.stage == .avatar)
         model.advance()
+        #expect(model.stage == .avatarAppearance)
+        model.advance()
+        #expect(model.stage == .avatarOutfit)
+        model.advance()
+        #expect(model.stage == .avatarReady)
+        model.advance()
         #expect(model.stage == .days)
 
         model.choose(goal: .improveEndurance)
@@ -128,6 +134,9 @@ struct OnboardingFlowTests {
 
         model.toggleSport(.running)
         model.choose(running: .continuous10Minutes)
+        model.advance()
+        model.advance()
+        model.advance()
         model.advance()
         model.advance()
 
@@ -214,6 +223,9 @@ struct OnboardingFlowTests {
         let model = OnboardingModel(context: context)
 
         model.toggleSport(.running)
+        model.advance()
+        model.advance()
+        model.advance()
         model.advance()
         model.advance()
         model.toggleDay(.monday)
