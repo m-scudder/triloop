@@ -383,7 +383,12 @@ private enum AthleteRealityConfigurator {
     private static func color(
         _ rgb: (Double, Double, Double)
     ) -> UIColor {
-        UIColor(red: rgb.0, green: rgb.1, blue: rgb.2, alpha: 1)
+        UIColor(
+            red: CGFloat(rgb.0),
+            green: CGFloat(rgb.1),
+            blue: CGFloat(rgb.2),
+            alpha: 1
+        )
     }
 
     private static func topColor(_ id: AvatarGearID) -> UIColor {
