@@ -43,7 +43,7 @@ struct AthleteAvatar: Codable, Equatable, Sendable {
         case .bottom: loadout.bottom = id
         case .footwear: loadout.footwear = id
         case .headwear: loadout.headwear = id
-        case .accessory: break
+        case .accessory: loadout.accessory = id
         }
     }
 }
@@ -340,6 +340,7 @@ struct AvatarLoadout: Codable, Equatable, Sendable {
     var bottom: AvatarGearID
     var footwear: AvatarGearID
     var headwear: AvatarGearID?
+    var accessory: AvatarGearID? = nil
 
     static let starterRun = AvatarLoadout(
         top: .runTopGraphite,
