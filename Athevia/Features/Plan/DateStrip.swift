@@ -115,7 +115,7 @@ struct DateStrip: View {
         return VStack(spacing: 6) {
             Text(TrainingFormatter.weekdayInitial(for: day.date))
                 .font(.footnote.weight(.semibold))
-                .foregroundStyle(isSelected ? .white : .secondary)
+                .foregroundStyle(isSelected ? .white : .secondary.opacity(0.72))
 
             icons(for: day, isSelected: isSelected, isSkipped: isSkipped)
 
@@ -141,7 +141,7 @@ struct DateStrip: View {
                 )
                 .padding(isSelected ? 2 : 0)
         }
-        .opacity(isSkipped && !isSelected ? 0.55 : 1)
+        .opacity(isSelected ? 1 : (isSkipped ? 0.42 : 0.72))
         .contentShape(.rect)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(label(for: day))
@@ -157,7 +157,7 @@ struct DateStrip: View {
         if isSkipped || sports.isEmpty {
             Image(systemName: isSkipped ? "slash.circle" : day.representative.discipline.symbolName)
                 .font(.footnote)
-                .foregroundStyle(isSelected ? .white : (isSkipped ? Color.secondary : day.representative.discipline.themedTint(theme)))
+                .foregroundStyle(isSelected ? .white : (isSkipped ? Color.secondary.opacity(0.55) : day.representative.discipline.themedTint(theme).opacity(0.45)))
                 .frame(height: 16)
         } else {
             HStack(spacing: 2) {
@@ -165,7 +165,7 @@ struct DateStrip: View {
                     Image(systemName: sport.discipline.symbolName)
                         // Three glyphs have to fit the same tile as one.
                         .font(sports.count > 2 ? .caption2 : .footnote)
-                        .foregroundStyle(isSelected ? AnyShapeStyle(.white) : AnyShapeStyle(sport.discipline.themedTint(theme)))
+                        .foregroundStyle(isSelected ? AnyShapeStyle(.white) : AnyShapeStyle(sport.discipline.themedTint(theme).opacity(0.45)))
                 }
             }
             .frame(height: 16)
@@ -183,13 +183,13 @@ struct DateStrip: View {
             let discipline = day.representative.discipline
             return isSelected
                 ? AnyShapeStyle(discipline.themedGradient(theme))
-                : AnyShapeStyle(discipline.themedTint(theme).opacity(0.10))
+                : AnyShapeStyle(discipline.themedTint(theme).opacity(0.045))
         }
 
         let colours = sports.map { $0.discipline.themedSurface(theme) }
         return AnyShapeStyle(
             LinearGradient(
-                colors: isSelected ? colours : colours.map { $0.opacity(0.14) },
+                colors: isSelected ? colours : colours.map { $0.opacity(0.055) },
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
