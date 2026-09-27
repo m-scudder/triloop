@@ -624,10 +624,18 @@ struct TrainingProfileView: View {
         preferences.first { $0.sport == .swimming }
     }
 
+    /// Profile editing always exposes every supported sport. Older/single-sport
+    /// profiles may persist only their selected sports, so fill the missing rows
+    /// with disabled preferences instead of hiding those sports from the editor.
     private var preferences: [SportPreference] {
-        setup.preferences.isEmpty
+        let stored = setup.preferences.isEmpty
             ? SportPreference.defaults(for: setup.baseline)
             : setup.preferences
+
+        return Sport.allCases.map { sport in
+            stored.first { $0.sport == sport }
+                ?? SportPreference(sport: sport, sessionsPerWeek: 0)
+        }
     }
 
     private var isStandardPool: Bool {
@@ -743,8 +751,11 @@ struct TrainingProfileView: View {
                     var updated = current.preferences.isEmpty
                         ? SportPreference.defaults(for: current.baseline)
                         : current.preferences
-                    guard let index = updated.firstIndex(where: { $0.sport == sport }) else { return }
-                    updated[index].sessionsPerWeek = count
+                    if let index = updated.firstIndex(where: { $0.sport == sport }) {
+                        updated[index].sessionsPerWeek = count
+                    } else {
+                        updated.append(SportPreference(sport: sport, sessionsPerWeek: count))
+                    }
                     current.preferences = updated
                 }
 
