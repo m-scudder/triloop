@@ -1,0 +1,47 @@
+{
+  "appearance": {
+    "presentation": "feminine",
+    "skinTone": "warmMedium",
+    "bodyPreset": "balanced",
+    "hairStyle": "tied",
+    "hairColor": "espresso"
+  },
+  "sport": "running",
+  "poses": [
+    "neutral",
+    "runReady",
+    "celebration"
+  ],
+  "variants": [
+    {
+      "name": "starter",
+      "loadout": {
+        "top": "runTopLavender",
+        "bottom": "runShortBlack",
+        "footwear": "runShoeWhite",
+        "headwear": null,
+        "accessory": null
+      }
+    },
+    {
+      "name": "ivoryTop",
+      "loadout": {
+        "top": "runTopIvory",
+        "bottom": "runShortBlack",
+        "footwear": "runShoeWhite",
+        "headwear": null,
+        "accessory": null
+      }
+    },
+    {
+      "name": "tempoShoes",
+      "loadout": {
+        "top": "runTopLavender",
+        "bottom": "runShortBlack",
+        "footwear": "runShoeCobalt",
+        "headwear": null,
+        "accessory": null
+      }
+    }
+  ]
+}
