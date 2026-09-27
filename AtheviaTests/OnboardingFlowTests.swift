@@ -100,6 +100,27 @@ struct OnboardingFlowTests {
         #expect(OnboardingModel(context: ModelContext(container)).setup.isComplete)
     }
 
+
+    @Test func avatarChoicesSurviveResume() throws {
+        let container = try AtheviaModelContainer.make(inMemory: true)
+        let context = ModelContext(container)
+        let model = OnboardingModel(context: context)
+
+        model.toggleSport(.running)
+        model.advance()
+
+        var avatar = model.avatar
+        avatar.presentation = .masculine
+        avatar.skinTone = .deep
+        avatar.hairStyle = .cropped
+        avatar.bodyPreset = .powerful
+        model.choose(avatar: avatar)
+
+        let resumed = OnboardingModel(context: ModelContext(container))
+        #expect(resumed.stage == .avatar)
+        #expect(resumed.avatar == avatar)
+    }
+
     @Test func selectedStartDateSurvivesResumeAndDrivesPreview() throws {
         let container = try AtheviaModelContainer.make(inMemory: true)
         let context = ModelContext(container)
@@ -107,6 +128,7 @@ struct OnboardingFlowTests {
 
         model.toggleSport(.running)
         model.choose(running: .continuous10Minutes)
+        model.advance()
         model.advance()
 
         model.toggleDay(.sunday)
