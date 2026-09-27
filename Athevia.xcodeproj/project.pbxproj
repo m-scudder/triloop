@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		AL0000000000000000000001 /* AthleteAvatar.swift in Sources */ = {isa = PBXBuildFile; fileRef = AL0000000000000000000011 /* AthleteAvatar.swift */; };
+		AL0000000000000000000002 /* AthleteAvatarStudioView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AL0000000000000000000012 /* AthleteAvatarStudioView.swift */; };
+		AL0000000000000000000003 /* AthleteIdentityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AL0000000000000000000013 /* AthleteIdentityView.swift */; };
+		AL0000000000000000000004 /* AthleteAvatarOnboardingViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = AL0000000000000000000014 /* AthleteAvatarOnboardingViews.swift */; };
 		AE000000000000000000000C /* AtheviaLiveActivity.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AE0000000000000000000008 /* AtheviaLiveActivity.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		AF0000000000000000000001 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = AF0000000000000000000003 /* Supabase */; };
 		AG000000000000000000000C /* Athevia Watch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = AG0000000000000000000008 /* Athevia Watch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -69,6 +73,10 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		AL0000000000000000000011 /* AthleteAvatar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Athevia/Domain/Athlete/AthleteAvatar.swift; sourceTree = "<group>"; };
+		AL0000000000000000000012 /* AthleteAvatarStudioView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Athevia/Features/Profile/AthleteAvatarStudioView.swift; sourceTree = "<group>"; };
+		AL0000000000000000000013 /* AthleteIdentityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Athevia/Features/Profile/AthleteIdentityView.swift; sourceTree = "<group>"; };
+		AL0000000000000000000014 /* AthleteAvatarOnboardingViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Athevia/Features/Onboarding/AthleteAvatarOnboardingViews.swift; sourceTree = "<group>"; };
 		AB0000000000000000000008 /* Athevia.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Athevia.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AC0000000000000000000008 /* AtheviaTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AtheviaTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		AD0000000000000000000008 /* AtheviaUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AtheviaUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -80,6 +88,10 @@
 		7191CD39305C862D00B1D656 /* Exceptions for "Athevia" folder in "Athevia" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				Domain/Athlete/AthleteAvatar.swift,
+				Features/Onboarding/AthleteAvatarOnboardingViews.swift,
+				Features/Profile/AthleteAvatarStudioView.swift,
+				Features/Profile/AthleteIdentityView.swift,
 				Info.plist,
 			);
 			target = AB0000000000000000000001 /* Athevia */;
@@ -197,6 +209,10 @@
 		AA0000000000000000000002 = {
 			isa = PBXGroup;
 			children = (
+				AL0000000000000000000011 /* AthleteAvatar.swift */,
+				AL0000000000000000000012 /* AthleteAvatarStudioView.swift */,
+				AL0000000000000000000013 /* AthleteIdentityView.swift */,
+				AL0000000000000000000014 /* AthleteAvatarOnboardingViews.swift */,
 				AB0000000000000000000009 /* Athevia */,
 				AE0000000000000000000009 /* AtheviaLiveActivity */,
 				AG0000000000000000000009 /* AtheviaWatch */,
@@ -439,6 +455,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AL0000000000000000000001 /* AthleteAvatar.swift in Sources */,
+				AL0000000000000000000002 /* AthleteAvatarStudioView.swift in Sources */,
+				AL0000000000000000000003 /* AthleteIdentityView.swift in Sources */,
+				AL0000000000000000000004 /* AthleteAvatarOnboardingViews.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
