@@ -27,6 +27,7 @@ def parse_args():
     parser.add_argument("--config", required=True)
     parser.add_argument("--catalog", required=True)
     parser.add_argument("--output", required=True)
+    parser.add_argument("--render-scale", type=float, default=1.0)
     return parser.parse_args(args_after_double_dash())
 
 
@@ -157,7 +158,7 @@ def configure_pose(config, catalog):
     bpy.context.scene.frame_set(1)
 
 
-def configure_render(config, catalog, output):
+def configure_render(config, catalog, output, render_scale=1.0):
     scene = bpy.context.scene
     render = catalog["render"]
 
@@ -165,8 +166,10 @@ def configure_render(config, catalog, output):
     scene.camera = camera
 
     scene.render.engine = "BLENDER_EEVEE_NEXT"
-    scene.render.resolution_x = int(render["width"])
-    scene.render.resolution_y = int(render["height"])
+    if render_scale <= 0:
+        raise ValueError("render scale must be greater than zero")
+    scene.render.resolution_x = max(1, int(render["width"] * render_scale))
+    scene.render.resolution_y = max(1, int(render["height"] * render_scale))
     scene.render.resolution_percentage = 100
     scene.render.film_transparent = True
 
@@ -189,7 +192,7 @@ def main():
     configure_hair(config, catalog)
     configure_gear(config, catalog)
     configure_pose(config, catalog)
-    configure_render(config, catalog, args.output)
+    configure_render(config, catalog, args.output, args.render_scale)
 
 
 if __name__ == "__main__":
