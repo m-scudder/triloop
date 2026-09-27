@@ -30,6 +30,18 @@ jobs:
           tar -xJf /tmp/blender.tar.xz -C /tmp/blender --strip-components=1
           /tmp/blender/blender --version
 
+      - name: Install headless render libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libegl1 \
+            libgl1 \
+            libgl1-mesa-dri \
+            libx11-6 \
+            libxext6
+
       - name: Install MPFB extension
         shell: bash
         run: |
