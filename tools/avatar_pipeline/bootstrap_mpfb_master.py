@@ -150,14 +150,10 @@ def evaluated_mesh_copy(obj, name):
         bpy.context.view_layer.update()
 
 
-def bake_athevia_body_variants(base, lean, powerful):
-    """Leave exactly Basis + lean + powerful on the runtime body."""
-
-    # Vertex-group membership/weights live on mesh vertices. Snapshot them
-    # before replacing the mesh data so MPFB's canonical rig and helper groups
-    # remain byte-for-byte equivalent from the rig fitter's perspective.
+def bake_mpfb_authoring_morphs(obj, mesh_name):
+    """Bake MakeHuman construction morphs while preserving canonical topology."""
     vertex_group_weights = []
-    for vertex in base.data.vertices:
+    for vertex in obj.data.vertices:
         for membership in vertex.groups:
             vertex_group_weights.append(
                 (vertex.index, membership.group, membership.weight)
@@ -165,59 +161,59 @@ def bake_athevia_body_variants(base, lean, powerful):
 
     group_names = {
         group.index: group.name
-        for group in base.vertex_groups
+        for group in obj.vertex_groups
     }
 
-    balanced_mesh = evaluated_mesh_copy(base, "MESH__bodyBalanced")
-    lean_mesh = evaluated_mesh_copy(lean, "MESH__bodyLean")
-    powerful_mesh = evaluated_mesh_copy(powerful, "MESH__bodyPowerful")
+    baked_mesh = evaluated_mesh_copy(obj, mesh_name)
 
-    if not (
-        len(balanced_mesh.vertices)
-        == len(lean_mesh.vertices)
-        == len(powerful_mesh.vertices)
-    ):
-        raise RuntimeError(
-            "Athevia body variants do not share identical topology"
-        )
+    old_mesh = obj.data
+    obj.data = baked_mesh
 
-    old_mesh = base.data
-    base.data = balanced_mesh
-
-    # Rehydrate deform weights onto the baked mesh.
     for vertex_index, group_index, weight in vertex_group_weights:
         group_name = group_names.get(group_index)
         if group_name is None:
             continue
-        group = base.vertex_groups.get(group_name)
+        group = obj.vertex_groups.get(group_name)
         if group is not None:
             group.add([vertex_index], weight, "REPLACE")
 
     if old_mesh.users == 0:
         bpy.data.meshes.remove(old_mesh)
 
-    base.shape_key_add(name="Basis")
+    # Runtime body presets are separate skinned meshes. No MakeHuman authoring
+    # shape keys are allowed to cross the USDZ boundary.
+    if obj.data.shape_keys is not None:
+        raise RuntimeError("Baked body unexpectedly retained shape keys")
 
-    def append_variant(mesh, key_name):
-        key = base.shape_key_add(name=key_name)
-        for index, vertex in enumerate(mesh.vertices):
-            key.data[index].co = vertex.co
-        key.value = 0.0
 
-    append_variant(lean_mesh, "BODY__lean")
-    append_variant(powerful_mesh, "BODY__powerful")
+def copy_rig_weights_and_bind(source, target, rig):
+    """Bind a same-topology body variant to the already fitted shared rig."""
+    if len(source.data.vertices) != len(target.data.vertices):
+        raise RuntimeError("Body preset topology mismatch")
 
-    bpy.data.meshes.remove(lean_mesh)
-    bpy.data.meshes.remove(powerful_mesh)
+    target.vertex_groups.clear()
 
-    keys = base.data.shape_keys.key_blocks
-    names = [key.name for key in keys]
-    expected = ["Basis", "BODY__lean", "BODY__powerful"]
-    if names != expected:
-        raise RuntimeError(
-            "Unexpected runtime body shape keys: " + str(names)
-        )
+    source_groups = list(source.vertex_groups)
+    for group in source_groups:
+        target.vertex_groups.new(name=group.name)
 
+    for vertex in source.data.vertices:
+        for membership in vertex.groups:
+            source_group = source.vertex_groups[membership.group]
+            target_group = target.vertex_groups.get(source_group.name)
+            target_group.add([vertex.index], membership.weight, "REPLACE")
+
+    # Preserve the MPFB body/helper mask, but replace any stale armature binding.
+    for modifier in list(target.modifiers):
+        if modifier.type == "ARMATURE":
+            target.modifiers.remove(modifier)
+
+    armature = target.modifiers.new("Athevia shared rig", "ARMATURE")
+    armature.object = rig
+    armature.use_deform_preserve_volume = True
+
+    target.parent = rig
+    target.matrix_parent_inverse = rig.matrix_world.inverted()
 
 def normalize_material_name(obj, desired_name):
     if not hasattr(obj.data, "materials"):
@@ -448,10 +444,12 @@ def main():
     )
 
     activate(balanced)
-    bake_athevia_body_variants(balanced, lean, powerful)
+    bake_mpfb_authoring_morphs(balanced, "MESH__bodyBalanced")
+    bake_mpfb_authoring_morphs(lean, "MESH__bodyLean")
+    bake_mpfb_authoring_morphs(powerful, "MESH__bodyPowerful")
 
-    bpy.data.objects.remove(lean, do_unlink=True)
-    bpy.data.objects.remove(powerful, do_unlink=True)
+    lean.name = "BODY__lean"
+    powerful.name = "BODY__powerful"
 
     normalize_material_name(balanced, "MAT__skin")
 
@@ -463,6 +461,16 @@ def main():
     if rig is None:
         raise RuntimeError("MPFB did not create the game_engine rig")
     rig.name = "RIG__athlete"
+
+    copy_rig_weights_and_bind(balanced, lean, rig)
+    copy_rig_weights_and_bind(balanced, powerful, rig)
+
+    # Balanced is the authoring/default body. Other presets stay hidden until
+    # Blender rendering or RealityKit explicitly selects them.
+    lean.hide_viewport = True
+    lean.hide_render = True
+    powerful.hide_viewport = True
+    powerful.hide_render = True
 
     used = set()
 
