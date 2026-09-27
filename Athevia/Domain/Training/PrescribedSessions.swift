@@ -220,6 +220,60 @@ enum PrescribedSessions {
         )
     }
 
+    /// Purposeful low-load activity for a day the athlete said they can train
+    /// but where another sport-specific load session would not be appropriate.
+    /// It counts as a planned workout while remaining physiologically recovery.
+    static func engagementRecoveryDay(
+        on date: Date,
+        for sports: [Sport]
+    ) -> PlannedWorkout {
+        let selected = Set(sports)
+
+        if selected == [.swimming] {
+            return PlannedWorkout(
+                date: date,
+                discipline: .recovery,
+                title: "Swim Mobility & Recovery",
+                goal: "Stay engaged without adding another swim load session. Keep everything gentle.",
+                steps: [
+                    WorkoutStep(order: 0, kind: .recovery, title: "Easy walk", instructions: "Relaxed movement only.", durationSeconds: 15 * 60, targetIntensity: .veryEasy),
+                    WorkoutStep(order: 1, kind: .recovery, title: "Shoulder and upper-back mobility", instructions: "Gentle shoulder, upper-back and chest mobility. No forcing range.", durationSeconds: 15 * 60, targetIntensity: .veryEasy)
+                ]
+            )
+        }
+
+        if selected == [.cycling] {
+            return PlannedWorkout(
+                date: date,
+                discipline: .recovery,
+                title: "Cycling Recovery & Mobility",
+                goal: "Keep moving while giving your legs a low-load day before the next ride.",
+                steps: [
+                    WorkoutStep(order: 0, kind: .recovery, title: "Easy walk", instructions: "Keep the effort very easy.", durationSeconds: 20 * 60, targetIntensity: .veryEasy),
+                    WorkoutStep(order: 1, kind: .recovery, title: "Hip and leg mobility", instructions: "Gentle hips, calves and hamstrings.", durationSeconds: 10 * 60, targetIntensity: .veryEasy)
+                ]
+            )
+        }
+
+        if selected == [.running] {
+            return PlannedWorkout(
+                date: date,
+                discipline: .recovery,
+                title: "Running Recovery & Mobility",
+                goal: "Stay active today without adding another impact-running session.",
+                steps: [
+                    WorkoutStep(order: 0, kind: .recovery, title: "Easy walk", instructions: "Comfortable walking only.", durationSeconds: 20 * 60, targetIntensity: .veryEasy),
+                    WorkoutStep(order: 1, kind: .recovery, title: "Leg mobility", instructions: "Gentle calves, hips and ankles.", durationSeconds: 10 * 60, targetIntensity: .veryEasy)
+                ]
+            )
+        }
+
+        return recoveryDay(
+            on: date,
+            goal: "Use this available day for gentle movement so you stay consistent without adding unnecessary training load."
+        )
+    }
+
     static func restDay(on date: Date, reason: String? = nil) -> PlannedWorkout {
         PlannedWorkout(
             date: date,
