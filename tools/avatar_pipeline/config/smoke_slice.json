@@ -1,0 +1,25 @@
+{
+  "appearance": {
+    "presentation": "feminine",
+    "skinTone": "warmMedium",
+    "bodyPreset": "balanced",
+    "hairStyle": "tied",
+    "hairColor": "espresso"
+  },
+  "sport": "running",
+  "poses": [
+    "neutral"
+  ],
+  "variants": [
+    {
+      "name": "starter",
+      "loadout": {
+        "top": "runTopLavender",
+        "bottom": "runShortBlack",
+        "footwear": "runShoeWhite",
+        "headwear": null,
+        "accessory": null
+      }
+    }
+  ]
+}
