@@ -16,7 +16,7 @@ struct MilestoneCelebrationView: View {
     private var primary: JourneyMilestone? { milestones.first }
 
     private var sport: Sport {
-        workout.discipline.sport
+        workout.discipline.sport ?? .running
     }
 
     private var title: String {
