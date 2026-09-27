@@ -1,5 +1,7 @@
 import SwiftUI
 import UIKit
+import RealityKit
+import simd
 
 /// Production avatar presentation.
 ///
@@ -80,6 +82,414 @@ private enum AvatarRenderAssetResolver {
 }
 
 
+private enum AthleteRealityAsset {
+    static func url(for presentation: AvatarPresentation) -> URL? {
+        let name = presentation == .feminine
+            ? "AtheviaAthleteFeminine"
+            : "AtheviaAthleteMasculine"
+
+        return Bundle.main.url(forResource: name, withExtension: "usdz")
+    }
+}
+
+private enum AthleteRealityConfigurator {
+    static func configure(
+        root: Entity,
+        avatar: AthleteAvatar,
+        sport: Sport,
+        pose: AvatarPose
+    ) {
+        applyVisibility(root: root, avatar: avatar, sport: sport)
+        applyMaterials(root: root, avatar: avatar, sport: sport)
+        applyBodyPreset(root: root, avatar: avatar)
+        applyPose(root: root, pose: pose)
+    }
+
+    private static func applyVisibility(
+        root: Entity,
+        avatar: AthleteAvatar,
+        sport: Sport
+    ) {
+        // The first 3D package has one production hair mesh and one base gear
+        // mesh per slot. As new meshes are added they follow this same naming
+        // contract and become runtime-selectable without changing the UI model.
+        setPrefix("HAIR__", enabledName: hairEntityName(avatar.hairStyle), in: root)
+
+        let loadout = avatar.loadout(for: sport)
+        setPrefix("GEAR__runTop", enabledName: "GEAR__runTopPerformance", in: root)
+        setPrefix("GEAR__runShort", enabledName: "GEAR__runShort", in: root)
+        setPrefix("GEAR__runShoe", enabledName: "GEAR__runShoe", in: root)
+
+        // Hide sport-specific assets until their corresponding production mesh
+        // exists in the USDZ. The naming contract remains stable.
+        for entity in descendants(of: root) {
+            if entity.name.hasPrefix("GEAR__cycle") || entity.name.hasPrefix("GEAR__swim") {
+                entity.isEnabled = entity.name == gearEntityName(for: loadout, sport: sport)
+            }
+        }
+    }
+
+    private static func setPrefix(
+        _ prefix: String,
+        enabledName: String,
+        in root: Entity
+    ) {
+        for entity in descendants(of: root) where entity.name.hasPrefix(prefix) {
+            entity.isEnabled = entity.name == enabledName
+        }
+    }
+
+    private static func hairEntityName(_ style: AvatarHairStyle) -> String {
+        switch style {
+        case .tied:
+            "HAIR__tied"
+        default:
+            // Until the requested hairstyle mesh is exported, remain on a
+            // production 3D mesh rather than dropping to a 2D/geometric avatar.
+            "HAIR__tied"
+        }
+    }
+
+    private static func gearEntityName(
+        for loadout: AvatarLoadout,
+        sport: Sport
+    ) -> String {
+        switch sport {
+        case .running:
+            "GEAR__runTopPerformance"
+        case .cycling:
+            "GEAR__cycleJersey"
+        case .swimming:
+            "GEAR__swimSuit"
+        }
+    }
+
+    private static func applyMaterials(
+        root: Entity,
+        avatar: AthleteAvatar,
+        sport: Sport
+    ) {
+        recolor(
+            entityNamed: bodyEntityName(avatar.presentation),
+            in: root,
+            color: color(avatar.skinTone.rgb),
+            roughness: 0.62
+        )
+        recolor(
+            entityNamed: "HAIR__tied",
+            in: root,
+            color: color(avatar.hairColor.rgb),
+            roughness: 0.48
+        )
+
+        let loadout = avatar.loadout(for: sport)
+        recolor(
+            entityNamed: "GEAR__runTopPerformance",
+            in: root,
+            color: topColor(loadout.top),
+            roughness: 0.72
+        )
+        recolor(
+            entityNamed: "GEAR__runShort",
+            in: root,
+            color: bottomColor(loadout.bottom),
+            roughness: 0.76
+        )
+        recolor(
+            entityNamed: "GEAR__runShoe",
+            in: root,
+            color: footwearColor(loadout.footwear),
+            roughness: 0.60
+        )
+    }
+
+    private static func bodyEntityName(_ presentation: AvatarPresentation) -> String {
+        presentation == .feminine ? "BODY__feminine" : "BODY__masculine"
+    }
+
+    private static func recolor(
+        entityNamed name: String,
+        in root: Entity,
+        color: UIColor,
+        roughness: Float
+    ) {
+        guard let entity = root.findEntity(named: name),
+              var model = entity.components[ModelComponent.self] else {
+            return
+        }
+
+        let material = SimpleMaterial(
+            color: color,
+            roughness: .float(roughness),
+            isMetallic: false
+        )
+        model.materials = Array(repeating: material, count: max(model.materials.count, 1))
+        entity.components.set(model)
+    }
+
+    private static func applyBodyPreset(
+        root: Entity,
+        avatar: AthleteAvatar
+    ) {
+        guard let body = root.findEntity(named: bodyEntityName(avatar.presentation)),
+              let model = body.components[ModelComponent.self] else {
+            return
+        }
+
+        let mapping = BlendShapeWeightsMapping(meshResource: model.mesh)
+        var component = body.components[BlendShapeWeightsComponent.self]
+            ?? BlendShapeWeightsComponent(weightsMapping: mapping)
+        var set = component.weightSet
+
+        guard var data = set.default else {
+            body.components.set(component)
+            return
+        }
+
+        var weights = data.weights
+        for (index, name) in data.weightNames.enumerated() {
+            let value: Float
+            switch (avatar.bodyPreset, name) {
+            case (.lean, let name) where name.contains("BODY__lean"):
+                value = 1
+            case (.powerful, let name) where name.contains("BODY__powerful"):
+                value = 1
+            case (_, let name) where name.contains("BODY__lean") || name.contains("BODY__powerful"):
+                value = 0
+            default:
+                continue
+            }
+
+            let weightIndex = weights.index(weights.startIndex, offsetBy: index)
+            weights[weightIndex] = value
+        }
+
+        data.weights = weights
+        set.default = data
+        component.weightSet = set
+        body.components.set(component)
+    }
+
+    private static func applyPose(root: Entity, pose: AvatarPose) {
+        guard pose != .neutral,
+              let model = firstSkinnedModel(in: root) else {
+            return
+        }
+
+        let rotations = poseRotations(pose)
+        guard !rotations.isEmpty else { return }
+
+        var transforms = model.jointTransforms
+        for (index, fullName) in model.jointNames.enumerated() {
+            let shortName = fullName.split(separator: "/").last.map(String.init) ?? fullName
+            guard let degrees = rotations[shortName],
+                  index < transforms.count else {
+                continue
+            }
+
+            var transform = transforms[index]
+            transform.rotation = quaternion(degrees: degrees)
+            transforms[index] = transform
+        }
+        model.jointTransforms = transforms
+    }
+
+    private static func firstSkinnedModel(in root: Entity) -> ModelEntity? {
+        if let model = root as? ModelEntity, !model.jointNames.isEmpty {
+            return model
+        }
+
+        for child in root.children {
+            if let model = firstSkinnedModel(in: child) {
+                return model
+            }
+        }
+        return nil
+    }
+
+    private static func poseRotations(
+        _ pose: AvatarPose
+    ) -> [String: SIMD3<Float>] {
+        switch pose {
+        case .neutral:
+            [:]
+        case .runReady:
+            [
+                "pelvis": [4, 0, 0],
+                "spine_02": [-4, 0, 0],
+                "upperarm_l": [12, 0, -24],
+                "lowerarm_l": [-55, 0, 0],
+                "upperarm_r": [-12, 0, 24],
+                "lowerarm_r": [-55, 0, 0]
+            ]
+        case .running:
+            [
+                "pelvis": [8, 0, 0],
+                "spine_02": [-8, 0, 0],
+                "upperarm_l": [20, 0, -38],
+                "lowerarm_l": [-72, 0, 0],
+                "upperarm_r": [-20, 0, 38],
+                "lowerarm_r": [-72, 0, 0],
+                "thigh_l": [-28, 0, 0],
+                "calf_l": [22, 0, 0],
+                "thigh_r": [24, 0, 0],
+                "calf_r": [55, 0, 0]
+            ]
+        case .cycling:
+            [
+                "pelvis": [18, 0, 0],
+                "spine_01": [-10, 0, 0],
+                "spine_02": [-14, 0, 0],
+                "upperarm_l": [8, 0, -42],
+                "lowerarm_l": [-42, 0, 0],
+                "upperarm_r": [-8, 0, 42],
+                "lowerarm_r": [-42, 0, 0]
+            ]
+        case .swimming:
+            [
+                "spine_02": [-6, 0, 0],
+                "upperarm_l": [0, 0, -155],
+                "lowerarm_l": [-18, 0, 0],
+                "upperarm_r": [0, 0, 155],
+                "lowerarm_r": [-18, 0, 0]
+            ]
+        case .recovery:
+            [
+                "spine_02": [3, 0, 0],
+                "upperarm_l": [2, 0, -8],
+                "upperarm_r": [-2, 0, 8],
+                "head": [2, 0, 0]
+            ]
+        case .celebration:
+            [
+                "spine_02": [-4, 0, 0],
+                "upperarm_l": [0, 0, -125],
+                "lowerarm_l": [-15, 0, 0],
+                "upperarm_r": [0, 0, 125],
+                "lowerarm_r": [-15, 0, 0],
+                "head": [-4, 0, 0]
+            ]
+        }
+    }
+
+    private static func quaternion(degrees: SIMD3<Float>) -> simd_quatf {
+        let radians = degrees * (.pi / 180)
+        let x = simd_quatf(angle: radians.x, axis: [1, 0, 0])
+        let y = simd_quatf(angle: radians.y, axis: [0, 1, 0])
+        let z = simd_quatf(angle: radians.z, axis: [0, 0, 1])
+        return z * y * x
+    }
+
+    private static func color(
+        _ rgb: (Double, Double, Double)
+    ) -> UIColor {
+        UIColor(red: rgb.0, green: rgb.1, blue: rgb.2, alpha: 1)
+    }
+
+    private static func topColor(_ id: AvatarGearID) -> UIColor {
+        switch id {
+        case .runTopLavender:
+            UIColor(red: 0.47, green: 0.42, blue: 0.88, alpha: 1)
+        case .runTopIvory:
+            UIColor(red: 0.92, green: 0.91, blue: 0.88, alpha: 1)
+        case .runTopCobalt:
+            UIColor(red: 0.18, green: 0.32, blue: 0.88, alpha: 1)
+        default:
+            UIColor(red: 0.12, green: 0.13, blue: 0.16, alpha: 1)
+        }
+    }
+
+    private static func bottomColor(_ id: AvatarGearID) -> UIColor {
+        switch id {
+        case .runShortSlate:
+            UIColor(red: 0.22, green: 0.24, blue: 0.29, alpha: 1)
+        default:
+            UIColor(red: 0.07, green: 0.08, blue: 0.10, alpha: 1)
+        }
+    }
+
+    private static func footwearColor(_ id: AvatarGearID) -> UIColor {
+        switch id {
+        case .runShoeCobalt:
+            UIColor(red: 0.18, green: 0.32, blue: 0.88, alpha: 1)
+        case .cycleShoeBlack:
+            UIColor(red: 0.06, green: 0.07, blue: 0.09, alpha: 1)
+        default:
+            .white
+        }
+    }
+
+    private static func descendants(of root: Entity) -> [Entity] {
+        [root] + root.children.flatMap(descendants)
+    }
+}
+
+private struct AthleteRealityAvatarView: View {
+    let avatar: AthleteAvatar
+    let sport: Sport
+    let pose: AvatarPose
+
+    private var assetURL: URL? {
+        AthleteRealityAsset.url(for: avatar.presentation)
+    }
+
+    var body: some View {
+        Group {
+            if let assetURL {
+                RealityView { content in
+                    content.camera = .virtual
+
+                    let athlete = try await Entity(contentsOf: assetURL)
+                    athlete.name = "ATHEVIA__athlete"
+                    AthleteRealityConfigurator.configure(
+                        root: athlete,
+                        avatar: avatar,
+                        sport: sport,
+                        pose: pose
+                    )
+                    content.add(athlete)
+
+                    let camera = Entity()
+                    camera.name = "ATHEVIA__camera"
+                    camera.position = [0, 0.92, 2.75]
+                    camera.look(
+                        at: [0, 0.92, 0],
+                        from: camera.position,
+                        relativeTo: nil
+                    )
+                    camera.components.set(
+                        PerspectiveCameraComponent(
+                            near: 0.01,
+                            far: 20,
+                            fieldOfViewInDegrees: 33
+                        )
+                    )
+                    content.add(camera)
+                } update: { content in
+                    guard let athlete = content.entities.first(where: {
+                        $0.name == "ATHEVIA__athlete"
+                    }) else {
+                        return
+                    }
+
+                    AthleteRealityConfigurator.configure(
+                        root: athlete,
+                        avatar: avatar,
+                        sport: sport,
+                        pose: pose
+                    )
+                } placeholder: {
+                    ProgressView()
+                        .tint(.white)
+                }
+                .realityViewCameraControls(.orbit)
+                .id("(avatar.presentation.rawValue)-(pose.rawValue)")
+            }
+        }
+    }
+}
+
+
 struct AthleteAvatarView: View {
     let avatar: AthleteAvatar
     var sport: Sport = .running
@@ -154,12 +564,24 @@ struct AthleteAvatarView: View {
     }
 
     var body: some View {
-        Image(productionAssetName ?? fallbackProductionAssetName)
-            .resizable()
-            .scaledToFit()
-            .frame(width: size * 0.80, height: size)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Athlete avatar")
+        Group {
+            if size >= 160,
+               AthleteRealityAsset.url(for: avatar.presentation) != nil {
+                AthleteRealityAvatarView(
+                    avatar: avatar,
+                    sport: sport,
+                    pose: pose
+                )
+                .frame(width: size * 0.90, height: size)
+            } else {
+                Image(productionAssetName ?? fallbackProductionAssetName)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: size * 0.80, height: size)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Athlete avatar")
     }
 
     private var fallbackProductionAssetName: String {
