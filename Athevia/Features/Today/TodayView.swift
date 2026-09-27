@@ -116,47 +116,76 @@ struct TodayView: View {
         let setup = profile.setup ?? AthleteSetup()
         let sport = setup.selectedSports.first ?? .running
         let rewards = AvatarRewardEvaluator().evaluate(setup: setup, plans: plans)
+        let journey = TrainingJourneyPlanner().plan(
+            setup: setup,
+            recentPlans: Array(plans.prefix(4))
+        )
 
         return NavigationLink {
             TrainingProfileView(profile: profile)
         } label: {
-            HStack(spacing: 14) {
+            ZStack(alignment: .bottomLeading) {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                sport.discipline.tint.opacity(0.28),
+                                Color(red: 0.045, green: 0.07, blue: 0.115),
+                                Color(red: 0.018, green: 0.03, blue: 0.052)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+
                 AthleteAvatarView(
                     avatar: setup.avatar,
                     sport: sport,
-                    size: 112
+                    pose: .neutral,
+                    size: 190
                 )
-                .frame(width: 82, height: 82)
-                .clipped()
+                .frame(width: 145, height: 165)
+                .offset(x: -2, y: -4)
 
-                VStack(alignment: .leading, spacing: 5) {
-                    SectionEyebrow(text: "My Athlete")
+                LinearGradient(
+                    colors: [.clear, .black.opacity(0.50)],
+                    startPoint: .center,
+                    endPoint: .bottom
+                )
+                .clipShape(.rect(cornerRadius: 22))
 
-                    Text(profile.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Your athlete" : profile.name)
-                        .font(.headline)
-                        .foregroundStyle(.primary)
+                HStack(alignment: .bottom, spacing: 12) {
+                    Color.clear.frame(width: 118, height: 1)
 
-                    Text("\(rewards.unlockedGearIDs.count) gear pieces · \(rewards.milestones.count) milestones")
-                        .font(.caption)
-                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
-                        .multilineTextAlignment(.leading)
-                        .lineLimit(1)
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("MY ATHLETE")
+                            .font(.caption2.weight(.bold))
+                            .tracking(1.2)
+                            .foregroundStyle(.white.opacity(0.58))
+
+                        Text(journey.phase.displayName)
+                            .font(.headline)
+                            .foregroundStyle(.white)
+
+                        Text("\(rewards.unlockedGearIDs.count) gear pieces · \(rewards.milestones.count) milestones")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.66))
+                    }
+
+                    Spacer(minLength: 4)
+
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.white.opacity(0.62))
+                        .padding(.bottom, 4)
                 }
-
-                Spacer(minLength: 6)
-
-                Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.tertiary)
+                .padding(16)
             }
-            .padding(14)
-            .background(
-                AtheviaAdaptiveStyle(.background.secondary, gaming: .surface),
-                in: .rect(cornerRadius: 18)
-            )
+            .frame(height: 175)
+            .clipShape(.rect(cornerRadius: 22))
             .overlay {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .strokeBorder(AtheviaAdaptiveStyle(.separator.opacity(0.45), gaming: .border), lineWidth: 0.5)
+                RoundedRectangle(cornerRadius: 22)
+                    .stroke(.white.opacity(0.08), lineWidth: 1)
             }
             .contentShape(.rect)
         }
