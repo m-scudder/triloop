@@ -40,12 +40,12 @@ Expected objects / data:
 
 - Armature: `RIG__athlete`
 - Camera: `CAMERA__avatar`
-- Bodies:
-  - `BODY__feminine`
-  - `BODY__masculine`
-- Body shape keys:
+- Balanced presentation body:
+  - `BODY__feminine` or `BODY__masculine`
+- Discrete skinned body presets:
   - `BODY__lean`
   - `BODY__powerful`
+- Runtime USDZ body meshes intentionally contain **no MakeHuman authoring shape keys**.
 - Hair objects:
   - `HAIR__tied`
   - later: `HAIR__cropped`, `HAIR__textured`, etc.
@@ -128,7 +128,7 @@ After Blender + MPFB are installed, run:
   --poses tools/avatar_pipeline/config/poses.json
 ```
 
-The bootstrap script creates the body, lean/powerful morph targets, rig, camera, studio lights, starter hair, starter running gear and pose actions automatically from installed MPFB assets.
+The bootstrap script creates balanced / lean / powerful same-topology body meshes, one shared rig, camera, studio lights, modular hair, starter running gear and pose actions automatically from installed MPFB assets. MakeHuman construction morphs are baked before USD export and never become runtime blend shapes.
 
 The first run should be treated as a visual calibration pass. Any pose correction is made in `config/poses.json`; no manual bone posing is required.
 
@@ -155,9 +155,9 @@ blender -b /path/to/athevia-athlete-master.blend \
   --output Athevia/Resources/Avatar3D/AtheviaAthleteFeminine.usdz
 ```
 
-The USDZ preserves the shared skeleton, skinned meshes, body blend shapes and named
-body/hair/gear hierarchy. On iOS, RealityKit loads the package and `AthleteAvatar`
-controls the visible gear, material colors, body blend weights and skeletal pose.
+The USDZ preserves one shared skeleton plus separately skinned body, hair, face and
+gear meshes. On iOS, RealityKit loads the package and `AthleteAvatar` controls body
+mesh visibility, hair / gear visibility, material colors and skeletal pose.
 
 Runtime contract:
 
@@ -171,7 +171,7 @@ HAIR__*
 GEAR__*
 RIG__athlete
         ↓
-materials + body morph + pose
+materials + mesh selection + pose
 ```
 
 Large avatar surfaces use the dynamic RealityKit character. Small profile icons can
