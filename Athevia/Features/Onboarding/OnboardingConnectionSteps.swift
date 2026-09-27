@@ -47,7 +47,7 @@ struct HealthStepView: View {
                             .frame(width: 26)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(use.title).font(.subheadline.weight(.medium))
-                            Text(use.detail).font(.footnote).foregroundStyle(.secondary)
+                            Text(use.detail).font(.footnote).foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                         }
                         Spacer(minLength: 0)
                     }
@@ -56,12 +56,12 @@ struct HealthStepView: View {
 
             Text("Athevia only reads. Nothing is written back to Health, and nothing leaves your device.")
                 .font(.footnote)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
 
             if let message {
                 Label(message, systemImage: "exclamationmark.circle")
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
         }
         .task { status = await health.authorizationStatus }
@@ -122,20 +122,20 @@ struct WatchStepView: View {
                         .font(.subheadline.weight(.medium))
                     Text("You still start and record workouts in Apple's Workout app. Athevia just puts the right session there.")
                         .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 }
             }
 
             if !watch.canSchedule {
                 Text("Workout scheduling is not available on this device.")
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
 
             if let message {
                 Label(message, systemImage: "exclamationmark.circle")
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
         }
         .task(id: scenePhase) {
@@ -170,3 +170,4 @@ struct WatchStepView: View {
         }
     }
 }
+

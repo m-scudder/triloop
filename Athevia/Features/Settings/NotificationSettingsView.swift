@@ -17,6 +17,7 @@ struct NotificationSettingsView: View {
 
     var body: some View {
         List {
+            Group {
             Section {
                 LabeledContent("Permission", value: authorizationText)
 
@@ -54,7 +55,11 @@ struct NotificationSettingsView: View {
                         .toggleStyle(AtheviaToggleStyle())
                 }
             }
+            }
+            .atheviaListRow()
         }
+        .atheviaList()
+        .atheviaScreen()
         .navigationTitle("Notifications")
         .navigationBarTitleDisplayMode(.inline)
         .task { authorization = await TrainingNotificationManager.shared.authorizationStatus() }
@@ -118,3 +123,4 @@ struct NotificationSettingsView: View {
         UIApplication.shared.open(url)
     }
 }
+

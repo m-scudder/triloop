@@ -7,6 +7,8 @@ import UIKit
 /// Home owns workout execution. Plan and Workout Detail explain the plan and
 /// result without repeating these primary actions.
 struct TodayWorkoutView: View {
+    @Environment(\.atheviaTheme) private var theme
+
     let workout: PlannedWorkout
     let isScheduledOnWatch: Bool
     let isScheduling: Bool
@@ -29,7 +31,7 @@ struct TodayWorkoutView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Label(workout.discipline.displayName, systemImage: workout.discipline.symbolName)
                     .font(.subheadline.weight(.medium))
-                    .foregroundStyle(workout.discipline.tint)
+                    .foregroundStyle(workout.discipline.themedTint(theme))
 
                 Text(workout.title)
                     .font(.largeTitle.weight(.semibold))
@@ -48,7 +50,7 @@ struct TodayWorkoutView: View {
             if let cue = TodayCoachingCue.text(for: workout) {
                 Text(cue)
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
 
             if workout.discipline == .running
@@ -82,7 +84,7 @@ struct TodayWorkoutView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Button("I completed this workout", action: markDone)
                     .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
 
                 Text("Use this when you trained without Athevia tracking. You can still add how the workout felt.")
                     .font(.caption)
@@ -236,7 +238,7 @@ struct TodayAwaitingImportView: View {
         VStack(alignment: .leading, spacing: 14) {
             Label("\(workout.discipline.displayName.uppercased()) FINISHED", systemImage: "checkmark.circle")
                 .font(.headline)
-                .foregroundStyle(.green)
+                .foregroundStyle(AtheviaAdaptiveStyle(.green, gaming: .success))
 
             Text(workout.title)
                 .font(.title2.weight(.semibold))
@@ -245,7 +247,7 @@ struct TodayAwaitingImportView: View {
                 ProgressView().controlSize(.small)
                 Text("Waiting for Apple Health to sync workout details")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
         }
     }
@@ -263,7 +265,7 @@ struct TodayCompletedView: View {
             HStack {
                 Label("\(workout.discipline.displayName.uppercased()) COMPLETE", systemImage: "checkmark.circle.fill")
                     .font(.headline)
-                    .foregroundStyle(.green)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.green, gaming: .success))
 
                 Spacer()
 
@@ -287,7 +289,7 @@ struct TodayCompletedView: View {
             if let rpe = workout.feedback?.rpe {
                 Text("Effort \(rpe)/10")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
 
             if let outcome {
@@ -298,7 +300,7 @@ struct TodayCompletedView: View {
             if let explanation {
                 Text(explanation)
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
 
             NavigationLink("View analysis") {
@@ -354,7 +356,7 @@ struct TodayStatementView: View {
         VStack(alignment: .leading, spacing: 14) {
             Text(heading.uppercased())
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 .tracking(0.8)
 
             Text(message)
@@ -363,7 +365,7 @@ struct TodayStatementView: View {
             if let detail {
                 Text(detail)
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
 
             if let actionTitle, let action {
@@ -381,7 +383,7 @@ struct TodayNextView: View {
     var body: some View {
         Text(text)
             .font(.footnote)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
     }
 
     private var text: String {
@@ -425,7 +427,7 @@ struct TodayGlanceView: View {
                         HStack {
                             Text(tile.label)
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                             if tile.slot == .adherence {
                                 InfoButton(concept: .adherence)
                             }
@@ -438,3 +440,4 @@ struct TodayGlanceView: View {
         }
     }
 }
+

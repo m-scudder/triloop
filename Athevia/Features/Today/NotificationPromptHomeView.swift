@@ -19,7 +19,7 @@ struct NotificationPromptHomeView: View {
                     )
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
-                    .background(.bar)
+                    .background(AtheviaAdaptiveStyle(.bar, gaming: .surface))
                 }
             }
             .sheet(isPresented: $showingSetup) {
@@ -38,3 +38,4 @@ struct NotificationPromptHomeView: View {
         !plans.isEmpty && !promptDismissed && authorization == .notDetermined
     }
 }
+

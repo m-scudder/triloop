@@ -2,6 +2,8 @@ import SwiftData
 import SwiftUI
 
 struct SettingsView: View {
+    @Environment(\.atheviaTheme) private var theme
+
     var authentication: AuthenticationCoordinator?
     var backup: BackupCoordinator?
     var onLocalDataWillErase: () -> Void = {}
@@ -37,6 +39,7 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             List {
+                Group {
                 profileSection
                 trainingSection
                 notificationsSection
@@ -46,7 +49,11 @@ struct SettingsView: View {
                 accountSection
                 accountActions
                 versionFooter
+                }
+                .atheviaListRow()
             }
+            .atheviaList()
+            .atheviaScreen()
             .navigationTitle("Settings")
             .task(id: scenePhase) {
                 guard scenePhase == .active else { return }
@@ -130,6 +137,7 @@ struct SettingsView: View {
                 Text(accountMessage ?? "")
             }
         }
+        .atheviaScreen()
     }
 
     @ViewBuilder
@@ -148,7 +156,7 @@ struct SettingsView: View {
 
                         Text(profileSummary(profile))
                             .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                             .lineLimit(2)
                     }
                 }
@@ -265,7 +273,7 @@ struct SettingsView: View {
                 Text("v\(appVersion)")
                     .font(.caption)
             }
-            .foregroundStyle(.secondary)
+            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             .frame(maxWidth: .infinity)
             .padding(.vertical, 20)
             .listRowBackground(Color.clear)
@@ -279,6 +287,7 @@ struct SettingsView: View {
         NavigationLink("Simulate training") {
             DeveloperToolsView()
         }
+        .accessibilityIdentifier("settings.simulateTraining")
         #endif
     }
 
@@ -333,7 +342,7 @@ struct SettingsView: View {
         }
         .foregroundStyle(.primary)
         .frame(width: 52, height: 52)
-        .background(.fill.tertiary, in: .circle)
+        .background(AtheviaAdaptiveStyle(.fill.tertiary, gaming: .raisedSurface), in: .circle)
     }
 
     private func profileDisplayName(_ profile: AthleteProfile) -> String {
@@ -586,6 +595,7 @@ private struct AccountBackupSettingsSheetView: View {
                 }
             }
         }
+        .atheviaScreen()
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
     }
@@ -603,6 +613,7 @@ private struct AudioCoachingSettingsSheetView: View {
                     }
                 }
         }
+        .atheviaScreen()
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
     }
@@ -620,6 +631,7 @@ private struct NotificationSettingsSheetView: View {
                     }
                 }
         }
+        .atheviaScreen()
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
     }
@@ -642,6 +654,7 @@ private struct HealthConnectionSetupView: View {
     var body: some View {
         NavigationStack {
             List {
+                Group {
                 Section {
                     ConnectionSheetStatusRow(
                         title: "Apple Health",
@@ -654,7 +667,7 @@ private struct HealthConnectionSetupView: View {
                 Section {
                     if status == .unavailable {
                         Text("Apple Health is not available on this device.")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                     } else {
                         Button {
                             connect()
@@ -667,7 +680,11 @@ private struct HealthConnectionSetupView: View {
                         .disabled(isWorking)
                     }
                 }
+                }
+                .atheviaListRow()
             }
+            .atheviaList()
+            .atheviaScreen()
             .navigationTitle("Apple Health")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -676,6 +693,7 @@ private struct HealthConnectionSetupView: View {
                 }
             }
         }
+        .atheviaScreen()
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
     }
@@ -701,7 +719,7 @@ private struct ConnectionSheetStatusRow: View {
             Image(systemName: systemImage)
                 .font(.title2)
                 .frame(width: 42, height: 42)
-                .background(.fill.tertiary, in: .circle)
+                .background(AtheviaAdaptiveStyle(.fill.tertiary, gaming: .raisedSurface), in: .circle)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
@@ -709,7 +727,7 @@ private struct ConnectionSheetStatusRow: View {
                 HStack(spacing: 5) {
                     if isConnected {
                         Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
+                            .foregroundStyle(AtheviaAdaptiveStyle(.green, gaming: .success))
                     }
                     Text(status)
                         .foregroundStyle(isConnected ? Color.green : Color.secondary)
@@ -735,6 +753,7 @@ private struct WatchAppSetupView: View {
     var body: some View {
         NavigationStack {
             List {
+                Group {
                 Section {
                     ConnectionSheetStatusRow(
                         title: "Apple Watch",
@@ -812,7 +831,7 @@ private struct WatchAppSetupView: View {
                         if let statusMessage {
                             Text(statusMessage)
                                 .font(.footnote)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                         }
                     } header: {
                         Text("Athevia Workout Sync")
@@ -858,11 +877,15 @@ private struct WatchAppSetupView: View {
                         if let statusMessage {
                             Text(statusMessage)
                                 .font(.footnote)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                         }
                     }
                 }
+                }
+                .atheviaListRow()
             }
+            .atheviaList()
+            .atheviaScreen()
             .navigationTitle("Apple Watch")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -872,6 +895,7 @@ private struct WatchAppSetupView: View {
             }
             .onAppear { watch.refresh() }
         }
+        .atheviaScreen()
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
     }
@@ -893,16 +917,16 @@ private struct WatchAppSetupView: View {
         HStack(alignment: .top, spacing: 12) {
             Text("\(number)")
                 .font(.caption.weight(.bold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 .frame(width: 26, height: 26)
-                .background(.fill.tertiary, in: .circle)
+                .background(AtheviaAdaptiveStyle(.fill.tertiary, gaming: .raisedSurface), in: .circle)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.subheadline.weight(.semibold))
                 Text(detail)
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
         }
         .padding(.vertical, 2)
@@ -924,7 +948,7 @@ private struct SettingsNavigationRow: View {
             if let value, !value.isEmpty {
                 Text(value)
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
         }
     }
@@ -945,12 +969,12 @@ private struct SettingsStatusRow: View {
 
             if isConnected {
                 Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.green, gaming: .success))
                     .accessibilityLabel("Connected")
             } else {
                 Text(value)
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
         }
         .contentShape(.rect)

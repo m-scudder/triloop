@@ -14,7 +14,7 @@ struct MilestoneCelebrationView: View {
             VStack(spacing: 18) {
                 Image(systemName: "flag.checkered.circle.fill")
                     .font(.system(size: 46))
-                    .foregroundStyle(.tint)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.tint, gaming: .achievement))
 
                 VStack(spacing: 6) {
                     Text("Milestone reached")
@@ -49,6 +49,7 @@ struct MilestoneCelebrationView: View {
             .padding(24)
             .navigationBarTitleDisplayMode(.inline)
         }
+        .atheviaScreen()
         .presentationDetents([.medium])
     }
 }

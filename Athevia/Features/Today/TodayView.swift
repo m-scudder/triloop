@@ -44,7 +44,7 @@ struct TodayView: View {
                         if let focus = journey.primaryFocus {
                             Text("Focus · \(focus.kind.displayName)")
                                 .font(.subheadline.weight(.medium))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                         }
                     }
 
@@ -66,6 +66,7 @@ struct TodayView: View {
                 .padding(.bottom, 32)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .atheviaScreen()
             .navigationTitle(TrainingFormatter.shortDate(.now))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -79,6 +80,7 @@ struct TodayView: View {
             .task(id: scenePhase) { await refresh() }
             .onAppear { Task { await syncWatchState() } }
         }
+        .atheviaScreen()
     }
 
     @ViewBuilder
@@ -98,7 +100,7 @@ struct TodayView: View {
                 }
                 .foregroundStyle(.primary)
                 .frame(width: 30, height: 30)
-                .background(.fill.tertiary, in: .circle)
+                .background(AtheviaAdaptiveStyle(.fill.tertiary, gaming: .raisedSurface), in: .circle)
             }
             .accessibilityLabel("Training profile")
         }
@@ -123,7 +125,7 @@ struct TodayView: View {
             }
             .font(.subheadline)
             .padding(12)
-            .background(.fill.tertiary, in: .rect(cornerRadius: 12))
+            .background(AtheviaAdaptiveStyle(.fill.tertiary, gaming: .raisedSurface), in: .rect(cornerRadius: 12))
         }
         .buttonStyle(.plain)
     }
@@ -137,7 +139,7 @@ struct TodayView: View {
 
             Text("Your answer is what decides how hard the coming days are.")
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
 
             Button("Check in") { checkInWorkout = pending }
                 .buttonStyle(PrimaryActionButtonStyle())
@@ -240,7 +242,7 @@ struct TodayView: View {
                     systemImage: "checkmark.circle.fill"
                 )
                 .font(.headline)
-                .foregroundStyle(.green)
+                .foregroundStyle(AtheviaAdaptiveStyle(.green, gaming: .success))
 
                 Spacer()
 
@@ -278,7 +280,7 @@ struct TodayView: View {
                 ForEach(finished) { workout in
                     HStack(spacing: 8) {
                         Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
+                            .foregroundStyle(AtheviaAdaptiveStyle(.green, gaming: .success))
                         Text(workout.title)
                         Spacer(minLength: 0)
                     }
@@ -295,7 +297,7 @@ struct TodayView: View {
                 .font(.footnote)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
-                .background(.thinMaterial, in: .rect(cornerRadius: 12))
+                .background(AtheviaAdaptiveStyle(.thinMaterial, gaming: .surface), in: .rect(cornerRadius: 12))
                 .padding(.bottom, 12)
                 .transition(.opacity)
         }
@@ -434,3 +436,4 @@ struct TodayView: View {
         }
     }
 }
+

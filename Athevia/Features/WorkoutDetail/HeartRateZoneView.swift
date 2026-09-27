@@ -27,7 +27,7 @@ struct HeartRateZoneView: View {
 
             Text(caption)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
         }
     }
 
@@ -58,7 +58,7 @@ struct HeartRateZoneView: View {
             Text("\(Int((share * 100).rounded()))%")
                 .font(.caption)
                 .monospacedDigit()
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 .frame(width: 36, alignment: .trailing)
         }
     }
@@ -75,3 +75,4 @@ struct HeartRateZoneView: View {
         }
     }
 }
+

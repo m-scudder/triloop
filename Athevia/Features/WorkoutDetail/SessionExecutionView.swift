@@ -48,7 +48,7 @@ struct SessionExecutionView: View {
                 .frame(width: 80, alignment: .trailing)
         }
         .font(.caption)
-        .foregroundStyle(.secondary)
+        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
     }
 
     private func row(_ name: String, planned: String?, actual: String?) -> some View {
@@ -64,3 +64,4 @@ struct SessionExecutionView: View {
         .monospacedDigit()
     }
 }
+

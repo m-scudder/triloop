@@ -25,7 +25,7 @@ struct WeekReviewView: View {
             VStack(alignment: .leading, spacing: 18) {
                 Text(TrainingFormatter.weekRange(start: analysis.startDate, end: analysis.endDate))
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
 
                 banner
 
@@ -36,7 +36,7 @@ struct WeekReviewView: View {
                 if analysis.sports.isEmpty {
                     Text("No sessions have been reported for this week yet.")
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 }
 
                 if !nextWeekExists {
@@ -51,13 +51,14 @@ struct WeekReviewView: View {
                     if !analysis.isReadyForNextWeek {
                         Text("Available once every completed session this week has a report.")
                             .font(.footnote)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                     }
                 }
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 24)
         }
+        .atheviaScreen()
         .navigationTitle("Week \(analysis.weekNumber) Analysis")
         .navigationBarTitleDisplayMode(.large)
     }
@@ -84,7 +85,7 @@ struct WeekReviewView: View {
                 HStack {
                     Image(systemName: sport.sport.discipline.symbolName)
                         .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                     Text(sport.sport.displayName)
                         .font(.subheadline.weight(.semibold))
                     Spacer()
@@ -109,7 +110,7 @@ struct WeekReviewView: View {
                 ForEach(Array(sport.reasons.filter(\.isSafetyCritical).enumerated()), id: \.offset) { _, reason in
                     Text(reason.summary)
                         .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 }
 
                 WhyButton(explanation: .weekly(sport, parameters: plan.parameters))
@@ -128,3 +129,4 @@ struct WeekReviewView: View {
             : "—"
     }
 }
+

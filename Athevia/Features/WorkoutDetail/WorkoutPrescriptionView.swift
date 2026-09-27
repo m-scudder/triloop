@@ -38,7 +38,7 @@ private struct StepView: View {
                     if let measure = measureText {
                         Text(measure)
                             .font(.body.monospacedDigit())
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                     }
                 }
             }
@@ -46,7 +46,7 @@ private struct StepView: View {
             if let instructions = step.instructions {
                 Text(instructions)
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
         }
     }
@@ -79,7 +79,7 @@ private struct StepView: View {
 
                             Text(child.title)
                                 .font(.body)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
 
                             Spacer(minLength: 12)
                         }
@@ -96,7 +96,7 @@ private struct StepView: View {
             if let instructions = step.instructions {
                 Text(instructions)
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
         }
     }
@@ -143,3 +143,4 @@ private struct StepView: View {
     .modelContainer(PreviewData.container)
 }
 #endif
+

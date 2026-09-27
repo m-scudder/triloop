@@ -5,6 +5,8 @@ import SwiftUI
 /// Progress answers three questions without duplicating Plan:
 /// Am I progressing? What has my training looked like? How is recovery trending?
 struct ProgressOverviewView: View {
+    @Environment(\.atheviaTheme) private var theme
+
     @Query(sort: \WeeklyPlan.startDate) private var plans: [WeeklyPlan]
     @Query private var profiles: [AthleteProfile]
 
@@ -92,9 +94,11 @@ struct ProgressOverviewView: View {
                     .padding(.bottom, 24)
                 }
             }
+            .atheviaScreen()
             .navigationTitle("Progress")
             .navigationBarTitleDisplayMode(.inline)
         }
+        .atheviaScreen()
     }
 
     @ViewBuilder
@@ -186,7 +190,7 @@ struct ProgressOverviewView: View {
 
                     Text(summary.detail)
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -250,9 +254,9 @@ struct ProgressOverviewView: View {
                         HStack(spacing: 14) {
                             Image(systemName: state.sport.discipline.symbolName)
                                 .font(.headline)
-                                .foregroundStyle(state.sport.discipline.tint)
+                                .foregroundStyle(state.sport.discipline.themedTint(theme))
                                 .frame(width: 38, height: 38)
-                                .background(state.sport.discipline.tint.opacity(0.12), in: .circle)
+                                .background(state.sport.discipline.themedTint(theme).opacity(0.12), in: .circle)
 
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(state.sport.displayName)
@@ -260,7 +264,7 @@ struct ProgressOverviewView: View {
                                 Text(state.prescription)
                                     .font(.subheadline)
                                     .monospacedDigit()
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                             }
 
                             Spacer(minLength: 8)
@@ -313,7 +317,7 @@ struct ProgressOverviewView: View {
 
                 Text("Completed training time by week")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
         }
     }
@@ -327,7 +331,7 @@ struct ProgressOverviewView: View {
                 .minimumScaleFactor(0.8)
             Text(caption)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -346,3 +350,4 @@ private struct ProgressWeekSummary: Identifiable {
         .modelContainer(PreviewData.container)
 }
 #endif
+

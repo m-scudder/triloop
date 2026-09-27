@@ -13,6 +13,8 @@ struct WorkoutActivityAttributes: ActivityAttributes {
         var timerStartedAt: Date?
         var timerEndsAt: Date?
         var frozenSeconds: TimeInterval
+        var gamingThemeEnabled: Bool? = nil
+        var gamingPalette: String? = nil
     }
 
     var workoutTitle: String
@@ -30,13 +32,15 @@ struct AtheviaWorkoutLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: WorkoutActivityAttributes.self) { context in
             lockScreen(context)
-                .activityBackgroundTint(.black.opacity(0.82))
-                .activitySystemActionForegroundColor(.white)
+                .atheviaTheme(AtheviaTheme(gamingEnabled: context.state.gamingThemeEnabled ?? false, palette: GamingPalette.resolve(context.state.gamingPalette)), classicTint: .white)
+                .activityBackgroundTint(context.state.gamingThemeEnabled == true ? GamingPalette.resolve(context.state.gamingPalette).color(.canvas) : .black.opacity(0.82))
+                .activitySystemActionForegroundColor(context.state.gamingThemeEnabled == true ? GamingPalette.resolve(context.state.gamingPalette).color(.accent) : .white)
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
                     Label(context.attributes.disciplineName, systemImage: "figure.run")
                         .font(.caption.weight(.semibold))
+                        .foregroundStyle(context.state.gamingThemeEnabled == true ? GamingPalette.resolve(context.state.gamingPalette).color(.highlight) : .primary)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     timer(context.state, compact: true)
@@ -69,6 +73,7 @@ struct AtheviaWorkoutLiveActivity: Widget {
             } minimal: {
                 Image(systemName: context.state.isPaused ? "pause.fill" : "figure.run")
             }
+            .keylineTint(context.state.gamingThemeEnabled == true ? GamingPalette.resolve(context.state.gamingPalette).color(.accent) : nil)
         }
     }
 
@@ -108,6 +113,12 @@ struct AtheviaWorkoutLiveActivity: Widget {
 
     @ViewBuilder
     private func timer(_ state: WorkoutActivityAttributes.ContentState, compact: Bool) -> some View {
+        timerText(state, compact: compact)
+            .foregroundStyle(state.gamingThemeEnabled == true ? GamingPalette.resolve(state.gamingPalette).color(.accent) : .primary)
+    }
+
+    @ViewBuilder
+    private func timerText(_ state: WorkoutActivityAttributes.ContentState, compact: Bool) -> some View {
         if state.isPaused {
             Text(format(state.frozenSeconds))
                 .monospacedDigit()

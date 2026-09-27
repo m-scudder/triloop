@@ -14,7 +14,7 @@ struct MetricDetailView: View {
                         .monospacedDigit()
                     Text(metric.caption)
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 }
 
                 Card {
@@ -35,11 +35,12 @@ struct MetricDetailView: View {
                 if let note {
                     Text(note)
                         .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 }
             }
             .padding(20)
         }
+        .atheviaScreen()
         .navigationTitle(metric.title)
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -279,3 +280,4 @@ struct MetricDetailView: View {
         }
     }
 }
+

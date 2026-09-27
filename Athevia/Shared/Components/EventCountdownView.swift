@@ -14,7 +14,7 @@ struct EventCountdownView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(event.displayName.uppercased())
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                         .lineLimit(1)
 
                     Text(TrainingFormatter.shortDate(eventDate, includeYear: true))
@@ -37,3 +37,4 @@ struct EventCountdownView: View {
         }
     }
 }
+

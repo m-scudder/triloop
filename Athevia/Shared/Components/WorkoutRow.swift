@@ -41,7 +41,7 @@ struct WorkoutRow: View {
                 if let summary = WorkoutSummaryText.make(for: workout) {
                     Text(summary)
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 }
             }
 
@@ -49,11 +49,11 @@ struct WorkoutRow: View {
 
             if workout.awaitingFeedback {
                 Image(systemName: "exclamationmark.circle.fill")
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.orange, gaming: .warning))
                     .accessibilityHidden(true)
             } else if workout.status == .completed {
                 Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.green, gaming: .success))
                     .accessibilityHidden(true)
             } else if isToday {
                 Text("Today")
@@ -78,3 +78,4 @@ struct WorkoutRow: View {
         return parts.joined(separator: ", ")
     }
 }
+

@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct JourneyProgressView: View {
+    @Environment(\.atheviaTheme) private var theme
+
     let snapshot: JourneyProgressSnapshot
 
     var body: some View {
@@ -15,7 +17,7 @@ struct JourneyProgressView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Next")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                     Text(snapshot.nextAction)
                         .font(.subheadline)
                 }
@@ -32,7 +34,7 @@ struct JourneyProgressView: View {
                     ForEach(snapshot.capabilities) { item in
                         HStack(alignment: .top, spacing: 12) {
                             Image(systemName: item.sport.discipline.symbolName)
-                                .foregroundStyle(item.sport.discipline.tint)
+                                .foregroundStyle(item.sport.discipline.themedTint(theme))
                                 .frame(width: 30)
 
                             VStack(alignment: .leading, spacing: 3) {
@@ -40,14 +42,14 @@ struct JourneyProgressView: View {
                                     .font(.subheadline.weight(.semibold))
                                 Text(item.currentEvidence)
                                     .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                             }
 
                             Spacer()
 
                             Text(item.state.displayName)
                                 .font(.caption.weight(.medium))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                         }
                         .padding(14)
 
@@ -69,13 +71,13 @@ struct JourneyProgressView: View {
                     ForEach(snapshot.milestones.suffix(4)) { milestone in
                         HStack(alignment: .top, spacing: 12) {
                             Image(systemName: "checkmark.circle.fill")
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(milestone.kind.displayName)
                                     .font(.subheadline.weight(.semibold))
                                 Text(milestone.detail)
                                     .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                                 Text(milestone.achievedAt, format: .dateTime.day().month(.abbreviated).year())
                                     .font(.caption2)
                                     .foregroundStyle(.tertiary)
@@ -93,3 +95,4 @@ struct JourneyProgressView: View {
         }
     }
 }
+

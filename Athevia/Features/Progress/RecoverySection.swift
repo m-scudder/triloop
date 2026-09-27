@@ -23,7 +23,7 @@ struct ProgressRecoveryView: View {
 
             Text("Compared with your own recent baseline. These are observations, not a readiness score.")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
         }
         .task { await loadRecovery() }
     }
@@ -97,7 +97,7 @@ struct RecoverySection: View {
                             )
                         )
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                     }
                 }
 
@@ -109,7 +109,7 @@ struct RecoverySection: View {
                         .monospacedDigit()
                     Text("7-day avg \(format(value.average, for: metric))")
                         .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                         .monospacedDigit()
                 }
             }
@@ -121,7 +121,7 @@ struct RecoverySection: View {
                 Spacer()
                 Text("\(found) of \(required) readings")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
 
         case .unavailable, .queryFailure:
@@ -142,3 +142,4 @@ struct RecoverySection: View {
         }
     }
 }
+

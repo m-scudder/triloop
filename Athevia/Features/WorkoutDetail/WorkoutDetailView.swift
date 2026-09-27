@@ -11,6 +11,7 @@ struct WorkoutDetailView: View {
 
     var body: some View {
         WorkoutDayDetail(workout: workout, scheduler: scheduler)
+            .atheviaScreen()
             .navigationTitle(TrainingFormatter.shortDate(workout.date))
             .navigationBarTitleDisplayMode(.inline)
     }
@@ -24,7 +25,7 @@ struct LabeledSection<Content: View>: View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 .textCase(.uppercase)
             content
         }
@@ -36,6 +37,8 @@ struct LabeledSection<Content: View>: View {
     NavigationStack {
         WorkoutDetailView(workout: PreviewData.workout(.running))
     }
+    .atheviaScreen()
     .modelContainer(PreviewData.container)
 }
 #endif
+

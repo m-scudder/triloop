@@ -7,6 +7,9 @@ import SwiftUI
 /// Writes ordinary feedback through the same model methods the UI uses, so what
 /// the engine sees here is identical to a real report.
 struct DeveloperToolsView: View {
+    @AppStorage(AtheviaTheme.preferenceKey) private var gamingThemeEnabled = false
+    @AppStorage(GamingPalette.preferenceKey) private var gamingPalette = GamingPalette.neon.rawValue
+
     @Environment(\.modelContext) private var modelContext
     @Environment(\.healthProvider) private var health
     @Query(sort: \WeeklyPlan.startDate, order: .reverse) private var plans: [WeeklyPlan]
@@ -47,7 +50,7 @@ struct DeveloperToolsView: View {
 
                 Text(dataset.detail)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
 
                 if dataset.scenarioSetup() != nil {
                     Button("Apply scenario profile") {
@@ -104,8 +107,39 @@ struct DeveloperToolsView: View {
         )
     ]
 
+    private var appearanceSection: some View {
+        Section {
+            Toggle(isOn: $gamingThemeEnabled) {
+                Label("Gaming theme", systemImage: "gamecontroller")
+            }
+            .accessibilityIdentifier("settings.gamingTheme")
+            .accessibilityHint("Changes appearance only. Your training and workouts stay the same.")
+            if gamingThemeEnabled {
+                NavigationLink {
+                    ThemeColorsView()
+                } label: {
+                    HStack {
+                        Label("Theme colours", systemImage: "paintpalette")
+                        Spacer()
+                        Text(GamingPalette.resolve(gamingPalette).name)
+                            .font(.subheadline)
+                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+                    }
+                }
+                .accessibilityIdentifier("settings.themeColors")
+            }
+        } header: {
+            Text("Appearance")
+        } footer: {
+            Text(gamingThemeEnabled ? "Gaming appearance. Your training is unchanged." : "Classic appearance.")
+                .accessibilityIdentifier("settings.themeDescription")
+        }
+    }
+
     var body: some View {
         List {
+            Group {
+            appearanceSection
             healthSourceSection
 
             if let plan = simulationPlan {
@@ -119,7 +153,7 @@ struct DeveloperToolsView: View {
                                 Text(scenario.name)
                                 Text(scenario.detail)
                                     .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                             }
                         }
                     }
@@ -158,7 +192,7 @@ struct DeveloperToolsView: View {
                     } else {
                         Text("Switch Source to Simulated Data above to attach fixture workouts.")
                             .font(.footnote)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                     }
                 } footer: {
                     // Fabricated summaries carry a random UUID that HealthKit
@@ -206,7 +240,7 @@ struct DeveloperToolsView: View {
                 }
             } else {
                 Text("No plan available.")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
 
             Section {
@@ -220,7 +254,11 @@ struct DeveloperToolsView: View {
             } footer: {
                 Text("Start Over clears Athevia's local profile and training data. Apple Health is not deleted; workouts from before the reset are ignored when the fresh plan imports. Resetting reinstalls the fixed week one without touching setup.")
             }
+            }
+            .atheviaListRow()
         }
+        .atheviaList()
+        .atheviaScreen()
         .navigationTitle("Developer")
         .navigationBarTitleDisplayMode(.inline)
         .alert("Developer", isPresented: showingMessage) {
@@ -499,4 +537,94 @@ struct DeveloperToolsView: View {
         }
     }
 }
+
+private struct ThemeColorsView: View {
+    @Environment(\.atheviaTheme) private var theme
+    @AppStorage(GamingPalette.preferenceKey) private var gamingPalette = GamingPalette.neon.rawValue
+
+    var body: some View {
+        List {
+            Section {
+                palettePreview
+            }
+            .atheviaListRow()
+            Section {
+                ForEach(GamingPalette.allCases) { palette in
+                    paletteOption(palette)
+                }
+            } header: {
+                Text("Colour palettes")
+            } footer: {
+                Text("Colours apply immediately across the app.")
+            }
+            .atheviaListRow()
+        }
+        .atheviaList()
+        .navigationTitle("Theme colours")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func paletteOption(_ palette: GamingPalette) -> some View {
+        let selected = GamingPalette.resolve(gamingPalette) == palette
+        return Button {
+            gamingPalette = palette.rawValue
+        } label: {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text(palette.name)
+                        .font(.subheadline.weight(.semibold))
+                    Spacer()
+                    Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                        .foregroundStyle(theme.color(.accent, classic: .primary))
+                }
+                HStack(spacing: 8) {
+                    ForEach([GamingPalette.Role.surface, .hero, .accent, .highlight], id: \.self) { role in
+                        Circle()
+                            .fill(palette.color(role))
+                            .frame(width: 22, height: 22)
+                            .overlay(Circle().strokeBorder(.white.opacity(0.4), lineWidth: 1))
+                    }
+                    Text(palette.summary)
+                        .font(.caption)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+                }
+            }
+            .padding(.vertical, 6)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(palette.name)
+        .accessibilityValue(selected ? "Selected" : "Not selected")
+        .accessibilityHint(palette.summary + ". Applies immediately.")
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityIdentifier("settings.palette.\(palette.rawValue)")
+    }
+
+    private var palettePreview: some View {
+        let palette = GamingPalette.resolve(gamingPalette)
+        return VStack(alignment: .leading, spacing: 12) {
+            Label("Theme preview", systemImage: "sparkles")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(palette.color(.highlight))
+            Text("Ready for your next workout?")
+                .font(.headline)
+                .foregroundStyle(palette.color(.text))
+            Button("Start workout") { }
+                .buttonStyle(PrimaryActionButtonStyle())
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+            Text("Sample button · Preview only")
+                .font(.caption)
+                .foregroundStyle(palette.color(.secondaryText))
+        }
+        .padding(16)
+        .background(palette.heroGradient, in: RoundedRectangle(cornerRadius: 16))
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("settings.palettePreview")
+    }
+
+}
+
 #endif
+

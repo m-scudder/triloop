@@ -45,7 +45,7 @@ struct TrainingLoadSection: View {
                 if weeks.contains(where: \.isPartial) {
                     Text("Some sessions had no heart rate or report, so they are not counted.")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 }
             }
         }
@@ -80,7 +80,7 @@ struct TrainingLoadSection: View {
                 .monospacedDigit()
             Text(caption)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
         }
     }
 }
@@ -120,7 +120,7 @@ struct IntensityDistributionSection: View {
                 if split.isPartial {
                     Text("\(split.unmeasured) session\(split.unmeasured == 1 ? "" : "s") could not be classified.")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 }
 
             case .insufficientHistory, .unavailable, .queryFailure:
@@ -202,7 +202,7 @@ struct SportBalanceSection: View {
                 Text("Actual").frame(width: 70, alignment: .trailing)
             }
             .font(.caption)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
 
             ForEach(comparisons, id: \.sport) { comparison in
                 HStack {
@@ -227,7 +227,8 @@ struct UnavailableNote: View {
     var body: some View {
         Text(text)
             .font(.footnote)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
+

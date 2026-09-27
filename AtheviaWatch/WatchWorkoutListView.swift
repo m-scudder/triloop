@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct WatchWorkoutListView: View {
+    @Environment(\.atheviaTheme) private var theme
+
     @EnvironmentObject private var store: WatchWorkoutStore
     @EnvironmentObject private var manager: WatchWorkoutSessionManager
 
@@ -15,6 +17,7 @@ struct WatchWorkoutListView: View {
                     )
                 } else {
                     List {
+                        Group {
                         if let active = manager.activeWorkout, manager.isActive {
                             Section("Active Workout") {
                                 NavigationLink {
@@ -27,7 +30,7 @@ struct WatchWorkoutListView: View {
                                     )
                                 }
                                 .listRowBackground(
-                                    active.discipline.sportTint.opacity(0.24)
+                                    active.discipline.themedTint(theme).opacity(0.24)
                                 )
                             }
                         }
@@ -55,7 +58,10 @@ struct WatchWorkoutListView: View {
                                 }
                             }
                         }
+                        }
+                        .atheviaListRow()
                     }
+                    .atheviaList()
                     .listStyle(.carousel)
                     .navigationDestination(for: UUID.self) { id in
                         if let workout = store.workouts.first(where: { $0.id == id }) {
@@ -64,8 +70,10 @@ struct WatchWorkoutListView: View {
                     }
                 }
             }
+            .atheviaScreen()
             .navigationTitle("Workouts")
         }
+        .atheviaScreen()
     }
 
     private var activeWorkoutID: UUID? {
@@ -105,7 +113,7 @@ struct WatchWorkoutListView: View {
             )
         }
         .listRowBackground(
-            workout.discipline.sportTint.opacity(
+            workout.discipline.themedTint(theme).opacity(
                 store.isCompleted(workout) ? 0.09 : 0.16
             )
         )
@@ -113,6 +121,8 @@ struct WatchWorkoutListView: View {
 }
 
 private struct WatchWorkoutRow: View {
+    @Environment(\.atheviaTheme) private var theme
+
     let workout: WatchWorkoutPayload
     let isCompleted: Bool
     let showsActiveIndicator: Bool
@@ -121,12 +131,12 @@ private struct WatchWorkoutRow: View {
         HStack(spacing: 10) {
             ZStack {
                 Circle()
-                    .fill(workout.discipline.sportTint.opacity(0.22))
+                    .fill(workout.discipline.themedTint(theme).opacity(0.22))
 
                 Image(systemName: workout.discipline.symbolName)
                     .font(.system(size: 17, weight: .semibold))
                     .symbolRenderingMode(.monochrome)
-                    .foregroundStyle(workout.discipline.sportTint)
+                    .foregroundStyle(workout.discipline.themedTint(theme))
             }
             .frame(width: 34, height: 34)
 
@@ -140,11 +150,11 @@ private struct WatchWorkoutRow: View {
                     if showsActiveIndicator {
                         Image(systemName: "record.circle.fill")
                             .font(.caption)
-                            .foregroundStyle(.green)
+                            .foregroundStyle(AtheviaAdaptiveStyle(.green, gaming: .success))
                     } else if isCompleted {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.caption)
-                            .foregroundStyle(.green)
+                            .foregroundStyle(AtheviaAdaptiveStyle(.green, gaming: .success))
                     }
                 }
 
@@ -193,3 +203,4 @@ extension WatchWorkoutDiscipline {
         }
     }
 }
+

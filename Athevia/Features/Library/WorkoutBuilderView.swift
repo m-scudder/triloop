@@ -30,12 +30,17 @@ struct WorkoutBuilderView: View {
 
     var body: some View {
         Form {
+            Group {
             detailsSection
             effortSection
             blocksSection
             if !issues.isEmpty { issuesSection }
             if draft.isValid(poolLengthMeters: poolLength) { previewSection }
+            }
+            .atheviaListRow()
         }
+        .atheviaList()
+        .atheviaScreen()
         .navigationTitle(isNew ? "New Workout" : "Edit Workout")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -119,7 +124,7 @@ struct WorkoutBuilderView: View {
             ForEach(issues.map(\.message), id: \.self) { message in
                 Label(message, systemImage: "exclamationmark.circle")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
         } header: {
             Text("Before you can save")
@@ -214,7 +219,7 @@ private struct BlockRow: View {
 
             Text(detail)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
         }
     }
 
@@ -255,6 +260,7 @@ struct WorkoutBlockEditor: View {
 
     var body: some View {
         Form {
+            Group {
             Section {
                 TextField("Title", text: $block.title)
             }
@@ -265,7 +271,11 @@ struct WorkoutBlockEditor: View {
                 measureSection
                 intensitySection
             }
+            }
+            .atheviaListRow()
         }
+        .atheviaList()
+        .atheviaScreen()
         .navigationTitle(block.title.isEmpty ? "Block" : block.title)
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -343,3 +353,4 @@ struct WorkoutBlockEditor: View {
     private var distanceStep: Double { sport == .swimming ? 25 : 100 }
     private var distanceRange: ClosedRange<Double> { distanceStep...10_000 }
 }
+

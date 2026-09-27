@@ -35,7 +35,7 @@ struct AppleSignInButtonView: View {
             if let errorMessage {
                 Text(errorMessage)
                     .font(.footnote)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.red, gaming: .danger))
                     .multilineTextAlignment(.center)
             }
         }
@@ -97,3 +97,4 @@ struct AppleSignInButtonView: View {
         }
     }
 }
+

@@ -48,7 +48,7 @@ struct AdvancedMetricsView: View {
                         HStack(alignment: .firstTextBaseline, spacing: 16) {
                             Text(row.name)
                                 .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                                 .frame(maxWidth: .infinity, alignment: .leading)
 
                             Text(row.value)

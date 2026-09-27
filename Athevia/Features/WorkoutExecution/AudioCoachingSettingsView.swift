@@ -13,6 +13,7 @@ struct AudioCoachingSettingsView: View {
 
     var body: some View {
         Form {
+            Group {
             Section {
                 Toggle("Spoken workout guidance", isOn: $enabled)
                     .toggleStyle(AtheviaToggleStyle())
@@ -27,8 +28,13 @@ struct AudioCoachingSettingsView: View {
                         .disabled(!enabled)
                 }
             }
+            }
+            .atheviaListRow()
         }
+        .atheviaList()
+        .atheviaScreen()
         .navigationTitle("Audio coaching")
         .navigationBarTitleDisplayMode(.inline)
     }
 }
+
