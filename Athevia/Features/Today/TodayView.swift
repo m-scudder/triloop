@@ -22,6 +22,7 @@ struct TodayView: View {
     @State private var isResolved = false
 
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.atheviaTheme) private var theme
 
     private let scheduler = WorkoutKitScheduler()
 
@@ -129,7 +130,7 @@ struct TodayView: View {
                     .fill(
                         LinearGradient(
                             colors: [
-                                sport.discipline.tint.opacity(0.28),
+                                sport.discipline.themedTint(theme).opacity(0.28),
                                 Color(red: 0.045, green: 0.07, blue: 0.115),
                                 Color(red: 0.018, green: 0.03, blue: 0.052)
                             ],
