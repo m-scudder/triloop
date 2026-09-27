@@ -7,7 +7,7 @@ blender -b master.blend --python export_realitykit_usdz.py -- \
 
 The export preserves:
 - USD skeleton / skinning
-- body blend shapes
+- three discrete skinned body presets
 - named mesh hierarchy used by the iOS runtime
 - USD Preview Surface materials
 
@@ -109,7 +109,7 @@ def main():
         export_materials=True,
         export_armatures=True,
         only_deform_bones=False,
-        export_shapekeys=True,
+        export_shapekeys=False,
         use_instancing=False,
         evaluation_mode="RENDER",
         generate_preview_surface=True,
