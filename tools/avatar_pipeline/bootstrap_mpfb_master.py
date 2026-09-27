@@ -106,6 +106,75 @@ def add_variant_shape(base, variant, key_name):
     keys[-1].value = 0.0
 
 
+def evaluated_mesh_copy(obj, name):
+    """Bake all MPFB construction shape keys into plain geometry.
+
+    MakeHuman uses many internal morph targets to construct gender, age, weight,
+    muscle and proportion. Those are authoring data, not Athevia runtime blend
+    shapes. Exporting them to USDZ makes RealityKit evaluate a second morph
+    system and can catastrophically deform the body.
+
+    This function captures the object's current evaluated geometry while
+    preserving vertex order / UV data, then returns a new shape-key-free mesh.
+    """
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    evaluated = obj.evaluated_get(depsgraph)
+    mesh = bpy.data.meshes.new_from_object(
+        evaluated,
+        preserve_all_data_layers=True,
+        depsgraph=depsgraph,
+    )
+    mesh.name = name
+    return mesh
+
+
+def bake_athevia_body_variants(base, lean, powerful):
+    """Leave exactly Basis + lean + powerful on the runtime body."""
+
+    balanced_mesh = evaluated_mesh_copy(base, "MESH__bodyBalanced")
+    lean_mesh = evaluated_mesh_copy(lean, "MESH__bodyLean")
+    powerful_mesh = evaluated_mesh_copy(powerful, "MESH__bodyPowerful")
+
+    if not (
+        len(balanced_mesh.vertices)
+        == len(lean_mesh.vertices)
+        == len(powerful_mesh.vertices)
+    ):
+        raise RuntimeError(
+            "Athevia body variants do not share identical topology"
+        )
+
+    old_mesh = base.data
+    base.data = balanced_mesh
+
+    # Object-level vertex groups survive the mesh replacement and still point
+    # at the same vertex indices. The rig is attached only after this bake.
+    if old_mesh.users == 0:
+        bpy.data.meshes.remove(old_mesh)
+
+    base.shape_key_add(name="Basis")
+
+    def append_variant(mesh, key_name):
+        key = base.shape_key_add(name=key_name)
+        for index, vertex in enumerate(mesh.vertices):
+            key.data[index].co = vertex.co
+        key.value = 0.0
+
+    append_variant(lean_mesh, "BODY__lean")
+    append_variant(powerful_mesh, "BODY__powerful")
+
+    bpy.data.meshes.remove(lean_mesh)
+    bpy.data.meshes.remove(powerful_mesh)
+
+    keys = base.data.shape_keys.key_blocks
+    names = [key.name for key in keys]
+    expected = ["Basis", "BODY__lean", "BODY__powerful"]
+    if names != expected:
+        raise RuntimeError(
+            "Unexpected runtime body shape keys: " + str(names)
+        )
+
+
 def normalize_material_name(obj, desired_name):
     if not hasattr(obj.data, "materials"):
         return None
@@ -335,8 +404,7 @@ def main():
     )
 
     activate(balanced)
-    add_variant_shape(balanced, lean, "BODY__lean")
-    add_variant_shape(balanced, powerful, "BODY__powerful")
+    bake_athevia_body_variants(balanced, lean, powerful)
 
     bpy.data.objects.remove(lean, do_unlink=True)
     bpy.data.objects.remove(powerful, do_unlink=True)
