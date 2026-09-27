@@ -41,9 +41,8 @@ struct WeeklyPlanGenerator: Sendable {
             previous: plan.parameters,
             analysis: analysis
         )
-        let parameters = evidenceAdjusted.capped(
-            toTrainingMinutes: trainingMinuteCap(in: schedule)
-        )
+        let parameters = evidenceAdjusted
+            .fillingTrainingWindow(minutes: trainingMinuteCap(in: schedule))
 
         // A sport sent to recovery is not prescribed next week. Its intended
         // slots are left open so they become recovery sessions rather than
