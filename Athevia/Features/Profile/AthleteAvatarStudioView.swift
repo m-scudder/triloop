@@ -201,7 +201,7 @@ struct AthleteAvatarStudioView: View {
                     Button("Continue") {
                         onComplete?()
                     }
-                    .buttonStyle(AtheviaPrimaryButtonStyle())
+                    .buttonStyle(PrimaryActionButtonStyle())
                     .padding(.top, 4)
                 }
             }
