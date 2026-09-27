@@ -15,6 +15,7 @@ def parse_args():
     parser.add_argument("--matrix", required=True)
     parser.add_argument("--catalog", required=True)
     parser.add_argument("--output", required=True)
+    parser.add_argument("--render-scale", type=float, default=1.0)
     return parser.parse_args()
 
 
@@ -94,6 +95,8 @@ def main():
                     args.catalog,
                     "--output",
                     output,
+                    "--render-scale",
+                    str(args.render_scale),
                 ]
                 print("Rendering:", name)
                 subprocess.run(command, check=True)
