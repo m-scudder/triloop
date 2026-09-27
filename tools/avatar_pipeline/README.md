@@ -140,3 +140,42 @@ The first run should be treated as a visual calibration pass. Any pose correctio
 4. Run the bootstrap command above.
 
 After that, avatar renders are generated through scripts rather than manual Blender exports.
+
+
+## Runtime 3D architecture
+
+The production path no longer treats full-character PNGs as the avatar source of truth.
+
+The generated master is exported with:
+
+```bash
+blender -b /path/to/athevia-athlete-master.blend \
+  --python-exit-code 1 \
+  --python tools/avatar_pipeline/export_realitykit_usdz.py -- \
+  --output Athevia/Resources/Avatar3D/AtheviaAthleteFeminine.usdz
+```
+
+The USDZ preserves the shared skeleton, skinned meshes, body blend shapes and named
+body/hair/gear hierarchy. On iOS, RealityKit loads the package and `AthleteAvatar`
+controls the visible gear, material colors, body blend weights and skeletal pose.
+
+Runtime contract:
+
+```text
+AthleteAvatar configuration
+        ↓
+RealityKit AthleteRealityAvatarView
+        ↓
+BODY__*
+HAIR__*
+GEAR__*
+RIG__athlete
+        ↓
+materials + body morph + pose
+```
+
+Large avatar surfaces use the dynamic RealityKit character. Small profile icons can
+continue to use optimized 2D snapshots for performance.
+
+The existing HD PNG character renders are visual references / lightweight fallbacks,
+not the production avatar architecture.
