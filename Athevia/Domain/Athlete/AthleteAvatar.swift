@@ -48,7 +48,7 @@ struct AthleteAvatar: Codable, Equatable, Sendable {
     }
 }
 
-enum AvatarGearCategory: String, CaseIterable, Identifiable, Sendable {
+enum AvatarGearCategory: String, CaseIterable, Identifiable, Hashable, Sendable {
     case top
     case bottom
     case footwear
