@@ -115,6 +115,7 @@ def normalize_material_name(obj, desired_name):
 
 
 def find_asset(AssetService, subdir, keywords, used_paths):
+    AssetService.update_asset_list(asset_subdir=subdir, asset_type="mhclo")
     assets = AssetService.get_asset_list(subdir, "mhclo")
     if not assets:
         raise RuntimeError(
@@ -339,6 +340,32 @@ def main():
     rig.name = "RIG__athlete"
 
     used = set()
+
+    # Facial components are loaded from the CC0 MakeHuman system assets pack.
+    # This avoids a technically correct but visibly unfinished basemesh face.
+    facial_assets = [
+        ("eyes", "high-poly", "Eyes", "FACE__eyes", "MAT__eyes"),
+        ("eyebrows", "eyebrow", "Eyebrows", "FACE__eyebrows", "MAT__eyebrows"),
+        ("eyelashes", "eyelashes", "Eyelashes", "FACE__eyelashes", "MAT__eyelashes"),
+        ("teeth", "teeth_base", "Teeth", "FACE__teeth", "MAT__teeth"),
+    ]
+
+    for subdir, keywords, asset_type, object_name, material_name in facial_assets:
+        definition = find_asset(
+            AssetService,
+            subdir,
+            keywords,
+            used,
+        )
+        used.add(definition["full_path"])
+        add_asset(
+            HumanService,
+            balanced,
+            definition,
+            asset_type,
+            object_name,
+            material_name,
+        )
 
     hair_definition = find_asset(
         AssetService,
