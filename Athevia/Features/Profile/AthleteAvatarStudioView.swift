@@ -1,8 +1,10 @@
 import SwiftUI
 
-/// A high-fidelity, vector-backed athlete renderer used until final production
-/// artwork is supplied. The layout and state model intentionally stay asset-
-/// agnostic so photoreal / 3D renders can replace this view later.
+/// Production avatar presentation.
+///
+/// Validated appearance/loadout combinations resolve to high-resolution rendered
+/// character assets. The vector construction remains only as a temporary fallback
+/// while the production catalog is expanded.
 struct AthleteAvatarView: View {
     let avatar: AthleteAvatar
     var sport: Sport = .running
@@ -74,15 +76,22 @@ struct AthleteAvatarView: View {
               avatar.hairStyle == .tied,
               avatar.hairColor == .espresso,
               avatar.bodyPreset == .balanced,
-              loadout.top == .runTopLavender,
               loadout.bottom == .runShortBlack,
-              loadout.footwear == .runShoeWhite,
               loadout.headwear == nil,
               loadout.accessory == nil else {
             return nil
         }
 
-        return "AvatarFemaleBalancedStarterRun"
+        switch (loadout.top, loadout.footwear) {
+        case (.runTopLavender, .runShoeWhite):
+            return "AvatarFemaleBalancedStarterRun"
+        case (.runTopIvory, .runShoeWhite):
+            return "AvatarFemaleBalancedRunTopIvory"
+        case (.runTopLavender, .runShoeCobalt):
+            return "AvatarFemaleBalancedRunShoeCobalt"
+        default:
+            return nil
+        }
     }
 
     var body: some View {
