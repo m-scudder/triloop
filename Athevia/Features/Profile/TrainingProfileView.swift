@@ -17,6 +17,7 @@ struct TrainingProfileView: View {
     @State private var objectiveDraft: TrainingObjective?
     @State private var newlyAddedSports: Set<Sport> = []
     @State private var isPresentingNewSportAssessment = false
+    @State private var trainingMixNeedsUpdate = false
 
     /// Snapshot from when this profile screen opened. It lets Athevia explain
     /// which edits can change future training without rewriting history.
@@ -487,6 +488,16 @@ struct TrainingProfileView: View {
         .atheviaScreen()
         .navigationTitle("Training Mix")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if trainingMixNeedsUpdate && newlyAddedSports.isEmpty {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Update Plan") {
+                        reassess(showConfirmation: true)
+                        trainingMixNeedsUpdate = false
+                    }
+                }
+            }
+        }
     }
 
     private var newSportAssessment: some View {
@@ -553,6 +564,7 @@ struct TrainingProfileView: View {
                         isPresentingNewSportAssessment = false
                         reassess(showConfirmation: true)
                         newlyAddedSports = []
+                        trainingMixNeedsUpdate = false
                     }
                 }
             }
@@ -793,17 +805,19 @@ struct TrainingProfileView: View {
                     return
                 }
 
-                update { current in
-                    var updated = current.preferences.isEmpty
-                        ? SportPreference.defaults(for: current.baseline)
-                        : current.preferences
-                    if let index = updated.firstIndex(where: { $0.sport == sport }) {
-                        updated[index].sessionsPerWeek = count
-                    } else {
-                        updated.append(SportPreference(sport: sport, sessionsPerWeek: count))
-                    }
-                    current.preferences = updated
+                var current = setup
+                var updated = current.preferences.isEmpty
+                    ? SportPreference.defaults(for: current.baseline)
+                    : current.preferences
+                if let index = updated.firstIndex(where: { $0.sport == sport }) {
+                    updated[index].sessionsPerWeek = count
+                } else {
+                    updated.append(SportPreference(sport: sport, sessionsPerWeek: count))
                 }
+                current.preferences = updated
+                profile.setup = current
+                save()
+                trainingMixNeedsUpdate = true
 
                 if !wasTrained && count > 0 {
                     newlyAddedSports.insert(sport)
