@@ -69,6 +69,11 @@ struct ProgressOverviewView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
+                Text("Progress")
+                    .font(.headline)
+                    .padding(.top, 10)
+                    .padding(.bottom, 8)
+
                 Picker("Progress view", selection: $segment) {
                     ForEach(Segment.allCases) { segment in
                         Text(segment.rawValue).tag(segment)
@@ -95,9 +100,7 @@ struct ProgressOverviewView: View {
                 }
             }
             .atheviaScreen()
-            .navigationTitle("Progress")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbar(.hidden, for: .navigationBar)
         }
         .atheviaScreen()
     }
