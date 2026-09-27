@@ -444,7 +444,9 @@ private struct AthleteRealityAvatarView: View {
                 RealityView { content in
                     content.camera = .virtual
 
-                    let athlete = try await Entity(contentsOf: assetURL)
+                    guard let athlete = try? await Entity(contentsOf: assetURL) else {
+                        return
+                    }
                     athlete.name = "ATHEVIA__athlete"
                     AthleteRealityConfigurator.configure(
                         root: athlete,
