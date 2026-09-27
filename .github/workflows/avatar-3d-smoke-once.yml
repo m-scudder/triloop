@@ -63,13 +63,7 @@ jobs:
             --output /tmp/athevia-avatar-packs/shirts.zip
 
           curl --fail --location --retry 3 \
-            https://files2.makehumancommunity.org/asset_packs/shoes01/shoes01_cc0.zip \
-            --output /tmp/athevia-avatar-packs/shoes.zip
-
-          # Pants03 is CC-BY rather than CC0. It is used only for the first
-          # short-legged prototype garment and must retain attribution.
-          curl --fail --location --retry 3 \
-            https://files2.makehumancommunity.org/asset_packs/pants03/pants03_ccby.zip \
+            https://files2.makehumancommunity.org/asset_packs/pants01/pants01_cc0.zip \
             --output /tmp/athevia-avatar-packs/shorts.zip
 
       - name: Install avatar asset packs
@@ -80,7 +74,6 @@ jobs:
             --python tools/avatar_pipeline/install_asset_packs.py -- \
             --pack /tmp/athevia-avatar-packs/system.zip \
             --pack /tmp/athevia-avatar-packs/shirts.zip \
-            --pack /tmp/athevia-avatar-packs/shoes.zip \
             --pack /tmp/athevia-avatar-packs/shorts.zip
 
       - name: Bootstrap master athlete
@@ -112,8 +105,9 @@ jobs:
           python3 tools/avatar_pipeline/render_matrix.py \
             --blender /tmp/blender/blender \
             --master /tmp/athevia-avatar/athevia-athlete-master.blend \
-            --matrix tools/avatar_pipeline/config/vertical_slice.json \
+            --matrix tools/avatar_pipeline/config/smoke_slice.json \
             --catalog tools/avatar_pipeline/config/catalog.json \
+            --render-scale 0.375 \
             --output /tmp/athevia-avatar/renders
 
       - name: Package Xcode asset preview
@@ -128,7 +122,7 @@ jobs:
       - name: Upload vertical-slice artifact
         uses: actions/upload-artifact@v4
         with:
-          name: athevia-avatar-3d-vertical-slice
+          name: athevia-avatar-3d-smoke
           path: |
             /tmp/athevia-avatar/athevia-athlete-master.blend
             /tmp/athevia-avatar/renders
