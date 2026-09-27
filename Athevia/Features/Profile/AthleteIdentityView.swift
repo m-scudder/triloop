@@ -414,7 +414,7 @@ struct AthleteWardrobeView: View {
         case .bottom: return loadout.bottom == item.id
         case .footwear: return loadout.footwear == item.id
         case .headwear: return loadout.headwear == item.id
-        case .accessory: return false
+        case .accessory: return loadout.accessory == item.id
         }
     }
 }
