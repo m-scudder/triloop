@@ -72,20 +72,6 @@ def set_principled_base_color(material_name, hex_color):
     node.inputs["Base Color"].default_value = hex_to_rgba(hex_color)
 
 
-def set_shape_key(body, key_name, value):
-    keys = getattr(getattr(body.data, "shape_keys", None), "key_blocks", None)
-    if keys is None:
-        if value != 0:
-            raise RuntimeError("Body has no shape keys but requested " + key_name)
-        return
-    key = keys.get(key_name)
-    if key is None:
-        if value != 0:
-            raise RuntimeError("Missing body shape key: " + key_name)
-        return
-    key.value = value
-
-
 def hide_prefixed(prefix):
     for obj in bpy.data.objects:
         if obj.name.startswith(prefix):
@@ -94,16 +80,18 @@ def hide_prefixed(prefix):
 
 def configure_body(config, catalog):
     presentation = config["appearance"]["presentation"]
-    body = require_object("BODY__" + presentation)
+    preset = config["appearance"]["bodyPreset"]
 
-    for candidate in ("BODY__feminine", "BODY__masculine"):
-        obj = bpy.data.objects.get(candidate)
-        if obj is not None:
-            set_visible(obj, obj == body)
+    base_name = "BODY__" + presentation
+    selected_name = {
+        "lean": "BODY__lean",
+        "balanced": base_name,
+        "powerful": "BODY__powerful",
+    }[preset]
 
-    preset = catalog["bodies"][config["appearance"]["bodyPreset"]]
-    set_shape_key(body, "BODY__lean", float(preset["leanShape"]))
-    set_shape_key(body, "BODY__powerful", float(preset["powerfulShape"]))
+    for obj in bpy.data.objects:
+        if obj.name.startswith("BODY__"):
+            set_visible(obj, obj.name == selected_name)
 
     set_principled_base_color(
         "MAT__skin",
