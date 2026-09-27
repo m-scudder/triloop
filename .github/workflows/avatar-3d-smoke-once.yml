@@ -122,3 +122,5 @@ jobs:
             /tmp/athevia-avatar/renders
             /tmp/athevia-avatar/xcassets
           retention-days: 7
+
+# retry after pose/material persistence fix
