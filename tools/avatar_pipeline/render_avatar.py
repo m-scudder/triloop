@@ -175,7 +175,7 @@ def configure_render(config, catalog, output):
     scene.render.filepath = os.path.abspath(output)
 
     # Stable color handling matters more than artistic variation.
-    scene.view_settings.look = "Medium High Contrast"
+    scene.view_settings.look = "AgX - Medium High Contrast"
 
     bpy.ops.render.render(write_still=True)
 
