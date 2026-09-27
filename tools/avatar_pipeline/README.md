@@ -112,3 +112,31 @@ All production renders must use:
 - no identity drift between outfits or poses
 
 Do not scale the catalog until the same athlete remains visibly identical across the full vertical-slice matrix.
+
+
+## Zero-cost master source
+
+The bootstrap path uses **MPFB (MakeHuman for Blender)** rather than a paid character generator.
+
+After Blender + MPFB are installed, run:
+
+```bash
+"/Applications/Blender.app/Contents/MacOS/Blender" -b \
+  --python tools/avatar_pipeline/bootstrap_mpfb_master.py -- \
+  --output "/tmp/athevia-athlete-master.blend" \
+  --presentation feminine \
+  --poses tools/avatar_pipeline/config/poses.json
+```
+
+The bootstrap script creates the body, lean/powerful morph targets, rig, camera, studio lights, starter hair, starter running gear and pose actions automatically from installed MPFB assets.
+
+The first run should be treated as a visual calibration pass. Any pose correction is made in `config/poses.json`; no manual bone posing is required.
+
+### One-time local prerequisites
+
+1. Install Blender 4.x.
+2. Install and enable the MPFB Blender extension.
+3. Install MPFB's free system asset pack so hair and clothing can be selected automatically.
+4. Run the bootstrap command above.
+
+After that, avatar renders are generated through scripts rather than manual Blender exports.
