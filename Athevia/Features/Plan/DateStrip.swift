@@ -130,10 +130,16 @@ struct DateStrip: View {
                 .fill(background(for: day, isSelected: isSelected))
         }
         .overlay {
-            if isToday, !isSelected {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(tint, lineWidth: 1.5)
-            }
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(
+                    isSelected
+                        ? theme.color(.onAccent, classic: .white)
+                        : isToday
+                            ? tint
+                            : .clear,
+                    lineWidth: isSelected ? 2.5 : 1.5
+                )
+                .padding(isSelected ? 2 : 0)
         }
         .opacity(isSkipped && !isSelected ? 0.55 : 1)
         .contentShape(.rect)
