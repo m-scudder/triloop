@@ -343,7 +343,7 @@ struct AthleteWardrobeView: View {
                         .foregroundStyle(
                             equipped
                                 ? selectedSport.discipline.themedTint(theme)
-                                : theme.color(.secondaryText, classic: .secondary)
+                                : theme.color(.secondaryText, classic: Color.secondary)
                         )
                         .multilineTextAlignment(.leading)
                         .lineLimit(2)
