@@ -259,40 +259,46 @@ private enum AthleteRealityConfigurator {
     }
 
     private static func applyPose(root: Entity, pose: AvatarPose) {
-        guard pose != .neutral,
-              let model = firstSkinnedModel(in: root) else {
-            return
-        }
+        guard pose != .neutral else { return }
 
         let rotations = poseRotations(pose)
         guard !rotations.isEmpty else { return }
 
-        var transforms = model.jointTransforms
-        for (index, fullName) in model.jointNames.enumerated() {
-            let shortName = fullName.split(separator: "/").last.map(String.init) ?? fullName
-            guard let degrees = rotations[shortName],
-                  index < transforms.count else {
-                continue
+        for model in skinnedModels(in: root) {
+            var transforms = model.jointTransforms
+
+            for (index, fullName) in model.jointNames.enumerated() {
+                let shortName = fullName
+                    .split(separator: "/")
+                    .last
+                    .map(String.init) ?? fullName
+
+                guard let degrees = rotations[shortName],
+                      index < transforms.count else {
+                    continue
+                }
+
+                var transform = transforms[index]
+                transform.rotation = quaternion(degrees: degrees)
+                transforms[index] = transform
             }
 
-            var transform = transforms[index]
-            transform.rotation = quaternion(degrees: degrees)
-            transforms[index] = transform
+            model.jointTransforms = transforms
         }
-        model.jointTransforms = transforms
     }
 
-    private static func firstSkinnedModel(in root: Entity) -> ModelEntity? {
+    private static func skinnedModels(in root: Entity) -> [ModelEntity] {
+        var result: [ModelEntity] = []
+
         if let model = root as? ModelEntity, !model.jointNames.isEmpty {
-            return model
+            result.append(model)
         }
 
         for child in root.children {
-            if let model = firstSkinnedModel(in: child) {
-                return model
-            }
+            result.append(contentsOf: skinnedModels(in: child))
         }
-        return nil
+
+        return result
     }
 
     private static func poseRotations(
