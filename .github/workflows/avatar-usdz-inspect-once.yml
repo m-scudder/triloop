@@ -1,0 +1,57 @@
+name: Inspect RealityKit USDZ Once
+
+on:
+  push:
+    branches:
+      - feat/athlete-avatar-experience
+    paths:
+      - ".github/workflows/avatar-usdz-inspect-once.yml"
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Blender MPFB and USD Python
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --user usd-core
+          curl --fail --location --retry 3             https://download.blender.org/release/Blender4.5/blender-4.5.14-linux-x64.tar.xz             -o /tmp/blender.tar.xz
+          mkdir -p /tmp/blender
+          tar -xJf /tmp/blender.tar.xz -C /tmp/blender --strip-components=1
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends             libegl1 libgl1 libgl1-mesa-dri libx11-6 libxext6
+          /tmp/blender/blender --online-mode --command extension install -s -e mpfb
+
+      - name: Install avatar asset packs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/packs
+          curl --fail --location --retry 3             https://files2.makehumancommunity.org/asset_packs/makehuman_system_assets/makehuman_system_assets_cc0.zip             -o /tmp/packs/system.zip
+          curl --fail --location --retry 3             https://files2.makehumancommunity.org/asset_packs/shirts01/shirts01_cc0.zip             -o /tmp/packs/shirts.zip
+          curl --fail --location --retry 3             https://files2.makehumancommunity.org/asset_packs/pants01/pants01_cc0.zip             -o /tmp/packs/pants.zip
+          /tmp/blender/blender -b             --python tools/avatar_pipeline/install_asset_packs.py --             --pack /tmp/packs/system.zip             --pack /tmp/packs/shirts.zip             --pack /tmp/packs/pants.zip
+
+      - name: Generate and inspect feminine package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/avatar
+          /tmp/blender/blender -b             --python tools/avatar_pipeline/bootstrap_mpfb_master.py --             --output /tmp/avatar/feminine.blend             --presentation feminine             --poses tools/avatar_pipeline/config/poses.json
+
+          /tmp/blender/blender -b /tmp/avatar/feminine.blend             --python-exit-code 1             --python tools/avatar_pipeline/validate_scene.py --             --catalog tools/avatar_pipeline/config/catalog.json             --poses tools/avatar_pipeline/config/poses.json
+
+          /tmp/blender/blender -b /tmp/avatar/feminine.blend             --python-exit-code 1             --python tools/avatar_pipeline/export_realitykit_usdz.py --             --output /tmp/avatar/feminine.usdz
+
+          python3 tools/avatar_pipeline/inspect_usdz.py             --usdz /tmp/avatar/feminine.usdz
+
+      - name: Upload inspected package
+        uses: actions/upload-artifact@v4
+        with:
+          name: inspected-athevia-feminine-usdz
+          path: /tmp/avatar/feminine.usdz
+          retention-days: 2
