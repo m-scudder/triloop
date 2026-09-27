@@ -1,0 +1,13 @@
+{
+  "images" : [
+    {
+      "filename" : "athevia-gear-run-top-ivory.png",
+      "idiom" : "universal",
+      "scale" : "1x"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}
