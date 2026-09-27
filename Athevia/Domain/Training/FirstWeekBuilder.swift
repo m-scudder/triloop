@@ -262,7 +262,7 @@ struct FirstWeekBuilder: Sendable {
             .max()
         let timeExplanation: String
         if let selectedMinutes, let plannedMinutes, plannedMinutes < selectedMinutes {
-            timeExplanation = " You gave Athevia up to \(selectedMinutes) minutes; this week deliberately uses shorter sessions because your current starting point does not need the full window yet."
+            timeExplanation = " You selected \(selectedMinutes) minutes per training day. Normal sessions are sized to use most of that window; shorter sessions here are intentional for the workout type or training phase."
         } else {
             timeExplanation = ""
         }
