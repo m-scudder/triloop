@@ -22,34 +22,36 @@ private enum AvatarRenderAssetResolver {
             return canonical
         }
 
-        // Compatibility with the first proof-of-quality vertical slice.
-        guard pose == .neutral,
-              sport == .running,
-              avatar.presentation == .feminine,
-              avatar.skinTone == .warmMedium,
-              avatar.hairStyle == .tied,
-              avatar.hairColor == .espresso,
-              avatar.bodyPreset == .balanced else {
-            return nil
-        }
+        // Production-safe fallback: user-facing screens must never show the
+        // old geometric prototype. Exact generated combinations win first;
+        // otherwise use the nearest HD presentation asset until that precise
+        // body / hair / sport / pose render is added to the catalog.
+        if avatar.presentation == .feminine {
+            if pose == .neutral,
+               sport == .running,
+               avatar.skinTone == .warmMedium,
+               avatar.hairStyle == .tied,
+               avatar.hairColor == .espresso,
+               avatar.bodyPreset == .balanced {
+                let loadout = avatar.loadout(for: sport)
+                if loadout.bottom == .runShortBlack,
+                   loadout.headwear == nil,
+                   loadout.accessory == nil {
+                    switch (loadout.top, loadout.footwear) {
+                    case (.runTopIvory, .runShoeWhite):
+                        return "AvatarFemaleBalancedRunTopIvory"
+                    case (.runTopLavender, .runShoeCobalt):
+                        return "AvatarFemaleBalancedRunShoeCobalt"
+                    default:
+                        break
+                    }
+                }
+            }
 
-        let loadout = avatar.loadout(for: sport)
-        guard loadout.bottom == .runShortBlack,
-              loadout.headwear == nil,
-              loadout.accessory == nil else {
-            return nil
-        }
-
-        switch (loadout.top, loadout.footwear) {
-        case (.runTopLavender, .runShoeWhite):
             return "AvatarFemaleBalancedStarterRun"
-        case (.runTopIvory, .runShoeWhite):
-            return "AvatarFemaleBalancedRunTopIvory"
-        case (.runTopLavender, .runShoeCobalt):
-            return "AvatarFemaleBalancedRunShoeCobalt"
-        default:
-            return nil
         }
+
+        return "AvatarMaleBalancedStarterRun"
     }
 
     static func canonicalAssetName(
@@ -152,34 +154,18 @@ struct AthleteAvatarView: View {
     }
 
     var body: some View {
-        Group {
-            if let productionAssetName {
-                Image(productionAssetName)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: size * 0.72, height: size)
-            } else {
-                ZStack {
-                    Ellipse()
-                        .fill(.black.opacity(0.10))
-                        .frame(width: size * 0.42, height: size * 0.055)
-                        .offset(y: size * 0.42)
-                        .blur(radius: 3)
+        Image(productionAssetName ?? fallbackProductionAssetName)
+            .resizable()
+            .scaledToFit()
+            .frame(width: size * 0.80, height: size)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Athlete avatar")
+    }
 
-                    legs
-                    torso
-                    arms
-                    head
-                    hairShape
-                    headwearLayer
-                    accessoryLayer
-                }
-                .frame(width: size * 0.68, height: size)
-                .drawingGroup()
-            }
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Athlete avatar")
+    private var fallbackProductionAssetName: String {
+        avatar.presentation == .feminine
+            ? "AvatarFemaleBalancedStarterRun"
+            : "AvatarMaleBalancedStarterRun"
     }
 
     private var legs: some View {
