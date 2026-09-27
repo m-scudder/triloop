@@ -48,7 +48,7 @@ struct FirstWeekBuilder: Sendable {
             goal: setup.goal,
             poolLengthMeters: poolLengthMeters
         )
-        .capped(toTrainingMinutes: trainingMinuteCap(in: available))
+        .fillingTrainingWindow(minutes: trainingMinuteCap(in: available))
 
         let selectedSports = setup.preferences.filter(\.isTrained).map(\.sport)
         let capability = capabilityBuilder.build(
