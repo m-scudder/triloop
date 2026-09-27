@@ -124,9 +124,7 @@ struct FirstWeekBuilder: Sendable {
                 workouts.append(
                     PrescribedSessions.restDay(
                         on: date,
-                        reason: available.isAvailable(on: weekday)
-                            ? "You marked this day as available, but Athevia is leaving it free because adding another training session would be more than your current starting point needs."
-                            : "No workout is scheduled because you marked this day unavailable."
+                        reason: "This day had already passed when your plan was created."
                     )
                 )
                 continue
@@ -135,12 +133,12 @@ struct FirstWeekBuilder: Sendable {
             let discipline = shape.disciplines[weekday.offsetFromMonday]
             guard let sport = discipline.sport else {
                 workouts.append(
-                    PrescribedSessions.restDay(
-                        on: date,
-                        reason: available.isAvailable(on: weekday)
-                            ? "You marked this day as available, but Athevia is leaving it free because adding another training session would be more than your current starting point needs."
-                            : "No workout is scheduled because you marked this day unavailable."
-                    )
+                    available.isAvailable(on: weekday)
+                        ? PrescribedSessions.engagementRecoveryDay(on: date, for: selectedSports)
+                        : PrescribedSessions.restDay(
+                            on: date,
+                            reason: "No workout is scheduled because you marked this day unavailable."
+                        )
                 )
                 continue
             }
