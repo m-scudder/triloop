@@ -54,7 +54,9 @@ struct FeedbackSheet: View {
                     milestones: milestoneCelebration,
                     unlockedGear: gearCelebration,
                     workout: workout,
-                    avatar: profiles.first?.setup?.avatar ?? .starter
+                    avatar: celebrationAvatarBinding,
+                    selectedSports: profiles.first?.setup?.selectedSports ?? [.running],
+                    rewards: currentRewardSnapshot()
                 ) {
                     showsMilestoneCelebration = false
                     dismiss()
@@ -223,6 +225,20 @@ struct FeedbackSheet: View {
             Calendar.current.isDate(milestone.achievedAt, inSameDayAs: completionDate)
                 && milestone.kind != .eventWeek
         }
+    }
+
+    private var celebrationAvatarBinding: Binding<AthleteAvatar> {
+        Binding(
+            get: {
+                profiles.first?.setup?.avatar ?? .starter
+            },
+            set: { newAvatar in
+                guard let profile = profiles.first else { return }
+                var updated = profile.setup ?? AthleteSetup()
+                updated.avatar = newAvatar
+                profile.setup = updated
+            }
+        )
     }
 
     private func currentRewardSnapshot() -> AvatarRewardSnapshot? {
