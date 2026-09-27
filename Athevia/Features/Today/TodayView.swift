@@ -115,6 +115,7 @@ struct TodayView: View {
     private func athleteCard(_ profile: AthleteProfile) -> some View {
         let setup = profile.setup ?? AthleteSetup()
         let sport = setup.selectedSports.first ?? .running
+        let rewards = AvatarRewardEvaluator().evaluate(setup: setup, plans: plans)
 
         return NavigationLink {
             TrainingProfileView(profile: profile)
@@ -135,11 +136,11 @@ struct TodayView: View {
                         .font(.headline)
                         .foregroundStyle(.primary)
 
-                    Text("Your gear and identity grow from completed training.")
+                    Text("\(rewards.unlockedGearIDs.count) gear pieces · \(rewards.milestones.count) milestones")
                         .font(.caption)
                         .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                         .multilineTextAlignment(.leading)
-                        .lineLimit(2)
+                        .lineLimit(1)
                 }
 
                 Spacer(minLength: 6)
