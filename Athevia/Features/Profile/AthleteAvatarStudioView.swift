@@ -411,12 +411,25 @@ struct AthleteAvatarStudioView: View {
                     .padding(.top, 4)
                 }
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
             .padding(.bottom, 32)
         }
-        .atheviaScreen()
-        .navigationTitle("My Athlete")
+        .background(
+            LinearGradient(
+                colors: [
+                    Color(red: 0.015, green: 0.025, blue: 0.045),
+                    Color(red: 0.025, green: 0.045, blue: 0.075)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+        )
+        .navigationTitle("Customize Athlete")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(Color(red: 0.015, green: 0.025, blue: 0.045), for: .navigationBar)
+        .toolbarColorScheme(.dark, for: .navigationBar)
         .onAppear {
             if let first = selectedSports.first {
                 selectedSport = first
@@ -445,8 +458,8 @@ struct AthleteAvatarStudioView: View {
                 .offset(x: 90, y: -80)
 
             VStack(spacing: 10) {
-                AthleteAvatarView(avatar: avatar, sport: selectedSport, size: 310)
-                    .frame(height: 310)
+                AthleteAvatarView(avatar: avatar, sport: selectedSport, size: 360)
+                    .frame(height: 360)
 
                 VStack(spacing: 4) {
                     Text("YOUR ATHLETE")
@@ -460,7 +473,7 @@ struct AthleteAvatarStudioView: View {
                 .padding(.bottom, 18)
             }
         }
-        .frame(minHeight: 390)
+        .frame(minHeight: 440)
         .clipShape(.rect(cornerRadius: 30))
         .overlay {
             RoundedRectangle(cornerRadius: 30)
@@ -581,6 +594,7 @@ struct AthleteAvatarStudioView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
                 .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white)
             content()
         }
     }
@@ -589,9 +603,10 @@ struct AthleteAvatarStudioView: View {
         VStack(alignment: .leading, spacing: 5) {
             Text(title)
                 .font(.title2.weight(.bold))
+                .foregroundStyle(.white)
             Text(detail)
                 .font(.subheadline)
-                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+                .foregroundStyle(.white.opacity(0.58))
         }
     }
 
@@ -603,12 +618,12 @@ struct AthleteAvatarStudioView: View {
         Button(action: action) {
             Text(title)
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(selected ? theme.color(.onAccent, classic: .white) : .primary)
+                .foregroundStyle(selected ? .white : .white.opacity(0.70))
                 .frame(maxWidth: .infinity, minHeight: 44)
                 .background(
                     selected
                         ? theme.color(.accent, classic: .blue)
-                        : theme.color(.raisedSurface, classic: Color(uiColor: .secondarySystemBackground)),
+                        : Color.white.opacity(0.07),
                     in: .rect(cornerRadius: 13)
                 )
         }
