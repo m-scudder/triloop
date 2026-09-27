@@ -123,7 +123,12 @@ struct TodayView: View {
         )
 
         return NavigationLink {
-            TrainingProfileView(profile: profile)
+            AthleteIdentityView(
+                avatar: avatarBinding(for: profile),
+                selectedSports: setup.selectedSports,
+                plans: plans,
+                setup: setup
+            )
         } label: {
             ZStack(alignment: .bottomLeading) {
                 RoundedRectangle(cornerRadius: 22, style: .continuous)
@@ -192,6 +197,19 @@ struct TodayView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("My Athlete")
+    }
+
+    private func avatarBinding(for profile: AthleteProfile) -> Binding<AthleteAvatar> {
+        Binding(
+            get: {
+                profile.setup?.avatar ?? .starter
+            },
+            set: { newAvatar in
+                var updated = profile.setup ?? AthleteSetup()
+                updated.avatar = newAvatar
+                profile.setup = updated
+            }
+        )
     }
 
     private func checkInPrompt(_ pending: PlannedWorkout) -> some View {
