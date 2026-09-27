@@ -451,7 +451,12 @@ def main():
     lean.name = "BODY__lean"
     powerful.name = "BODY__powerful"
 
-    normalize_material_name(balanced, "MAT__skin")
+    skin_material = normalize_material_name(balanced, "MAT__skin")
+    if skin_material is not None:
+        for variant in (lean, powerful):
+            if hasattr(variant.data, "materials"):
+                variant.data.materials.clear()
+                variant.data.materials.append(skin_material)
 
     rig = HumanService.add_builtin_rig(
         balanced,
