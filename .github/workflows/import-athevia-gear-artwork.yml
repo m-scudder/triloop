@@ -1,0 +1,79 @@
+name: Import Athevia HD Gear Artwork
+
+on:
+  push:
+    branches:
+      - feat/athlete-avatar-experience
+    paths:
+      - ".github/workflows/import-athevia-gear-artwork.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  import-gear:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/athlete-avatar-experience
+
+      - name: Download gear artwork
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p "Athevia/Resources/Assets.xcassets/AvatarGearRunTopIvory.imageset"
+          curl --fail --location --retry 3 \
+            'https://dnznrvs05pmza.cloudfront.net/gemini/gemini-3-pro-image/images/37b803b2-4d85-4189-b78a-e475c5dcf07e/0a3f50aa-8b58-4f51-9bc4-cda91c4a277d/Create_a_single_premium_ecommerce_style_product_render_of_ON.png?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiNDNkYzAzNTQ2MzI0ZDhjZCIsImJ1Y2tldCI6InJ1bndheS10YXNrLWFydGlmYWN0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc5MDYzOTQ0NH0.jTAvTTQ29x17we6Xym_f8jKpDUkmM8ZNpsY1Us0x2zM' \
+            --output "Athevia/Resources/Assets.xcassets/AvatarGearRunTopIvory.imageset/athevia-gear-run-top-ivory.png"
+
+          cat > "Athevia/Resources/Assets.xcassets/AvatarGearRunTopIvory.imageset/Contents.json" <<'JSON'
+          {
+            "images" : [
+              {
+                "filename" : "athevia-gear-run-top-ivory.png",
+                "idiom" : "universal",
+                "scale" : "1x"
+              }
+            ],
+            "info" : {
+              "author" : "xcode",
+              "version" : 1
+            }
+          }
+          JSON
+
+          mkdir -p "Athevia/Resources/Assets.xcassets/AvatarGearRunShoeCobalt.imageset"
+          curl --fail --location --retry 3 \
+            'https://dnznrvs05pmza.cloudfront.net/gemini/gemini-3-pro-image/images/d4288cd9-ff07-40b8-9607-93e5600a2422/1b8af0a3-f7e4-4b9a-aae9-b7f39bda8371/Create_a_single_premium_ecommerce_style_product_render_of_ON.png?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiZWM0OTE3MDI1YWFjNGE4NCIsImJ1Y2tldCI6InJ1bndheS10YXNrLWFydGlmYWN0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc5MDY0ODE5NH0.qdiZJSKXrKiJ39p6Vjaqb5_KFqyfnBHVEpUJ1lT2Z5U' \
+            --output "Athevia/Resources/Assets.xcassets/AvatarGearRunShoeCobalt.imageset/athevia-gear-run-shoe-cobalt.png"
+
+          cat > "Athevia/Resources/Assets.xcassets/AvatarGearRunShoeCobalt.imageset/Contents.json" <<'JSON'
+          {
+            "images" : [
+              {
+                "filename" : "athevia-gear-run-shoe-cobalt.png",
+                "idiom" : "universal",
+                "scale" : "1x"
+              }
+            ],
+            "info" : {
+              "author" : "xcode",
+              "version" : 1
+            }
+          }
+          JSON
+
+      - name: Commit production artwork and remove importer
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f ".github/workflows/import-athevia-gear-artwork.yml"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Add premium running gear artwork"
+          git push origin HEAD:feat/athlete-avatar-experience
