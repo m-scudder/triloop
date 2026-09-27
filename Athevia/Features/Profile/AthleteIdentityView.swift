@@ -676,11 +676,11 @@ struct AthleteGearDetailView: View {
     private var equipped: Bool {
         let loadout = avatar.loadout(for: sport)
         switch item.category {
-        case .top: loadout.top == item.id
-        case .bottom: loadout.bottom == item.id
-        case .footwear: loadout.footwear == item.id
-        case .headwear: loadout.headwear == item.id
-        case .accessory: loadout.accessory == item.id
+        case .top: return loadout.top == item.id
+        case .bottom: return loadout.bottom == item.id
+        case .footwear: return loadout.footwear == item.id
+        case .headwear: return loadout.headwear == item.id
+        case .accessory: return loadout.accessory == item.id
         }
     }
 

@@ -242,7 +242,7 @@ private enum AthleteRealityConfigurator {
             if model.materials.isEmpty {
                 model.materials = [material]
             } else {
-                model.materials = model.materials.map { existing -> any Material in
+                model.materials = model.materials.map { existing -> any RealityKit.Material in
                     if var pbr = existing as? PhysicallyBasedMaterial {
                         pbr.baseColor = PhysicallyBasedMaterial.BaseColor(
                             tint: color,
