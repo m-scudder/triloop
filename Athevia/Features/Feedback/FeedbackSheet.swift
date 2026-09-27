@@ -9,6 +9,7 @@ struct FeedbackSheet: View {
     @State private var draft = FeedbackDraft()
     @State private var failure: String?
     @State private var milestoneCelebration: [JourneyMilestone] = []
+    @State private var gearCelebration: [AvatarGearItem] = []
     @State private var showsMilestoneCelebration = false
     @Query(sort: \WeeklyPlan.startDate) private var plans: [WeeklyPlan]
     @Query private var profiles: [AthleteProfile]
@@ -51,6 +52,7 @@ struct FeedbackSheet: View {
             .sheet(isPresented: $showsMilestoneCelebration) {
                 MilestoneCelebrationView(
                     milestones: milestoneCelebration,
+                    unlockedGear: gearCelebration,
                     workout: workout
                 ) {
                     showsMilestoneCelebration = false
@@ -222,6 +224,15 @@ struct FeedbackSheet: View {
         }
     }
 
+    private func currentRewardSnapshot() -> AvatarRewardSnapshot? {
+        guard let setup = profiles.first?.setup else { return nil }
+        return AvatarRewardEvaluator().evaluate(
+            setup: setup,
+            plans: plans,
+            asOf: .now
+        )
+    }
+
     private func resolveEventConfirmationIfNeeded() {
         guard let profile = profiles.first,
               var setup = profile.setup,
@@ -243,20 +254,28 @@ struct FeedbackSheet: View {
 
 
     private func save() {
+        let rewardsBefore = currentRewardSnapshot()
+
         workout.recordCompletion(with: draft)
         resolveEventConfirmationIfNeeded()
 
         do {
             try modelContext.save()
             let newMilestones = milestonesTriggeredByThisWorkout()
+            let rewardsAfter = currentRewardSnapshot()
+            let newGearIDs = rewardsAfter.unlockedGearIDs
+                .subtracting(rewardsBefore?.unlockedGearIDs ?? [])
+            let newGear = AvatarGearCatalog.items.filter { newGearIDs.contains($0.id) }
+
             if let plan = workout.plan {
                 try PlanStore(context: modelContext).generateNextWeekIfReady(after: plan)
             }
 
-            if newMilestones.isEmpty {
+            if newMilestones.isEmpty && newGear.isEmpty {
                 dismiss()
             } else {
                 milestoneCelebration = newMilestones
+                gearCelebration = newGear
                 showsMilestoneCelebration = true
             }
         } catch {
