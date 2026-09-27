@@ -363,7 +363,7 @@ struct AvatarLoadout: Codable, Equatable, Sendable {
     )
 }
 
-enum AvatarGearID: String, Codable, CaseIterable, Identifiable, Sendable {
+enum AvatarGearID: String, Codable, CaseIterable, Identifiable, Hashable, Sendable {
     case runTopGraphite
     case runTopIvory
     case runTopCobalt
