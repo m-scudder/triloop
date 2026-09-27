@@ -1,7 +1,11 @@
-# Avatar third-party asset attribution
+# Avatar third-party asset licensing
 
-The automated avatar prototype prefers CC0 MakeHuman/MPFB assets.
+The automated Athevia avatar vertical slice currently uses MakeHuman / MPFB asset packs distributed as **CC0**:
 
-The first automated short-legged garment currently comes from **Pants03**, which is distributed as CC-BY by the MakeHuman Community asset-pack index. Individual assets in that pack retain their credited authorship. Before any Pants03-derived mesh is shipped in a public Athevia build, replace it with a CC0/custom garment or preserve the exact attribution for the selected source asset.
+- MakeHuman system assets
+- Shirts01
+- Pants01
 
-This file exists so the prototype cannot silently convert a CC-BY source into an unattributed production asset.
+The starter shoe is selected from the CC0 system assets pack.
+
+The pipeline intentionally avoids CC-BY wardrobe assets for the default production path so generated starter renders do not add an attribution-management requirement. If a non-CC0 asset is introduced later, record its source, author, license, and required attribution here before it is allowed into a production render matrix.
