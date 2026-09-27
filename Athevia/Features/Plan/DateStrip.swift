@@ -115,7 +115,7 @@ struct DateStrip: View {
         return VStack(spacing: 6) {
             Text(TrainingFormatter.weekdayInitial(for: day.date))
                 .font(.footnote.weight(.semibold))
-                .foregroundStyle(isSelected ? .white : .secondary.opacity(0.72))
+                .foregroundStyle(isSelected ? tint : .secondary.opacity(0.72))
 
             icons(for: day, isSelected: isSelected, isSkipped: isSkipped)
 
@@ -157,7 +157,7 @@ struct DateStrip: View {
         if isSkipped || sports.isEmpty {
             Image(systemName: isSkipped ? "slash.circle" : day.representative.discipline.symbolName)
                 .font(.footnote)
-                .foregroundStyle(isSelected ? .white : (isSkipped ? Color.secondary.opacity(0.55) : day.representative.discipline.themedTint(theme).opacity(0.45)))
+                .foregroundStyle(isSelected ? day.representative.discipline.themedTint(theme) : (isSkipped ? Color.secondary.opacity(0.55) : day.representative.discipline.themedTint(theme).opacity(0.45)))
                 .frame(height: 16)
         } else {
             HStack(spacing: 2) {
@@ -165,7 +165,7 @@ struct DateStrip: View {
                     Image(systemName: sport.discipline.symbolName)
                         // Three glyphs have to fit the same tile as one.
                         .font(sports.count > 2 ? .caption2 : .footnote)
-                        .foregroundStyle(isSelected ? AnyShapeStyle(.white) : AnyShapeStyle(sport.discipline.themedTint(theme).opacity(0.45)))
+                        .foregroundStyle(isSelected ? AnyShapeStyle(sport.discipline.themedTint(theme)) : AnyShapeStyle(sport.discipline.themedTint(theme).opacity(0.45)))
                 }
             }
             .frame(height: 16)
@@ -203,9 +203,9 @@ struct DateStrip: View {
     }
 
     private func marker(for day: Day, isSelected: Bool) -> Color {
-        if day.workouts.contains(where: \.hasReport) { return isSelected ? .white : .green }
+        if day.workouts.contains(where: \.hasReport) { return isSelected ? day.representative.discipline.themedTint(theme) : .green }
         if day.workouts.contains(where: { $0.isMissed(calendar: calendar) }) {
-            return isSelected ? .white : .orange
+            return isSelected ? day.representative.discipline.themedTint(theme) : .orange
         }
         return .clear
     }
