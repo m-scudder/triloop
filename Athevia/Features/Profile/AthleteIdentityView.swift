@@ -1,5 +1,21 @@
 import SwiftUI
 
+private enum AthleteProfileTab: String, CaseIterable, Identifiable {
+    case overview
+    case stats
+    case milestones
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .overview: "Overview"
+        case .stats: "Stats"
+        case .milestones: "Milestones"
+        }
+    }
+}
+
 struct AthleteIdentityView: View {
     @Environment(\.atheviaTheme) private var theme
     @Binding var avatar: AthleteAvatar
@@ -8,6 +24,7 @@ struct AthleteIdentityView: View {
     var setup: AthleteSetup
 
     @State private var selectedSport: Sport = .running
+    @State private var selectedTab: AthleteProfileTab = .overview
 
     private var sports: [Sport] {
         selectedSports.isEmpty ? [.running] : selectedSports
@@ -19,73 +36,39 @@ struct AthleteIdentityView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 20) {
+            VStack(spacing: 18) {
+                tabBar
                 hero
+                sportBar
 
-                if sports.count > 1 {
-                    Picker("Sport", selection: $selectedSport) {
-                        ForEach(sports, id: \.self) { sport in
-                            Text(sport.displayName).tag(sport)
-                        }
-                    }
-                    .pickerStyle(.segmented)
+                switch selectedTab {
+                case .overview:
+                    overviewContent
+                case .stats:
+                    statsContent
+                case .milestones:
+                    milestoneContent
                 }
-
-                Card {
-                    VStack(spacing: 0) {
-                        NavigationLink {
-                            AthleteAvatarStudioView(
-                                avatar: $avatar,
-                                selectedSports: sports
-                            )
-                        } label: {
-                            identityRow(
-                                symbol: "person.crop.square",
-                                title: "Appearance",
-                                detail: "Face, hair, skin tone and build"
-                            )
-                        }
-
-                        Divider().padding(.leading, 46)
-
-                        NavigationLink {
-                            AthleteWardrobeView(
-                                avatar: $avatar,
-                                sports: sports,
-                                initialSport: selectedSport,
-                                rewards: rewards
-                            )
-                        } label: {
-                            identityRow(
-                                symbol: "tshirt.fill",
-                                title: "Wardrobe",
-                                detail: "Equip earned training gear"
-                            )
-                        }
-
-                        Divider().padding(.leading, 46)
-
-                        NavigationLink {
-                            AthleteRewardJourneyView(sports: sports, rewards: rewards)
-                        } label: {
-                            identityRow(
-                                symbol: "medal.fill",
-                                title: "Reward journey",
-                                detail: "See what your training can unlock"
-                            )
-                        }
-                    }
-                }
-
-                progressCard
-                philosophyCard
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .padding(.bottom, 30)
         }
-        .atheviaScreen()
+        .background(
+            LinearGradient(
+                colors: [
+                    Color(red: 0.015, green: 0.025, blue: 0.045),
+                    Color(red: 0.025, green: 0.045, blue: 0.075)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+        )
         .navigationTitle("My Athlete")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(Color(red: 0.015, green: 0.025, blue: 0.045), for: .navigationBar)
+        .toolbarColorScheme(.dark, for: .navigationBar)
         .onAppear {
             if !sports.contains(selectedSport), let first = sports.first {
                 selectedSport = first
@@ -93,14 +76,40 @@ struct AthleteIdentityView: View {
         }
     }
 
+    private var tabBar: some View {
+        HStack(spacing: 4) {
+            ForEach(AthleteProfileTab.allCases) { tab in
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        selectedTab = tab
+                    }
+                } label: {
+                    Text(tab.title)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(selectedTab == tab ? .white : .white.opacity(0.55))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 9)
+                        .background(
+                            selectedTab == tab ? Color.white.opacity(0.13) : .clear,
+                            in: .capsule
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(4)
+        .background(.white.opacity(0.055), in: .capsule)
+    }
+
     private var hero: some View {
-        ZStack {
+        ZStack(alignment: .bottomLeading) {
             RoundedRectangle(cornerRadius: 30, style: .continuous)
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color(red: 0.055, green: 0.075, blue: 0.12),
-                            Color(red: 0.015, green: 0.02, blue: 0.04)
+                            selectedSport.discipline.themedTint(theme).opacity(0.30),
+                            Color(red: 0.055, green: 0.085, blue: 0.13),
+                            Color(red: 0.015, green: 0.025, blue: 0.045)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
@@ -108,33 +117,200 @@ struct AthleteIdentityView: View {
                 )
 
             Circle()
-                .fill(selectedSport.discipline.themedTint(theme).opacity(0.16))
-                .frame(width: 230, height: 230)
-                .blur(radius: 8)
-                .offset(x: 80, y: -90)
+                .fill(selectedSport.discipline.themedTint(theme).opacity(0.22))
+                .frame(width: 270, height: 270)
+                .blur(radius: 24)
+                .offset(x: 105, y: -120)
 
-            VStack(spacing: 8) {
-                AthleteAvatarView(avatar: avatar, sport: selectedSport, size: 330)
-                    .frame(height: 330)
+            AthleteAvatarView(
+                avatar: avatar,
+                sport: selectedSport,
+                pose: .neutral,
+                size: 390
+            )
+            .frame(maxWidth: .infinity)
+            .frame(height: 390)
+            .offset(y: -6)
 
-                Text(selectedSport.displayName.uppercased())
-                    .font(.caption.weight(.semibold))
-                    .tracking(1.6)
-                    .foregroundStyle(.white.opacity(0.55))
+            LinearGradient(
+                colors: [.clear, .black.opacity(0.76)],
+                startPoint: .center,
+                endPoint: .bottom
+            )
+            .clipShape(.rect(cornerRadius: 30))
 
-                Text("Your athlete")
+            VStack(alignment: .leading, spacing: 4) {
+                Text("YOUR ATHLETE")
+                    .font(.caption2.weight(.bold))
+                    .tracking(1.7)
+                    .foregroundStyle(.white.opacity(0.62))
+
+                Text("Foundation Phase")
                     .font(.title2.weight(.bold))
                     .foregroundStyle(.white)
-                    .padding(.bottom, 18)
+
+                Text("Level \(max(1, rewards.milestones.count + 1))")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.white.opacity(0.78))
             }
+            .padding(20)
         }
-        .frame(height: 420)
+        .frame(height: 440)
         .clipShape(.rect(cornerRadius: 30))
         .overlay {
             RoundedRectangle(cornerRadius: 30)
-                .stroke(.white.opacity(0.08), lineWidth: 1)
+                .stroke(.white.opacity(0.10), lineWidth: 1)
         }
-        .shadow(color: .black.opacity(0.18), radius: 22, y: 10)
+        .shadow(color: .black.opacity(0.32), radius: 28, y: 16)
+    }
+
+    @ViewBuilder
+    private var sportBar: some View {
+        if sports.count > 1 {
+            Picker("Sport", selection: $selectedSport) {
+                ForEach(sports, id: \.self) { sport in
+                    Text(sport.displayName).tag(sport)
+                }
+            }
+            .pickerStyle(.segmented)
+            .colorScheme(.dark)
+        }
+    }
+
+    private var overviewContent: some View {
+        VStack(spacing: 16) {
+            progressCard
+
+            NavigationLink {
+                AthleteAvatarStudioView(
+                    avatar: $avatar,
+                    selectedSports: sports
+                )
+            } label: {
+                Label("Customize athlete", systemImage: "person.crop.square")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(PrimaryActionButtonStyle())
+
+            HStack(spacing: 12) {
+                NavigationLink {
+                    AthleteWardrobeView(
+                        avatar: $avatar,
+                        sports: sports,
+                        initialSport: selectedSport,
+                        rewards: rewards
+                    )
+                } label: {
+                    dashboardTile(
+                        symbol: "tshirt.fill",
+                        title: "Wardrobe",
+                        detail: "\(rewards.unlockedGearIDs.count) pieces"
+                    )
+                }
+
+                NavigationLink {
+                    AthleteRewardJourneyView(
+                        sports: sports,
+                        rewards: rewards
+                    )
+                } label: {
+                    dashboardTile(
+                        symbol: "medal.fill",
+                        title: "Rewards",
+                        detail: "\(rewards.milestones.count) milestones"
+                    )
+                }
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var statsContent: some View {
+        VStack(spacing: 14) {
+            progressCard
+
+            VStack(spacing: 0) {
+                statRow("Running", value: "\(rewards.runningCompleted) workouts")
+                Divider().overlay(.white.opacity(0.08))
+                statRow("Cycling", value: "\(rewards.cyclingCompleted) workouts")
+                Divider().overlay(.white.opacity(0.08))
+                statRow("Swimming", value: "\(rewards.swimmingCompleted) workouts")
+            }
+            .padding(.horizontal, 16)
+            .background(.white.opacity(0.06), in: .rect(cornerRadius: 20))
+        }
+    }
+
+    private var milestoneContent: some View {
+        VStack(spacing: 12) {
+            if rewards.milestones.isEmpty {
+                VStack(spacing: 10) {
+                    Image(systemName: "medal")
+                        .font(.system(size: 34))
+                        .foregroundStyle(.white.opacity(0.55))
+                    Text("Your milestones will appear here")
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                    Text("Complete real training and Athevia will record the evidence automatically.")
+                        .font(.subheadline)
+                        .foregroundStyle(.white.opacity(0.58))
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(28)
+                .background(.white.opacity(0.055), in: .rect(cornerRadius: 22))
+            } else {
+                ForEach(rewards.milestones.prefix(8)) { milestone in
+                    HStack(spacing: 14) {
+                        Image(systemName: "medal.fill")
+                            .font(.title3)
+                            .foregroundStyle(selectedSport.discipline.themedTint(theme))
+                            .frame(width: 42, height: 42)
+                            .background(.white.opacity(0.07), in: .circle)
+
+                        Text(milestone.kind.displayName)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.white)
+
+                        Spacer()
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                    }
+                    .padding(14)
+                    .background(.white.opacity(0.055), in: .rect(cornerRadius: 18))
+                }
+            }
+        }
+    }
+
+    private func dashboardTile(symbol: String, title: String, detail: String) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Image(systemName: symbol)
+                .font(.title2)
+                .foregroundStyle(selectedSport.discipline.themedTint(theme))
+            Text(title)
+                .font(.headline)
+                .foregroundStyle(.white)
+            Text(detail)
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.58))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(.white.opacity(0.06), in: .rect(cornerRadius: 20))
+    }
+
+    private func statRow(_ title: String, value: String) -> some View {
+        HStack {
+            Text(title)
+                .foregroundStyle(.white)
+            Spacer()
+            Text(value)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.64))
+        }
+        .padding(.vertical, 15)
     }
 
     private func identityRow(symbol: String, title: String, detail: String) -> some View {
@@ -150,7 +326,7 @@ struct AthleteIdentityView: View {
                     .foregroundStyle(.primary)
                 Text(detail)
                     .font(.caption)
-                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+                    .foregroundStyle(.white.opacity(0.58))
             }
 
             Spacer(minLength: 8)
@@ -181,10 +357,7 @@ struct AthleteIdentityView: View {
             )
         }
         .padding(.vertical, 16)
-        .background(
-            theme.color(.surface, classic: Color(uiColor: .secondarySystemBackground)),
-            in: .rect(cornerRadius: 20)
-        )
+        .background(.white.opacity(0.06), in: .rect(cornerRadius: 20))
     }
 
     private func metric(value: String, label: String) -> some View {
@@ -242,8 +415,9 @@ struct AthleteWardrobeView: View {
     }
 
     private let columns = [
-        GridItem(.flexible(), spacing: 12),
-        GridItem(.flexible(), spacing: 12)
+        GridItem(.flexible(), spacing: 10),
+        GridItem(.flexible(), spacing: 10),
+        GridItem(.flexible(), spacing: 10)
     ]
 
     private var visibleItems: [AvatarGearItem] {
@@ -296,12 +470,24 @@ struct AthleteWardrobeView: View {
                     }
                 }
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 16)
             .padding(.bottom, 30)
         }
-        .atheviaScreen()
+        .background(
+            LinearGradient(
+                colors: [
+                    Color(red: 0.015, green: 0.025, blue: 0.045),
+                    Color(red: 0.025, green: 0.045, blue: 0.075)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+        )
         .navigationTitle("Wardrobe")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(Color(red: 0.015, green: 0.025, blue: 0.045), for: .navigationBar)
+        .toolbarColorScheme(.dark, for: .navigationBar)
         .onChange(of: selectedSport) { _, _ in
             if !availableCategories.contains(selectedCategory) {
                 selectedCategory = availableCategories.first ?? .top
@@ -373,7 +559,7 @@ struct AthleteWardrobeView: View {
                         .padding(8)
                     }
                 }
-                .frame(height: 122)
+                .frame(height: 116)
                 .overlay {
                     if equipped {
                         RoundedRectangle(cornerRadius: 18)
@@ -399,11 +585,8 @@ struct AthleteWardrobeView: View {
                         .lineLimit(2)
                 }
             }
-            .padding(12)
-            .background(
-                theme.color(.surface, classic: Color(uiColor: .secondarySystemBackground)),
-                in: .rect(cornerRadius: 20)
-            )
+            .padding(8)
+            .background(.white.opacity(0.06), in: .rect(cornerRadius: 18))
         }
         .buttonStyle(.plain)
     }
@@ -490,9 +673,21 @@ struct AthleteGearDetailView: View {
             }
             .padding(20)
         }
-        .atheviaScreen()
+        .background(
+            LinearGradient(
+                colors: [
+                    Color(red: 0.015, green: 0.025, blue: 0.045),
+                    Color(red: 0.03, green: 0.05, blue: 0.085)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+        )
         .navigationTitle("Gear")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(Color(red: 0.015, green: 0.025, blue: 0.045), for: .navigationBar)
+        .toolbarColorScheme(.dark, for: .navigationBar)
     }
 
     private var artwork: some View {
@@ -509,7 +704,7 @@ struct AthleteGearDetailView: View {
             detailArtwork
                 .padding(24)
         }
-        .frame(height: 320)
+        .frame(height: 380)
         .clipShape(.rect(cornerRadius: 28))
         .overlay {
             RoundedRectangle(cornerRadius: 28)
