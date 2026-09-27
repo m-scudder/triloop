@@ -87,6 +87,7 @@ struct TrainingProfileView: View {
             NavigationLink {
                 AthleteIdentityView(
                     avatar: avatarBinding,
+                    athleteName: profileDisplayName,
                     selectedSports: selectedTrainingSports.isEmpty ? [.running] : selectedTrainingSports,
                     plans: plans,
                     setup: setup
