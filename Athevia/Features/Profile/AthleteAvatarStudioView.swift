@@ -101,7 +101,6 @@ private enum AthleteRealityConfigurator {
     ) {
         applyVisibility(root: root, avatar: avatar, sport: sport)
         applyMaterials(root: root, avatar: avatar, sport: sport)
-        applyBodyPreset(root: root, avatar: avatar)
         applyPose(root: root, pose: pose)
     }
 
@@ -110,6 +109,7 @@ private enum AthleteRealityConfigurator {
         avatar: AthleteAvatar,
         sport: Sport
     ) {
+        setPrefix("BODY__", enabledName: bodyEntityName(avatar), in: root)
         setPrefix("HAIR__", enabledName: hairEntityName(avatar.hairStyle), in: root)
 
         let allGear = descendants(of: root).filter { $0.name.hasPrefix("GEAR__") }
@@ -174,7 +174,7 @@ private enum AthleteRealityConfigurator {
         sport: Sport
     ) {
         recolor(
-            entityNamed: bodyEntityName(avatar.presentation),
+            entityNamed: bodyEntityName(avatar),
             in: root,
             color: color(avatar.skinTone.rgb),
             roughness: 0.62
@@ -207,8 +207,17 @@ private enum AthleteRealityConfigurator {
         )
     }
 
-    private static func bodyEntityName(_ presentation: AvatarPresentation) -> String {
-        presentation == .feminine ? "BODY__feminine" : "BODY__masculine"
+    private static func bodyEntityName(_ avatar: AthleteAvatar) -> String {
+        switch avatar.bodyPreset {
+        case .lean:
+            return "BODY__lean"
+        case .balanced:
+            return avatar.presentation == .feminine
+                ? "BODY__feminine"
+                : "BODY__masculine"
+        case .powerful:
+            return "BODY__powerful"
+        }
     }
 
     private static func recolor(
@@ -249,50 +258,6 @@ private enum AthleteRealityConfigurator {
         }
     }
 
-    private static func applyBodyPreset(
-        root: Entity,
-        avatar: AthleteAvatar
-    ) {
-        guard let body = root.findEntity(named: bodyEntityName(avatar.presentation)),
-              let modelEntity = firstModelEntity(in: body),
-              let model = modelEntity.components[ModelComponent.self] else {
-            return
-        }
-
-        let mapping = BlendShapeWeightsMapping(meshResource: model.mesh)
-        var component = modelEntity.components[BlendShapeWeightsComponent.self]
-            ?? BlendShapeWeightsComponent(weightsMapping: mapping)
-        var set = component.weightSet
-
-        guard var data = set.default else {
-            modelEntity.components.set(component)
-            return
-        }
-
-        var weights = data.weights
-        for (index, name) in data.weightNames.enumerated() {
-            let value: Float
-            switch (avatar.bodyPreset, name) {
-            case (.lean, let name) where name.contains("BODY__lean"):
-                value = 1
-            case (.powerful, let name) where name.contains("BODY__powerful"):
-                value = 1
-            case (_, let name) where name.contains("BODY__lean") || name.contains("BODY__powerful"):
-                value = 0
-            default:
-                continue
-            }
-
-            let weightIndex = weights.index(weights.startIndex, offsetBy: index)
-            weights[weightIndex] = value
-        }
-
-        data.weights = weights
-        set.default = data
-        component.weightSet = set
-        modelEntity.components.set(component)
-    }
-
     private static func applyPose(root: Entity, pose: AvatarPose) {
         guard pose != .neutral,
               let model = firstSkinnedModel(in: root) else {
@@ -315,19 +280,6 @@ private enum AthleteRealityConfigurator {
             transforms[index] = transform
         }
         model.jointTransforms = transforms
-    }
-
-    private static func firstModelEntity(in root: Entity) -> Entity? {
-        if root.components[ModelComponent.self] != nil {
-            return root
-        }
-
-        for child in root.children {
-            if let entity = firstModelEntity(in: child) {
-                return entity
-            }
-        }
-        return nil
     }
 
     private static func firstSkinnedModel(in root: Entity) -> ModelEntity? {
