@@ -53,7 +53,8 @@ struct FeedbackSheet: View {
                 MilestoneCelebrationView(
                     milestones: milestoneCelebration,
                     unlockedGear: gearCelebration,
-                    workout: workout
+                    workout: workout,
+                    avatar: profiles.first?.setup?.avatar ?? .starter
                 ) {
                     showsMilestoneCelebration = false
                     dismiss()
