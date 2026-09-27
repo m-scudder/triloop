@@ -34,6 +34,7 @@ final class AtheviaUITests: XCTestCase {
 
         attachScreenshot(app, name: "Onboarding starting point")
         app.buttons["Continue"].tap()
+        advanceAvatarOnboarding(app)
 
         XCTAssertTrue(app.staticTexts["Build around your week"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["Continue"].isEnabled)
@@ -65,6 +66,7 @@ final class AtheviaUITests: XCTestCase {
         reveal(app.buttons["10 min"], in: app)
         app.buttons["10 min"].tap()
         app.buttons["Continue"].tap()
+        advanceAvatarOnboarding(app)
 
         XCTAssertTrue(app.staticTexts["Build around your week"].waitForExistence(timeout: 5))
 
@@ -316,6 +318,30 @@ final class AtheviaUITests: XCTestCase {
     }
 
     @MainActor
+
+    @MainActor
+    private func advanceAvatarOnboarding(_ app: XCUIApplication) {
+        XCTAssertTrue(app.staticTexts["Build your athlete"].waitForExistence(timeout: 5))
+        let create = app.buttons["Create my athlete"]
+        reveal(create, in: app)
+        create.tap()
+
+        XCTAssertTrue(app.staticTexts["Make it yours"].waitForExistence(timeout: 5))
+        let appearanceContinue = app.buttons["Continue"]
+        reveal(appearanceContinue, in: app)
+        appearanceContinue.tap()
+
+        XCTAssertTrue(app.staticTexts["Your first kit"].waitForExistence(timeout: 5))
+        let outfitContinue = app.buttons["Continue"]
+        reveal(outfitContinue, in: app)
+        outfitContinue.tap()
+
+        XCTAssertTrue(app.staticTexts["Your athlete is ready"].waitForExistence(timeout: 5))
+        let ready = app.buttons["Continue setup"]
+        reveal(ready, in: app)
+        ready.tap()
+    }
+
     private func onboardingApp() -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = [
