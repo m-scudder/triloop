@@ -97,6 +97,7 @@ struct ProgressOverviewView: View {
             .atheviaScreen()
             .navigationTitle("Progress")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
         }
         .atheviaScreen()
     }
