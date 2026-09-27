@@ -338,8 +338,13 @@ struct AthleteWardrobeView: View {
         let equipped = isEquipped(item)
         let unlocked = rewards.isUnlocked(item)
 
-        return Button {
-            avatar.equip(item, isUnlocked: unlocked)
+        return NavigationLink {
+            AthleteGearDetailView(
+                avatar: $avatar,
+                item: item,
+                sport: selectedSport,
+                rewards: rewards
+            )
         } label: {
             VStack(alignment: .leading, spacing: 12) {
                 ZStack {
@@ -351,11 +356,8 @@ struct AthleteWardrobeView: View {
                             )
                         )
 
-                    Image(systemName: item.symbol)
-                        .font(.system(size: 34, weight: .medium))
-                        .foregroundStyle(
-                            unlocked ? AnyShapeStyle(.primary) : AnyShapeStyle(.tertiary)
-                        )
+                    gearArtwork(item)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                     if !unlocked {
                         VStack {
@@ -404,7 +406,28 @@ struct AthleteWardrobeView: View {
             )
         }
         .buttonStyle(.plain)
-        .disabled(!unlocked)
+    }
+
+    @ViewBuilder
+    private func gearArtwork(_ item: AvatarGearItem) -> some View {
+        switch item.id {
+        case .runTopIvory:
+            Image("AvatarGearRunTopIvory")
+                .resizable()
+                .scaledToFit()
+                .padding(10)
+        case .runShoeCobalt:
+            Image("AvatarGearRunShoeCobalt")
+                .resizable()
+                .scaledToFit()
+                .padding(8)
+        default:
+            Image(systemName: item.symbol)
+                .font(.system(size: 34, weight: .medium))
+                .foregroundStyle(
+                    rewards.isUnlocked(item) ? AnyShapeStyle(.primary) : AnyShapeStyle(.tertiary)
+                )
+        }
     }
 
     private func isEquipped(_ item: AvatarGearItem) -> Bool {
@@ -416,6 +439,131 @@ struct AthleteWardrobeView: View {
         case .headwear: return loadout.headwear == item.id
         case .accessory: return loadout.accessory == item.id
         }
+    }
+}
+
+struct AthleteGearDetailView: View {
+    @Environment(\.atheviaTheme) private var theme
+    @Binding var avatar: AthleteAvatar
+
+    let item: AvatarGearItem
+    let sport: Sport
+    let rewards: AvatarRewardSnapshot
+
+    private var unlocked: Bool {
+        rewards.isUnlocked(item)
+    }
+
+    private var equipped: Bool {
+        let loadout = avatar.loadout(for: sport)
+        switch item.category {
+        case .top: loadout.top == item.id
+        case .bottom: loadout.bottom == item.id
+        case .footwear: loadout.footwear == item.id
+        case .headwear: loadout.headwear == item.id
+        case .accessory: loadout.accessory == item.id
+        }
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 22) {
+                artwork
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(item.name)
+                        .font(.title2.weight(.bold))
+
+                    Text(item.category.displayName)
+                        .font(.subheadline)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                requirementCard
+
+                Button(equipped ? "Equipped" : (unlocked ? "Equip" : "Locked")) {
+                    avatar.equip(item, isUnlocked: unlocked)
+                }
+                .buttonStyle(PrimaryActionButtonStyle())
+                .disabled(!unlocked || equipped)
+            }
+            .padding(20)
+        }
+        .atheviaScreen()
+        .navigationTitle("Gear")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var artwork: some View {
+        ZStack {
+            LinearGradient(
+                colors: [
+                    sport.discipline.themedTint(theme).opacity(0.15),
+                    theme.color(.surface, classic: Color(uiColor: .secondarySystemBackground))
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+
+            detailArtwork
+                .padding(24)
+        }
+        .frame(height: 320)
+        .clipShape(.rect(cornerRadius: 28))
+        .overlay {
+            RoundedRectangle(cornerRadius: 28)
+                .strokeBorder(
+                    theme.color(.border, classic: Color.secondary.opacity(0.14)),
+                    lineWidth: 0.5
+                )
+        }
+    }
+
+    @ViewBuilder
+    private var detailArtwork: some View {
+        switch item.id {
+        case .runTopIvory:
+            Image("AvatarGearRunTopIvory")
+                .resizable()
+                .scaledToFit()
+        case .runShoeCobalt:
+            Image("AvatarGearRunShoeCobalt")
+                .resizable()
+                .scaledToFit()
+        default:
+            Image(systemName: item.symbol)
+                .font(.system(size: 90, weight: .medium))
+                .foregroundStyle(.primary)
+        }
+    }
+
+    private var requirementCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SectionEyebrow(text: unlocked ? "Unlocked" : "Unlock requirement")
+
+            Text(item.unlockText)
+                .font(.headline)
+
+            Text(rewards.progressText(for: item))
+                .font(.subheadline)
+                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+
+            if case .completedSportWorkouts(let sport, let required) = item.unlockRule {
+                let completed = rewards.completedCount(for: sport)
+                ProgressView(
+                    value: Double(min(completed, required)),
+                    total: Double(required)
+                )
+                .tint(sport.discipline.themedTint(theme))
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .background(
+            theme.color(.surface, classic: Color(uiColor: .secondarySystemBackground)),
+            in: .rect(cornerRadius: 20)
+        )
     }
 }
 
