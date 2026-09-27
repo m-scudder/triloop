@@ -107,25 +107,47 @@ def add_variant_shape(base, variant, key_name):
 
 
 def evaluated_mesh_copy(obj, name):
-    """Bake all MPFB construction shape keys into plain geometry.
+    """Bake MPFB construction shape keys without applying modifiers.
 
-    MakeHuman uses many internal morph targets to construct gender, age, weight,
-    muscle and proportion. Those are authoring data, not Athevia runtime blend
-    shapes. Exporting them to USDZ makes RealityKit evaluate a second morph
-    system and can catastrophically deform the body.
-
-    This function captures the object's current evaluated geometry while
-    preserving vertex order / UV data, then returns a new shape-key-free mesh.
+    The MakeHuman basemesh carries a Hide helpers MASK modifier. Applying that
+    modifier here would remove vertices and invalidate the canonical rig-weight
+    indices. Temporarily disabling every modifier keeps the original topology
+    while Blender still evaluates the active shape-key mix.
     """
-    depsgraph = bpy.context.evaluated_depsgraph_get()
-    evaluated = obj.evaluated_get(depsgraph)
-    mesh = bpy.data.meshes.new_from_object(
-        evaluated,
-        preserve_all_data_layers=True,
-        depsgraph=depsgraph,
-    )
-    mesh.name = name
-    return mesh
+    modifier_states = [
+        (modifier, modifier.show_viewport, modifier.show_render)
+        for modifier in obj.modifiers
+    ]
+
+    try:
+        for modifier, _, _ in modifier_states:
+            modifier.show_viewport = False
+            modifier.show_render = False
+
+        bpy.context.view_layer.update()
+        depsgraph = bpy.context.evaluated_depsgraph_get()
+        evaluated = obj.evaluated_get(depsgraph)
+        mesh = bpy.data.meshes.new_from_object(
+            evaluated,
+            preserve_all_data_layers=True,
+            depsgraph=depsgraph,
+        )
+        mesh.name = name
+
+        if len(mesh.vertices) != len(obj.data.vertices):
+            raise RuntimeError(
+                "Body morph bake changed topology: "
+                + str(len(obj.data.vertices))
+                + " -> "
+                + str(len(mesh.vertices))
+            )
+
+        return mesh
+    finally:
+        for modifier, show_viewport, show_render in modifier_states:
+            modifier.show_viewport = show_viewport
+            modifier.show_render = show_render
+        bpy.context.view_layer.update()
 
 
 def bake_athevia_body_variants(base, lean, powerful):
