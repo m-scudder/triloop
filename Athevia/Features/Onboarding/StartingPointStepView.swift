@@ -18,7 +18,7 @@ struct StartingPointStepView: View {
             OnboardingHeader(title: "Where are you starting?")
 
             VStack(spacing: 12) {
-                ForEach(Sport.allCases, id: \.self) { sport in
+                ForEach([Sport.running, .cycling, .swimming], id: \.self) { sport in
                     sportCard(sport)
                 }
             }
@@ -32,6 +32,20 @@ struct StartingPointStepView: View {
                 Label("Choose a valid pool length.", systemImage: "info.circle")
                     .font(.footnote)
                     .foregroundStyle(AtheviaAdaptiveStyle(.orange, gaming: .warning))
+            }
+        }
+        .toolbar {
+            if isEditingPool {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button {
+                        isEditingPool = false
+                    } label: {
+                        Image(systemName: "checkmark")
+                            .fontWeight(.semibold)
+                    }
+                    .accessibilityLabel("Done")
+                }
             }
         }
     }
@@ -191,7 +205,7 @@ struct StartingPointStepView: View {
 
             if customPoolSelected {
                 TextField("Pool length in metres", text: $poolText)
-                    .keyboardType(.numbersAndPunctuation)
+                    .keyboardType(.numberPad)
                     .submitLabel(.done)
                     .textFieldStyle(.roundedBorder)
                     .focused($isEditingPool)
