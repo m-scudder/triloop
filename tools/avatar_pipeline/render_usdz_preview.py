@@ -35,7 +35,17 @@ def look_at(obj, point):
 
 
 def visible_runtime_selection():
+    base_body = (
+        "BODY__feminine"
+        if bpy.data.objects.get("BODY__feminine") is not None
+        else "BODY__masculine"
+    )
+
     for obj in bpy.data.objects:
+        if obj.name.startswith("BODY__"):
+            obj.hide_render = obj.name != base_body
+            obj.hide_viewport = obj.hide_render
+
         if obj.name.startswith("HAIR__"):
             obj.hide_render = obj.name != "HAIR__tied"
             obj.hide_viewport = obj.hide_render
@@ -52,36 +62,48 @@ def visible_runtime_selection():
 
 def validate_dimensions():
     bodies = [obj for obj in bpy.data.objects if obj.name.startswith("BODY__")]
-    if not bodies:
-        raise RuntimeError("USDZ round-trip has no BODY__ mesh")
+    if len(bodies) != 3:
+        raise RuntimeError(
+            "USDZ round-trip expected three BODY__ meshes, got "
+            + str(len(bodies))
+        )
 
-    body = bodies[0]
-    dims = body.dimensions
-    print("Round-trip body dimensions:", tuple(float(v) for v in dims))
+    counts = {len(body.data.vertices) for body in bodies}
+    if len(counts) != 1:
+        raise RuntimeError("USDZ body presets do not share topology")
 
-    # MakeHuman runtime athlete is roughly 1.5–2.1m tall. Allow generous bounds
-    # while catching the catastrophic body explosion seen on-device.
-    ordered = sorted(float(v) for v in dims)
-    height = ordered[-1]
-    width = ordered[-2]
+    for body in bodies:
+        dims = body.dimensions
+        print(
+            "Round-trip body dimensions:",
+            body.name,
+            tuple(float(v) for v in dims),
+        )
 
-    if not (1.2 <= height <= 2.6):
-        raise RuntimeError("USDZ body height outside sane bounds: " + str(height))
+        ordered = sorted(float(v) for v in dims)
+        height = ordered[-1]
+        width = ordered[-2]
 
-    if width > 1.6:
-        raise RuntimeError("USDZ body width outside sane bounds: " + str(width))
-
-    keys = getattr(getattr(body.data, "shape_keys", None), "key_blocks", None)
-    if keys is not None:
-        names = [key.name for key in keys]
-        print("Round-trip body shape keys:", names)
-        unexpected = [
-            name for name in names
-            if name not in {"Basis", "BODY__lean", "BODY__powerful"}
-        ]
-        if unexpected:
+        if not (1.2 <= height <= 2.6):
             raise RuntimeError(
-                "USDZ contains unexpected authoring morphs: " + ", ".join(unexpected)
+                "USDZ body height outside sane bounds: "
+                + body.name
+                + "="
+                + str(height)
+            )
+
+        if width > 1.6:
+            raise RuntimeError(
+                "USDZ body width outside sane bounds: "
+                + body.name
+                + "="
+                + str(width)
+            )
+
+        keys = getattr(getattr(body.data, "shape_keys", None), "key_blocks", None)
+        if keys is not None and len(keys) > 0:
+            raise RuntimeError(
+                "USDZ body unexpectedly contains morph targets: " + body.name
             )
 
 
