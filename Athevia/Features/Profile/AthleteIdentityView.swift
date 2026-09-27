@@ -19,6 +19,7 @@ private enum AthleteProfileTab: String, CaseIterable, Identifiable {
 struct AthleteIdentityView: View {
     @Environment(\.atheviaTheme) private var theme
     @Binding var avatar: AthleteAvatar
+    var athleteName: String = "Your Athlete"
     var selectedSports: [Sport]
     var plans: [WeeklyPlan]
     var setup: AthleteSetup
@@ -144,7 +145,7 @@ struct AthleteIdentityView: View {
             .clipShape(.rect(cornerRadius: 30))
 
             VStack(alignment: .leading, spacing: 4) {
-                Text("YOUR ATHLETE")
+                Text(athleteName.uppercased())
                     .font(.caption2.weight(.bold))
                     .tracking(1.7)
                     .foregroundStyle(.white.opacity(0.62))
@@ -153,9 +154,18 @@ struct AthleteIdentityView: View {
                     .font(.title2.weight(.bold))
                     .foregroundStyle(.white)
 
-                Text("Level \(max(1, rewards.milestones.count + 1))")
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.white.opacity(0.78))
+                HStack(spacing: 8) {
+                    Text("Level \(max(1, rewards.milestones.count + 1))")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(.white.opacity(0.78))
+
+                    ProgressView(
+                        value: Double(min(rewards.milestones.count, 5)),
+                        total: 5
+                    )
+                    .tint(selectedSport.discipline.themedTint(theme))
+                    .frame(maxWidth: 120)
+                }
             }
             .padding(20)
         }
