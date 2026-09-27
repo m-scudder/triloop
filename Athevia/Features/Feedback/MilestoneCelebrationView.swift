@@ -5,7 +5,9 @@ struct MilestoneCelebrationView: View {
     let milestones: [JourneyMilestone]
     let unlockedGear: [AvatarGearItem]
     let workout: PlannedWorkout
-    let avatar: AthleteAvatar
+    @Binding var avatar: AthleteAvatar
+    let selectedSports: [Sport]
+    let rewards: AvatarRewardSnapshot?
     let onDone: () -> Void
 
     @Environment(\.atheviaTheme) private var theme
@@ -57,15 +59,26 @@ struct MilestoneCelebrationView: View {
                         }
                     }
 
-                    Button(unlockedGear.isEmpty ? "Done" : "View in wardrobe") {
-                        onDone()
-                    }
-                    .buttonStyle(PrimaryActionButtonStyle())
+                    if !unlockedGear.isEmpty, let rewards {
+                        NavigationLink {
+                            AthleteWardrobeView(
+                                avatar: $avatar,
+                                sports: selectedSports.isEmpty ? [sport] : selectedSports,
+                                initialSport: sport,
+                                rewards: rewards
+                            )
+                        } label: {
+                            Text("View in wardrobe")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(PrimaryActionButtonStyle())
 
-                    if !unlockedGear.isEmpty {
                         Button("Done", action: onDone)
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.white.opacity(0.62))
+                    } else {
+                        Button("Done", action: onDone)
+                            .buttonStyle(PrimaryActionButtonStyle())
                     }
                 }
                 .padding(.horizontal, 18)
