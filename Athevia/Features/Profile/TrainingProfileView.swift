@@ -5,8 +5,8 @@ import SwiftUI
 ///
 /// The overview stays compact and readable. Editing is pushed into focused
 /// screens so the profile does not become a second Settings page. Changes save
-/// immediately, while applying training-impacting edits to the current week
-/// remains explicit.
+/// immediately. Training-impacting edits automatically rebuild only unresolved
+/// future workouts; recorded history remains immutable.
 struct TrainingProfileView: View {
     @Environment(\.modelContext) private var modelContext
     @Bindable var profile: AthleteProfile
@@ -14,7 +14,6 @@ struct TrainingProfileView: View {
 
     @State private var message: String?
     @State private var objectiveDraft: TrainingObjective?
-    @State private var isConfirmingReassessment = false
     @State private var newlyAddedSports: Set<Sport> = []
     @State private var isPresentingNewSportAssessment = false
 
@@ -28,10 +27,8 @@ struct TrainingProfileView: View {
         List {
             identitySection
             historySection
-            impactSection
             trainingSection
             preferencesSection
-            planSection
         }
         .navigationTitle("Training Profile")
         .navigationBarTitleDisplayMode(.inline)
@@ -45,15 +42,6 @@ struct TrainingProfileView: View {
         }
         .sheet(isPresented: $isPresentingNewSportAssessment) {
             newSportAssessment
-        }
-        .alert(
-            "Rebuild the days still ahead?",
-            isPresented: $isConfirmingReassessment
-        ) {
-            Button("Rebuild upcoming days") { reassess() }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Sessions you have reported on or skipped stay exactly as they are. Only days still to come are rebuilt, using what you can do now.")
         }
     }
 
@@ -142,22 +130,6 @@ struct TrainingProfileView: View {
             .sorted { $0.startDate > $1.startDate }
     }
 
-    @ViewBuilder
-    private var impactSection: some View {
-        let impact = pendingImpact
-        if impact.isTrainingImpacting {
-            Section {
-                Label("Upcoming training needs review", systemImage: "info.circle")
-                    .font(.subheadline.weight(.medium))
-
-                Text(impact.reasons.map(\.displayName).joined(separator: " · "))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            } footer: {
-                Text("Your completed and reported workouts stay unchanged. Use the Plan actions below when you want these edits applied to the days still ahead.")
-            }
-        }
-    }
 
     private var trainingSection: some View {
         Section("Training") {
@@ -260,21 +232,6 @@ struct TrainingProfileView: View {
         }
     }
 
-    private var planSection: some View {
-        Section {
-            Button("Reschedule upcoming workouts") { reshape() }
-                .disabled(plans.currentPlan() == nil)
-
-            Button("Rebuild upcoming workouts") {
-                isConfirmingReassessment = true
-            }
-            .disabled(plans.currentPlan() == nil)
-        } header: {
-            Text("Plan")
-        } footer: {
-            Text("Reschedule moves future workouts onto the days you can train. Rebuild also recalculates those workouts using your current ability.")
-        }
-    }
 
     private var pendingImpact: ProfileEditImpact {
         guard let opened else { return .safe }
@@ -558,7 +515,7 @@ struct TrainingProfileView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Update Plan") {
                         isPresentingNewSportAssessment = false
-                        reassess()
+                        reassess(showConfirmation: true)
                         newlyAddedSports = []
                     }
                 }
@@ -855,10 +812,16 @@ struct TrainingProfileView: View {
     // MARK: - Actions
 
     private func update(_ change: (inout AthleteSetup) -> Void) {
-        var current = setup
+        let before = setup
+        var current = before
         change(&current)
         profile.setup = current
         save()
+
+        let impact = AthleteProfileEditor.impact(from: before, to: current)
+        if impact.isTrainingImpacting && !isPresentingNewSportAssessment {
+            reassess(showConfirmation: false)
+        }
     }
 
     private func updateObjectiveDraft(_ objective: TrainingObjective) {
@@ -918,7 +881,7 @@ struct TrainingProfileView: View {
         }
     }
 
-    private func reassess() {
+    private func reassess(showConfirmation: Bool = true) {
         guard let plan = plans.currentPlan() else { return }
 
         do {
@@ -928,9 +891,11 @@ struct TrainingProfileView: View {
             )
 
             opened = setup
-            message = rebuilt == 0
-                ? "Nothing ahead to rebuild this week."
-                : "\(rebuilt) day\(rebuilt == 1 ? "" : "s") rebuilt from your current ability."
+            if showConfirmation {
+                message = rebuilt == 0
+                    ? "Nothing ahead needed updating this week."
+                    : "\(rebuilt) upcoming day\(rebuilt == 1 ? "" : "s") updated."
+            }
         } catch {
             message = "Could not rebuild your week: \(error.localizedDescription)"
         }
