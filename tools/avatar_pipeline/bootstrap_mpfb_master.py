@@ -107,10 +107,19 @@ def add_variant_shape(base, variant, key_name):
 
 
 def normalize_material_name(obj, desired_name):
-    if not hasattr(obj.data, "materials") or not obj.data.materials:
+    if not hasattr(obj.data, "materials"):
         return None
-    material = obj.data.materials[0]
+
+    if obj.data.materials:
+        material = obj.data.materials[0]
+    else:
+        material = bpy.data.materials.new(desired_name)
+        material.use_nodes = True
+        obj.data.materials.append(material)
+
     material.name = desired_name
+    if not material.use_nodes:
+        material.use_nodes = True
     return material
 
 
@@ -250,6 +259,10 @@ def create_pose_action(rig, pose_name, degrees_by_bone):
         )
 
     action = bpy.data.actions.new("POSE__" + pose_name)
+    # These actions are intentionally not attached to the rig in the saved neutral
+    # state, so fake-user persistence prevents Blender from pruning them on save.
+    action.use_fake_user = True
+
     if rig.animation_data is None:
         rig.animation_data_create()
     rig.animation_data.action = action
