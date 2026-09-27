@@ -181,7 +181,7 @@ struct AvatarRewardEvaluator: Sendable {
     ) -> Bool {
         switch rule {
         case .starter:
-            true
+            return true
         case .completedSportWorkouts(let sport, let required):
             let actual: Int
             switch sport {

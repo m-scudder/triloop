@@ -263,7 +263,7 @@ struct FeedbackSheet: View {
             try modelContext.save()
             let newMilestones = milestonesTriggeredByThisWorkout()
             let rewardsAfter = currentRewardSnapshot()
-            let newGearIDs = rewardsAfter.unlockedGearIDs
+            let newGearIDs = (rewardsAfter?.unlockedGearIDs ?? [])
                 .subtracting(rewardsBefore?.unlockedGearIDs ?? [])
             let newGear = AvatarGearCatalog.items.filter { newGearIDs.contains($0.id) }
 
