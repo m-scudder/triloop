@@ -15,6 +15,8 @@ struct TrainingProfileView: View {
     @State private var message: String?
     @State private var objectiveDraft: TrainingObjective?
     @State private var isConfirmingReassessment = false
+    @State private var newlyAddedSports: Set<Sport> = []
+    @State private var isPresentingNewSportAssessment = false
 
     /// Snapshot from when this profile screen opened. It lets Athevia explain
     /// which edits can change future training without rewriting history.
@@ -40,6 +42,9 @@ struct TrainingProfileView: View {
             Button("OK", role: .cancel) { message = nil }
         } message: {
             Text(message ?? "")
+        }
+        .sheet(isPresented: $isPresentingNewSportAssessment) {
+            newSportAssessment
         }
         .alert(
             "Rebuild the days still ahead?",
@@ -484,11 +489,81 @@ struct TrainingProfileView: View {
             } header: {
                 Text("Sessions per week")
             } footer: {
-                Text("This is your preferred mix. Athevia may schedule fewer sessions when your available days or recovery needs require it.")
+                Text("Adding a new sport asks for your current starting point before Athevia rebuilds upcoming training. Existing sport progress and completed workouts are preserved.")
             }
         }
         .navigationTitle("Training Mix")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var newSportAssessment: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    Text("Tell Athevia where you are starting in the new sport\(newlyAddedSports.count == 1 ? "" : "s"). Your existing training history will not be reset.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+
+                if newlyAddedSports.contains(.running) {
+                    Section("Running") {
+                        abilityGrid(RunningBaseline.allCases) { baseline in
+                            AtheviaChoiceChip(
+                                title: runningAbilityLabel(baseline),
+                                isSelected: setup.baseline.running == baseline,
+                                tint: Discipline.running.tint
+                            ) { update { $0.baseline.running = baseline } }
+                        }
+                    }
+                }
+
+                if newlyAddedSports.contains(.cycling) {
+                    Section("Cycling") {
+                        abilityGrid(CyclingBaseline.allCases) { baseline in
+                            AtheviaChoiceChip(
+                                title: cyclingAbilityLabel(baseline),
+                                isSelected: setup.baseline.cycling == baseline,
+                                tint: Discipline.cycling.tint
+                            ) { update { $0.baseline.cycling = baseline } }
+                        }
+                    }
+                }
+
+                if newlyAddedSports.contains(.swimming) {
+                    Section("Swimming") {
+                        abilityGrid(SwimmingBaseline.allCases) { baseline in
+                            AtheviaChoiceChip(
+                                title: baseline.displayName,
+                                isSelected: setup.baseline.swimming == baseline,
+                                tint: Discipline.swimming.tint
+                            ) { update { $0.baseline.swimming = baseline } }
+                        }
+
+                        Picker("Pool length", selection: poolBinding) {
+                            Text("25 m").tag(25.0)
+                            Text("50 m").tag(50.0)
+                            if !isStandardPool {
+                                Text("\(Int(profile.poolLengthMeters)) m").tag(profile.poolLengthMeters)
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("New Sport Starting Point")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Later") { isPresentingNewSportAssessment = false }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Update Plan") {
+                        isPresentingNewSportAssessment = false
+                        reassess()
+                        newlyAddedSports = []
+                    }
+                }
+            }
+        }
     }
 
     private var swimmingEditor: some View {
@@ -699,6 +774,7 @@ struct TrainingProfileView: View {
         Binding(
             get: { preferences.first { $0.sport == sport }?.sessionsPerWeek ?? 0 },
             set: { count in
+                let wasTrained = preferences.first { $0.sport == sport }?.isTrained == true
                 if count == 0,
                    let event = setup.objective.event,
                    event.sport.requiredTrainingSports.contains(sport) {
@@ -713,6 +789,11 @@ struct TrainingProfileView: View {
                     guard let index = updated.firstIndex(where: { $0.sport == sport }) else { return }
                     updated[index].sessionsPerWeek = count
                     current.preferences = updated
+                }
+
+                if !wasTrained && count > 0 {
+                    newlyAddedSports.insert(sport)
+                    isPresentingNewSportAssessment = true
                 }
             }
         )
