@@ -5,7 +5,7 @@ import Foundation
 struct AthleteAvatar: Codable, Equatable, Sendable {
     var presentation: AvatarPresentation = .feminine
     var skinTone: AvatarSkinTone = .warmMedium
-    var hairStyle: AvatarHairStyle = .swept
+    var hairStyle: AvatarHairStyle = .tied
     var hairColor: AvatarHairColor = .espresso
     var bodyPreset: AvatarBodyPreset = .balanced
     var runLoadout: AvatarLoadout = .starterRun
@@ -198,7 +198,7 @@ struct AvatarRewardEvaluator: Sendable {
 
 enum AvatarGearCatalog {
     static let items: [AvatarGearItem] = [
-        .init(id: .runTopGraphite, name: "Graphite Run Top", category: .top, sport: .running, symbol: "tshirt.fill", unlockRule: .starter),
+        .init(id: .runTopLavender, name: "Lavender Performance Top", category: .top, sport: .running, symbol: "tshirt.fill", unlockRule: .starter),\n        .init(id: .runTopGraphite, name: "Graphite Run Top", category: .top, sport: .running, symbol: "tshirt.fill", unlockRule: .milestone(.firstRun)),
         .init(id: .runTopIvory, name: "Ivory Performance Top", category: .top, sport: .running, symbol: "tshirt", unlockRule: .completedSportWorkouts(.running, 3)),
         .init(id: .runTopCobalt, name: "Cobalt Tempo Top", category: .top, sport: .running, symbol: "tshirt.fill", unlockRule: .milestone(.firstCompleteTrainingWeek)),
         .init(id: .runShortBlack, name: "Run Short — Black", category: .bottom, sport: .running, symbol: "figure.run", unlockRule: .starter),
@@ -343,7 +343,7 @@ struct AvatarLoadout: Codable, Equatable, Sendable {
     var accessory: AvatarGearID? = nil
 
     static let starterRun = AvatarLoadout(
-        top: .runTopGraphite,
+        top: .runTopLavender,
         bottom: .runShortBlack,
         footwear: .runShoeWhite,
         headwear: nil
