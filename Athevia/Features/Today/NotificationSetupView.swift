@@ -2,8 +2,8 @@ import SwiftData
 import SwiftUI
 
 struct NotificationEnableCard: View {
-    let enable: () -> Void
-    let dismiss: () -> Void
+    let isRequesting: Bool
+    let continueAction: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -22,13 +22,18 @@ struct NotificationEnableCard: View {
                 }
             }
 
-            HStack(spacing: 10) {
-                Button("Enable reminders", action: enable)
-                    .buttonStyle(PrimaryActionButtonStyle())
-                Button("Not now", action: dismiss)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+            Button(action: continueAction) {
+                HStack(spacing: 8) {
+                    if isRequesting {
+                        ProgressView()
+                    }
+                    Text("Continue")
+                }
+                .frame(maxWidth: .infinity)
             }
+            .buttonStyle(PrimaryActionButtonStyle())
+            .disabled(isRequesting)
+            .accessibilityIdentifier("notifications.permission.continue")
         }
         .padding(16)
         .background(AtheviaAdaptiveStyle(.fill.tertiary, gaming: .raisedSurface), in: .rect(cornerRadius: 16))
@@ -43,6 +48,7 @@ struct NotificationSetupSheet: View {
     @State private var reminderTime: Date
     @State private var isRequesting = false
     @State private var permissionDenied = false
+    @State private var hasRequestedPermission = false
 
     init(onComplete: @escaping () -> Void) {
         self.onComplete = onComplete
@@ -83,19 +89,15 @@ struct NotificationSetupSheet: View {
 
                 Spacer()
 
-                Button(isRequesting ? "Enabling…" : "Enable reminders") { enable() }
+                Button("Continue") { enable() }
                     .buttonStyle(PrimaryActionButtonStyle())
                     .disabled(isRequesting)
+                    .accessibilityIdentifier("notifications.setup.continue")
             }
             .padding(20)
             .atheviaScreen()
             .navigationTitle("Notifications")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-            }
             .alert("Notifications are off", isPresented: $permissionDenied) {
                 Button("OK", role: .cancel) {}
             } message: {
@@ -103,6 +105,7 @@ struct NotificationSetupSheet: View {
             }
         }
         .atheviaScreen()
+        .interactiveDismissDisabled(!hasRequestedPermission)
     }
 
     private func enable() {
@@ -114,6 +117,7 @@ struct NotificationSetupSheet: View {
                 minute: components.minute ?? 0
             )
             isRequesting = false
+            hasRequestedPermission = true
 
             guard status == .authorized else {
                 permissionDenied = true
@@ -126,4 +130,3 @@ struct NotificationSetupSheet: View {
         }
     }
 }
-
