@@ -23,8 +23,9 @@ struct NotificationSettingsView: View {
 
                 switch authorization {
                 case .notDetermined:
-                    Button("Enable notifications") { requestPermission() }
+                    Button("Continue") { requestPermission() }
                         .disabled(isRequesting)
+                        .accessibilityIdentifier("notifications.settings.continue")
                 case .denied:
                     Button("Open iOS Settings") { openSystemSettings() }
                 case .authorized:
@@ -32,7 +33,7 @@ struct NotificationSettingsView: View {
                         .toggleStyle(AtheviaToggleStyle())
                 }
             } footer: {
-                Text("Athevia asks only after you choose to enable reminders.")
+                Text("Continuing opens the iOS notification permission request. Athevia schedules training reminders only after you allow access.")
             }
 
             if authorization == .authorized && enabled {
@@ -123,4 +124,3 @@ struct NotificationSettingsView: View {
         UIApplication.shared.open(url)
     }
 }
-
