@@ -101,11 +101,6 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-        AK0000000000000000000009 /* AtheviaTheme */ = {
-            isa = PBXFileSystemSynchronizedRootGroup;
-            path = AtheviaTheme;
-            sourceTree = "<group>";
-        };
 		AB0000000000000000000009 /* Athevia */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -143,6 +138,11 @@
 		AH0000000000000000000009 /* AtheviaShared */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = AtheviaShared;
+			sourceTree = "<group>";
+		};
+		AK0000000000000000000009 /* AtheviaTheme */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = AtheviaTheme;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -201,7 +201,7 @@
 				AE0000000000000000000009 /* AtheviaLiveActivity */,
 				AG0000000000000000000009 /* AtheviaWatch */,
 				AH0000000000000000000009 /* AtheviaShared */,
-                AK0000000000000000000009 /* AtheviaTheme */,
+				AK0000000000000000000009 /* AtheviaTheme */,
 				AC0000000000000000000009 /* AtheviaTests */,
 				AD0000000000000000000009 /* AtheviaUITests */,
 				712410B4305DC9D200365CC3 /* Frameworks */,
@@ -243,7 +243,7 @@
 			fileSystemSynchronizedGroups = (
 				AB0000000000000000000009 /* Athevia */,
 				AH0000000000000000000009 /* AtheviaShared */,
-                AK0000000000000000000009 /* AtheviaTheme */,
+				AK0000000000000000000009 /* AtheviaTheme */,
 			);
 			name = Athevia;
 			packageProductDependencies = (
@@ -313,7 +313,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				AE0000000000000000000009 /* AtheviaLiveActivity */,
-                AK0000000000000000000009 /* AtheviaTheme */,
+				AK0000000000000000000009 /* AtheviaTheme */,
 			);
 			name = AtheviaLiveActivity;
 			packageProductDependencies = (
@@ -337,7 +337,7 @@
 			fileSystemSynchronizedGroups = (
 				AG0000000000000000000009 /* AtheviaWatch */,
 				AH0000000000000000000009 /* AtheviaShared */,
-                AK0000000000000000000009 /* AtheviaTheme */,
+				AK0000000000000000000009 /* AtheviaTheme */,
 			);
 			name = "Athevia Watch";
 			packageProductDependencies = (
@@ -501,6 +501,7 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				ATHEVIA_BUNDLE_PREFIX = com.mayankagarwal;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_ENABLE_MODULES = YES;
@@ -539,7 +540,6 @@
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				ATHEVIA_BUNDLE_PREFIX = com.mayankagarwal;
 			};
 			name = Debug;
 		};
@@ -548,6 +548,7 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				ATHEVIA_BUNDLE_PREFIX = com.mayankagarwal;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_ENABLE_MODULES = YES;
@@ -578,7 +579,6 @@
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				ATHEVIA_BUNDLE_PREFIX = com.mayankagarwal;
 				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
@@ -590,7 +590,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Athevia.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 33;
 				DEVELOPMENT_TEAM = 69LB9UDYJD;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -608,7 +608,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.1;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(ATHEVIA_BUNDLE_PREFIX).athevia";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -623,7 +623,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Athevia.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 33;
 				DEVELOPMENT_TEAM = 69LB9UDYJD;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -641,7 +641,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.1;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(ATHEVIA_BUNDLE_PREFIX).athevia";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -654,10 +654,10 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 33;
 				DEVELOPMENT_TEAM = 69LB9UDYJD;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 0.1;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(ATHEVIA_BUNDLE_PREFIX).athevia.tests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -671,10 +671,10 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 33;
 				DEVELOPMENT_TEAM = 69LB9UDYJD;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 0.1;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(ATHEVIA_BUNDLE_PREFIX).athevia.tests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -687,10 +687,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 33;
 				DEVELOPMENT_TEAM = 69LB9UDYJD;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 0.1;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(ATHEVIA_BUNDLE_PREFIX).athevia.uitests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -703,10 +703,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 33;
 				DEVELOPMENT_TEAM = 69LB9UDYJD;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 0.1;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(ATHEVIA_BUNDLE_PREFIX).athevia.uitests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -720,7 +720,7 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 33;
 				DEVELOPMENT_TEAM = 69LB9UDYJD;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = AtheviaLiveActivity/Info.plist;
@@ -730,7 +730,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 0.1;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(ATHEVIA_BUNDLE_PREFIX).athevia.liveactivity";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -745,7 +745,7 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 33;
 				DEVELOPMENT_TEAM = 69LB9UDYJD;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = AtheviaLiveActivity/Info.plist;
@@ -755,7 +755,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 0.1;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(ATHEVIA_BUNDLE_PREFIX).athevia.liveactivity";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -771,7 +771,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = AtheviaWatch/AtheviaWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 33;
 				DEVELOPMENT_TEAM = 69LB9UDYJD;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -780,7 +780,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.1;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(ATHEVIA_BUNDLE_PREFIX).athevia.watchkitapp";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
@@ -799,7 +799,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = AtheviaWatch/AtheviaWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 33;
 				DEVELOPMENT_TEAM = 69LB9UDYJD;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -808,7 +808,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.1;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(ATHEVIA_BUNDLE_PREFIX).athevia.watchkitapp";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
@@ -902,4 +902,3 @@
 	};
 	rootObject = AA0000000000000000000001 /* Project object */;
 }
-
