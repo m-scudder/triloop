@@ -9,6 +9,9 @@ enum CoachIntent: Codable, Equatable, Sendable {
     case limitSession(date: Date, maxMinutes: Int)
     case unavailable(date: Date)
     case easeSession(date: Date, reason: CoachEaseReason)
+    case moveSession(from: Date, to: Date)
+    case skipSession(date: Date)
+    case unavailableRange(start: Date, end: Date)
     case prepareFor5K(eventDate: Date?)
 }
 
@@ -162,6 +165,10 @@ enum CoachPlanAction: Codable, Equatable, Sendable {
     case changeObjective(
         before: TrainingObjective,
         after: TrainingObjective
+    )
+    case addWorkout(
+        workout: CoachWorkoutSnapshot,
+        generationReason: PlanGenerationReason
     )
 }
 
