@@ -48,7 +48,7 @@ final class ProductAnalytics {
     private(set) var deliveryStatus = "No delivery attempted yet"
     var isConfigured: Bool { configuration != nil && !suppressed }
     var shouldOfferConsent: Bool { false }
-    var isEnabled: Bool { isConfigured && accountResolved }
+    var isEnabled: Bool { isConfigured && consent == .allowed && accountResolved }
 
     var diagnosticSummary: String {
         if suppressed { return "Disabled: automated test, preview or launch argument" }
