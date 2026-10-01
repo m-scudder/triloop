@@ -235,6 +235,24 @@ struct CoachActionApplier {
 
         case .addWorkout(let workout, _):
             try store.addCoachWorkout(workout, to: plan, asOf: now)
+
+        case .moveWorkout(let workoutID, let targetDate):
+            guard let workout = plan.workouts.first(where: { $0.id == workoutID }) else {
+                throw CoachActionError.actionNoLongerMatchesPreview
+            }
+            try store.moveWorkout(workout, to: targetDate, asOf: now)
+            plan.generationReason = "A workout was moved after review in Athevia Coach."
+            plan.generationReasonCode = .coachAdjustment
+            try context.save()
+
+        case .skipWorkout(let workoutID):
+            guard let workout = plan.workouts.first(where: { $0.id == workoutID }) else {
+                throw CoachActionError.actionNoLongerMatchesPreview
+            }
+            try store.skipWorkout(workout, asOf: now)
+            plan.generationReason = "A workout was skipped after review in Athevia Coach."
+            plan.generationReasonCode = .coachAdjustment
+            try context.save()
         }
 
         let postVersion = CoachPlanVersion.fingerprint(plan)
@@ -291,7 +309,7 @@ struct CoachActionApplier {
             // semantics. They require a new explicit change rather than an
             // opaque one-tap profile rollback.
             return nil
-        case .replaceWorkout, .reshapeWeek, .addWorkout:
+        case .replaceWorkout, .reshapeWeek, .addWorkout, .moveWorkout, .skipWorkout:
             break
         }
 
