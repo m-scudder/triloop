@@ -6,10 +6,22 @@ struct CoachView: View {
     private struct Message: Identifiable {
         enum Role { case athlete, coach }
 
-        let id = UUID()
+        let id: UUID
         let role: Role
         let text: String
         let evidence: String?
+
+        init(
+            id: UUID = UUID(),
+            role: Role,
+            text: String,
+            evidence: String? = nil
+        ) {
+            self.id = id
+            self.role = role
+            self.text = text
+            self.evidence = evidence
+        }
     }
 
     @Query(sort: \WeeklyPlan.startDate) private var plans: [WeeklyPlan]
@@ -24,6 +36,12 @@ struct CoachView: View {
     @State private var isWorking = false
     @State private var errorMessage: String?
     @State private var canUndo = false
+    @State private var conversations: [CoachConversation] = []
+    @State private var currentConversationID: UUID?
+    @State private var showsHistory = false
+    @State private var showsAIConsent = false
+    @State private var pendingAIRequest: String?
+    @AppStorage("athevia.coach.external-ai-consent.v1") private var externalAIConsent = false
     @FocusState private var isComposerFocused: Bool
 
     private let suggestions = [
@@ -90,17 +108,25 @@ struct CoachView: View {
             .navigationTitle("Coach")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                if canUndo {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button {
-                            Task { await undoLatest() }
-                        } label: {
-                            Image(systemName: "arrow.uturn.backward")
-                        }
-                        .disabled(isWorking || preview != nil)
-                        .accessibilityLabel("Undo latest Coach change")
-                        .accessibilityHint("Undoes the latest eligible future-plan change made by Coach.")
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        isComposerFocused = false
+                        refreshConversations()
+                        showsHistory = true
+                    } label: {
+                        Image(systemName: "clock.arrow.circlepath")
                     }
+                    .accessibilityLabel("Conversation history")
+                }
+
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        startNewConversation()
+                    } label: {
+                        Image(systemName: "square.and.pencil")
+                    }
+                    .disabled(isWorking || preview != nil)
+                    .accessibilityLabel("New conversation")
                 }
             }
             .alert(
@@ -116,7 +142,35 @@ struct CoachView: View {
             }
         }
         .atheviaScreen()
-        .onAppear { refreshUndoAvailability() }
+        .sheet(isPresented: $showsHistory) {
+            conversationHistorySheet
+        }
+        .confirmationDialog(
+            "Use AI Coach?",
+            isPresented: $showsAIConsent,
+            titleVisibility: .visible
+        ) {
+            Button("Continue") {
+                externalAIConsent = true
+                guard let request = pendingAIRequest else { return }
+                pendingAIRequest = nil
+                Task { await submit(request, appendAthleteMessage: false) }
+            }
+            Button("Not now", role: .cancel) {
+                pendingAIRequest = nil
+                appendMessage(
+                    role: .coach,
+                    text: "AI analysis is still off. Deterministic plan changes remain available without it.",
+                    evidence: nil
+                )
+            }
+        } message: {
+            Text("AI analysis sends a bounded training context to Athevia's authenticated AI service. GPS routes and free-form workout notes are not included.")
+        }
+        .onAppear {
+            refreshUndoAvailability()
+            refreshConversations()
+        }
     }
 
     private var coachWelcome: some View {
