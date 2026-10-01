@@ -20,7 +20,7 @@ struct AnalyticsSettingsView: View {
                 Text("Events already sent are not removed by this switch. Analytics uses a random identifier on this device and is not connected to your sign-in account.")
             }
             #if DEBUG
-            Section("Analytics Debug") {
+            Section {
                 Text(analytics.diagnosticSummary)
                     .font(.footnote)
                 Text(analytics.deliveryStatus)
@@ -35,6 +35,8 @@ struct AnalyticsSettingsView: View {
                 }
                 .disabled(!analytics.isEnabled || isSendingTest)
                 .accessibilityIdentifier("analytics.sendTestEvent")
+            } header: {
+                Text("Analytics Debug")
             } footer: {
                 Text("In PostHog Activity → Live events, look for analytics_debug_test with environment=development. No health data is included.")
             }
