@@ -12,29 +12,36 @@ included without manually editing project.pbxproj.
 2. Create `Athevia Production` and choose US or EU hosting. Select Product Analytics.
 3. Copy the **project token** (`phc_...`) and API host from project settings/onboarding.
    Never use a personal (`phx_...`) or secret API key in the app.
-4. Create a separate `Athevia Development` project for Debug and TestFlight.
+4. Athevia currently uses one Production project. Debug shares it explicitly; a separate development project is optional.
 5. Set these strings in `Athevia/Info.plist`:
 
 | Key | Value |
 | --- | --- |
 | PostHogProductionToken | Production project token |
 | PostHogProductionHost | `https://us.i.posthog.com` or `https://eu.i.posthog.com` |
-| PostHogDevelopmentToken | Different development project token |
-| PostHogDevelopmentHost | Development project's matching ingestion host |
+| PostHogDevelopmentToken | Optional separate development project token; currently empty |
+| PostHogDevelopmentHost | Optional development project host; currently empty |
+| PostHogDebugUsesProductionProject | `true` enables manual Debug testing in the production project |
 
 Empty or invalid configuration disables collection and the initial consent sheet.
 The owner-confirmed US production project is configured with its ingestion token
-and `https://us.i.posthog.com`. Development configuration is empty, so Debug and
-TestFlight do not collect or send events until a separate development token and
-host are supplied. Production collection still requires the user's opt-in.
+and `https://us.i.posthog.com`. `PostHogDebugUsesProductionProject=true` explicitly
+allows Debug builds to send to this same project, with `environment=development`.
+App Store events use `environment=production`. Always filter production dashboards
+by **environment equals production**, so manual testing does not inflate reports.
 Project ingestion tokens are public client configuration; they do not grant dashboard read access.
 
-Debug always selects development. A sandbox receipt selects TestFlight, which uses
-the development project. A release build with an App Store receipt named `receipt`
-selects production; a missing/unrecognized receipt selects development. The code
-refuses to use the same token for production and development. Xcode previews,
-unit tests, existing UI-test launch arguments and `--disable-analytics` suppress
-the shared collector regardless of consent.
+Debug always selects the development label. The shared-project override requires a
+Debug binary and cannot enable TestFlight or ad-hoc Release collection. A sandbox
+receipt selects TestFlight; its separate development configuration is currently empty,
+so TestFlight stays disabled. Release with an App Store receipt named `receipt`
+selects production; missing/unrecognized receipts select development without the
+Debug override. To use a separate development project later, supply its token/host
+and set `PostHogDebugUsesProductionProject=false`.
+
+Xcode previews, unit tests, existing UI-test launch arguments and `--disable-analytics`
+suppress the shared collector regardless of consent. Manual Xcode Run is supported.
+All supported builds still require the user's opt-in before capturing events.
 
 ## User choice and data
 
@@ -111,7 +118,8 @@ Coach, paywall and Watch-side usage instrumentation are not part of this branch.
 
 ## Initial dashboards
 
-Create these inside the **production** project after real events arrive:
+Create these inside the **production** project after real events arrive. Apply
+`environment = production` to every production insight/dashboard:
 
 1. Usage: unique distinct IDs for `app_opened`, daily/weekly. `$screen` breakdown by
    `$screen_name`; compare app versions. Exclude development/testflight if importing data.
@@ -137,7 +145,11 @@ xcodebuild test -project Athevia.xcodeproj -scheme Athevia \
   -only-testing:AtheviaTests/ProductAnalyticsTests
 ```
 
-Manual check with the development project:
+Manual check in the existing Production project (filter `environment = development`):
+
+Pull `feat/product-analytics`, select the Athevia scheme and **Debug** Run configuration,
+then run on your iPhone. Use normal Run, not the unit/UI-test runner. In PostHog,
+open Activity → Live events and filter for `environment = development`.
 
 1. Fresh launch: reject analytics; navigate and import. PostHog receives no events.
 2. Enable in Settings, open Home/Plan/Progress and tap Why. Wait 30 seconds or
@@ -147,7 +159,7 @@ Manual check with the development project:
 4. Go offline, navigate, disable analytics, reconnect: pending events must not arrive.
 5. Repeat offline, leave analytics on, reconnect: events retry with original timestamps/UUIDs.
 6. Sign out/erase local data: new consent choice and new random identity on next opt-in.
-7. TestFlight: events must land only in Development with `environment=testflight`.
+7. TestFlight: no events should be sent with the current empty development configuration.
 8. Archive: verify privacy manifest is bundled, and run iPhone/Watch build checks.
 
 PrivacyInfo.xcprivacy declares this analytics addition (product interaction and a
@@ -158,7 +170,7 @@ App Store Connect disclosures and published privacy policy before release.
 
 This workspace has no Xcode or Swift compiler. Swift syntax parsing, plist parsing,
 diff checks and source review can be performed here; the tests/build and actual
-PostHog ingestion must be verified in Xcode and the development project.
+PostHog ingestion must be verified in Xcode and the shared project using the development filter.
 
 References:
 - https://posthog.com/docs/api/capture
