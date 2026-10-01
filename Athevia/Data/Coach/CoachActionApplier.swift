@@ -232,6 +232,9 @@ struct CoachActionApplier {
                 try? context.save()
                 throw error
             }
+
+        case .addWorkout(let workout, _):
+            try store.addCoachWorkout(workout, to: plan, asOf: now)
         }
 
         let postVersion = CoachPlanVersion.fingerprint(plan)
@@ -288,7 +291,7 @@ struct CoachActionApplier {
             // semantics. They require a new explicit change rather than an
             // opaque one-tap profile rollback.
             return nil
-        case .replaceWorkout, .reshapeWeek:
+        case .replaceWorkout, .reshapeWeek, .addWorkout:
             break
         }
 
