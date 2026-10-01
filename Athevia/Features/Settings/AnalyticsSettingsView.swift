@@ -48,36 +48,6 @@ struct AnalyticsSettingsView: View {
 }
 
 enum AnalyticsPrivacyCopy {
+    static let prompt = "Share screen views, button taps and app version with PostHog using a random identifier to improve Athevia. No health records or personal content are sent. Optional—you can turn this off in Settings."
     static let summary = "Help improve Athevia by sharing which screens and buttons you use, technical success or failure, and the app version with PostHog. We use a random device-specific analytics identifier. We do not send your name, email, health measurements, workouts, routes, notes or chat messages. We do not record your screen or use this data for advertising."
-}
-
-struct AnalyticsConsentView: View {
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    Text("Help improve Athevia")
-                        .font(.title2.bold())
-                    Text(AnalyticsPrivacyCopy.summary)
-                    Text("This is optional. You can change your choice in Settings → Usage Analytics.")
-                        .foregroundStyle(.secondary)
-                    Button("Share usage analytics") {
-                        ProductAnalytics.shared.setConsent(.allowed)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .accessibilityIdentifier("analytics.allow")
-                    Button("Not now") {
-                        ProductAnalytics.shared.setConsent(.declined)
-                    }
-                    .buttonStyle(.bordered)
-                    .accessibilityIdentifier("analytics.decline")
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(24)
-            }
-            .atheviaScreen()
-        }
-        .presentationDetents([.large])
-        .presentationDragIndicator(.visible)
-    }
 }
