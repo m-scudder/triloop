@@ -38,6 +38,7 @@ struct CoachConversationPersistenceTests {
 }
 
 @Suite("Coach temporary time off")
+@MainActor
 struct CoachTimeOffStoreTests {
     @Test("Time off only removes dates inside the temporary range")
     func temporaryScheduleOverride() throws {
