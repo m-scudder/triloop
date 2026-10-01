@@ -30,11 +30,16 @@ struct AnalyticsConfiguration: Equatable {
         self.environment = environment
     }
 
-    static func resolve(info: [String: Any], environment: AnalyticsEnvironment) -> Self? {
-        let configPrefix = environment == .production ? "PostHogProduction" : "PostHogDevelopment"
+    static func resolve(info: [String: Any], environment: AnalyticsEnvironment, isDebug: Bool = false) -> Self? {
+        // Explicit single-project testing is allowed only in a Debug binary.
+        // Preserve the development label even when using the production token.
+        let sharesProduction = isDebug && environment == .development
+            && (info["PostHogDebugUsesProductionProject"] as? Bool == true)
+        let configPrefix = environment == .production || sharesProduction
+            ? "PostHogProduction" : "PostHogDevelopment"
         let token = (info[configPrefix + "Token"] as? String) ?? ""
         // A misconfigured development build must never fall back to production.
-        if environment != .production,
+        if environment != .production, !sharesProduction,
            token == (info["PostHogProductionToken"] as? String) { return nil }
         return Self(projectToken: token, host: (info[configPrefix + "Host"] as? String) ?? "",
                     environment: environment)
@@ -48,6 +53,6 @@ struct AnalyticsConfiguration: Equatable {
         #endif
         return resolve(info: Bundle.main.infoDictionary ?? [:], environment: .resolve(
             isDebug: debug, receiptName: Bundle.main.appStoreReceiptURL?.lastPathComponent
-        ))
+        ), isDebug: debug)
     }
 }
