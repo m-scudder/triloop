@@ -2,7 +2,8 @@
 
 This branch adds opt-in product analytics using PostHog's public `/batch/` API.
 There is no PostHog SDK dependency, automatic UI/text capture, screen recording,
-remote configuration, advertising identifier, account identification or LLM access.
+remote configuration, advertising identifier or LLM access. Explicit identity linking associates opted-in
+guest activity with an opaque account ID after sign-in.
 The Xcode project uses synchronized source folders, so new app/test files are
 included without manually editing project.pbxproj.
 
@@ -23,7 +24,7 @@ included without manually editing project.pbxproj.
 | PostHogDevelopmentHost | Optional development project host; currently empty |
 | PostHogDebugUsesProductionProject | `true` enables manual Debug testing in the production project |
 
-Empty or invalid configuration disables collection and the initial consent sheet.
+Empty or invalid configuration disables collection and the initial consent popup.
 The owner-confirmed US production project is configured with its ingestion token
 and `https://us.i.posthog.com`. `PostHogDebugUsesProductionProject=true` explicitly
 allows Debug builds to send to this same project, with `environment=development`.
@@ -46,24 +47,50 @@ All supported builds still require the user's opt-in before capturing events.
 ## User choice and data
 
 On entering the local app, configured builds offer a one-time optional choice before
-onboarding. "Not now" or dismissing the sheet declines; there is no repeated prompt.
-Settings → Usage Analytics lets users change the choice. No event or identity is
-created before opt-in. The network transport is idle until a consented event is sent.
+onboarding. "Not now" or dismissing the popup declines; there is no repeated prompt.
+Settings → Usage Analytics lets users change the choice. No event or analytics identifier is
+persisted or sent before opt-in. The network transport is idle until a consented event is sent.
 
 The typed event schema accepts fixed enum values only. It never accepts a workout,
-profile, date selection, health reading, route, note, chat message, account identifier
-or error description. Request/result events describe software actions, not athletic
+profile, date selection, health reading, route, note, chat message or error description. A separate identity method accepts only the
+stable authentication user ID and derives a SHA-256 account identifier; raw account IDs
+never enter event properties or logs. Request/result events describe software actions, not athletic
 performance. Import success means the import operation returned without throwing;
 it does **not** mean there were any matching workouts or that Health read access was granted.
 
 Events contain a random installation UUID, random session UUID, event UUID, event
 timestamp, app version/build, environment and schema version. Screens add a fixed
 screen name; onboarding adds a fixed step name. Sessions rotate after 30 minutes
-without an event. No person profile is created (`$process_person_profile=false`),
-and GeoIP enrichment is disabled (`$geoip_disable=true`). PostHog necessarily receives
+without an event. Guest events use `$process_person_profile=false`; signed-in events
+and `$identify` use `true` and `$is_identified=true`. GeoIP enrichment is disabled
+(`$geoip_disable=true`). PostHog necessarily receives
 the network request's IP at the transport layer; this is not a promise of anonymity.
-No account ID/email is sent or joined to the installation UUID. Counts therefore
-describe installations/consented users, not deduplicated people across devices.
+On sign-in, `$identify` carries the old installation UUID as `$anon_distinct_id` and
+the hashed account ID as `distinct_id`. Subsequent events use that account ID. PostHog
+can therefore associate earlier guest events and signed-in events with one person.
+The hash is pseudonymous, not anonymous, and is not a secret. It is SHA-256 of
+`athevia.analytics.v1:<environment>:<userID>` prefixed with `account_`; UUID user IDs
+are lowercased first. Use `ProductAnalytics.accountIdentifier` for exact lookup.
+Development and production use separate account namespaces in the shared project.
+No name, email, health records or account profile properties are sent.
+
+The shared collector pauses capture/flush until authentication resolves. A cached
+account's queue cannot be sent as the next account. Refresh/checking/failure states
+are not treated as logout; explicit local continuation resolves to the current account
+or guest. Repeated identity calls in a process do not duplicate the merge. Each new
+launch reasserts the same merge, recovering from cache eviction or an interrupted write.
+
+Consent v2 explains account linking. Previous v1 opt-ins are asked once again and
+start with a fresh installation identifier; their older unlinked history is not joined.
+Previous opt-outs remain declined. Turning analytics off and back on while signed in
+uses a new installation ID but the same account ID, so new activity joins that account.
+
+A normal delete-and-reinstall without login generally produces a new installation ID:
+there is no reliable way to know that it is the same person. Offloading the app or
+restoring app data from a backup can preserve preferences and the identifier. No
+Keychain analytics ID, device fingerprint, IDFA or IDFV is used. Signing into the same
+account after reinstall can associate the new installation's opted-in activity with
+that account; a previous never-identified installation cannot be recovered this way.
 
 Switching analytics off cancels pending network tasks, clears the local queue and
 installation ID, and stops retries. Sign-out, account replacement and local erasure
@@ -74,8 +101,9 @@ document the retention/deletion process in the published privacy policy before r
 
 ## Reliability
 
-- At most 200 pending records; records older than seven days are discarded on
-  restore, capture and flush. iOS can evict these cache files sooner.
+- At most 200 pending records; usage events older than seven days are discarded.
+  A pending identity merge is protected from overflow/expiry during the process;
+  after restart an expired/missing merge is re-created. iOS can evict the cache sooner.
 - Cache files excluded from device backup and protected until first device unlock.
 - Flush at 20 events, every 30 seconds while active, and best-effort on backgrounding.
 - Batches up to 50 records. Stable UUIDs across retries support server deduplication.
@@ -89,6 +117,7 @@ document the retention/deletion process in the published privacy policy before r
 
 | Event | Trigger / properties |
 | --- | --- |
+| `$identify` | Opted-in account linking; `$anon_distinct_id` is the installation UUID |
 | `app_opened` | Foreground transition, or consent granted while foreground |
 | `$screen` | Screen appears; `$screen_name` from list below |
 | `onboarding_step_viewed` | `step`: welcome, starting_point, schedule, preview |
@@ -121,7 +150,7 @@ Coach, paywall and Watch-side usage instrumentation are not part of this branch.
 Create these inside the **production** project after real events arrive. Apply
 `environment = production` to every production insight/dashboard:
 
-1. Usage: unique distinct IDs for `app_opened`, daily/weekly. `$screen` breakdown by
+1. Usage: unique persons for `app_opened`, daily/weekly. `$screen` breakdown by
    `$screen_name`; compare app versions. Exclude development/testflight if importing data.
 2. Onboarding funnel: welcome → starting_point → schedule → preview → completed,
    filtering each step's `step` property; use a seven-day conversion window.
@@ -155,15 +184,23 @@ open Activity → Live events and filter for `environment = development`.
 2. Enable in Settings, open Home/Plan/Progress and tap Why. Wait 30 seconds or
    background the app. Verify names/properties in PostHog Activity/Live events.
 3. Confirm repeated view redraws do not add duplicate screen views; navigation back
-   and switching tabs should count as new views. Check consent-sheet dismissal on iPhone.
+   and switching tabs should count as new views. Check consent-popup dismissal on iPhone.
 4. Go offline, navigate, disable analytics, reconnect: pending events must not arrive.
 5. Repeat offline, leave analytics on, reconnect: events retry with original timestamps/UUIDs.
 6. Sign out/erase local data: new consent choice and new random identity on next opt-in.
 7. TestFlight: no events should be sent with the current empty development configuration.
-8. Archive: verify privacy manifest is bundled, and run iPhone/Watch build checks.
+8. Guest → sign in: first capture guest events, then sign in and use another screen.
+   Confirm `$identify` includes the earlier guest distinct ID as `$anon_distinct_id`,
+   and the person timeline contains both guest and account events after processing.
+9. Restart offline with queued account events, then sign in as another account: old
+   queued events must be cleared and the new account asked separately. Same-account
+   restart must retain the pending merge UUID. Test logout and opt-out too.
+10. Delete/reinstall without restoring data: opt in again and verify a fresh guest ID.
+    Sign in with the same account on another device: verify the same account ID.
+11. Archive: verify privacy manifest is bundled, and run iPhone/Watch build checks.
 
 PrivacyInfo.xcprivacy declares this analytics addition (product interaction and a
-device-specific identifier, conservatively marked linked, analytics purpose, no
+device-specific identifier and user identifier, marked linked, analytics purpose, no
 tracking) and app-owned UserDefaults access. This is not an audit of all existing
 account/backup/health data flows. Review the complete app's privacy report and update
 App Store Connect disclosures and published privacy policy before release.
@@ -176,3 +213,6 @@ References:
 - https://posthog.com/docs/api/capture
 - https://posthog.com/docs/data/anonymous-vs-identified-events
 - https://developer.apple.com/app-store/user-privacy-and-data-use/
+
+Identity wire-format reference:
+- https://github.com/PostHog/sdk-specs/blob/main/openspec/specs/identify/spec.md

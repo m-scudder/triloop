@@ -17,7 +17,7 @@ struct AnalyticsSettingsView: View {
             }
             Section("Your choice") {
                 Text("Optional. Your training works the same with this switched off. Switching it off clears unsent events and resets this device's analytics identifier.")
-                Text("Events already sent are not removed by this switch. Analytics uses a random identifier on this device and is not connected to your sign-in account.")
+                Text("Events already sent are not removed by this switch. If you sign in while sharing analytics, activity is linked to an opaque account identifier across devices. Turning sharing back on while signed in links new activity to that same account.")
             }
             #if DEBUG
             Section {
@@ -50,6 +50,6 @@ struct AnalyticsSettingsView: View {
 }
 
 enum AnalyticsPrivacyCopy {
-    static let prompt = "Share screen views, button taps and app version with PostHog using a random identifier to improve Athevia. No health records or personal content are sent. Optional—you can turn this off in Settings."
-    static let summary = "Help improve Athevia by sharing which screens and buttons you use, technical success or failure, and the app version with PostHog. We use a random device-specific analytics identifier. We do not send your name, email, health measurements, workouts, routes, notes or chat messages. We do not record your screen or use this data for advertising."
+    static let prompt = "Share screen views and button taps with PostHog to improve Athevia. If you sign in, we link this activity across your devices using an opaque account ID. No health records, name or email are sent. Optional—change this in Settings."
+    static let summary = "Help improve Athevia by sharing which screens and buttons you use, technical success or failure, and the app version with PostHog. Guests use a random installation identifier. If you sign in, we link earlier guest activity and future activity to an opaque account identifier across devices. We do not send your name, email, health measurements, workouts, routes, notes or chat messages. We do not record your screen or use this data for advertising."
 }

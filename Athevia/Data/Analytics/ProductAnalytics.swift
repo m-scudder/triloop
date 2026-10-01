@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import Observation
 
@@ -15,27 +16,31 @@ struct AnalyticsRecord: Codable, Equatable {
     let appVersion: String
     let appBuild: String
 
+    var accountID: String? = nil
+
     var payload: [String: Any] {
         var values: [String: Any] = properties
         values["$session_id"] = sessionID.uuidString
-        values["$process_person_profile"] = false
+        values["$process_person_profile"] = accountID != nil
+        values["$is_identified"] = accountID != nil
         values["$geoip_disable"] = true
         values["$app_version"] = appVersion
         values["$app_build"] = appBuild
         values["schema_version"] = 1
-        return ["uuid": id.uuidString, "distinct_id": distinctID.uuidString,
+        return ["uuid": id.uuidString, "distinct_id": accountID ?? distinctID.uuidString,
                 "event": name, "timestamp": ISO8601DateFormatter().string(from: timestamp),
                 "properties": values]
     }
 }
 
 /// Main-actor isolation serializes consent, queue mutation and network completion.
-/// No HealthKit, account or training models are accessible from this service.
+/// Only an opaque account identifier enters this service; no health or training models.
 @MainActor @Observable
 final class ProductAnalytics {
-    static let shared = ProductAnalytics(configuration: .current, suppressed: isTestProcess)
-    static let consentKey = "analytics.usageConsent.v1"
-    private static let identityKey = "analytics.installationID.v1"
+    static let shared = ProductAnalytics(configuration: .current, suppressed: isTestProcess, requiresAccountResolution: true)
+    static let consentKey = "analytics.usageConsent.v2"
+    private static let identityKey = "analytics.installationID.v2"
+    private static let accountKey = "analytics.linkedAccount.v2"
     static let queueLimit = 200
     static let retention: TimeInterval = 7 * 24 * 60 * 60
 
@@ -43,12 +48,12 @@ final class ProductAnalytics {
     private(set) var deliveryStatus = "No delivery attempted yet"
     var isConfigured: Bool { configuration != nil && !suppressed }
     var shouldOfferConsent: Bool { isConfigured && consent == .undecided }
-    var isEnabled: Bool { isConfigured && consent == .allowed }
+    var isEnabled: Bool { isConfigured && consent == .allowed && accountResolved }
 
     var diagnosticSummary: String {
         if suppressed { return "Disabled: automated test, preview or launch argument" }
         guard let configuration else { return "Disabled: missing or invalid bundled configuration" }
-        return "Environment: \(configuration.environment.rawValue) · Consent: \(consent.rawValue) · Active: \(isActive)"
+        return "Environment: \(configuration.environment.rawValue) · Consent: \(consent.rawValue) · Active: \(isActive) · Account resolved: \(accountResolved)"
     }
 
     static func debugLog(_ message: String) {
@@ -67,6 +72,10 @@ final class ProductAnalytics {
     @ObservationIgnored private let appBuild: String
     @ObservationIgnored private var queue: [AnalyticsRecord] = []
     @ObservationIgnored private var identity: UUID?
+    private(set) var accountResolved: Bool
+    @ObservationIgnored private var activeAccountID: String?
+    @ObservationIgnored private var linkedAccountID: String?
+    @ObservationIgnored private var identifiedThisRun = false
     @ObservationIgnored private var sessionID: UUID?
     @ObservationIgnored private var lastActivity: Date?
     @ObservationIgnored private var isActive = false
@@ -78,26 +87,35 @@ final class ProductAnalytics {
 
     init(configuration: AnalyticsConfiguration?, defaults: UserDefaults = .standard,
          queueURL: URL? = nil, transport: (any AnalyticsTransport)? = nil,
-         suppressed: Bool = false, now: @escaping () -> Date = { Date() },
+         suppressed: Bool = false, requiresAccountResolution: Bool = false, now: @escaping () -> Date = { Date() },
          appVersion: String = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown",
          appBuild: String = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown") {
         self.configuration = configuration
         self.defaults = defaults
         self.transport = transport ?? PostHogTransport()
         self.suppressed = suppressed
+        self.accountResolved = !requiresAccountResolution
         self.now = now
         self.appVersion = appVersion
         self.appBuild = appBuild
+        // Previous opt-out remains respected; previous opt-in did not cover account linking.
+        if defaults.string(forKey: Self.consentKey) == nil,
+           defaults.string(forKey: "analytics.usageConsent.v1") == AnalyticsConsent.declined.rawValue {
+            defaults.set(AnalyticsConsent.declined.rawValue, forKey: Self.consentKey)
+        }
         consent = AnalyticsConsent(rawValue: defaults.string(forKey: Self.consentKey) ?? "") ?? .undecided
         self.queueURL = queueURL ?? Self.defaultQueueURL(configuration)
         if consent == .allowed, configuration != nil, !suppressed {
+            linkedAccountID = defaults.string(forKey: Self.accountKey)
+            if linkedAccountID != nil { accountResolved = false }
             identity = defaults.string(forKey: Self.identityKey).flatMap(UUID.init(uuidString:))
             if let url = self.queueURL, let data = try? Data(contentsOf: url),
                let records = try? JSONDecoder().decode([AnalyticsRecord].self, from: data) {
                 queue = records.filter {
                     $0.distinctID == identity && now().timeIntervalSince($0.timestamp) < Self.retention
                         && $0.timestamp <= now()
-                        && AnalyticsEvent.isAllowed(name: $0.name, properties: $0.properties)
+                        && ($0.accountID == nil || $0.accountID == linkedAccountID)
+                        && isAllowedRecord($0)
                 }
                 queue = Array(queue.suffix(Self.queueLimit))
             }
@@ -114,19 +132,107 @@ final class ProductAnalytics {
         Self.debugLog("Consent changed: \(consent.rawValue)")
         if consent != .allowed {
             discardPendingAndIdentity()
-        } else if isActive {
-            track(.appOpened)
+        } else {
+            identifyIfNeeded()
+            if isActive {
+                track(.appOpened)
+                startTicker()
+                flush()
+            }
+        }
+    }
+
+    /// Sign-out/account replacement/local erase requires a fresh analytics choice.
+    func resetForAccountChange() {
+        activeAccountID = nil
+        consent = .undecided
+        defaults.set(AnalyticsConsent.undecided.rawValue, forKey: Self.consentKey)
+        discardPendingAndIdentity()
+    }
+
+    /// Call only after auth resolves, or after an explicit Continue on this device.
+    func updateAccount(_ userID: String?) {
+        let account = userID.flatMap { Self.accountIdentifier($0, environment: configuration?.environment) }
+        let wasResolved = accountResolved
+        if let previous = linkedAccountID ?? activeAccountID, previous != account {
+            resetForAccountChange()
+        }
+        activeAccountID = account
+        accountResolved = true
+        identifyIfNeeded()
+        Self.debugLog("Account resolved: \(account == nil ? "guest" : "signed in")")
+        if isActive {
+            if !wasResolved { track(.appOpened) }
             startTicker()
             flush()
         }
     }
 
-    /// Called on sign-out/account replacement/local erase. No account identifier
-    /// is ever sent. The next user makes a fresh analytics choice.
-    func resetForAccountChange() {
-        consent = .undecided
-        defaults.removeObject(forKey: Self.consentKey)
-        discardPendingAndIdentity()
+    func waitForAccountResolution() {
+        accountResolved = false
+        Self.debugLog("Waiting for account resolution; capture and flush paused")
+    }
+
+    func accountResolutionFailed() {
+        // A guest's failed login should not disable guest analytics. A cached
+        // signed-in identity, however, needs a resolved session or explicit exit.
+        if activeAccountID == nil && linkedAccountID == nil {
+            updateAccount(nil)
+        } else {
+            waitForAccountResolution()
+        }
+    }
+
+    // Environment namespaces keep debug and production people separate in a shared project.
+    static func accountIdentifier(_ userID: String, environment: AnalyticsEnvironment?) -> String? {
+        guard !userID.isEmpty, let environment else { return nil }
+        let normalized = UUID(uuidString: userID)?.uuidString.lowercased() ?? userID
+        let input = "athevia.analytics.v1:\(environment.rawValue):\(normalized)"
+        let hash = SHA256.hash(data: Data(input.utf8)).map { String(format: "%02x", $0) }.joined()
+        return "account_" + hash
+    }
+
+    private func ensureIdentity() {
+        if identity == nil {
+            identity = UUID()
+            defaults.set(identity?.uuidString, forKey: Self.identityKey)
+        }
+    }
+
+    private func identifyIfNeeded() {
+        guard isEnabled, let account = activeAccountID, !identifiedThisRun else { return }
+        ensureIdentity()
+        guard let identity else { return }
+        linkedAccountID = account
+        defaults.set(account, forKey: Self.accountKey)
+        // Retry an existing merge with its original UUID. Reassert once per launch
+        // if cache eviction or an interrupted write lost the previous merge.
+        if !queue.contains(where: { $0.name == "$identify" && $0.accountID == account }) {
+            let linkSessionID = sessionID ?? UUID()
+            sessionID = linkSessionID
+            queue.append(AnalyticsRecord(id: UUID(), distinctID: identity, sessionID: linkSessionID,
+                timestamp: now(), name: "$identify", properties: ["$anon_distinct_id": identity.uuidString],
+                appVersion: appVersion, appBuild: appBuild, accountID: account))
+        }
+        identifiedThisRun = true
+        trimQueue()
+        persist()
+        Self.debugLog("Queued account identity link (identifiers omitted)")
+    }
+
+    private func isAllowedRecord(_ record: AnalyticsRecord) -> Bool {
+        if record.name == "$identify" {
+            return record.accountID != nil && record.accountID == linkedAccountID
+                && record.properties == ["$anon_distinct_id": record.distinctID.uuidString]
+        }
+        return AnalyticsEvent.isAllowed(name: record.name, properties: record.properties)
+    }
+
+    private func trimQueue() {
+        // Preserve pending identity links while dropping oldest usage events on overflow.
+        let links = queue.filter { $0.name == "$identify" }
+        let events = queue.filter { $0.name != "$identify" }
+        queue = Array(links.prefix(1)) + Array(events.suffix(Self.queueLimit - min(links.count, 1)))
     }
 
     func setActive(_ active: Bool) {
@@ -150,20 +256,18 @@ final class ProductAnalytics {
             return
         }
         let date = now()
-        if identity == nil {
-            identity = UUID()
-            defaults.set(identity?.uuidString, forKey: Self.identityKey)
-        }
+        identifyIfNeeded()
+        ensureIdentity()
         if sessionID == nil || lastActivity.map({ date.timeIntervalSince($0) >= 30 * 60 }) == true {
             sessionID = UUID()
         }
         lastActivity = date
         guard let identity, let sessionID else { return }
-        queue.removeAll { date.timeIntervalSince($0.timestamp) >= Self.retention }
+        queue.removeAll { $0.name != "$identify" && date.timeIntervalSince($0.timestamp) >= Self.retention }
         queue.append(AnalyticsRecord(id: UUID(), distinctID: identity, sessionID: sessionID,
                                      timestamp: date, name: event.name, properties: event.properties,
-                                     appVersion: appVersion, appBuild: appBuild))
-        queue = Array(queue.suffix(Self.queueLimit))
+                                     appVersion: appVersion, appBuild: appBuild, accountID: activeAccountID))
+        trimQueue()
         persist()
         Self.debugLog("Queued \(event.name); pending=\(queue.count)")
         if queue.count >= 20 { flush() }
@@ -185,7 +289,7 @@ final class ProductAnalytics {
             Self.debugLog("Flush already in progress")
             return request
         }
-        queue.removeAll { now().timeIntervalSince($0.timestamp) >= Self.retention }
+        queue.removeAll { $0.name != "$identify" && now().timeIntervalSince($0.timestamp) >= Self.retention }
         persist()
         guard !queue.isEmpty else {
             Self.debugLog("Flush: queue empty")
@@ -245,6 +349,9 @@ final class ProductAnalytics {
         ticker = nil
         queue.removeAll()
         identity = nil
+        linkedAccountID = nil
+        identifiedThisRun = false
+        defaults.removeObject(forKey: Self.accountKey)
         sessionID = nil
         lastActivity = nil
         retryCount = 0

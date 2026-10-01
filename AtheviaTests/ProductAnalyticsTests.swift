@@ -227,12 +227,162 @@ struct ProductAnalyticsTests {
         let body = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
         let batch = try #require(body["batch"] as? [[String: Any]])
         let properties = try #require(batch.first?["properties"] as? [String: Any])
-        #expect(Set(properties.keys) == ["$screen_name", "$session_id", "$process_person_profile",
+        #expect(Set(properties.keys) == ["$screen_name", "$session_id", "$process_person_profile", "$is_identified",
                                          "$geoip_disable", "$app_version", "$app_build", "schema_version", "environment"])
         #expect(properties["$geoip_disable"] as? Bool == true)
         #expect(properties["$process_person_profile"] as? Bool == false)
         #expect(body["api_key"] as? String == config.projectToken)
         #expect(batch.first?["distinct_id"] as? String == event.distinctID.uuidString)
+    }
+
+    @Test func guestHistoryLinksToAccountWithoutSendingRawAccountID() async throws {
+        let f = Fixture()
+        defer { f.cleanUp() }
+        f.analytics.setConsent(.allowed)
+        f.analytics.track(.whyTapped)
+        f.analytics.updateAccount("account-a")
+        f.analytics.updateAccount("account-a")
+        f.analytics.track(.infoTapped)
+        await f.analytics.flush()?.value
+        let records = try #require(f.transport.deliveries.first)
+        let guest = try #require(records.first { $0.name == "why_tapped" })
+        let link = try #require(records.first { $0.name == "$identify" })
+        let signedIn = try #require(records.first { $0.name == "info_tapped" })
+        #expect(records.filter { $0.name == "$identify" }.count == 1)
+        #expect(guest.accountID == nil)
+        #expect(link.properties == ["$anon_distinct_id": guest.distinctID.uuidString])
+        #expect(link.accountID == signedIn.accountID)
+        #expect(link.accountID != "account-a")
+        #expect(link.payload["distinct_id"] as? String == signedIn.accountID)
+        let properties = try #require(link.payload["properties"] as? [String: Any])
+        #expect(properties["$process_person_profile"] as? Bool == true)
+        #expect(properties["$is_identified"] as? Bool == true)
+    }
+
+    @Test func loginBeforeConsentOnlyIdentifiesAfterOptIn() async {
+        let f = Fixture()
+        defer { f.cleanUp() }
+        f.analytics.updateAccount("account-a")
+        await f.analytics.flush()?.value
+        #expect(f.transport.deliveries.isEmpty)
+        #expect(!FileManager.default.fileExists(atPath: f.queueURL.path))
+        f.analytics.setConsent(.allowed)
+        await f.analytics.flush()?.value
+        #expect(f.transport.deliveries.first?.first?.name == "$identify")
+    }
+
+    @Test func accountReplacementNeverMergesTwoAccounts() async throws {
+        let f = Fixture()
+        defer { f.cleanUp() }
+        f.analytics.setConsent(.allowed)
+        f.analytics.updateAccount("account-a")
+        await f.analytics.flush()?.value
+        let first = try #require(f.transport.deliveries.first?.first)
+        f.analytics.updateAccount("account-b")
+        #expect(f.analytics.consent == .undecided)
+        f.analytics.setConsent(.allowed)
+        await f.analytics.flush()?.value
+        let second = try #require(f.transport.deliveries.last?.first)
+        #expect(first.distinctID != second.distinctID)
+        #expect(first.accountID != second.accountID)
+        #expect(second.properties["$anon_distinct_id"] == second.distinctID.uuidString)
+        f.analytics.updateAccount(nil)
+        #expect(f.analytics.consent == .undecided)
+    }
+
+    @Test func restartWaitsForAuthAndPreservesPendingMergeUUID() async throws {
+        let f = Fixture()
+        defer { f.cleanUp() }
+        f.analytics.setConsent(.allowed)
+        f.analytics.track(.whyTapped)
+        f.analytics.updateAccount("account-a")
+        let queued = try JSONDecoder().decode([AnalyticsRecord].self, from: Data(contentsOf: f.queueURL))
+        let restored = ProductAnalytics(configuration: Fixture.configuration, defaults: f.defaults,
+            queueURL: f.queueURL, transport: f.transport, now: { f.clock.date })
+        await restored.flush()?.value
+        #expect(f.transport.deliveries.isEmpty)
+        restored.updateAccount("account-a")
+        await restored.flush()?.value
+        #expect(f.transport.deliveries.first == queued)
+    }
+
+    @Test func expiredSessionDoesNotSendPreviousAccountsQueue() async {
+        let f = Fixture()
+        defer { f.cleanUp() }
+        f.analytics.setConsent(.allowed)
+        f.analytics.updateAccount("account-a")
+        let restored = ProductAnalytics(configuration: Fixture.configuration, defaults: f.defaults,
+            queueURL: f.queueURL, transport: f.transport, now: { f.clock.date })
+        restored.updateAccount(nil)
+        await restored.flush()?.value
+        #expect(restored.consent == .undecided)
+        #expect(f.transport.deliveries.isEmpty)
+    }
+
+    @Test func pendingMergeSurvivesQueueOverflowAndOfflineRetry() async throws {
+        let f = Fixture()
+        defer { f.cleanUp() }
+        f.analytics.setConsent(.allowed)
+        f.analytics.updateAccount("account-a")
+        f.transport.result = .retry(after: 60)
+        for _ in 0..<250 { f.analytics.track(.whyTapped) }
+        await f.analytics.flush()?.value
+        let records = try JSONDecoder().decode([AnalyticsRecord].self, from: Data(contentsOf: f.queueURL))
+        #expect(records.count == ProductAnalytics.queueLimit)
+        #expect(records.first?.name == "$identify")
+        let firstUUID = records.first?.id
+        f.clock.date.addTimeInterval(61)
+        await f.analytics.flush()?.value
+        #expect(f.transport.deliveries.last?.first?.id == firstUUID)
+    }
+
+    @Test func freshInstallHasNewGuestIDButAccountIDIsStable() async throws {
+        let first = Fixture()
+        let second = Fixture()
+        defer { first.cleanUp(); second.cleanUp() }
+        for f in [first, second] {
+            f.analytics.setConsent(.allowed)
+            f.analytics.track(.whyTapped)
+            f.analytics.updateAccount("account-a")
+            await f.analytics.flush()?.value
+        }
+        let a = try #require(first.transport.deliveries.first?.first)
+        let b = try #require(second.transport.deliveries.first?.first)
+        #expect(a.distinctID != b.distinctID)
+        #expect(a.accountID == b.accountID)
+        #expect(ProductAnalytics.accountIdentifier("account-a", environment: .development)
+            != ProductAnalytics.accountIdentifier("account-a", environment: .production))
+    }
+
+    @Test func failedLoginResumesGuestButDoesNotAssumeCachedAccountSignedOut() async {
+        let f = Fixture()
+        defer { f.cleanUp() }
+        f.analytics.setConsent(.allowed)
+        f.analytics.waitForAccountResolution()
+        f.analytics.track(.whyTapped)
+        await f.analytics.flush()?.value
+        #expect(f.transport.deliveries.isEmpty)
+        f.analytics.accountResolutionFailed()
+        #expect(f.analytics.isEnabled)
+        f.analytics.updateAccount("account-a")
+        f.analytics.waitForAccountResolution()
+        f.analytics.accountResolutionFailed()
+        #expect(!f.analytics.isEnabled)
+        #expect(f.analytics.consent == .allowed)
+        f.analytics.updateAccount("account-a")
+        #expect(f.analytics.isEnabled)
+    }
+
+    @Test func previousConsentDoesNotSilentlyEnableAccountLinking() {
+        let f = Fixture()
+        defer { f.cleanUp() }
+        for previous in [AnalyticsConsent.allowed, .declined] {
+            f.defaults.removeObject(forKey: ProductAnalytics.consentKey)
+            f.defaults.set(previous.rawValue, forKey: "analytics.usageConsent.v1")
+            let migrated = ProductAnalytics(configuration: Fixture.configuration, defaults: f.defaults,
+                queueURL: f.queueURL, transport: f.transport)
+            #expect(migrated.consent == (previous == .allowed ? .undecided : .declined))
+        }
     }
 
     @Test func environmentConfigurationFailsClosed() {

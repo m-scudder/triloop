@@ -65,12 +65,14 @@ struct RootView: View {
                     authentication: authentication,
                     backup: backup,
                     onReady: { session, seedLocalBackup in
+                        ProductAnalytics.shared.updateAccount(session.userID)
                         accountReady = true
                         if seedLocalBackup {
                             seedAutomaticBackup(for: session)
                         }
                     },
                     onContinueLocally: {
+                        ProductAnalytics.shared.updateAccount(signedInAccountID)
                         accountReady = true
                     }
                 )
@@ -101,8 +103,9 @@ struct RootView: View {
             .onChange(of: backupFingerprint) { _, _ in
                 scheduleAutomaticBackupIfNeeded()
             }
-            .onChange(of: signedInAccountID) { previousAccountID, newAccountID in
-                handleAccountChange(from: previousAccountID, to: newAccountID)
+            .onChange(of: authentication?.state, initial: true) { previous, current in
+                synchronizeAnalyticsAccount(current)
+                handleAccountChange(from: accountID(in: previous), to: accountID(in: current))
             }
             .task(id: scenePhase) {
                 await flushBackupWhenInactive()
@@ -116,10 +119,30 @@ struct RootView: View {
         )
     }
 
-    private func handleAccountChange(from previousAccountID: String?, to newAccountID: String?) {
-        if previousAccountID != nil && previousAccountID != newAccountID {
-            ProductAnalytics.shared.resetForAccountChange()
+    private func accountID(in state: AuthenticationCoordinatorState?) -> String? {
+        guard let state, case .signedIn(let session) = state else { return nil }
+        return session.userID
+    }
+
+    private func synchronizeAnalyticsAccount(_ state: AuthenticationCoordinatorState?) {
+        guard let state else {
+            ProductAnalytics.shared.updateAccount(nil)
+            return
         }
+        switch state {
+        case .signedIn(let session):
+            ProductAnalytics.shared.updateAccount(session.userID)
+        case .signedOut:
+            ProductAnalytics.shared.updateAccount(nil)
+        case .failed:
+            ProductAnalytics.shared.accountResolutionFailed()
+        case .checking, .signingIn:
+            // A refresh or failed request is not proof of logout.
+            ProductAnalytics.shared.waitForAccountResolution()
+        }
+    }
+
+    private func handleAccountChange(from previousAccountID: String?, to newAccountID: String?) {
         guard newAccountID == nil else { return }
 
         automaticBackup?.cancelPending()
