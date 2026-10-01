@@ -12,6 +12,7 @@ enum CoachIntent: Codable, Equatable, Sendable {
     case moveSession(from: Date, to: Date)
     case skipSession(date: Date)
     case unavailableRange(start: Date, end: Date)
+    case generateWorkout(sport: Sport, date: Date, maxMinutes: Int)
     case prepareFor5K(eventDate: Date?)
 }
 
