@@ -47,6 +47,7 @@ final class PostHogTransport: AnalyticsTransport {
             let request = try Self.request(records, configuration: configuration)
             let (_, response) = try await session.data(for: request)
             guard let response = response as? HTTPURLResponse else { return .retry(after: nil) }
+            ProductAnalytics.debugLog("PostHog HTTP \(response.statusCode)")
             switch response.statusCode {
             case 200..<300: return .accepted
             case 408, 429, 500...599:
@@ -55,6 +56,9 @@ final class PostHogTransport: AnalyticsTransport {
             default: return .rejected
             }
         } catch {
+            let failure = error as NSError
+            // Do not log request bodies, tokens, URLs from errors or server bodies.
+            ProductAnalytics.debugLog("Transport error code=\(failure.code)")
             return .retry(after: nil)
         }
     }
