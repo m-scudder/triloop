@@ -23,10 +23,11 @@ included without manually editing project.pbxproj.
 | PostHogDevelopmentHost | Development project's matching ingestion host |
 
 Empty or invalid configuration disables collection and the initial consent sheet.
-No project token is configured yet: the supplied token's region and intended
-environment still need confirmation. Do not send test events to an assumed region.
-Project ingestion tokens are public client configuration and can be committed once
-the owner confirms their environment. They do not grant dashboard read access.
+The owner-confirmed US production project is configured with its ingestion token
+and `https://us.i.posthog.com`. Development configuration is empty, so Debug and
+TestFlight do not collect or send events until a separate development token and
+host are supplied. Production collection still requires the user's opt-in.
+Project ingestion tokens are public client configuration; they do not grant dashboard read access.
 
 Debug always selects development. A sandbox receipt selects TestFlight, which uses
 the development project. A release build with an App Store receipt named `receipt`
