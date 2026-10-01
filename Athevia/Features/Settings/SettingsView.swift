@@ -526,6 +526,12 @@ struct SettingsView: View {
         ProductAnalytics.shared.resetForAccountChange()
         var localCleanupError: Error?
 
+        if let athleteScopeID = profiles.first?.id.uuidString {
+            CoachConversationStore(athleteScopeID: athleteScopeID).clear()
+            CoachTimeOffStore(athleteScopeID: athleteScopeID).clear()
+        }
+        UserDefaults.standard.removeObject(forKey: "athevia.coach.external-ai-consent.v1")
+
         do {
             try LocalTrainingStoreState.removeUserData(modelContext)
         } catch {
