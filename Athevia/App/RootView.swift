@@ -146,14 +146,26 @@ struct RootView: View {
                 tabs
             }
         }
-        .sheet(isPresented: analyticsConsentPresented) {
-            AnalyticsConsentView()
+        .alert("Help improve Athevia?", isPresented: analyticsConsentPresented) {
+            Button("Not Now", role: .cancel) {
+                ProductAnalytics.shared.setConsent(.declined)
+            }
+            .accessibilityIdentifier("analytics.decline")
+            Button("Share Analytics") {
+                ProductAnalytics.shared.setConsent(.allowed)
+            }
+            .accessibilityIdentifier("analytics.allow")
+        } message: {
+            Text(AnalyticsPrivacyCopy.prompt)
         }
     }
 
     private var analyticsConsentPresented: Binding<Bool> {
         Binding(
-            get: { ProductAnalytics.shared.shouldOfferConsent },
+            get: {
+                (storeOutcome == .opened || hasShownStoreAlert)
+                    && ProductAnalytics.shared.shouldOfferConsent
+            },
             set: { isPresented in
                 guard !isPresented, ProductAnalytics.shared.shouldOfferConsent else { return }
                 ProductAnalytics.shared.setConsent(.declined)
