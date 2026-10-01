@@ -695,6 +695,60 @@ struct CoachView: View {
         Task { await submit(request) }
     }
 
+    private var conversationHistorySheet: some View {
+        NavigationStack {
+            Group {
+                if conversations.isEmpty {
+                    ContentUnavailableView(
+                        "No conversations yet",
+                        systemImage: "bubble.left.and.bubble.right",
+                        description: Text("Your Coach conversations will appear here after you start chatting.")
+                    )
+                } else {
+                    List {
+                        ForEach(conversations) { conversation in
+                            Button {
+                                loadConversation(conversation)
+                                showsHistory = false
+                            } label: {
+                                VStack(alignment: .leading, spacing: 5) {
+                                    Text(conversation.title)
+                                        .font(.body.weight(.medium))
+                                        .foregroundStyle(.primary)
+                                        .lineLimit(2)
+                                    HStack(spacing: 6) {
+                                        Text(conversation.updatedAt, format: .dateTime.month(.abbreviated).day())
+                                        Text("·")
+                                        Text("\(conversation.messages.count) message\(conversation.messages.count == 1 ? "" : "s")")
+                                    }
+                                    .font(.caption)
+                                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+                                }
+                                .padding(.vertical, 5)
+                            }
+                            .buttonStyle(.plain)
+                            .swipeActions {
+                                Button("Delete", role: .destructive) {
+                                    deleteConversation(conversation)
+                                }
+                            }
+                        }
+                    }
+                    .atheviaList()
+                }
+            }
+            .atheviaScreen()
+            .navigationTitle("Coach history")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { showsHistory = false }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+
     @MainActor
     private func submit(_ rawRequest: String, appendAthleteMessage: Bool = true) async {
         let request = rawRequest.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -706,22 +760,20 @@ struct CoachView: View {
         guard let profile = profiles.first,
               let setup = profile.setup,
               let plan = plans.currentPlan() else {
-            messages.append(
-                Message(
-                    role: .coach,
-                    text: "Finish setup and create a current training week before using Coach.",
-                    evidence: nil
-                )
+            appendMessage(
+                role: .coach,
+                text: "Finish setup and create a current training week before using Coach.",
+                evidence: nil
             )
             return
         }
 
+        if appendAthleteMessage {
+            appendMessage(role: .athlete, text: request, evidence: nil)
+        }
+
         isWorking = true
         defer { isWorking = false }
-
-        if appendAthleteMessage {
-            messages.append(Message(role: .athlete, text: request, evidence: nil))
-        }
 
         let loader = AthleteContextLoader(provider: healthProvider)
         guard let context = await loader.load(
@@ -729,56 +781,139 @@ struct CoachView: View {
             plans: plans,
             asOf: .now
         ) else {
-            messages.append(
-                Message(
-                    role: .coach,
-                    text: "I couldn't build a training context from the current profile.",
-                    evidence: nil
-                )
+            appendMessage(
+                role: .coach,
+                text: "I couldn't build a training context from the current profile.",
+                evidence: nil
             )
             return
         }
 
-        let interpretation = await CoachConversationRouter().interpret(
+        let interpretation = await DeterministicCoachIntentInterpreter().interpret(
             request: request,
             context: context,
             plan: plan,
-            now: .now,
-            externalAIConsent: false
+            now: .now
         )
 
         switch interpretation {
         case .clarification(let question):
-            messages.append(Message(role: .coach, text: question, evidence: nil))
-
-        case .unsupported(let explanation):
-            messages.append(
-                Message(
-                    role: .coach,
-                    text: explanation,
-                    evidence: "Supported requests stay on the deterministic path even when external AI is unavailable."
-                )
-            )
+            appendMessage(role: .coach, text: question, evidence: nil)
 
         case .intent(let intent):
-            let response = CoachDomainEngine().respond(
-                to: intent,
-                originalRequest: request,
+            handleDeterministicIntent(
+                intent,
+                request: request,
                 context: context,
                 setup: setup,
-                currentPlan: plan,
-                plans: plans,
-                asOf: .now
+                plan: plan
             )
-            messages.append(
-                Message(
-                    role: .coach,
-                    text: response.message,
-                    evidence: response.evidenceSummary
+
+        case .unsupported:
+            guard externalAIConsent else {
+                pendingAIRequest = request
+                showsAIConsent = true
+                return
+            }
+
+            do {
+                let recent = currentStoredConversation?.messages ?? []
+                let remote = try await CoachLLMService().respond(
+                    request: request,
+                    context: context,
+                    currentPlan: plan,
+                    plans: plans,
+                    recentMessages: recent
                 )
-            )
-            preview = response.preview
+
+                switch remote.kind {
+                case .analysis:
+                    appendMessage(
+                        role: .coach,
+                        text: remote.message,
+                        evidence: remote.evidence.isEmpty ? nil : remote.evidence.joined(separator: " · ")
+                    )
+
+                case .workoutProposal:
+                    guard let proposal = remote.workout else {
+                        appendMessage(
+                            role: .coach,
+                            text: "I couldn't validate that generated workout. Your plan was not changed.",
+                            evidence: nil
+                        )
+                        return
+                    }
+                    let response = CoachHybridRouting().workoutPreview(
+                        proposal: proposal,
+                        request: request,
+                        context: context,
+                        setup: setup,
+                        plan: plan,
+                        asOf: .now
+                    )
+                    let combinedMessage = remote.message.isEmpty
+                        ? response.message
+                        : remote.message + "\n\n" + response.message
+                    appendMessage(
+                        role: .coach,
+                        text: combinedMessage,
+                        evidence: remote.evidence.isEmpty
+                            ? response.evidenceSummary
+                            : remote.evidence.joined(separator: " · ")
+                    )
+                    preview = response.preview
+
+                case .deterministicIntent:
+                    guard let remoteIntent = remote.intent,
+                          let intent = CoachHybridRouting().intent(from: remoteIntent, plan: plan) else {
+                        appendMessage(
+                            role: .coach,
+                            text: "I understood this as a plan update, but I couldn't resolve it safely enough to propose a change.",
+                            evidence: nil
+                        )
+                        return
+                    }
+                    handleDeterministicIntent(
+                        intent,
+                        request: request,
+                        context: context,
+                        setup: setup,
+                        plan: plan
+                    )
+                }
+            } catch {
+                appendMessage(
+                    role: .coach,
+                    text: "AI analysis is unavailable right now. Routine plan changes still work through Athevia's deterministic engine.",
+                    evidence: nil
+                )
+            }
         }
+    }
+
+    @MainActor
+    private func handleDeterministicIntent(
+        _ intent: CoachIntent,
+        request: String,
+        context: AthleteContextSnapshot,
+        setup: AthleteSetup,
+        plan: WeeklyPlan
+    ) {
+        let response = CoachDomainEngine().respond(
+            to: intent,
+            originalRequest: request,
+            context: context,
+            setup: setup,
+            currentPlan: plan,
+            plans: plans,
+            asOf: .now
+        )
+        appendMessage(
+            role: .coach,
+            text: response.message,
+            evidence: response.evidenceSummary
+        )
+        preview = response.preview
     }
 
     @MainActor
@@ -811,23 +946,19 @@ struct CoachView: View {
                 asOf: .now
             )
             preview = nil
-            messages.append(
-                Message(
-                    role: .coach,
-                    text: "Applied. The current plan and upcoming Watch schedule were reconciled. Completed history was not changed.",
-                    evidence: nil
-                )
+            appendMessage(
+                role: .coach,
+                text: "Applied. The current plan and upcoming Watch schedule were reconciled. Completed history was not changed.",
+                evidence: nil
             )
             refreshUndoAvailability()
         } catch let error as CoachActionError
             where error == .stalePreview || error == .actionNoLongerMatchesPreview {
             preview = nil
-            messages.append(
-                Message(
-                    role: .coach,
-                    text: "Your plan or relevant evidence changed after that preview. I rebuilt the request below; review it again before applying.",
-                    evidence: nil
-                )
+            appendMessage(
+                role: .coach,
+                text: "Your plan or relevant evidence changed after that preview. I rebuilt the request below; review it again before applying.",
+                evidence: nil
             )
             await submit(pending.originalRequest, appendAthleteMessage: false)
         } catch {
@@ -841,12 +972,10 @@ struct CoachView: View {
         guard var pending = preview else { return }
         pending.confirmationState = .cancelled
         preview = nil
-        messages.append(
-            Message(
-                role: .coach,
-                text: "Cancelled. No training data or plan was changed.",
-                evidence: nil
-            )
+        appendMessage(
+            role: .coach,
+            text: "Cancelled. No training data or plan was changed.",
+            evidence: nil
         )
     }
 
@@ -865,12 +994,10 @@ struct CoachView: View {
                     plan: plan,
                     asOf: .now
                 )
-            messages.append(
-                Message(
-                    role: .coach,
-                    text: "Undone. Only the eligible future-plan portion of the latest Coach change was restored, and Watch scheduling was reconciled again.",
-                    evidence: nil
-                )
+            appendMessage(
+                role: .coach,
+                text: "Undone. Only the eligible future-plan portion of the latest Coach change was restored, and Watch scheduling was reconciled again.",
+                evidence: nil
             )
             refreshUndoAvailability()
         } catch {
@@ -878,6 +1005,104 @@ struct CoachView: View {
                 ?? "That Coach change cannot be safely undone."
             refreshUndoAvailability()
         }
+    }
+
+    private var conversationStore: CoachConversationStore? {
+        guard let profile = profiles.first else { return nil }
+        return CoachConversationStore(athleteScopeID: profile.id.uuidString)
+    }
+
+    private var currentStoredConversation: CoachConversation? {
+        guard let currentConversationID else { return nil }
+        return conversations.first { $0.id == currentConversationID }
+    }
+
+    @MainActor
+    private func refreshConversations() {
+        conversations = conversationStore?.conversations() ?? []
+    }
+
+    @MainActor
+    private func startNewConversation() {
+        guard !isWorking, preview == nil else { return }
+        currentConversationID = nil
+        messages = []
+        draft = ""
+        errorMessage = nil
+        isComposerFocused = true
+    }
+
+    @MainActor
+    private func loadConversation(_ conversation: CoachConversation) {
+        currentConversationID = conversation.id
+        messages = conversation.messages.map { stored in
+            Message(
+                id: stored.id,
+                role: stored.role == .athlete ? .athlete : .coach,
+                text: stored.text,
+                evidence: stored.evidence.isEmpty ? nil : stored.evidence.joined(separator: " · ")
+            )
+        }
+        preview = nil
+        draft = ""
+        errorMessage = nil
+        isComposerFocused = false
+    }
+
+    @MainActor
+    private func deleteConversation(_ conversation: CoachConversation) {
+        conversationStore?.delete(conversation.id)
+        if currentConversationID == conversation.id {
+            currentConversationID = nil
+            messages = []
+            preview = nil
+        }
+        refreshConversations()
+    }
+
+    @MainActor
+    private func appendMessage(
+        role: Message.Role,
+        text: String,
+        evidence: String?
+    ) {
+        let message = Message(role: role, text: text, evidence: evidence)
+        messages.append(message)
+        persistConversation()
+    }
+
+    @MainActor
+    private func persistConversation() {
+        guard let store = conversationStore else { return }
+        let now = Date.now
+        let existing = currentConversationID.flatMap {
+            conversations.first { $0.id == $0 }
+        }
+
+        var conversation: CoachConversation
+        if let currentConversationID,
+           let stored = conversations.first(where: { $0.id == currentConversationID }) {
+            conversation = stored
+        } else {
+            conversation = CoachConversation(createdAt: now, updatedAt: now)
+            currentConversationID = conversation.id
+        }
+
+        conversation.messages = messages.map { message in
+            CoachChatMessage(
+                id: message.id,
+                role: message.role == .athlete ? .athlete : .coach,
+                text: message.text,
+                evidence: message.evidence.map { [$0] } ?? [],
+                createdAt: now
+            )
+        }
+        if let firstRequest = conversation.messages.first(where: { $0.role == .athlete })?.text {
+            conversation.title = CoachConversationTitle.from(firstRequest: firstRequest)
+        }
+        conversation.updatedAt = now
+        store.saveConversation(conversation)
+        refreshConversations()
     }
 
     @MainActor
@@ -890,4 +1115,5 @@ struct CoachView: View {
         canUndo = CoachActionJournal(athleteScopeID: profile.id.uuidString)
             .latestUndoable(planID: plan.id) != nil
     }
+
 }
