@@ -40,9 +40,22 @@ final class ProductAnalytics {
     static let retention: TimeInterval = 7 * 24 * 60 * 60
 
     private(set) var consent: AnalyticsConsent
+    private(set) var deliveryStatus = "No delivery attempted yet"
     var isConfigured: Bool { configuration != nil && !suppressed }
     var shouldOfferConsent: Bool { isConfigured && consent == .undecided }
     var isEnabled: Bool { isConfigured && consent == .allowed }
+
+    var diagnosticSummary: String {
+        if suppressed { return "Disabled: automated test, preview or launch argument" }
+        guard let configuration else { return "Disabled: missing or invalid bundled configuration" }
+        return "Environment: \(configuration.environment.rawValue) · Consent: \(consent.rawValue) · Active: \(isActive)"
+    }
+
+    static func debugLog(_ message: String) {
+        #if DEBUG
+        print("[Athevia Analytics] \(message)")
+        #endif
+    }
 
     @ObservationIgnored private let configuration: AnalyticsConfiguration?
     @ObservationIgnored private let defaults: UserDefaults
@@ -91,17 +104,20 @@ final class ProductAnalytics {
         } else {
             if let url = self.queueURL { try? FileManager.default.removeItem(at: url) }
         }
+        Self.debugLog("Initialized. \(diagnosticSummary)")
     }
 
     func setConsent(_ consent: AnalyticsConsent) {
         guard self.consent != consent else { return }
         self.consent = consent
         defaults.set(consent.rawValue, forKey: Self.consentKey)
+        Self.debugLog("Consent changed: \(consent.rawValue)")
         if consent != .allowed {
             discardPendingAndIdentity()
         } else if isActive {
             track(.appOpened)
             startTicker()
+            flush()
         }
     }
 
@@ -116,6 +132,7 @@ final class ProductAnalytics {
     func setActive(_ active: Bool) {
         guard isActive != active else { return }
         isActive = active
+        Self.debugLog("Lifecycle active=\(active). \(diagnosticSummary)")
         if active {
             track(.appOpened)
             startTicker()
@@ -128,7 +145,10 @@ final class ProductAnalytics {
     }
 
     func track(_ event: AnalyticsEvent) {
-        guard isEnabled else { return }
+        guard isEnabled else {
+            Self.debugLog("Skipped \(event.name). \(diagnosticSummary)")
+            return
+        }
         let date = now()
         if identity == nil {
             identity = UUID()
@@ -145,24 +165,50 @@ final class ProductAnalytics {
                                      appVersion: appVersion, appBuild: appBuild))
         queue = Array(queue.suffix(Self.queueLimit))
         persist()
+        Self.debugLog("Queued \(event.name); pending=\(queue.count)")
         if queue.count >= 20 { flush() }
     }
 
     @discardableResult
     func flush() -> Task<Void, Never>? {
-        guard isEnabled, let configuration, now() >= nextAttempt else { return nil }
-        if let request { return request }
+        guard isEnabled, let configuration else {
+            deliveryStatus = diagnosticSummary
+            Self.debugLog("Flush blocked. \(diagnosticSummary)")
+            return nil
+        }
+        guard now() >= nextAttempt else {
+            deliveryStatus = "Waiting for retry backoff"
+            Self.debugLog(deliveryStatus)
+            return nil
+        }
+        if let request {
+            Self.debugLog("Flush already in progress")
+            return request
+        }
         queue.removeAll { now().timeIntervalSince($0.timestamp) >= Self.retention }
         persist()
-        guard !queue.isEmpty else { return nil }
+        guard !queue.isEmpty else {
+            Self.debugLog("Flush: queue empty")
+            return nil
+        }
         let batch = Array(queue.prefix(50))
+        deliveryStatus = "Sending \(batch.count) event(s)…"
+        Self.debugLog("Sending \(batch.count) event(s) to \(configuration.host.host ?? "PostHog"); environment=\(configuration.environment.rawValue)")
         let requestGeneration = generation
         request = Task { [weak self, transport] in
             let outcome = await transport.send(batch, configuration: configuration)
-            guard let self, !Task.isCancelled, self.generation == requestGeneration else { return }
+            guard let self, !Task.isCancelled, self.generation == requestGeneration else {
+                Self.debugLog("Ignored delivery completion: cancelled or consent changed")
+                return
+            }
             self.request = nil
             switch outcome {
             case .accepted, .rejected:
+                switch outcome {
+                case .accepted: self.deliveryStatus = "PostHog accepted the request. Check Activity → Live events."
+                default: self.deliveryStatus = "PostHog rejected the request. Check the HTTP status in Xcode."
+                }
+                Self.debugLog(self.deliveryStatus)
                 // Non-retryable 4xx is dropped; retries preserve event UUIDs.
                 let ids = Set(batch.map(\.id))
                 self.queue.removeAll { ids.contains($0.id) }
@@ -174,6 +220,8 @@ final class ProductAnalytics {
                 self.retryCount = min(self.retryCount + 1, 6)
                 let delay = max(retryAfter ?? 0, min(30 * pow(2, Double(self.retryCount - 1)), 1800))
                 self.nextAttempt = self.now().addingTimeInterval(delay)
+                self.deliveryStatus = "Delivery failed; retry in \(Int(delay)) seconds"
+                Self.debugLog(self.deliveryStatus)
             }
         }
         return request
@@ -202,6 +250,8 @@ final class ProductAnalytics {
         retryCount = 0
         nextAttempt = .distantPast
         defaults.removeObject(forKey: Self.identityKey)
+        deliveryStatus = "Unsent events cleared"
+        Self.debugLog("Cleared queue and analytics identity; cancelled pending sends")
         if let queueURL { try? FileManager.default.removeItem(at: queueURL) }
         // Cancellation cannot retract a request already received by PostHog.
     }
@@ -221,6 +271,7 @@ final class ProductAnalytics {
             try url.setResourceValues(values)
         } catch {
             // Analytics persistence must never interrupt training or show an alert.
+            Self.debugLog("Queue persistence failed; error code=\((error as NSError).code)")
         }
     }
 
