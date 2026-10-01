@@ -251,6 +251,31 @@ struct ProductAnalyticsTests {
         #expect(AnalyticsConfiguration.resolve(info: mixed, environment: .development) == nil)
     }
 
+    @Test func explicitDebugSharingPreservesLabelAndDoesNotEnableReleaseOrTestFlight() throws {
+        let info: [String: Any] = [
+            "PostHogProductionToken": "phc_ProductionTestToken123",
+            "PostHogProductionHost": "https://us.i.posthog.com",
+            "PostHogDebugUsesProductionProject": true
+        ]
+        let config = try #require(AnalyticsConfiguration.resolve(info: info, environment: .development, isDebug: true))
+        #expect(config.projectToken == (info["PostHogProductionToken"] as? String))
+        #expect(config.environment == .development)
+        #expect(AnalyticsConfiguration.resolve(info: info, environment: .development, isDebug: false) == nil)
+        #expect(AnalyticsConfiguration.resolve(info: info, environment: .testflight, isDebug: false) == nil)
+        var disabled = info
+        disabled["PostHogDebugUsesProductionProject"] = false
+        #expect(AnalyticsConfiguration.resolve(info: disabled, environment: .development, isDebug: true) == nil)
+
+        let event = AnalyticsRecord(id: UUID(), distinctID: UUID(), sessionID: UUID(), timestamp: .now,
+                                    name: "why_tapped", properties: [:], appVersion: "1.0", appBuild: "test")
+        let request = try PostHogTransport.request([event], configuration: config)
+        let data = try #require(request.httpBody)
+        let body = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let batch = try #require(body["batch"] as? [[String: Any]])
+        let properties = try #require(batch.first?["properties"] as? [String: Any])
+        #expect(properties["environment"] as? String == "development")
+    }
+
     @Test func schemaRejectsUnstructuredTextAndUnknownEvents() {
         #expect(!AnalyticsEvent.isAllowed(name: "chat_message", properties: [:]))
         #expect(!AnalyticsEvent.isAllowed(name: "$screen", properties: ["$screen_name": "User entered name"]))
