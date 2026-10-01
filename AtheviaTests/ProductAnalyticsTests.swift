@@ -68,21 +68,19 @@ struct ProductAnalyticsTests {
         }
     }
 
-    @Test func noCollectionBeforeConsentOrWithoutConfiguration() async {
-        for configured in [true, false] {
-            let f = Fixture(configured: configured)
-            defer { f.cleanUp() }
-            f.analytics.track(.screenViewed(.home))
-            await f.analytics.flush()?.value
-            #expect(f.transport.deliveries.isEmpty)
-            #expect(!FileManager.default.fileExists(atPath: f.queueURL.path))
-            if !configured {
-                f.analytics.setConsent(.allowed)
-                f.analytics.track(.whyTapped)
-                await f.analytics.flush()?.value
-                #expect(f.transport.deliveries.isEmpty)
-            }
-        }
+    @Test func analyticsStartsAutomaticallyWhenConfigured() async {
+        let configured = Fixture()
+        defer { configured.cleanUp() }
+        configured.analytics.track(.screenViewed(.home))
+        await configured.analytics.flush()?.value
+        #expect(configured.transport.deliveries.first?.first?.name == "$screen")
+
+        let unconfigured = Fixture(configured: false)
+        defer { unconfigured.cleanUp() }
+        unconfigured.analytics.track(.whyTapped)
+        await unconfigured.analytics.flush()?.value
+        #expect(unconfigured.transport.deliveries.isEmpty)
+        #expect(!FileManager.default.fileExists(atPath: unconfigured.queueURL.path))
     }
 
     @Test func testProcessesRemainSuppressedEvenWithConsent() async {
@@ -149,17 +147,18 @@ struct ProductAnalyticsTests {
         #expect(!FileManager.default.fileExists(atPath: f.queueURL.path))
     }
 
-    @Test func accountResetRequiresNewChoice() async {
+    @Test func accountResetRotatesIdentityWithoutDisablingAnalytics() async {
         let f = Fixture()
         defer { f.cleanUp() }
         f.analytics.setConsent(.allowed)
         f.analytics.track(.appOpened)
         f.analytics.resetForAccountChange()
-        #expect(f.analytics.consent == .undecided)
-        #expect(f.analytics.shouldOfferConsent)
+        #expect(f.analytics.consent == .allowed)
+        #expect(!f.analytics.shouldOfferConsent)
+        #expect(f.analytics.isEnabled)
+        f.analytics.track(.infoTapped)
         await f.analytics.flush()?.value
-        #expect(f.transport.deliveries.isEmpty)
-        #expect(!FileManager.default.fileExists(atPath: f.queueURL.path))
+        #expect(f.transport.deliveries.last?.first?.name == "info_tapped")
     }
 
     @Test func sessionRotatesAfterInactivityButIdentityPersists() async throws {
@@ -259,14 +258,10 @@ struct ProductAnalyticsTests {
         #expect(properties["$is_identified"] as? Bool == true)
     }
 
-    @Test func loginBeforeConsentOnlyIdentifiesAfterOptIn() async {
+    @Test func loginAutomaticallyIdentifiesConfiguredAnalytics() async {
         let f = Fixture()
         defer { f.cleanUp() }
         f.analytics.updateAccount("account-a")
-        await f.analytics.flush()?.value
-        #expect(f.transport.deliveries.isEmpty)
-        #expect(!FileManager.default.fileExists(atPath: f.queueURL.path))
-        f.analytics.setConsent(.allowed)
         await f.analytics.flush()?.value
         #expect(f.transport.deliveries.first?.first?.name == "$identify")
     }
@@ -279,15 +274,14 @@ struct ProductAnalyticsTests {
         await f.analytics.flush()?.value
         let first = try #require(f.transport.deliveries.first?.first)
         f.analytics.updateAccount("account-b")
-        #expect(f.analytics.consent == .undecided)
-        f.analytics.setConsent(.allowed)
+        #expect(f.analytics.consent == .allowed)
         await f.analytics.flush()?.value
         let second = try #require(f.transport.deliveries.last?.first)
         #expect(first.distinctID != second.distinctID)
         #expect(first.accountID != second.accountID)
         #expect(second.properties["$anon_distinct_id"] == second.distinctID.uuidString)
         f.analytics.updateAccount(nil)
-        #expect(f.analytics.consent == .undecided)
+        #expect(f.analytics.consent == .allowed)
     }
 
     @Test func restartWaitsForAuthAndPreservesPendingMergeUUID() async throws {
@@ -315,7 +309,7 @@ struct ProductAnalyticsTests {
             queueURL: f.queueURL, transport: f.transport, now: { f.clock.date })
         restored.updateAccount(nil)
         await restored.flush()?.value
-        #expect(restored.consent == .undecided)
+        #expect(restored.consent == .allowed)
         #expect(f.transport.deliveries.isEmpty)
     }
 
@@ -373,7 +367,7 @@ struct ProductAnalyticsTests {
         #expect(f.analytics.isEnabled)
     }
 
-    @Test func previousConsentDoesNotSilentlyEnableAccountLinking() {
+    @Test func legacyConsentStateDoesNotDisableOwnerControlledAnalytics() {
         let f = Fixture()
         defer { f.cleanUp() }
         for previous in [AnalyticsConsent.allowed, .declined] {
@@ -381,7 +375,8 @@ struct ProductAnalyticsTests {
             f.defaults.set(previous.rawValue, forKey: "analytics.usageConsent.v1")
             let migrated = ProductAnalytics(configuration: Fixture.configuration, defaults: f.defaults,
                 queueURL: f.queueURL, transport: f.transport)
-            #expect(migrated.consent == (previous == .allowed ? .undecided : .declined))
+            #expect(migrated.consent == .allowed)
+            #expect(migrated.isEnabled)
         }
     }
 
