@@ -2,6 +2,7 @@ import SwiftUI
 
 struct AnalyticsSettingsView: View {
     private var analytics: ProductAnalytics { .shared }
+    @State private var isSendingTest = false
 
     var body: some View {
         Form {
@@ -18,6 +19,26 @@ struct AnalyticsSettingsView: View {
                 Text("Optional. Your training works the same with this switched off. Switching it off clears unsent events and resets this device's analytics identifier.")
                 Text("Events already sent are not removed by this switch. Analytics uses a random identifier on this device and is not connected to your sign-in account.")
             }
+            #if DEBUG
+            Section("Analytics Debug") {
+                Text(analytics.diagnosticSummary)
+                    .font(.footnote)
+                Text(analytics.deliveryStatus)
+                    .font(.footnote)
+                Button(isSendingTest ? "Sending…" : "Send test event now") {
+                    isSendingTest = true
+                    analytics.track(.debugTest)
+                    Task { @MainActor in
+                        await analytics.flush()?.value
+                        isSendingTest = false
+                    }
+                }
+                .disabled(!analytics.isEnabled || isSendingTest)
+                .accessibilityIdentifier("analytics.sendTestEvent")
+            } footer: {
+                Text("In PostHog Activity → Live events, look for analytics_debug_test with environment=development. No health data is included.")
+            }
+            #endif
         }
         .atheviaList()
         .atheviaScreen()
