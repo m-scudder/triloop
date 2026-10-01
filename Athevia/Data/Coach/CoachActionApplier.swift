@@ -253,6 +253,32 @@ struct CoachActionApplier {
             plan.generationReason = "A workout was skipped after review in Athevia Coach."
             plan.generationReasonCode = .coachAdjustment
             try context.save()
+
+        case .timeOffRange(let start, let end, let temporarySchedule, let expectedChanges):
+            var validator = PlanReshaper()
+            validator.calendar = calendar
+            guard let setup = profile.setup else {
+                throw CoachActionError.actionNoLongerMatchesPreview
+            }
+            let outcome = validator.reshape(
+                plan,
+                schedule: temporarySchedule,
+                preferences: setup.preferences,
+                asOf: now
+            )
+            guard outcome.changes.map(CoachReshapeExpectation.init) == expectedChanges else {
+                throw CoachActionError.actionNoLongerMatchesPreview
+            }
+            _ = try store.reshapeWeek(
+                plan,
+                using: temporarySchedule,
+                reason: .availabilityChanged,
+                asOf: now
+            )
+            guard CoachTimeOffStore(athleteScopeID: profile.id.uuidString)
+                .record(start: start, end: end, at: now, calendar: calendar) != nil else {
+                throw CoachActionError.actionNoLongerMatchesPreview
+            }
         }
 
         let postVersion = CoachPlanVersion.fingerprint(plan)
@@ -308,6 +334,11 @@ struct CoachActionApplier {
             // Objective changes may cascade into journey state and profile
             // semantics. They require a new explicit change rather than an
             // opaque one-tap profile rollback.
+            return nil
+        case .timeOffRange:
+            // Temporary time off can affect future weeks as they are generated.
+            // Undoing only the current week's rows would leave the durable range
+            // active, so reversal requires a new explicit Coach change.
             return nil
         case .replaceWorkout, .reshapeWeek, .addWorkout, .moveWorkout, .skipWorkout:
             break
