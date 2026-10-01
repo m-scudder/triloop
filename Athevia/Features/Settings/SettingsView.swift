@@ -46,11 +46,6 @@ struct SettingsView: View {
                 connectionsSection
                 automationSection
                 developerSection
-                NavigationLink {
-                    AnalyticsSettingsView()
-                } label: {
-                    Label("Usage Analytics", systemImage: "chart.bar")
-                }
                 accountSection
                 accountActions
                 versionFooter
