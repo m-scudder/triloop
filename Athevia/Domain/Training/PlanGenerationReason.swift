@@ -13,6 +13,7 @@ enum PlanGenerationReason: String, Codable, CaseIterable, Sendable {
     case recovery
     case availabilityChanged
     case profileChanged
+    case coachAdjustment
 
     var displayName: String {
         switch self {
@@ -23,6 +24,7 @@ enum PlanGenerationReason: String, Codable, CaseIterable, Sendable {
         case .recovery: "Recovery week"
         case .availabilityChanged: "Rebuilt around your availability"
         case .profileChanged: "Rebuilt after a profile change"
+        case .coachAdjustment: "Adjusted with Athevia Coach"
         }
     }
 
