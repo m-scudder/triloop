@@ -1075,9 +1075,6 @@ struct CoachView: View {
     private func persistConversation() {
         guard let store = conversationStore else { return }
         let now = Date.now
-        let existing = currentConversationID.flatMap {
-            conversations.first { $0.id == $0 }
-        }
 
         var conversation: CoachConversation
         if let currentConversationID,
