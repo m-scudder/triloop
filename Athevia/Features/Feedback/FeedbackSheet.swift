@@ -14,6 +14,7 @@ struct FeedbackSheet: View {
     @Query private var profiles: [AthleteProfile]
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         NavigationStack {
@@ -155,7 +156,7 @@ struct FeedbackSheet: View {
                                 .background(
                                     Circle().fill(selected ? AnyShapeStyle(AtheviaAdaptiveStyle(.tint, gaming: .accent)) : AnyShapeStyle(AtheviaAdaptiveStyle(.fill.tertiary, gaming: .raisedSurface)))
                                 )
-                                .foregroundStyle(selected ? AnyShapeStyle(AtheviaAdaptiveStyle(.white, gaming: .onAccent)) : AnyShapeStyle(AtheviaAdaptiveStyle(.primary, gaming: .text)))
+                                .foregroundStyle(selected ? AnyShapeStyle(AtheviaAdaptiveStyle(colorScheme == .dark ? Color.black : Color.white, gaming: .onAccent)) : AnyShapeStyle(AtheviaAdaptiveStyle(.primary, gaming: .text)))
                             Text(feeling.displayName)
                                 .font(.caption2)
                                 .foregroundStyle(selected ? .primary : .secondary)

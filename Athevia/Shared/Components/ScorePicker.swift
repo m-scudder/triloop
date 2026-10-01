@@ -9,6 +9,8 @@ struct ScorePicker: View {
     @Binding var selection: Int
     let accessibilityPrefix: String
 
+    @Environment(\.colorScheme) private var colorScheme
+
     private let columns = [GridItem(.adaptive(minimum: 44), spacing: 8)]
 
     var body: some View {
@@ -31,7 +33,7 @@ struct ScorePicker: View {
                             RoundedRectangle(cornerRadius: 10, style: .continuous)
                                 .strokeBorder(.separator, lineWidth: isSelected ? 0 : 0.5)
                         )
-                        .foregroundStyle(isSelected ? AnyShapeStyle(AtheviaAdaptiveStyle(.white, gaming: .onAccent)) : AnyShapeStyle(.primary))
+                        .foregroundStyle(isSelected ? AnyShapeStyle(AtheviaAdaptiveStyle(colorScheme == .dark ? Color.black : Color.white, gaming: .onAccent)) : AnyShapeStyle(.primary))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("\(accessibilityPrefix) \(value)")
@@ -47,6 +49,8 @@ struct ChipGrid<Value: Hashable & Identifiable>: View {
     let title: (Value) -> String
     let isSelected: (Value) -> Bool
     let toggle: (Value) -> Void
+
+    @Environment(\.colorScheme) private var colorScheme
 
     private let columns = [GridItem(.adaptive(minimum: 104), spacing: 8)]
 
@@ -71,7 +75,7 @@ struct ChipGrid<Value: Hashable & Identifiable>: View {
                             RoundedRectangle(cornerRadius: 10, style: .continuous)
                                 .strokeBorder(.separator, lineWidth: selected ? 0 : 0.5)
                         )
-                        .foregroundStyle(selected ? AnyShapeStyle(AtheviaAdaptiveStyle(.white, gaming: .onAccent)) : AnyShapeStyle(.primary))
+                        .foregroundStyle(selected ? AnyShapeStyle(AtheviaAdaptiveStyle(colorScheme == .dark ? Color.black : Color.white, gaming: .onAccent)) : AnyShapeStyle(.primary))
                 }
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(selected ? [.isSelected] : [])

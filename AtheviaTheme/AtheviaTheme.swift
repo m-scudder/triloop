@@ -202,6 +202,7 @@ struct AtheviaThemeRoot: ViewModifier {
 
 private struct AtheviaScreenSurface: ViewModifier {
     @Environment(\.atheviaTheme) private var theme
+    @Environment(\.colorScheme) private var colorScheme
 
     func body(content: Content) -> some View {
         content
@@ -231,7 +232,7 @@ private struct AtheviaScreenSurface: ViewModifier {
                 for: .tabBar
             )
             .toolbarBackground(theme.isGaming ? .visible : .automatic, for: .navigationBar, .tabBar)
-            .toolbarColorScheme(theme.isGaming ? .dark : nil, for: .navigationBar, .tabBar)
+            .toolbarColorScheme(theme.isGaming ? .dark : colorScheme, for: .navigationBar, .tabBar)
             #endif
             #if os(watchOS)
             .containerBackground(AtheviaAdaptiveStyle(Color.black, gaming: .canvas), for: .navigation)
