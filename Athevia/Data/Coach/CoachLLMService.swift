@@ -78,6 +78,7 @@ struct CoachLLMService: Sendable {
         request: String,
         context: AthleteContextSnapshot,
         currentPlan: WeeklyPlan,
+        plans: [WeeklyPlan],
         recentMessages: [CoachChatMessage]
     ) async throws -> CoachLLMResponse {
         struct PlanPayload: Codable {
@@ -88,12 +89,53 @@ struct CoachLLMService: Sendable {
             let workouts: [CoachWorkoutSnapshot]
         }
 
+        struct WorkoutHistoryPayload: Codable {
+            let id: UUID
+            let date: Date
+            let title: String
+            let discipline: Discipline
+            let status: PlannedWorkoutStatus
+            let plannedDurationSeconds: TimeInterval?
+            let plannedDistanceMeters: Double?
+            let actualDurationSeconds: TimeInterval?
+            let actualDistanceMeters: Double?
+            let averageHeartRate: Double?
+            let reportedRPE: Int?
+            let painScore: Int?
+            let recoveryFeeling: RecoveryFeeling?
+        }
+
         struct Payload: Codable {
             let request: String
             let context: AthleteContextSnapshot
             let currentPlan: PlanPayload
+            let recentWorkoutHistory: [WorkoutHistoryPayload]
             let recentMessages: [CoachChatMessage]
         }
+
+        let historyCutoff = Calendar.current.date(byAdding: .day, value: -56, to: .now) ?? .distantPast
+        let history = plans
+            .flatMap(\.orderedWorkouts)
+            .filter { $0.date >= historyCutoff && $0.discipline.isPlannedWorkout }
+            .sorted { $0.date > $1.date }
+            .prefix(40)
+            .map { workout in
+                WorkoutHistoryPayload(
+                    id: workout.id,
+                    date: workout.date,
+                    title: workout.title,
+                    discipline: workout.discipline,
+                    status: workout.status,
+                    plannedDurationSeconds: workout.estimatedDurationSeconds,
+                    plannedDistanceMeters: workout.estimatedDistanceMeters,
+                    actualDurationSeconds: workout.importedSummary?.duration,
+                    actualDistanceMeters: workout.importedSummary?.distanceMeters,
+                    averageHeartRate: workout.importedSummary?.averageHeartRate,
+                    reportedRPE: workout.feedback?.rpe,
+                    painScore: workout.feedback?.painScore,
+                    recoveryFeeling: workout.feedback?.recoveryFeeling
+                )
+            }
 
         let payload = Payload(
             request: String(request.prefix(1_200)),
@@ -105,6 +147,7 @@ struct CoachLLMService: Sendable {
                 endDate: currentPlan.endDate,
                 workouts: currentPlan.orderedWorkouts.map(CoachWorkoutSnapshot.init)
             ),
+            recentWorkoutHistory: Array(history),
             recentMessages: Array(recentMessages.suffix(12))
         )
 
