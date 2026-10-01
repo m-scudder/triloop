@@ -523,7 +523,7 @@ struct CoachDomainEngine: Sendable {
 
         let planStart = calendar.startOfDay(for: plan.startDate)
         let planEnd = calendar.startOfDay(for: plan.endDate)
-        let effectiveStart = max(startDay, planStart, calendar.startOfDay(for: now))
+        let effectiveStart = max(max(startDay, planStart), calendar.startOfDay(for: now))
         let effectiveEnd = min(endDay, planEnd)
         guard effectiveEnd >= effectiveStart else {
             return noChange("That unavailable period does not overlap the current editable training week.", context: context)
