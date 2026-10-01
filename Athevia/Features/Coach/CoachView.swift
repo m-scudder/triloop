@@ -45,12 +45,12 @@ struct CoachView: View {
     @FocusState private var isComposerFocused: Bool
 
     private let suggestions = [
+        "Analyze my last completed workout.",
+        "Create a workout for tomorrow based on my recent training.",
         "Explain why this workout is planned today.",
-        "What changed in my training over the last four weeks?",
-        "I only have 30 minutes tomorrow.",
-        "I cannot train on Wednesday; adjust the remaining week.",
-        "I slept badly and feel tired; can we make today easier?",
-        "Help me prepare for a 5K using my recent training."
+        "Move Tuesday's workout to Thursday.",
+        "Skip Wednesday's workout.",
+        "I'm away from 2026-10-05 to 2026-10-09."
     ]
 
     var body: some View {
@@ -244,7 +244,7 @@ struct CoachView: View {
             Image(systemName: "lock.fill")
                 .font(.caption2)
                 .padding(.top, 2)
-            Text("Supported requests are interpreted on-device in this build. Health-derived context is not sent to an external AI service.")
+            Text("Routine plan changes stay deterministic. AI analysis uses a bounded training context only after you enable it; GPS routes and free-form workout notes are excluded.")
                 .font(.caption)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -294,12 +294,12 @@ struct CoachView: View {
 
     private func suggestionIcon(_ index: Int) -> String {
         switch index {
-        case 0: "questionmark.circle"
-        case 1: "chart.line.uptrend.xyaxis"
-        case 2: "clock"
-        case 3: "calendar.badge.minus"
-        case 4: "moon.zzz"
-        default: "flag.checkered"
+        case 0: "waveform.path.ecg.rectangle"
+        case 1: "sparkles"
+        case 2: "questionmark.circle"
+        case 3: "calendar.badge.clock"
+        case 4: "calendar.badge.minus"
+        default: "airplane"
         }
     }
 
@@ -364,7 +364,7 @@ struct CoachView: View {
             HStack(spacing: 8) {
                 ProgressView()
                     .controlSize(.small)
-                Text("Reviewing your plan and recent evidence…")
+                Text("Reviewing your training history and plan…")
                     .font(.subheadline)
                     .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
