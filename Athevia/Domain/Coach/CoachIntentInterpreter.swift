@@ -38,6 +38,28 @@ struct DeterministicCoachIntentInterpreter: CoachConversationInterpreting {
             return .intent(.prepareFor5K(eventDate: explicitISODate(in: text)))
         }
 
+        if text.contains("skip") {
+            guard let date = targetDate(in: text, plan: plan, now: now) else {
+                return .clarification("Which workout day should I skip?")
+            }
+            return .intent(.skipSession(date: date))
+        }
+
+        if text.contains("move") || text.contains("reschedule") {
+            let dates = mentionedDates(in: text, plan: plan, now: now)
+            guard dates.count >= 2 else {
+                return .clarification("Which workout day should move, and what day should it move to?")
+            }
+            return .intent(.moveSession(from: dates[0], to: dates[1]))
+        }
+
+        if (text.contains("unavailable") || text.contains("not available") || text.contains("week off") || text.contains("time off")) {
+            let dates = mentionedDates(in: text, plan: plan, now: now)
+            if dates.count >= 2 {
+                return .intent(.unavailableRange(start: dates[0], end: dates[1]))
+            }
+        }
+
         if isRecentTrainingQuestion(text) {
             return .intent(.summarizeRecentTraining(weeks: weekCount(in: text) ?? 4))
         }
@@ -154,6 +176,68 @@ struct DeterministicCoachIntentInterpreter: CoachConversationInterpreting {
         return formatter.date(from: String(text[dateRange])).map {
             calendar.startOfDay(for: $0)
         }
+    }
+
+    private func mentionedDates(
+        in text: String,
+        plan: WeeklyPlan,
+        now: Date
+    ) -> [Date] {
+        var matches: [(offset: Int, date: Date)] = []
+        let nsText = text as NSString
+
+        if let regex = try? NSRegularExpression(
+            pattern: #"\b(20\d{2}-\d{2}-\d{2})\b"#,
+            options: []
+        ) {
+            let range = NSRange(location: 0, length: nsText.length)
+            for match in regex.matches(in: text, range: range) {
+                guard let dateRange = Range(match.range(at: 1), in: text) else { continue }
+                let formatter = DateFormatter()
+                formatter.locale = Locale(identifier: "en_US_POSIX")
+                formatter.calendar = calendar
+                formatter.dateFormat = "yyyy-MM-dd"
+                if let date = formatter.date(from: String(text[dateRange])) {
+                    matches.append((match.range.location, calendar.startOfDay(for: date)))
+                }
+            }
+        }
+
+        let today = calendar.startOfDay(for: now)
+        for (token, date) in [
+            ("today", today),
+            ("tomorrow", calendar.date(byAdding: .day, value: 1, to: today))
+        ] {
+            guard let date else { continue }
+            var search = NSRange(location: 0, length: nsText.length)
+            while true {
+                let found = nsText.range(of: token, options: .caseInsensitive, range: search)
+                guard found.location != NSNotFound else { break }
+                matches.append((found.location, date))
+                let next = found.location + found.length
+                search = NSRange(location: next, length: max(nsText.length - next, 0))
+            }
+        }
+
+        for weekday in Weekday.trainingWeek {
+            let token = weekday.displayName.lowercased()
+            var search = NSRange(location: 0, length: nsText.length)
+            while true {
+                let found = nsText.range(of: token, options: .caseInsensitive, range: search)
+                guard found.location != NSNotFound else { break }
+                if let date = date(for: weekday, in: plan, notBefore: today) {
+                    matches.append((found.location, date))
+                }
+                let next = found.location + found.length
+                search = NSRange(location: next, length: max(nsText.length - next, 0))
+            }
+        }
+
+        var seen: Set<Date> = []
+        return matches
+            .sorted { $0.offset < $1.offset }
+            .map(\.date)
+            .filter { seen.insert($0).inserted }
     }
 
     private func targetDate(in text: String, plan: WeeklyPlan, now: Date) -> Date? {
