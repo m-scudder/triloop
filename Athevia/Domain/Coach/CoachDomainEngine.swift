@@ -521,28 +521,32 @@ struct CoachDomainEngine: Sendable {
             return noChange("The unavailable period must end on or after its start date.", context: context)
         }
 
-        let planStart = calendar.startOfDay(for: plan.startDate)
-        let planEnd = calendar.startOfDay(for: plan.endDate)
-        let effectiveStart = max(max(startDay, planStart), calendar.startOfDay(for: now))
-        let effectiveEnd = min(endDay, planEnd)
-        guard effectiveEnd >= effectiveStart else {
-            return noChange("That unavailable period does not overlap the current editable training week.", context: context)
+        let today = calendar.startOfDay(for: now)
+        guard endDay >= today else {
+            return noChange("That unavailable period is already in the past.", context: context)
         }
 
+        let planStart = calendar.startOfDay(for: plan.startDate)
+        let planEnd = calendar.startOfDay(for: plan.endDate)
+        let effectiveStart = max(max(startDay, planStart), today)
+        let effectiveEnd = min(endDay, planEnd)
+
         var temporary = setup.schedule
-        var cursor = effectiveStart
         var unavailableDays: [Weekday] = []
-        while cursor <= effectiveEnd {
-            if let weekday = Weekday(date: cursor, calendar: calendar) {
-                unavailableDays.append(weekday)
-                if let index = temporary.days.firstIndex(where: { $0.weekday == weekday }) {
-                    temporary.days[index].isAvailable = false
-                } else {
-                    temporary.days.append(TrainingAvailability(weekday: weekday, isAvailable: false))
+        if effectiveEnd >= effectiveStart {
+            var cursor = effectiveStart
+            while cursor <= effectiveEnd {
+                if let weekday = Weekday(date: cursor, calendar: calendar) {
+                    unavailableDays.append(weekday)
+                    if let index = temporary.days.firstIndex(where: { $0.weekday == weekday }) {
+                        temporary.days[index].isAvailable = false
+                    } else {
+                        temporary.days.append(TrainingAvailability(weekday: weekday, isAvailable: false))
+                    }
                 }
+                guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
+                cursor = next
             }
-            guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
-            cursor = next
         }
 
         let outcome = reshaper.reshape(
@@ -551,9 +555,6 @@ struct CoachDomainEngine: Sendable {
             preferences: setup.preferences,
             asOf: now
         )
-        guard !outcome.isUnchanged else {
-            return noChange("No unresolved current-week sessions need to change for that time off.", context: context)
-        }
 
         let changes = outcome.changes.compactMap { change -> CoachWorkoutChange? in
             guard let workout = plan.workouts.first(where: { $0.id == change.workoutID }) else { return nil }
@@ -572,9 +573,14 @@ struct CoachDomainEngine: Sendable {
         }
 
         let labels = Array(Set(unavailableDays.map(\.displayName))).sorted().joined(separator: ", ")
-        var reasons = ["Temporary unavailable days in this week: \(labels)."]
+        var reasons: [String] = []
+        if !labels.isEmpty {
+            reasons.append("Temporary unavailable days in this week: \(labels).")
+        } else {
+            reasons.append("The time-off range starts after the current week, so this week's workouts stay unchanged.")
+        }
         if endDay > planEnd {
-            reasons.append("This preview covers the current week only; later weeks must also honor the same time-off range when they are generated.")
+            reasons.append("Future weeks generated during this range will automatically treat those dates as unavailable.")
         }
 
         return previewResponse(
