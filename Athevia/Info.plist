@@ -5,9 +5,9 @@
 	<!-- Project ingestion tokens are public client configuration, not secrets.
 	     Leave unconfigured environments empty: analytics then stays disabled. -->
 	<key>PostHogProductionToken</key>
-	<string></string>
+	<string>phc_zmo3DWgeX5nue5pPGLCwmyASXcYygyYsZDXd2WJ5gqqs</string>
 	<key>PostHogProductionHost</key>
-	<string></string>
+	<string>https://us.i.posthog.com</string>
 	<key>PostHogDevelopmentToken</key>
 	<string></string>
 	<key>PostHogDevelopmentHost</key>
