@@ -119,10 +119,29 @@ struct PlanStore {
     @discardableResult
     func reshapeWeek(_ plan: WeeklyPlan, asOf now: Date = .now) throws -> PlanReshaper.Outcome {
         guard let setup = athleteSetup() else { return PlanReshaper.Outcome() }
+        return try reshapeWeek(
+            plan,
+            using: setup.schedule,
+            reason: .availabilityChanged,
+            asOf: now
+        )
+    }
+
+    /// Applies a one-week schedule override without changing the athlete's
+    /// recurring profile availability. The coach uses this only after a
+    /// preview has been confirmed.
+    @discardableResult
+    func reshapeWeek(
+        _ plan: WeeklyPlan,
+        using temporarySchedule: AthleteSchedule,
+        reason: PlanGenerationReason = .availabilityChanged,
+        asOf now: Date = .now
+    ) throws -> PlanReshaper.Outcome {
+        guard let setup = athleteSetup() else { return PlanReshaper.Outcome() }
 
         let outcome = reshaper.reshape(
             plan,
-            schedule: setup.schedule,
+            schedule: temporarySchedule,
             preferences: setup.preferences,
             asOf: now
         )
@@ -136,9 +155,65 @@ struct PlanStore {
         }
 
         removeOccupiedRestDays(in: plan, asOf: now)
-        plan.generationReasonCode = .availabilityChanged
+        plan.generationReasonCode = reason
         try context.save()
         return outcome
+    }
+
+    /// Replaces only the prescription of an unresolved future generated
+    /// workout. Feedback, imported evidence and completed history can never
+    /// reach this path because PlanReshaper.canEdit rejects them first.
+    func replaceMutableWorkoutPrescription(
+        _ workout: PlannedWorkout,
+        in plan: WeeklyPlan,
+        with snapshot: CoachWorkoutSnapshot,
+        generationReason: PlanGenerationReason,
+        asOf now: Date = .now
+    ) throws {
+        guard workout.origin == .generated,
+              reshaper.canEdit(workout, in: plan, asOf: now) else {
+            throw PlanReshaper.Failure.workoutIsImmutable
+        }
+        guard calendarSameDay(workout.date, snapshot.date, calendar: reshaper.calendar) else {
+            throw PlanReshaper.Failure.dateOutsidePlan
+        }
+        guard snapshot.discipline == workout.discipline || snapshot.discipline == .recovery else {
+            throw PlanReshaper.Failure.workoutIsImmutable
+        }
+
+        if snapshot.discipline.isTrainingSession {
+            guard let setup = athleteSetup() else {
+                throw PlanReshaper.Failure.missingSchedule
+            }
+            let candidate = snapshot.makeWorkout()
+            candidate.id = workout.id
+            try reshaper.validatePlacement(
+                candidate,
+                on: workout.date,
+                in: plan,
+                schedule: setup.schedule,
+                asOf: now
+            )
+        }
+
+        let replacement = snapshot.makeWorkout()
+        let oldSteps = workout.steps
+        workout.discipline = replacement.discipline
+        workout.title = replacement.title
+        workout.goal = replacement.goal
+        workout.targetRPE = replacement.targetRPE
+        workout.prescribedDurationSeconds = replacement.prescribedDurationSeconds
+        workout.targetDistanceMeters = replacement.targetDistanceMeters
+        workout.steps = replacement.steps
+        replacement.steps = []
+        for step in oldSteps { context.delete(step) }
+
+        plan.generationReasonCode = generationReason
+        try context.save()
+    }
+
+    private func calendarSameDay(_ lhs: Date, _ rhs: Date, calendar: Calendar) -> Bool {
+        calendar.isDate(lhs, inSameDayAs: rhs)
     }
 
     private func athleteSetup() -> AthleteSetup? {

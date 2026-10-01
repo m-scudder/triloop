@@ -287,7 +287,7 @@ struct FinalPhaseCorrectnessTests {
         let brickMetrics = RecordedMetrics(
             multisportSegments: [
                 .init(sport: .cycling, durationSeconds: 45 * 60, distanceMeters: 20_000),
-                .init(sport: nil, isChange from bike to run: true, durationSeconds: 180),
+                .init(sport: nil, isTransition: true, durationSeconds: 180),
                 .init(sport: .running, durationSeconds: 18 * 60, distanceMeters: 3_000)
             ]
         )
@@ -404,7 +404,7 @@ struct FinalPhaseCorrectnessTests {
         )
         let metrics = RecordedMetrics(multisportSegments: [
             .init(sport: .cycling, durationSeconds: 40 * 60, distanceMeters: 18_000),
-            .init(sport: nil, isChange from bike to run: true, durationSeconds: 180),
+            .init(sport: nil, isTransition: true, durationSeconds: 180),
             .init(sport: .running, durationSeconds: 25 * 60, distanceMeters: 5_000)
         ])
         let brick = completed(
@@ -565,7 +565,7 @@ struct FinalPhaseCorrectnessTests {
                 weeksRemaining: phase == .raceWeek ? 1 : 5,
                 readiness: .init(status: .building, sports: []),
                 weeklyObjectives: phase == .specific
-                    ? [.init(sport: nil, kind: .brickChange from bike to run, priority: 1, reason: .brickPreparation)]
+                    ? [.init(sport: nil, kind: .brickTransition, priority: 1, reason: .brickPreparation)]
                     : [],
                 sportPriorities: [
                     .init(sport: .swimming, rank: 1, reason: "Test"),

@@ -5,6 +5,7 @@ private enum RootTab: Hashable {
     case home
     case plan
     case progress
+    case coach
     case settings
 }
 
@@ -181,6 +182,11 @@ struct RootView: View {
             }
             Tab("Progress", systemImage: "chart.line.uptrend.xyaxis", value: RootTab.progress) {
                 ProgressOverviewView()
+            }
+            if CoachFeatureFlag.isEnabled {
+                Tab("Coach", systemImage: "bubble.left.and.text.bubble.right", value: RootTab.coach) {
+                    CoachView()
+                }
             }
             Tab("Settings", systemImage: "gearshape", value: RootTab.settings) {
                 SettingsView(
