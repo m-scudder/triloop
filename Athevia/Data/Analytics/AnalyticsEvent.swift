@@ -41,6 +41,7 @@ enum AnalyticsEvent: Equatable {
     case whyTapped
     case infoTapped
     case calendarOpened
+    case debugTest
 
     var name: String {
         switch self {
@@ -53,6 +54,7 @@ enum AnalyticsEvent: Equatable {
         case .whyTapped: "why_tapped"
         case .infoTapped: "info_tapped"
         case .calendarOpened: "calendar_opened"
+        case .debugTest: "analytics_debug_test"
         }
     }
 
@@ -76,7 +78,7 @@ enum AnalyticsEvent: Equatable {
         }
         guard properties.isEmpty else { return false }
         let simple: [AnalyticsEvent] = [.appOpened, .onboardingCompleted, .onboardingFailed,
-                                       .whyTapped, .infoTapped, .calendarOpened]
+                                       .whyTapped, .infoTapped, .calendarOpened, .debugTest]
         return simple.contains { $0.name == name } || AnalyticsAction.allCases.contains { action in
             AnalyticsOutcome.allCases.contains { name == AnalyticsEvent.action(action, $0).name }
         }
