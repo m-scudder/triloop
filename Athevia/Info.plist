@@ -12,6 +12,10 @@
 	<string></string>
 	<key>PostHogDevelopmentHost</key>
 	<string></string>
+	<!-- Explicitly share the project for manual Debug testing; events are
+	     labelled development. This does not enable TestFlight collection. -->
+	<key>PostHogDebugUsesProductionProject</key>
+	<true/>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIBackgroundModes</key>
