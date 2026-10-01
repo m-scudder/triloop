@@ -173,6 +173,12 @@ enum CoachPlanAction: Codable, Equatable, Sendable {
     )
     case moveWorkout(workoutID: UUID, targetDate: Date)
     case skipWorkout(workoutID: UUID)
+    case timeOffRange(
+        start: Date,
+        end: Date,
+        temporarySchedule: AthleteSchedule,
+        expectedChanges: [CoachReshapeExpectation]
+    )
 }
 
 struct CoachPlanChangePreview: Codable, Equatable, Sendable, Identifiable {
