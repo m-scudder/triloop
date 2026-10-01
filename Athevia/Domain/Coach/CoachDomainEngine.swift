@@ -586,7 +586,9 @@ struct CoachDomainEngine: Sendable {
             plan: plan,
             changes: changes,
             reasons: reasons,
-            action: .reshapeWeek(
+            action: .timeOffRange(
+                start: startDay,
+                end: endDay,
                 temporarySchedule: temporary,
                 expectedChanges: outcome.changes.map(CoachReshapeExpectation.init)
             ),
