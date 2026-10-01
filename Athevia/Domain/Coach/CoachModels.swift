@@ -171,6 +171,8 @@ enum CoachPlanAction: Codable, Equatable, Sendable {
         workout: CoachWorkoutSnapshot,
         generationReason: PlanGenerationReason
     )
+    case moveWorkout(workoutID: UUID, targetDate: Date)
+    case skipWorkout(workoutID: UUID)
 }
 
 struct CoachPlanChangePreview: Codable, Equatable, Sendable, Identifiable {
