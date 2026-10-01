@@ -71,6 +71,49 @@ struct CoachDomainEngine: Sendable {
                 asOf: now
             )
 
+        case .moveSession(let source, let target):
+            return previewMoveSession(
+                from: source,
+                to: target,
+                request: originalRequest,
+                intent: intent,
+                context: context,
+                setup: setup,
+                plan: currentPlan,
+                reshaper: reshaper,
+                asOf: now
+            )
+
+        case .skipSession(let date):
+            return previewSkipSession(
+                on: date,
+                request: originalRequest,
+                intent: intent,
+                context: context,
+                plan: currentPlan,
+                reshaper: reshaper,
+                asOf: now
+            )
+
+        case .unavailableRange(let start, let end):
+            return previewUnavailableRange(
+                start: start,
+                end: end,
+                request: originalRequest,
+                intent: intent,
+                context: context,
+                setup: setup,
+                plan: currentPlan,
+                reshaper: reshaper,
+                asOf: now
+            )
+
+        case .generateWorkout:
+            return noChange(
+                "Generated workouts must pass through the validated Coach proposal builder.",
+                context: context
+            )
+
         case .prepareFor5K(let eventDate):
             return prepareFor5K(
                 eventDate: eventDate,
@@ -360,6 +403,189 @@ struct CoachDomainEngine: Sendable {
             plan: plan,
             changes: changes,
             reasons: [reason, "Completed, skipped, imported, and past sessions remain immutable."],
+            action: .reshapeWeek(
+                temporarySchedule: temporary,
+                expectedChanges: outcome.changes.map(CoachReshapeExpectation.init)
+            ),
+            asOf: now
+        )
+    }
+
+    private func previewMoveSession(
+        from sourceDate: Date,
+        to targetDate: Date,
+        request: String,
+        intent: CoachIntent,
+        context: AthleteContextSnapshot,
+        setup: AthleteSetup,
+        plan: WeeklyPlan,
+        reshaper: PlanReshaper,
+        asOf now: Date
+    ) -> CoachDomainResponse {
+        guard let workout = plan.workout(on: sourceDate, calendar: calendar),
+              workout.discipline.isTrainingSession else {
+            return noChange("There is no training session to move on \(dayLabel(sourceDate)).", context: context)
+        }
+        guard reshaper.canEdit(workout, in: plan, asOf: now) else {
+            return noChange("That workout is already part of history and cannot be moved.", context: context)
+        }
+
+        do {
+            try reshaper.validatePlacement(
+                workout,
+                on: targetDate,
+                in: plan,
+                schedule: setup.schedule,
+                asOf: now
+            )
+        } catch {
+            return noChange(
+                (error as? LocalizedError)?.errorDescription ?? "That move does not fit the current training constraints.",
+                context: context
+            )
+        }
+
+        let before = CoachWorkoutSnapshot(workout)
+        var after = before
+        after.date = calendar.startOfDay(for: targetDate)
+        let reason = "The session content is unchanged; only its date moves after availability, duration, recovery, and spacing validation."
+
+        return previewResponse(
+            message: "I can move \(workout.title) from \(dayLabel(sourceDate)) to \(dayLabel(targetDate)).",
+            request: request,
+            intent: intent,
+            constraints: ["Move one unresolved future session"],
+            context: context,
+            plan: plan,
+            changes: [
+                CoachWorkoutChange(kind: .moved, before: before, after: after, reason: reason)
+            ],
+            reasons: [reason],
+            action: .moveWorkout(workoutID: workout.id, targetDate: after.date),
+            asOf: now
+        )
+    }
+
+    private func previewSkipSession(
+        on date: Date,
+        request: String,
+        intent: CoachIntent,
+        context: AthleteContextSnapshot,
+        plan: WeeklyPlan,
+        reshaper: PlanReshaper,
+        asOf now: Date
+    ) -> CoachDomainResponse {
+        guard let workout = plan.workout(on: date, calendar: calendar),
+              workout.discipline.isTrainingSession else {
+            return noChange("There is no training session to skip on \(dayLabel(date)).", context: context)
+        }
+        guard reshaper.canEdit(workout, in: plan, asOf: now) else {
+            return noChange("That workout is already part of history and cannot be skipped.", context: context)
+        }
+
+        let before = CoachWorkoutSnapshot(workout)
+        var after = before
+        after.status = .skipped
+        let reason = "Only this unresolved future session is marked skipped; completed history and other sessions are unchanged."
+
+        return previewResponse(
+            message: "I can skip \(workout.title) on \(dayLabel(date)).",
+            request: request,
+            intent: intent,
+            constraints: ["Skip one unresolved future session"],
+            context: context,
+            plan: plan,
+            changes: [
+                CoachWorkoutChange(kind: .skipped, before: before, after: after, reason: reason)
+            ],
+            reasons: [reason],
+            action: .skipWorkout(workoutID: workout.id),
+            asOf: now
+        )
+    }
+
+    private func previewUnavailableRange(
+        start: Date,
+        end: Date,
+        request: String,
+        intent: CoachIntent,
+        context: AthleteContextSnapshot,
+        setup: AthleteSetup,
+        plan: WeeklyPlan,
+        reshaper: PlanReshaper,
+        asOf now: Date
+    ) -> CoachDomainResponse {
+        let startDay = calendar.startOfDay(for: start)
+        let endDay = calendar.startOfDay(for: end)
+        guard endDay >= startDay else {
+            return noChange("The unavailable period must end on or after its start date.", context: context)
+        }
+
+        let planStart = calendar.startOfDay(for: plan.startDate)
+        let planEnd = calendar.startOfDay(for: plan.endDate)
+        let effectiveStart = max(startDay, planStart, calendar.startOfDay(for: now))
+        let effectiveEnd = min(endDay, planEnd)
+        guard effectiveEnd >= effectiveStart else {
+            return noChange("That unavailable period does not overlap the current editable training week.", context: context)
+        }
+
+        var temporary = setup.schedule
+        var cursor = effectiveStart
+        var unavailableDays: [Weekday] = []
+        while cursor <= effectiveEnd {
+            if let weekday = Weekday(date: cursor, calendar: calendar) {
+                unavailableDays.append(weekday)
+                if let index = temporary.days.firstIndex(where: { $0.weekday == weekday }) {
+                    temporary.days[index].isAvailable = false
+                } else {
+                    temporary.days.append(TrainingAvailability(weekday: weekday, isAvailable: false))
+                }
+            }
+            guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
+            cursor = next
+        }
+
+        let outcome = reshaper.reshape(
+            plan,
+            schedule: temporary,
+            preferences: setup.preferences,
+            asOf: now
+        )
+        guard !outcome.isUnchanged else {
+            return noChange("No unresolved current-week sessions need to change for that time off.", context: context)
+        }
+
+        let changes = outcome.changes.compactMap { change -> CoachWorkoutChange? in
+            guard let workout = plan.workouts.first(where: { $0.id == change.workoutID }) else { return nil }
+            let before = CoachWorkoutSnapshot(workout)
+            var after = before
+            after.date = change.date
+            if change.skipped { after.status = .skipped }
+            return CoachWorkoutChange(
+                kind: change.skipped ? .skipped : .moved,
+                before: before,
+                after: after,
+                reason: change.skipped
+                    ? "No valid day remains inside this week after applying the temporary time-off window."
+                    : "Moved outside the temporary unavailable window while preserving deterministic spacing and availability."
+            )
+        }
+
+        let labels = Array(Set(unavailableDays.map(\.displayName))).sorted().joined(separator: ", ")
+        var reasons = ["Temporary unavailable days in this week: \(labels)."]
+        if endDay > planEnd {
+            reasons.append("This preview covers the current week only; later weeks must also honor the same time-off range when they are generated.")
+        }
+
+        return previewResponse(
+            message: "Here is the deterministic current-week adjustment for your unavailable period.",
+            request: request,
+            intent: intent,
+            constraints: ["Unavailable from \(dayLabel(startDay)) through \(dayLabel(endDay))"],
+            context: context,
+            plan: plan,
+            changes: changes,
+            reasons: reasons,
             action: .reshapeWeek(
                 temporarySchedule: temporary,
                 expectedChanges: outcome.changes.map(CoachReshapeExpectation.init)
