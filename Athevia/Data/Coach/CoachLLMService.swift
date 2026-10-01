@@ -69,7 +69,7 @@ private struct CoachLLMRequest: Encodable {
     let payload: String
 }
 
-struct CoachLLMService: Sendable {
+struct CoachLLMService {
     var client: SupabaseClient = SupabaseConfiguration.client
     var functionName = "coach-llm"
     var maximumPayloadBytes = 64 * 1024
