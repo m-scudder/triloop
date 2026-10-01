@@ -26,7 +26,9 @@ struct PlanStore {
     func generateNextWeek(after plan: WeeklyPlan) throws -> WeeklyPlan? {
         guard !hasWeek(after: plan) else { return nil }
 
-        let next = configuredGenerator().generate(after: plan, analysis: analyser.analyse(plan))
+        let nextStart = generator.calendar.date(byAdding: .day, value: 1, to: plan.endDate)
+        let next = configuredGenerator(forWeekStarting: nextStart)
+            .generate(after: plan, analysis: analyser.analyse(plan))
         plan.status = .completed
         context.insert(next)
         try context.save()
@@ -36,12 +38,16 @@ struct PlanStore {
     /// The generator carries no athlete state of its own, so the stored setup is
     /// applied here. Without this the next week is built against every-day
     /// availability rather than the days the athlete chose.
-    private func configuredGenerator() -> WeeklyPlanGenerator {
+    private func configuredGenerator(forWeekStarting weekStart: Date? = nil) -> WeeklyPlanGenerator {
         var configured = generator
-        guard let setup = (try? context.fetch(FetchDescriptor<AthleteProfile>()))?.first?.setup else {
+        guard let profile = (try? context.fetch(FetchDescriptor<AthleteProfile>()))?.first,
+              let setup = profile.setup else {
             return configured
         }
-        configured.schedule = setup.schedule
+        configured.schedule = weekStart.map {
+            CoachTimeOffStore(athleteScopeID: profile.id.uuidString)
+                .schedule(from: setup.schedule, weekStarting: $0, calendar: configured.calendar)
+        } ?? setup.schedule
         configured.preferences = setup.preferences
         let history = (try? context.fetch(
             FetchDescriptor<WeeklyPlan>(sortBy: [SortDescriptor(\.startDate)])
@@ -350,7 +356,7 @@ struct PlanStore {
             skippedSessions: 0,
             sports: []
         )
-        let candidate = configuredGenerator().generate(
+        let candidate = configuredGenerator(forWeekStarting: plan.startDate).generate(
             after: seed,
             analysis: neutralAnalysis
         )
