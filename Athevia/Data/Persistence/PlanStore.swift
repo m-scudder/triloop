@@ -212,6 +212,40 @@ struct PlanStore {
         try context.save()
     }
 
+    /// Adds one Coach-proposed session after deterministic placement validation.
+    /// The model never supplies the step tree directly; callers must pass a
+    /// snapshot built by Athevia's prescription engine.
+    func addCoachWorkout(
+        _ snapshot: CoachWorkoutSnapshot,
+        to plan: WeeklyPlan,
+        asOf now: Date = .now
+    ) throws {
+        guard snapshot.discipline.isTrainingSession,
+              snapshot.status == .planned else {
+            throw PlanReshaper.Failure.workoutIsImmutable
+        }
+        guard let setup = athleteSetup() else {
+            throw PlanReshaper.Failure.missingSchedule
+        }
+
+        let candidate = snapshot.makeWorkout()
+        candidate.origin = .generated
+        try reshaper.validatePlacement(
+            candidate,
+            on: snapshot.date,
+            in: plan,
+            schedule: setup.schedule,
+            asOf: now
+        )
+
+        plan.workouts.append(candidate)
+        context.insert(candidate)
+        removeOccupiedRestDays(in: plan, asOf: now)
+        plan.generationReason = "A workout was added after review in Athevia Coach."
+        plan.generationReasonCode = .coachAdjustment
+        try context.save()
+    }
+
     private func calendarSameDay(_ lhs: Date, _ rhs: Date, calendar: Calendar) -> Bool {
         calendar.isDate(lhs, inSameDayAs: rhs)
     }
