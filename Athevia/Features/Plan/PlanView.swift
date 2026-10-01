@@ -113,6 +113,7 @@ struct PlanView: View {
             .atheviaScreen()
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
+            .analyticsScreen(.plan)
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -125,6 +126,7 @@ struct PlanView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         isPresentingCalendar = true
+                        ProductAnalytics.shared.track(.calendarOpened)
                     } label: {
                         Label("Choose a date", systemImage: "calendar")
                     }
@@ -275,8 +277,13 @@ private struct PlanWatchAction: View {
     private func send() {
         guard canSend, !isSending, !isCheckingWatch, !isScheduledOnWatch else { return }
         isSending = true
+        ProductAnalytics.shared.track(.action(.sendToWatch, .requested))
         Task { @MainActor in
-            defer { isSending = false }
+            var outcome: AnalyticsOutcome = .failed
+            defer {
+                isSending = false
+                ProductAnalytics.shared.track(.action(.sendToWatch, outcome))
+            }
             do {
                 guard scheduler.isSupported else { throw WorkoutSchedulingError.unavailable }
                 guard WorkoutPlanBuilder.plan(for: workout) != nil else {
@@ -288,11 +295,15 @@ private struct PlanWatchAction: View {
 
                 let entries = await scheduler.scheduledWorkouts().filter { $0.id == workout.id }
                 if entries.contains(where: \.isComplete) {
+                    outcome = .cancelled
                     finishedOnWatch = true
                     message = "This workout is already complete on your Watch. Its details are waiting to sync."
                     return
                 }
-                guard canSend else { return }
+                guard canSend else {
+                    outcome = .cancelled
+                    return
+                }
 
                 // Explicitly resend the selected session, replacing its old copy
                 // so repeated taps cannot accumulate different scheduled times.
@@ -307,6 +318,7 @@ private struct PlanWatchAction: View {
                     at: existingDate ?? workout.suggestedScheduleDate()
                 )
                 isScheduledOnWatch = true
+                outcome = .succeeded
                 message = "Scheduled for your Apple Watch. Look for “\(WorkoutPlanBuilder.displayName(for: workout))” in the Workout app after it syncs."
             } catch WorkoutSchedulingError.unavailable {
                 message = "Workout scheduling is unavailable. Check that an Apple Watch is paired with this iPhone."
@@ -327,4 +339,3 @@ private struct PlanWatchAction: View {
         .modelContainer(PreviewData.container)
 }
 #endif
-

@@ -38,6 +38,7 @@ struct TrainingProfileView: View {
         .atheviaList()
         .atheviaScreen()
         .navigationTitle("Training Profile")
+        .analyticsScreen(.trainingProfile)
         .navigationBarTitleDisplayMode(.inline)
         .task {
             if opened == nil { opened = setup }
@@ -334,6 +335,7 @@ struct TrainingProfileView: View {
         .atheviaList()
         .atheviaScreen()
         .navigationTitle("Goal")
+        .analyticsScreen(.goalSetup)
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             objectiveDraft = setup.objective
@@ -934,6 +936,7 @@ struct TrainingProfileView: View {
 
     private func reassess(showConfirmation: Bool = true) {
         guard let plan = plans.currentPlan() else { return }
+        ProductAnalytics.shared.track(.action(.updatePlan, .requested))
 
         do {
             let rebuilt = try PlanStore(context: modelContext).reassess(
@@ -942,6 +945,7 @@ struct TrainingProfileView: View {
             )
 
             opened = setup
+            ProductAnalytics.shared.track(.action(.updatePlan, .succeeded))
             if showConfirmation {
                 message = rebuilt == 0
                     ? "Nothing ahead needed updating this week."
@@ -949,6 +953,7 @@ struct TrainingProfileView: View {
             }
         } catch {
             message = "Could not rebuild your week: \(error.localizedDescription)"
+            ProductAnalytics.shared.track(.action(.updatePlan, .failed))
         }
     }
 
@@ -1098,4 +1103,3 @@ private struct TrainingDaysSummaryRow: View {
         }
     }
 }
-

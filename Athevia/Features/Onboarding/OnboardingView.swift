@@ -32,6 +32,25 @@ struct OnboardingView: View {
             // environment's context, which is not available until the view runs.
             if model == nil { model = OnboardingModel(context: modelContext) }
         }
+        .onChange(of: analyticsStep, initial: true) { _, step in
+            if let step { ProductAnalytics.shared.track(.onboardingStepViewed(step)) }
+        }
+        .onChange(of: ProductAnalytics.shared.consent) { _, consent in
+            if consent == .allowed, let analyticsStep {
+                ProductAnalytics.shared.track(.onboardingStepViewed(analyticsStep))
+            }
+        }
+    }
+
+    private var analyticsStep: AnalyticsOnboardingStep? {
+        guard let model else { return nil }
+        switch model.stage {
+        case .welcome: return .welcome
+        case .running, .swimming, .cycling, .pool: return .startingPoint
+        case .about, .goal, .days, .commitment: return .schedule
+        case .health, .watch, .safety, .preview: return .preview
+        case .complete: return nil
+        }
     }
 
     @ViewBuilder
@@ -91,4 +110,3 @@ struct OnboardingView: View {
         .modelContainer(PreviewData.container)
 }
 #endif
-

@@ -82,6 +82,7 @@ struct NextWeekPreviewView: View {
         .atheviaScreen()
         .navigationTitle("Week \(plan.weekNumber) Preview")
         .navigationBarTitleDisplayMode(.large)
+        .analyticsScreen(.nextWeekPreview)
         .alert("Week not created", isPresented: showingFailure) {
             Button("OK", role: .cancel) { failure = nil }
         } message: {
@@ -90,11 +91,14 @@ struct NextWeekPreviewView: View {
     }
 
     private func generate() {
+        ProductAnalytics.shared.track(.action(.createNextWeek, .requested))
         do {
             try PlanStore(context: modelContext).generateNextWeek(after: previousWeek)
+            ProductAnalytics.shared.track(.action(.createNextWeek, .succeeded))
             generated = true
             dismiss()
         } catch {
+            ProductAnalytics.shared.track(.action(.createNextWeek, .failed))
             failure = "Could not create the week: \(error.localizedDescription)"
         }
     }
@@ -103,4 +107,3 @@ struct NextWeekPreviewView: View {
         Binding(get: { failure != nil }, set: { if !$0 { failure = nil } })
     }
 }
-

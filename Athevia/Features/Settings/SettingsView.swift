@@ -55,6 +55,7 @@ struct SettingsView: View {
             .atheviaList()
             .atheviaScreen()
             .toolbar(.hidden, for: .navigationBar)
+            .analyticsScreen(.settings)
             .task(id: scenePhase) {
                 guard scenePhase == .active else { return }
                 watch.refresh()
@@ -522,6 +523,7 @@ struct SettingsView: View {
     }
 
     private func clearSignedOutAccountData() async {
+        ProductAnalytics.shared.resetForAccountChange()
         var localCleanupError: Error?
 
         do {
@@ -546,6 +548,7 @@ struct SettingsView: View {
 
     private func importThisWeek() {
         guard let plan = plans.currentPlan() else { return }
+        ProductAnalytics.shared.track(.action(.importWorkouts, .requested))
         isWorking = true
         progressMessage = "Importing workouts…"
         Task {
@@ -557,8 +560,10 @@ struct SettingsView: View {
                 let service = WorkoutImportService(context: modelContext, provider: health)
                 let outcome = try await service.importWorkouts(for: plan)
                 importMessage = message(for: outcome)
+                ProductAnalytics.shared.track(.action(.importWorkouts, .succeeded))
             } catch {
                 importMessage = "Import failed."
+                ProductAnalytics.shared.track(.action(.importWorkouts, .failed))
             }
         }
     }

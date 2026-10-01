@@ -473,8 +473,10 @@ struct WorkoutPlayerView: View {
 
     private func startWorkoutIfNeeded() {
         guard engine.phase == .ready, preparationComplete, scenePhase == .active, !hasLeft else { return }
+        ProductAnalytics.shared.track(.action(.startWorkout, .requested))
         let now = Date.now
         engine.start(now: now)
+        ProductAnalytics.shared.track(.action(.startWorkout, engine.phase == .running ? .succeeded : .failed))
         if recordsGPS {
             syncMultisportSegmentBoundary(force: true)
             locationTracker.start()
@@ -829,4 +831,3 @@ struct WorkoutPlayerView: View {
         )
     }
 }
-

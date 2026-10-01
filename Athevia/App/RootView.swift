@@ -46,6 +46,17 @@ struct RootView: View {
     }
 
     var body: some View {
+        lifecycleContent
+            .alert("Training data was reset", isPresented: showStoreAlert) {
+                Button("OK", role: .cancel) { hasShownStoreAlert = true }
+            } message: {
+                Text(storeMessage)
+            }
+    }
+
+    // Opaque view boundaries keep each modifier chain small enough for the
+    // SwiftUI type checker, without type erasure or changes to view identity.
+    private var rootContent: some View {
         Group {
             if isErasingLocalData {
                 ProgressView("Resetting Athevia…")
@@ -54,12 +65,14 @@ struct RootView: View {
                     authentication: authentication,
                     backup: backup,
                     onReady: { session, seedLocalBackup in
+                        ProductAnalytics.shared.updateAccount(session.userID)
                         accountReady = true
                         if seedLocalBackup {
                             seedAutomaticBackup(for: session)
                         }
                     },
                     onContinueLocally: {
+                        ProductAnalytics.shared.updateAccount(signedInAccountID)
                         accountReady = true
                     }
                 )
@@ -67,50 +80,94 @@ struct RootView: View {
                 localApp
             }
         }
-        .symbolRenderingMode(.monochrome)
-        .atheviaTheme(AtheviaTheme(gamingEnabled: gamingThemeEnabled, palette: GamingPalette.resolve(gamingPalette)))
-        .onChange(of: gamingPalette) { _, _ in
-            Task { await WorkoutLiveActivityController.refreshTheme() }
-        }
-        .onChange(of: gamingThemeEnabled) { _, _ in
-            // Style changes never recreate navigation or the workout session.
-            // watchAppFingerprint includes this preference and queues the
-            // existing payload sync while the scene is active.
-            Task { await WorkoutLiveActivityController.refreshTheme() }
-        }
-        .onChange(of: backupFingerprint) { _, _ in
-            scheduleAutomaticBackupIfNeeded()
-        }
-        .onChange(of: signedInAccountID) { previousAccountID, newAccountID in
-            guard newAccountID == nil else { return }
+    }
 
-            automaticBackup?.cancelPending()
-
-            // Signed-out users never remain inside the training UI. Settings
-            // clears the local working copy during explicit sign-out, and the
-            // next interactive sign-in rehydrates from that account's backup.
-            if previousAccountID != nil {
-                selectedTab = .home
-                accountReady = false
+    private var themedContent: some View {
+        rootContent
+            .symbolRenderingMode(.monochrome)
+            .atheviaTheme(rootTheme)
+            .onChange(of: gamingPalette) { _, _ in
+                Task { await WorkoutLiveActivityController.refreshTheme() }
             }
+            .onChange(of: gamingThemeEnabled) { _, _ in
+                // Refresh the existing session without recreating navigation.
+                Task { await WorkoutLiveActivityController.refreshTheme() }
+            }
+    }
+
+    private var lifecycleContent: some View {
+        themedContent
+            .onChange(of: scenePhase, initial: true) { _, phase in
+                ProductAnalytics.shared.setActive(phase == .active)
+            }
+            .onChange(of: backupFingerprint) { _, _ in
+                scheduleAutomaticBackupIfNeeded()
+            }
+            .onChange(of: authentication?.state, initial: true) { previous, current in
+                synchronizeAnalyticsAccount(current)
+                handleAccountChange(from: accountID(in: previous), to: accountID(in: current))
+            }
+            .task(id: scenePhase) {
+                await flushBackupWhenInactive()
+            }
+    }
+
+    private var rootTheme: AtheviaTheme {
+        AtheviaTheme(
+            gamingEnabled: gamingThemeEnabled,
+            palette: GamingPalette.resolve(gamingPalette)
+        )
+    }
+
+    private func accountID(in state: AuthenticationCoordinatorState?) -> String? {
+        guard let state, case .signedIn(let session) = state else { return nil }
+        return session.userID
+    }
+
+    private func synchronizeAnalyticsAccount(_ state: AuthenticationCoordinatorState?) {
+        guard let state else {
+            ProductAnalytics.shared.updateAccount(nil)
+            return
         }
-        .task(id: scenePhase) {
-            guard scenePhase != .active else { return }
-            await flushAutomaticBackupIfNeeded()
+        switch state {
+        case .signedIn(let session):
+            ProductAnalytics.shared.updateAccount(session.userID)
+        case .signedOut:
+            ProductAnalytics.shared.updateAccount(nil)
+        case .failed:
+            ProductAnalytics.shared.accountResolutionFailed()
+        case .checking, .signingIn:
+            // A refresh or failed request is not proof of logout.
+            ProductAnalytics.shared.waitForAccountResolution()
         }
-        .alert("Training data was reset", isPresented: showStoreAlert) {
-            Button("OK", role: .cancel) { hasShownStoreAlert = true }
-        } message: {
-            Text(storeMessage)
+    }
+
+    private func handleAccountChange(from previousAccountID: String?, to newAccountID: String?) {
+        guard newAccountID == nil else { return }
+
+        automaticBackup?.cancelPending()
+
+        // Settings clears the working copy during explicit sign-out; the next
+        // interactive sign-in rehydrates it from the new account's backup.
+        if previousAccountID != nil {
+            selectedTab = .home
+            accountReady = false
         }
+    }
+
+    private func flushBackupWhenInactive() async {
+        guard scenePhase != .active else { return }
+        await flushAutomaticBackupIfNeeded()
     }
 
     @ViewBuilder
     private var localApp: some View {
-        if needsSetup {
-            OnboardingView()
-        } else {
-            tabs
+        Group {
+            if needsSetup {
+                OnboardingView()
+            } else {
+                tabs
+            }
         }
     }
 

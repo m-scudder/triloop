@@ -349,6 +349,9 @@ final class OnboardingModel {
 
         if failure == nil {
             TrainingResetBoundary.completeFreshStart()
+            ProductAnalytics.shared.track(.onboardingCompleted)
+        } else {
+            ProductAnalytics.shared.track(.onboardingFailed)
         }
     }
 

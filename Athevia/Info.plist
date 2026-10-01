@@ -2,6 +2,20 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- Project ingestion tokens are public client configuration, not secrets.
+	     Leave unconfigured environments empty: analytics then stays disabled. -->
+	<key>PostHogProductionToken</key>
+	<string>phc_zmo3DWgeX5nue5pPGLCwmyASXcYygyYsZDXd2WJ5gqqs</string>
+	<key>PostHogProductionHost</key>
+	<string>https://us.i.posthog.com</string>
+	<key>PostHogDevelopmentToken</key>
+	<string></string>
+	<key>PostHogDevelopmentHost</key>
+	<string></string>
+	<!-- Explicitly share the project for manual Debug testing; events are
+	     labelled development. This does not enable TestFlight collection. -->
+	<key>PostHogDebugUsesProductionProject</key>
+	<true/>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIBackgroundModes</key>
