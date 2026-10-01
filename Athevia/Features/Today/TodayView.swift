@@ -69,6 +69,7 @@ struct TodayView: View {
             .atheviaScreen()
             .navigationTitle(TrainingFormatter.shortDate(.now))
             .navigationBarTitleDisplayMode(.inline)
+            .analyticsScreen(.home)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) { profileButton }
             }
@@ -442,22 +443,27 @@ struct TodayView: View {
             return
         }
         isScheduling = true
+        ProductAnalytics.shared.track(.action(.sendToWatch, .requested))
         Task {
             defer { isScheduling = false }
             do {
                 try await scheduler.schedule(workout, at: workout.suggestedScheduleDate())
                 scheduledWorkoutIDs = await scheduler.scheduledWorkoutIDs()
                 scheduleMessage = "Sent to your Apple Watch."
+                ProductAnalytics.shared.track(.action(.sendToWatch, .succeeded))
             } catch {
                 scheduleMessage = "Could not reach your Apple Watch."
+                ProductAnalytics.shared.track(.action(.sendToWatch, .failed))
             }
         }
     }
 
     private func reshape() {
         guard let plan = plans.currentPlan(), let context = plan.modelContext else { return }
+        ProductAnalytics.shared.track(.action(.updatePlan, .requested))
         do {
             _ = try PlanStore(context: context).reshapeWeek(plan)
+            ProductAnalytics.shared.track(.action(.updatePlan, .succeeded))
             scheduleMessage = "Upcoming days updated."
             Task {
                 await WatchScheduleSync.sync(plan, scheduler: scheduler)
@@ -465,7 +471,7 @@ struct TodayView: View {
             }
         } catch {
             scheduleMessage = "Could not adjust the upcoming days."
+            ProductAnalytics.shared.track(.action(.updatePlan, .failed))
         }
     }
 }
-

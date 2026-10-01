@@ -101,6 +101,7 @@ struct ProgressOverviewView: View {
             }
             .atheviaScreen()
             .toolbar(.hidden, for: .navigationBar)
+            .analyticsScreen(.progress)
         }
         .atheviaScreen()
     }
@@ -354,4 +355,3 @@ private struct ProgressWeekSummary: Identifiable {
         .modelContainer(PreviewData.container)
 }
 #endif
-

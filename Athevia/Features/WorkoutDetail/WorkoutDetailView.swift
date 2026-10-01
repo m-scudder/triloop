@@ -14,6 +14,7 @@ struct WorkoutDetailView: View {
             .atheviaScreen()
             .navigationTitle(TrainingFormatter.shortDate(workout.date))
             .navigationBarTitleDisplayMode(.inline)
+            .analyticsScreen(.workoutDetail)
     }
 }
 
@@ -41,4 +42,3 @@ struct LabeledSection<Content: View>: View {
     .modelContainer(PreviewData.container)
 }
 #endif
-

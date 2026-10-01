@@ -68,6 +68,9 @@ struct RootView: View {
             }
         }
         .symbolRenderingMode(.monochrome)
+        .onChange(of: scenePhase, initial: true) { _, phase in
+            ProductAnalytics.shared.setActive(phase == .active)
+        }
         .atheviaTheme(AtheviaTheme(gamingEnabled: gamingThemeEnabled, palette: GamingPalette.resolve(gamingPalette)))
         .onChange(of: gamingPalette) { _, _ in
             Task { await WorkoutLiveActivityController.refreshTheme() }
@@ -82,6 +85,9 @@ struct RootView: View {
             scheduleAutomaticBackupIfNeeded()
         }
         .onChange(of: signedInAccountID) { previousAccountID, newAccountID in
+            if previousAccountID != nil && previousAccountID != newAccountID {
+                ProductAnalytics.shared.resetForAccountChange()
+            }
             guard newAccountID == nil else { return }
 
             automaticBackup?.cancelPending()
@@ -107,10 +113,20 @@ struct RootView: View {
 
     @ViewBuilder
     private var localApp: some View {
-        if needsSetup {
-            OnboardingView()
-        } else {
-            tabs
+        Group {
+            if needsSetup {
+                OnboardingView()
+            } else {
+                tabs
+            }
+        }
+        .sheet(isPresented: Binding(
+            get: { ProductAnalytics.shared.shouldOfferConsent },
+            set: { if !$0 && ProductAnalytics.shared.shouldOfferConsent {
+                ProductAnalytics.shared.setConsent(.declined)
+            } }
+        )) {
+            AnalyticsConsentView()
         }
     }
 

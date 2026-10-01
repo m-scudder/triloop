@@ -31,6 +31,7 @@ struct ExplanationSheet<Content: View>: View {
         .atheviaScreen()
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
+        .analyticsScreen(.explanation)
     }
 }
 
@@ -64,6 +65,7 @@ struct InfoButton: View {
     var body: some View {
         Button {
             isPresented = true
+            ProductAnalytics.shared.track(.infoTapped)
         } label: {
             Image(systemName: "info.circle")
                 .frame(minWidth: 44, minHeight: 44)
@@ -104,7 +106,10 @@ struct WhyButton: View {
     @State private var isPresented = false
 
     var body: some View {
-        Button("Why?") { isPresented = true }
+        Button("Why?") {
+            ProductAnalytics.shared.track(.whyTapped)
+            isPresented = true
+        }
             .frame(minHeight: 44)
             .buttonStyle(.borderless)
             .accessibilityLabel(explanation.accessibilityLabel)

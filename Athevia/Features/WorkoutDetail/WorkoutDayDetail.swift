@@ -355,13 +355,16 @@ struct WorkoutDayDetail: View {
                     }
 
                     Button("Move Workout") {
+                        ProductAnalytics.shared.track(.action(.moveWorkout, .requested))
                         do {
                             try PlanStore(context: modelContext).moveWorkout(workout, to: moveDate)
+                            ProductAnalytics.shared.track(.action(.moveWorkout, .succeeded))
                             actionMessage = "Workout moved to \(TrainingFormatter.shortDate(workout.date))."
                             isMoving = false
                             Task { await WatchScheduleSync.sync(plan) }
                         } catch {
                             moveFailure = error.localizedDescription
+                            ProductAnalytics.shared.track(.action(.moveWorkout, .failed))
                         }
                     }
                     .disabled(Calendar.current.isDate(moveDate, inSameDayAs: workout.date))
@@ -402,23 +405,29 @@ struct WorkoutDayDetail: View {
     }
 
     private func skipWorkout() {
+        ProductAnalytics.shared.track(.action(.skipWorkout, .requested))
         do {
             try PlanStore(context: modelContext).skipWorkout(workout)
+            ProductAnalytics.shared.track(.action(.skipWorkout, .succeeded))
             actionMessage = "Workout skipped. Recurring availability is unchanged."
             if let plan = workout.plan { Task { await WatchScheduleSync.sync(plan) } }
         } catch {
             actionMessage = error.localizedDescription
+            ProductAnalytics.shared.track(.action(.skipWorkout, .failed))
         }
     }
 
     private func markUnavailable() {
         guard let weekday else { return }
+        ProductAnalytics.shared.track(.action(.changeAvailability, .requested))
         do {
             let skipped = try PlanStore(context: modelContext).markDayUnavailable(weekday)
+            ProductAnalytics.shared.track(.action(.changeAvailability, .succeeded))
             actionMessage = "\(weekday.displayName) is now unavailable every week. \(skipped) workouts could not fit and were kept as skipped."
             if let plan = workout.plan { Task { await WatchScheduleSync.sync(plan) } }
         } catch {
             actionMessage = error.localizedDescription
+            ProductAnalytics.shared.track(.action(.changeAvailability, .failed))
         }
     }
 
@@ -544,6 +553,7 @@ struct WorkoutDayDetail: View {
 
     private func importThisSession() {
         guard let plan = workout.plan else { return }
+        ProductAnalytics.shared.track(.action(.importWorkouts, .requested))
         isImporting = true
 
         Task {
@@ -551,12 +561,14 @@ struct WorkoutDayDetail: View {
             do {
                 let service = WorkoutImportService(context: modelContext, provider: health)
                 try await service.importWorkouts(for: plan)
+                ProductAnalytics.shared.track(.action(.importWorkouts, .succeeded))
                 importMessage = workout.importedSummary == nil
                     ? "Apple Health has no workout matching this session."
                     : nil
                 await loadSamples()
             } catch {
                 importMessage = "Could not reach Apple Health."
+                ProductAnalytics.shared.track(.action(.importWorkouts, .failed))
             }
         }
     }
@@ -629,4 +641,3 @@ struct WorkoutDayDetail: View {
         }
     }
 }
-

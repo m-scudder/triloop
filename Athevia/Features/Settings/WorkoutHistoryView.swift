@@ -113,6 +113,7 @@ struct WorkoutHistoryView: View {
         .atheviaList()
         .atheviaScreen()
         .navigationTitle("Workout History")
+        .analyticsScreen(.workoutHistory)
         .navigationBarTitleDisplayMode(.inline)
         .searchable(
             text: $query,
@@ -408,4 +409,3 @@ private struct HistoryRow: View {
         return parts.joined(separator: " · ")
     }
 }
-
