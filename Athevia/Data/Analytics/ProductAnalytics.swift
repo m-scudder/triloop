@@ -47,8 +47,8 @@ final class ProductAnalytics {
     private(set) var consent: AnalyticsConsent
     private(set) var deliveryStatus = "No delivery attempted yet"
     var isConfigured: Bool { configuration != nil && !suppressed }
-    var shouldOfferConsent: Bool { isConfigured && consent == .undecided }
-    var isEnabled: Bool { isConfigured && consent == .allowed && accountResolved }
+    var shouldOfferConsent: Bool { false }
+    var isEnabled: Bool { isConfigured && accountResolved }
 
     var diagnosticSummary: String {
         if suppressed { return "Disabled: automated test, preview or launch argument" }
@@ -98,12 +98,10 @@ final class ProductAnalytics {
         self.now = now
         self.appVersion = appVersion
         self.appBuild = appBuild
-        // Previous opt-out remains respected; previous opt-in did not cover account linking.
-        if defaults.string(forKey: Self.consentKey) == nil,
-           defaults.string(forKey: "analytics.usageConsent.v1") == AnalyticsConsent.declined.rawValue {
-            defaults.set(AnalyticsConsent.declined.rawValue, forKey: Self.consentKey)
-        }
-        consent = AnalyticsConsent(rawValue: defaults.string(forKey: Self.consentKey) ?? "") ?? .undecided
+        // Product analytics is owner-controlled and has no user-facing consent switch.
+        // Keep the legacy state field only for backwards-compatible tests/internal diagnostics.
+        consent = .allowed
+        defaults.set(AnalyticsConsent.allowed.rawValue, forKey: Self.consentKey)
         self.queueURL = queueURL ?? Self.defaultQueueURL(configuration)
         if consent == .allowed, configuration != nil, !suppressed {
             linkedAccountID = defaults.string(forKey: Self.accountKey)
@@ -142,11 +140,11 @@ final class ProductAnalytics {
         }
     }
 
-    /// Sign-out/account replacement/local erase requires a fresh analytics choice.
+    /// Sign-out/account replacement/local erase rotates the analytics identity.
     func resetForAccountChange() {
         activeAccountID = nil
-        consent = .undecided
-        defaults.set(AnalyticsConsent.undecided.rawValue, forKey: Self.consentKey)
+        consent = .allowed
+        defaults.set(AnalyticsConsent.allowed.rawValue, forKey: Self.consentKey)
         discardPendingAndIdentity()
     }
 
