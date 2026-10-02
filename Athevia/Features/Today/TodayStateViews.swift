@@ -68,16 +68,15 @@ struct TodayWorkoutView: View {
                 Button("Start Workout", action: beginPhoneWorkout)
                     .buttonStyle(PrimaryActionButtonStyle())
 
-                if watch.canSchedule {
+                if watch.canSchedule && !isScheduledOnWatch {
                     Button(action: start) {
                         Label(
-                            isScheduledOnWatch ? "On Watch" : (isScheduling ? "Sending…" : "Send to Watch"),
-                            systemImage: isScheduledOnWatch ? "checkmark.circle.fill" : "applewatch"
+                            isScheduling ? "Sending…" : "Send to Watch",
+                            systemImage: "applewatch"
                         )
-                        .foregroundStyle(isScheduledOnWatch ? Color.green : .primary)
                     }
                     .buttonStyle(SecondaryActionButtonStyle())
-                    .disabled(isScheduling || isScheduledOnWatch)
+                    .disabled(isScheduling)
                 }
             }
 
