@@ -108,27 +108,36 @@ enum TodayPresentationBuilder {
         let sessions = workouts.filter(\.discipline.isTrainingSession)
         guard !sessions.isEmpty else { return .restDay }
 
-        // Feedback outranks a remaining session: closing the loop on work
-        // already done is what keeps the engine honest.
-        if let awaiting = sessions.first(where: { $0.isCompleted && !$0.hasReport }) {
+        let prescribed = sessions.filter { $0.origin != .imported }
+        let imported = sessions.filter { $0.origin == .imported }
+
+        // Feedback on the prescribed session still closes the planning loop
+        // first. An extra imported activity, however, must not hide a planned
+        // workout that the athlete still has to do today.
+        if let awaiting = prescribed.first(where: { $0.isCompleted && !$0.hasReport }) {
             return .needsFeedback(workoutID: awaiting.id)
         }
 
         // Finished on the Watch but not yet imported. Offering "Start" here
         // would invite a second recording of a session already done.
-        if let syncing = sessions.first(where: {
+        if let syncing = prescribed.first(where: {
             !$0.isCompleted && !$0.isSkipped && finishedOnWatch.contains($0.id)
         }) {
             return .awaitingImport(workoutID: syncing.id)
         }
 
-        if let outstanding = sessions.first(where: {
+        if let outstanding = prescribed.first(where: {
             !$0.isCompleted && !$0.isSkipped && !$0.isMissed(asOf: date, calendar: calendar)
         }) {
             return .upcoming(workoutID: outstanding.id)
         }
 
-        if let completed = sessions.first(where: { $0.isCompleted }) {
+        if let awaitingImported = imported.first(where: { $0.isCompleted && !$0.hasReport }) {
+            return .needsFeedback(workoutID: awaitingImported.id)
+        }
+
+        if let completed = prescribed.first(where: { $0.isCompleted })
+            ?? imported.first(where: { $0.isCompleted }) {
             return .completed(workoutID: completed.id)
         }
 
