@@ -713,4 +713,42 @@ struct FirstWeekBuilderTests {
         #expect(!plan.trainingSessions.contains { $0.title == "Bike + Run Race Rehearsal" })
     }
 
+    @Test("Four-day intent opens at three training days")
+    func fourDayIntentOpensAtThree() throws {
+        var athlete = setup(
+            schedule: .everyDay(maxDurationMinutes: 60),
+            preferences: [
+                SportPreference(sport: .running, sessionsPerWeek: 1),
+                SportPreference(sport: .cycling, sessionsPerWeek: 1)
+            ]
+        )
+        athlete.trainingDayTarget = 4
+
+        let plan = try builder.build(
+            setup: athlete,
+            poolLengthMeters: 25,
+            startDate: monday()
+        )
+
+        #expect(plan.trainingSessions.count == 3)
+        #expect(plan.generationReason.localizedCaseInsensitiveContains("builds gradually toward 4"))
+    }
+
+    @Test("Two-day intent starts with two training days")
+    func twoDayIntentStartsAtTwo() throws {
+        var athlete = setup(
+            schedule: .everyDay(maxDurationMinutes: 60),
+            preferences: [SportPreference(sport: .running, sessionsPerWeek: 1)]
+        )
+        athlete.trainingDayTarget = 2
+
+        let plan = try builder.build(
+            setup: athlete,
+            poolLengthMeters: 25,
+            startDate: monday()
+        )
+
+        #expect(plan.trainingSessions.count == 2)
+    }
+
 }
