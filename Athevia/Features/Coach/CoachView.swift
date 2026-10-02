@@ -881,6 +881,27 @@ struct CoachView: View {
                         plan: plan
                     )
                 }
+            } catch let error as CoachLLMError {
+                switch error {
+                case .rejected(let message):
+                    appendMessage(
+                        role: .coach,
+                        text: message,
+                        evidence: nil
+                    )
+                case .invalidResponse:
+                    appendMessage(
+                        role: .coach,
+                        text: "I couldn't safely use that AI response. Your training data and plan were not changed.",
+                        evidence: nil
+                    )
+                case .unavailable:
+                    appendMessage(
+                        role: .coach,
+                        text: "AI analysis is unavailable right now. Routine plan changes still work through Athevia's deterministic engine.",
+                        evidence: nil
+                    )
+                }
             } catch {
                 appendMessage(
                     role: .coach,
