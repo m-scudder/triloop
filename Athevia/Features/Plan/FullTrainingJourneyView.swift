@@ -446,8 +446,9 @@ private struct JourneyWeekProjection: Identifiable {
         let preferredSessions = max(
             1,
             min(
-                setup.schedule.availableDays.count,
-                setup.preferences.filter(\.isTrained).reduce(0) { $0 + $1.sessionsPerWeek }
+                WeeklyTrainingFrequencyPolicy.engineMaximum,
+                setup.trainingDayTarget,
+                setup.schedule.availableDays.count
             )
         )
 
