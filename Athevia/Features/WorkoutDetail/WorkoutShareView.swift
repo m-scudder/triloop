@@ -100,7 +100,7 @@ private struct WorkoutShareCard: View {
     @ViewBuilder
     private var metrics: some View {
         if let distance = snapshot.distanceText {
-            metric(distance, label: "Distance · km")
+            metric(distance, label: snapshot.distanceLabel)
         }
 
         if let duration = snapshot.durationText {
