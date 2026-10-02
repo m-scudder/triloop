@@ -85,16 +85,6 @@ struct TodayWorkoutView: View {
                 }
             }
 
-            VStack(alignment: .leading, spacing: 4) {
-                Button("I completed this workout", action: markDone)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
-
-                Text("Use this when you trained without Athevia tracking. You can still add how the workout felt.")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-            }
-
             NavigationLink {
                 WorkoutDayDetail(workout: workout)
             } label: {
