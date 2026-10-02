@@ -83,9 +83,9 @@ private struct WorkoutShareSticker: View {
                 VStack(alignment: .leading, spacing: 34) {
                     brand
 
-                    ForEach(snapshot.metrics) { metric in
+                    ForEach(snapshot.metrics) { item in
                         metric(
-                            metric,
+                            item,
                             alignment: .leading,
                             valueSize: 48
                         )
@@ -118,9 +118,9 @@ private struct WorkoutShareSticker: View {
                 .frame(width: 310, alignment: .leading)
 
                 VStack(alignment: .leading, spacing: 30) {
-                    ForEach(snapshot.metrics) { metric in
+                    ForEach(snapshot.metrics) { item in
                         metric(
-                            metric,
+                            item,
                             alignment: .leading,
                             valueSize: 46
                         )
@@ -147,9 +147,9 @@ private struct WorkoutShareSticker: View {
 
     private var centeredMetrics: some View {
         VStack(spacing: 34) {
-            ForEach(snapshot.metrics) { metric in
+            ForEach(snapshot.metrics) { item in
                 metric(
-                    metric,
+                    item,
                     alignment: .center,
                     valueSize: 66
                 )
