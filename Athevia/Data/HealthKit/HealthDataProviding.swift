@@ -68,13 +68,23 @@ enum RecoveryMetric: String, CaseIterable, Sendable {
 /// Deliberately small: Athevia reads completed workouts and nothing else. Any
 /// implementation can be swapped in for tests, previews or Developer Mode
 /// without HealthKit being involved.
-protocol HealthDataProviding: Sendable {
+/// Source-neutral workout ingestion boundary. HealthKit, Strava, Runna and
+/// future providers normalize their activities into ImportedWorkout before the
+/// matching/persistence layer sees them.
+protocol WorkoutImportProviding: Sendable {
+    var workoutImportProviderID: String { get }
+
+    /// Completed workouts Athevia understands, most recent first.
+    func workouts(
+        from startDate: Date,
+        to endDate: Date
+    ) async throws -> [ImportedWorkout]
+}
+
+protocol HealthDataProviding: WorkoutImportProviding, Sendable {
     var authorizationStatus: HealthAuthorizationStatus { get async }
 
     func requestAuthorization() async throws
-
-    /// Completed workouts in the three sports Athevia trains, most recent first.
-    func workouts(from startDate: Date, to endDate: Date) async throws -> [ImportedWorkout]
 
     func dailyActivity(on date: Date) async throws -> DailyActivity
 
@@ -107,6 +117,8 @@ protocol HealthDataProviding: Sendable {
 }
 
 extension HealthDataProviding {
+    var workoutImportProviderID: String { "appleHealth" }
+
     /// Simulations and providers without GPS must never fall through to HealthKit.
     func route(forWorkout id: UUID) async throws -> [RecordedRoutePoint] { [] }
 }
