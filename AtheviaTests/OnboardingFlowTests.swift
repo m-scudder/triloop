@@ -80,6 +80,7 @@ struct OnboardingFlowTests {
 
         model.choose(goal: .improveEndurance)
         model.chooseTrainingDays(2)
+        model.chooseTrainingDays(2)
         model.toggleDay(.monday)
         model.toggleDay(.wednesday)
         model.setSharedMaxDuration(60)
@@ -133,6 +134,7 @@ struct OnboardingFlowTests {
         model.choose(running: .continuous10Minutes)
         model.advance()
 
+        model.chooseTrainingDays(2)
         model.chooseTrainingDays(2)
         model.toggleDay(.sunday)
         model.toggleDay(.monday)
@@ -197,6 +199,7 @@ struct OnboardingFlowTests {
         model.toggleSport(.running)
         model.jump(to: .days)
         model.chooseTrainingDays(2)
+        model.chooseTrainingDays(2)
         model.toggleDay(.tuesday)
         model.toggleDay(.saturday)
         model.setSharedMaxDuration(90)
@@ -219,6 +222,7 @@ struct OnboardingFlowTests {
 
         model.toggleSport(.running)
         model.advance()
+        model.chooseTrainingDays(2)
         model.chooseTrainingDays(2)
         model.toggleDay(.monday)
         model.toggleDay(.wednesday)
@@ -253,6 +257,7 @@ struct OnboardingFlowTests {
         model.toggleSport(.running)
         model.advance()
         model.chooseTrainingDays(2)
+        model.chooseTrainingDays(2)
         model.toggleDay(.monday)
         model.toggleDay(.wednesday)
         model.setSharedMaxDuration(45)
@@ -273,4 +278,29 @@ struct OnboardingFlowTests {
         #expect(!model.canAdvance)
         #expect(model.objectiveValidationIssues.contains(.eventDateInPast))
     }
+    @Test func trainingDayTargetIsSeparateFromAvailability() throws {
+        let context = ModelContext(try AtheviaModelContainer.make(inMemory: true))
+        let model = OnboardingModel(context: context)
+
+        model.toggleSport(.running)
+        model.advance()
+
+        model.chooseTrainingDays(4)
+        for day in [.monday, .tuesday, .wednesday, .thursday, .friday] as [Weekday] {
+            model.toggleDay(day)
+        }
+        model.setSharedMaxDuration(60)
+
+        #expect(model.setup.trainingDayTarget == 4)
+        #expect(model.setup.schedule.availableDays.count == 5)
+        #expect(model.canAdvance)
+
+        model.advance()
+        let preview = try #require(model.preview)
+
+        // A 4-day target deliberately opens at 3 and can grow later from
+        // completed-week evidence.
+        #expect(preview.trainingSessions.count == 3)
+    }
+
 }
