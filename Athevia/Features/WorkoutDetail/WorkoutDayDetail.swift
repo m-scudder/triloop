@@ -108,13 +108,15 @@ struct WorkoutDayDetail: View {
     /// device evidence removes sensor-only sections rather than leaving holes.
     private var analysisSection: some View {
         VStack(alignment: .leading, spacing: 24) {
-            HStack(alignment: .firstTextBaseline) {
-                SectionEyebrow(text: "Workout analysis")
-                Spacer()
-                if let execution {
-                    Text(execution.overall.displayName)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.primary)
+            if !(showsManagementMenu && workout.isCompleted) {
+                HStack(alignment: .firstTextBaseline) {
+                    SectionEyebrow(text: "Workout analysis")
+                    Spacer()
+                    if let execution {
+                        Text(execution.overall.displayName)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.primary)
+                    }
                 }
             }
 
