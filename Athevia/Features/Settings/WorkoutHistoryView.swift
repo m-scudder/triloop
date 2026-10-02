@@ -9,6 +9,7 @@ import SwiftUI
 /// a plan, or fed to the training engine.
 struct WorkoutHistoryView: View {
     @Environment(\.healthProvider) private var provider
+    @Environment(\.modelContext) private var modelContext
 
     @State private var range: HistoryRange = .sixMonths
     @State private var state: LoadState = .idle
@@ -16,6 +17,10 @@ struct WorkoutHistoryView: View {
     @State private var sportFilter: SportFilter = .all
     @Query private var profiles: [AthleteProfile]
     @State private var analysisSessions: [LoadedSession] = []
+    @State private var selectedHistoryDate = Date.now
+    @State private var isImportingHistory = false
+    @State private var importHistoryMessage: String?
+    @Query private var importedSummaries: [ImportedWorkoutSummary]
 
     enum SportFilter: String, CaseIterable, Identifiable {
         case all = "All"
@@ -166,6 +171,7 @@ struct WorkoutHistoryView: View {
                         .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 }
             } else {
+                historicalCalendar(matching)
                 summary(matching)
                 analysis(matching)
                 coverage(matching)
@@ -245,6 +251,165 @@ struct WorkoutHistoryView: View {
         let bySport = records.filter(sportFilter.matches)
         guard !term.isEmpty else { return bySport }
         return bySport.filter { $0.activityName.localizedCaseInsensitiveContains(term) }
+    }
+
+    @ViewBuilder
+    private func historicalCalendar(_ records: [HealthWorkoutRecord]) -> some View {
+        let trained = records.filter { $0.sport != nil }
+
+        if !trained.isEmpty {
+            Section {
+                HealthWorkoutDateStrip(
+                    records: trained,
+                    selection: $selectedHistoryDate
+                )
+
+                let selected = trained.filter {
+                    Calendar.current.isDate(
+                        $0.start,
+                        inSameDayAs: selectedHistoryDate
+                    )
+                }
+
+                if selected.isEmpty {
+                    Text("No Run, Cycle or Swim workout on this day.")
+                        .font(.caption)
+                        .foregroundStyle(
+                            AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText)
+                        )
+                } else {
+                    ForEach(selected) { record in
+                        NavigationLink {
+                            if let imported = importedWorkout(for: record) {
+                                WorkoutDayDetail(workout: imported)
+                            } else {
+                                HealthWorkoutDetailView(record: record)
+                            }
+                        } label: {
+                            HStack(spacing: 10) {
+                                Image(systemName: record.sport?.discipline.symbolName ?? "figure.mixed.cardio")
+                                    .foregroundStyle(
+                                        record.sport?.discipline.themedTint(.classic)
+                                            ?? .secondary
+                                    )
+                                    .frame(width: 24)
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(record.sport?.discipline.displayName ?? record.activityName)
+                                        .font(.subheadline.weight(.medium))
+
+                                    Text(historySummary(record))
+                                        .font(.caption)
+                                        .foregroundStyle(
+                                            AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText)
+                                        )
+                                }
+
+                                Spacer()
+
+                                if importedWorkout(for: record) != nil {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundStyle(.green)
+                                        .accessibilityLabel("Imported")
+                                } else {
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption)
+                                        .foregroundStyle(.tertiary)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Button {
+                    importHistoricalWorkouts()
+                } label: {
+                    HStack {
+                        if isImportingHistory {
+                            ProgressView()
+                        }
+                        Text(
+                            isImportingHistory
+                                ? "Importing…"
+                                : "Import Run, Cycle & Swim"
+                        )
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .disabled(isImportingHistory)
+
+                if let importHistoryMessage {
+                    Text(importHistoryMessage)
+                        .font(.caption)
+                        .foregroundStyle(
+                            AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText)
+                        )
+                }
+            } header: {
+                Text("Training history")
+            } footer: {
+                Text(
+                    "Imports completed Run, Cycle and Swim workouts from Apple Health without attaching them to a training-plan day."
+                )
+            }
+        }
+    }
+
+    private func importedWorkout(
+        for record: HealthWorkoutRecord
+    ) -> PlannedWorkout? {
+        importedSummaries.first {
+            $0.healthKitUUID == record.id
+        }?.workout
+    }
+
+    private func historySummary(_ record: HealthWorkoutRecord) -> String {
+        var parts = [
+            Duration.seconds(record.duration)
+                .formatted(.time(pattern: .hourMinute))
+        ]
+
+        if let distance = record.distanceMeters {
+            parts.append(TrainingFormatter.distance(meters: distance))
+        }
+
+        if let heartRate = record.averageHeartRate {
+            parts.append("\(Int(heartRate.rounded())) bpm")
+        }
+
+        return parts.joined(separator: " · ")
+    }
+
+    private func importHistoricalWorkouts() {
+        guard !isImportingHistory else { return }
+
+        isImportingHistory = true
+        importHistoryMessage = nil
+
+        Task { @MainActor in
+            defer { isImportingHistory = false }
+
+            do {
+                let end = Date.now
+                let start = range.startDate(endingAt: end)
+                let service = WorkoutImportService(
+                    context: modelContext,
+                    provider: provider
+                )
+                let outcome = try await service.importHistoricalWorkouts(
+                    from: start,
+                    to: end
+                )
+
+                if outcome.unrecognised > 0 {
+                    importHistoryMessage = "Imported \(outcome.unrecognised) workout\(outcome.unrecognised == 1 ? "" : "s")."
+                } else {
+                    importHistoryMessage = "All Run, Cycle and Swim workouts in this range are already imported."
+                }
+            } catch {
+                importHistoryMessage = "Could not import workout history from Apple Health."
+            }
+        }
     }
 
     private func summary(_ records: [HealthWorkoutRecord]) -> some View {
@@ -351,7 +516,15 @@ struct WorkoutHistoryView: View {
         let start = range.startDate(endingAt: end)
 
         do {
-            state = .loaded(try await reader.workoutHistory(from: start, to: end))
+            let records = try await reader.workoutHistory(from: start, to: end)
+            state = .loaded(records)
+
+            if let latest = records
+                .filter({ $0.sport != nil })
+                .map(\.start)
+                .max() {
+                selectedHistoryDate = latest
+            }
         } catch {
             state = .failed(String(describing: error))
         }
