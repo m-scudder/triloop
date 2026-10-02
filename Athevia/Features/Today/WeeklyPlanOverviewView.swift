@@ -30,14 +30,6 @@ struct WeeklyPlanOverviewView: View {
         }
     }
 
-    private var focus: String? {
-        if let reason = plan.generationReasonCode {
-            return reason.displayName
-        }
-        let reason = plan.generationReason.trimmingCharacters(in: .whitespacesAndNewlines)
-        return reason.isEmpty ? nil : reason
-    }
-
     var body: some View {
         Card(gamingRole: .hero) {
             VStack(alignment: .leading, spacing: 14) {
@@ -85,16 +77,6 @@ struct WeeklyPlanOverviewView: View {
                     }
                 }
 
-                if let focus {
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Text("Focus")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
-                        Text(focus)
-                            .font(.caption)
-                            .lineLimit(2)
-                    }
-                }
             }
         }
     }
