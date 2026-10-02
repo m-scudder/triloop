@@ -29,12 +29,20 @@ struct WeeklyPlanGenerator: Sendable {
     var calendar: Calendar = .current
 
     func generate(after plan: WeeklyPlan, analysis: WeeklyAnalysis) -> WeeklyPlan {
-        let monday = calendar.startOfDay(
-            for: calendar.date(byAdding: .day, value: 1, to: plan.endDate) ?? plan.endDate
+        let start = calendar.startOfDay(
+            for: calendar.date(
+                byAdding: .day,
+                value: 1,
+                to: plan.endDate
+            ) ?? plan.endDate
         )
 
         func day(_ offset: Int) -> Date {
-            calendar.date(byAdding: .day, value: offset, to: monday) ?? monday
+            calendar.date(
+                byAdding: .day,
+                value: offset,
+                to: start
+            ) ?? start
         }
 
         let adjusted = analysis.sports.reduce(plan.parameters) { current, sport in
@@ -113,21 +121,30 @@ struct WeeklyPlanGenerator: Sendable {
         // Recovery is intentional: only a sport explicitly held back by the
         // previous week's safety analysis creates recovery days. Ordinary
         // unused availability remains rest.
-        let recoveryDays: Set<Int> = recovering.isEmpty
+        let recoveryDays: Set<Weekday> = recovering.isEmpty
             ? []
             : Set(
-                Weekday.trainingWeek.enumerated().compactMap { offset, weekday in
+                Weekday.trainingWeek.compactMap { weekday in
                     guard schedule.isAvailable(on: weekday),
-                          !shape.disciplines[offset].isTrainingSession else {
+                          !shape.disciplines[
+                            weekday.offsetFromMonday
+                          ].isTrainingSession else {
                         return nil
                     }
-                    return offset
+                    return weekday
                 }
             )
 
         if let journey, journey.eventResolutionRequired || journey.requiresNextObjective {
-            let workouts = Weekday.trainingWeek.enumerated().map { offset, weekday in
+            let workouts = (0..<7).compactMap { offset -> PlannedWorkout? in
                 let date = day(offset)
+                guard let weekday = Weekday(
+                    date: date,
+                    calendar: calendar
+                ) else {
+                    return nil
+                }
+
                 if schedule.isAvailable(on: weekday) {
                     return PrescribedSessions.recoveryDay(
                         on: date,
@@ -140,7 +157,7 @@ struct WeeklyPlanGenerator: Sendable {
             }
             return WeeklyPlan(
                 weekNumber: plan.weekNumber + 1,
-                startDate: monday,
+                startDate: start,
                 endDate: day(6),
                 status: .active,
                 generationReason: journey.eventResolutionRequired
@@ -177,8 +194,17 @@ struct WeeklyPlanGenerator: Sendable {
         } ?? false
         var brickPlaced = false
 
-        for (offset, discipline) in shape.disciplines.enumerated() {
+        for offset in 0..<7 {
             let date = day(offset)
+            guard let weekday = Weekday(
+                date: date,
+                calendar: calendar
+            ) else {
+                continue
+            }
+            let discipline = shape.disciplines[
+                weekday.offsetFromMonday
+            ]
 
             // Event Day replaces whatever the weekly shape would otherwise put
             // on the date, including a recovery slot.
@@ -192,14 +218,14 @@ struct WeeklyPlanGenerator: Sendable {
 
             guard let sport = discipline.sport else {
                 workouts.append(
-                    recoveryDays.contains(offset)
+                    recoveryDays.contains(weekday)
                         ? PrescribedSessions.recoveryDay(
                             on: date,
                             goal: recoveryGoal(for: recovering)
                         )
                         : PrescribedSessions.restDay(
                             on: date,
-                            reason: schedule.isAvailable(on: Weekday.trainingWeek[offset])
+                            reason: schedule.isAvailable(on: weekday)
                                 ? "No workout is needed on this available day."
                                 : "No workout is scheduled because you marked this day unavailable."
                             )
@@ -272,7 +298,7 @@ struct WeeklyPlanGenerator: Sendable {
 
         return WeeklyPlan(
             weekNumber: plan.weekNumber + 1,
-            startDate: monday,
+            startDate: start,
             endDate: day(6),
             status: .active,
             generationReason: reason(from: analysis, parameters: parameters) + " " + frequencyReason,
