@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 extension Discipline {
     var gamingRole: GamingPalette.Role {
@@ -29,16 +30,58 @@ extension Discipline {
         theme.color(.heroEnd, classic: surface)
     }
 
+    /// Single source of truth for discipline identity colours. UIKit export
+    /// code and SwiftUI workout icons both resolve from this exact value.
+    var uiTint: UIColor {
+        switch self {
+        case .running:
+            UIColor(
+                red: 247.0 / 255.0,
+                green: 181.0 / 255.0,
+                blue: 56.0 / 255.0,
+                alpha: 1
+            )
+        case .swimming:
+            UIColor(
+                red: 0.13,
+                green: 0.55,
+                blue: 1.00,
+                alpha: 1
+            )
+        case .cycling:
+            UIColor(
+                red: 0.16,
+                green: 0.78,
+                blue: 0.42,
+                alpha: 1
+            )
+        case .multisport:
+            UIColor(
+                red: 0.62,
+                green: 0.42,
+                blue: 0.95,
+                alpha: 1
+            )
+        case .recovery:
+            UIColor(
+                red: 0.20,
+                green: 0.78,
+                blue: 0.85,
+                alpha: 1
+            )
+        case .rest:
+            UIColor(
+                red: 0.55,
+                green: 0.56,
+                blue: 0.62,
+                alpha: 1
+            )
+        }
+    }
+
     /// Vivid hue for sport identity across glyphs, bars and training surfaces.
     var tint: Color {
-        switch self {
-        case .running: Color(red: 1.00, green: 0.42, blue: 0.16)
-        case .swimming: Color(red: 0.13, green: 0.55, blue: 1.00)
-        case .cycling: Color(red: 0.16, green: 0.78, blue: 0.42)
-        case .multisport: Color(red: 0.62, green: 0.42, blue: 0.95)
-        case .recovery: Color(red: 0.20, green: 0.78, blue: 0.85)
-        case .rest: Color(red: 0.55, green: 0.56, blue: 0.62)
-        }
+        Color(uiColor: uiTint)
     }
 
     /// Filled surface for a hero card. Two stops of the same hue give it depth
@@ -58,7 +101,10 @@ extension Discipline {
     private var gradientStops: [Color] {
         switch self {
         case .running:
-            [Color(red: 1.00, green: 0.48, blue: 0.22), Color(red: 0.85, green: 0.22, blue: 0.06)]
+            [
+                Color(red: 247.0 / 255.0, green: 181.0 / 255.0, blue: 56.0 / 255.0),
+                Color(red: 0.76, green: 0.48, blue: 0.08)
+            ]
         case .swimming:
             [Color(red: 0.20, green: 0.62, blue: 1.00), Color(red: 0.04, green: 0.30, blue: 0.76)]
         case .cycling:
