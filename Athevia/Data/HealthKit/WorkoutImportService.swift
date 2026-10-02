@@ -210,6 +210,13 @@ struct WorkoutImportService {
             summary.longestContinuousSwimMeters = activity.longestContinuousSwimMeters
             summary.metrics = activity.metrics.isEmpty ? nil : activity.metrics
             summary.source = activity.source
+
+            if let workout = summary.workout,
+               workout.origin == .imported,
+               workout.title != summary.discipline.displayName {
+                workout.title = summary.discipline.displayName
+            }
+
             changed = true
         }
 
