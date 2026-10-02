@@ -35,7 +35,8 @@ struct PlanView: View {
                     if lhs.origin != rhs.origin {
                         return lhs.origin != .imported
                     }
-                    return lhs.completedAt ?? lhs.date < rhs.completedAt ?? rhs.date
+                    return (lhs.completedAt ?? lhs.date)
+                        < (rhs.completedAt ?? rhs.date)
                 }
                 return lhs.date < rhs.date
             }
