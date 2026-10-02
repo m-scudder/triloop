@@ -103,3 +103,126 @@ struct CoachSchedulingIntentTests {
         }
     }
 }
+
+
+@Suite("Coach common factual queries")
+@MainActor
+struct CoachCommonQueryTests {
+    @Test("RPE definition stays deterministic")
+    func rpeDefinition() async {
+        let plan = CoachTestFixture.seedPlan()
+        let context = CoachTestFixture.context(
+            profile: CoachTestFixture.profile(),
+            plans: [plan]
+        )
+
+        let result = await DeterministicCoachIntentInterpreter(
+            calendar: CoachTestFixture.calendar
+        ).interpret(
+            request: "What is RPE?",
+            context: context,
+            plan: plan,
+            now: CoachTestFixture.date()
+        )
+
+        #expect(result == .intent(.explainRPE))
+    }
+
+    @Test("Next week plan query stays deterministic")
+    func nextWeekPlan() async {
+        let plan = CoachTestFixture.seedPlan()
+        let context = CoachTestFixture.context(
+            profile: CoachTestFixture.profile(),
+            plans: [plan]
+        )
+
+        let result = await DeterministicCoachIntentInterpreter(
+            calendar: CoachTestFixture.calendar
+        ).interpret(
+            request: "Can you give me details of my next week's workout plan?",
+            context: context,
+            plan: plan,
+            now: CoachTestFixture.date()
+        )
+
+        #expect(result == .intent(.describeWeek(offset: 1)))
+    }
+
+    @Test("Natural workout date metrics query stays deterministic")
+    func workoutMetricsNaturalDate() async {
+        let plan = CoachTestFixture.seedPlan(
+            startDate: CoachTestFixture.date(year: 2026, month: 9, day: 28)
+        )
+        let context = CoachTestFixture.context(
+            profile: CoachTestFixture.profile(),
+            plans: [plan]
+        )
+
+        let result = await DeterministicCoachIntentInterpreter(
+            calendar: CoachTestFixture.calendar
+        ).interpret(
+            request: "Can you fetch the metrics for my workout on 2 Oct?",
+            context: context,
+            plan: plan,
+            now: CoachTestFixture.date(year: 2026, month: 10, day: 2)
+        )
+
+        if case .intent(.workoutMetrics(let date)) = result {
+            #expect(
+                CoachTestFixture.calendar.component(.year, from: date) == 2026
+            )
+            #expect(
+                CoachTestFixture.calendar.component(.month, from: date) == 10
+            )
+            #expect(
+                CoachTestFixture.calendar.component(.day, from: date) == 2
+            )
+        } else {
+            Issue.record("Workout metric query should not require the LLM.")
+        }
+    }
+}
+
+@Suite("Coach LLM context compaction")
+struct CoachLLMContextCompactorTests {
+    @Test("Only the latest four compact turns are sent")
+    func boundsConversation() {
+        let messages = (0..<7).map { index in
+            CoachChatMessage(
+                role: index.isMultiple(of: 2) ? .athlete : .coach,
+                text: "Message \(index) " + String(repeating: "detail ", count: 80)
+            )
+        }
+
+        let compact = CoachLLMContextCompactor.conversation(from: messages)
+
+        #expect(compact.count == 4)
+        #expect(compact.first?.text.contains("Message 3") == true)
+        #expect(compact.last?.text.contains("Message 6") == true)
+        #expect(compact.allSatisfy { $0.text.count <= 281 })
+    }
+
+    @Test("Broad history questions get a larger but bounded context window")
+    func requestAwareHistoryWindow() {
+        #expect(
+            CoachLLMContextCompactor.historyWindowDays(
+                for: "How has my training progressed this month?"
+            ) == 28
+        )
+        #expect(
+            CoachLLMContextCompactor.maximumWorkoutRecords(
+                for: "How has my training progressed this month?"
+            ) == 16
+        )
+        #expect(
+            CoachLLMContextCompactor.historyWindowDays(
+                for: "Should tomorrow's run be easier?"
+            ) == 14
+        )
+        #expect(
+            CoachLLMContextCompactor.maximumWorkoutRecords(
+                for: "Should tomorrow's run be easier?"
+            ) == 8
+        )
+    }
+}
