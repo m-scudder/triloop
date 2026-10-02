@@ -280,6 +280,6 @@ struct FirstWeekBuilder: Sendable {
             ? ""
             : " Some sessions did not fit your availability and were left out."
 
-        return "\(opening): \(sports). Starting conservatively so Athevia can learn how you respond.\(timeExplanation)\(unfitted)"
+        return "\(opening): \(sports). \(frequencyReason)\(timeExplanation)\(unfitted)"
     }
 }
