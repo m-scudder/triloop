@@ -170,7 +170,7 @@ extension WeekShapePlanner {
             return [
                 SportFrequency(
                     sport: .running,
-                    sessions: safeRunningSessions(in: schedule)
+                    sessions: min(slots, safeRunningSessions(in: schedule))
                 )
             ]
         }
