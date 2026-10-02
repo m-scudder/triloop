@@ -314,7 +314,9 @@ struct SettingsView: View {
                     showsDeleteConfirmation = true
                 } label: {
                     Label("Delete Account", systemImage: "trash")
+                        .foregroundStyle(.red)
                 }
+                .tint(.red)
                 .disabled(isWorking)
 
             case .signedOut, .failed:
