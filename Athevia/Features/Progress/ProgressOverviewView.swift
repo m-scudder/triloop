@@ -159,52 +159,32 @@ struct ProgressOverviewView: View {
         let eventName = setup.objective.event?.displayName
             ?? setup.objective.displayName
 
-        return VStack(alignment: .leading, spacing: 10) {
-            SectionEyebrow(text: "Journey")
-
-            Card {
-                HStack(spacing: 10) {
-                    Image(systemName: "flag.checkered")
-                        .foregroundStyle(.secondary)
-
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(eventName)
-                            .font(.subheadline.weight(.semibold))
-                            .lineLimit(1)
-
-                        Text(journeyLine(journey))
-                            .font(.caption)
-                            .foregroundStyle(
-                                AtheviaAdaptiveStyle(
-                                    .secondary,
-                                    gaming: .secondaryText
-                                )
-                            )
-                            .lineLimit(1)
-                    }
-
-                    Spacer(minLength: 8)
-                }
-            }
-        }
-    }
-
-    private func journeyLine(_ journey: TrainingJourney) -> String {
-        var parts = [journey.phase.displayName]
+        var parts = [
+            eventName,
+            journey.phase.displayName
+        ]
 
         if let weeks = journey.weeksRemaining {
             parts.append(
                 weeks == 1
-                    ? "1 week remaining"
-                    : "\(weeks) weeks remaining"
+                    ? "1 week"
+                    : "\(weeks) weeks"
             )
         }
 
-        if let focus = journey.primaryFocus {
-            parts.append(focus.kind.displayName)
-        }
+        return VStack(alignment: .leading, spacing: 10) {
+            SectionEyebrow(text: "Journey")
 
-        return parts.joined(separator: " · ")
+            Card {
+                Label(
+                    parts.joined(separator: " · "),
+                    systemImage: "flag.checkered"
+                )
+                .font(.subheadline.weight(.semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+            }
+        }
     }
 
     /// One glance at recent consistency before the athlete reads any deeper
