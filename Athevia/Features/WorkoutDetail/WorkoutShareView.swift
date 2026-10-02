@@ -973,78 +973,85 @@ struct WorkoutShareView: View {
 
         guard let colorSpace = CGColorSpace(
             name: CGColorSpace.sRGB
-        ),
-        let context = CGContext(
-            data: &pixels,
-            width: width,
-            height: height,
-            bitsPerComponent: 8,
-            bytesPerRow: bytesPerRow,
-            space: colorSpace,
-            bitmapInfo:
-                CGImageAlphaInfo.premultipliedLast.rawValue
-                | CGBitmapInfo.byteOrder32Big.rawValue
         ) else {
             return false
         }
 
-        context.draw(
-            image,
-            in: CGRect(
-                x: 0,
-                y: 0,
-                width: width,
-                height: height
-            )
-        )
-
-        func alpha(
-            x: Int,
-            y: Int
-        ) -> UInt8 {
-            let offset = y * bytesPerRow + x * bytesPerPixel
-            return pixels[offset + 3]
-        }
-
-        let corners = [
-            alpha(x: 0, y: 0),
-            alpha(x: width - 1, y: 0),
-            alpha(x: 0, y: height - 1),
-            alpha(x: width - 1, y: height - 1)
-        ]
-
-        guard corners.allSatisfy({ $0 == 0 }) else {
-            return false
-        }
-
-        // The share asset is a sticker on a transparent canvas, so most sampled
-        // background pixels should be fully transparent. This catches cases
-        // where an encoder silently flattened alpha to black or white.
-        var transparentSamples = 0
-        var sampleCount = 0
-        let columns = 12
-        let rows = 20
-
-        for column in 0..<columns {
-            for row in 0..<rows {
-                let x = min(
-                    width - 1,
-                    column * (width - 1) / max(columns - 1, 1)
-                )
-                let y = min(
-                    height - 1,
-                    row * (height - 1) / max(rows - 1, 1)
-                )
-
-                if alpha(x: x, y: y) == 0 {
-                    transparentSamples += 1
-                }
-                sampleCount += 1
+        return pixels.withUnsafeMutableBytes { buffer in
+            guard let baseAddress = buffer.baseAddress,
+                  let context = CGContext(
+                    data: baseAddress,
+                    width: width,
+                    height: height,
+                    bitsPerComponent: 8,
+                    bytesPerRow: bytesPerRow,
+                    space: colorSpace,
+                    bitmapInfo:
+                        CGImageAlphaInfo.premultipliedLast.rawValue
+                        | CGBitmapInfo.byteOrder32Big.rawValue
+                  ) else {
+                return false
             }
-        }
 
-        return sampleCount > 0
-            && Double(transparentSamples) / Double(sampleCount) >= 0.60
+            context.draw(
+                image,
+                in: CGRect(
+                    x: 0,
+                    y: 0,
+                    width: width,
+                    height: height
+                )
+            )
+
+            let bytes = buffer.bindMemory(to: UInt8.self)
+
+            func alpha(
+                x: Int,
+                y: Int
+            ) -> UInt8 {
+                let offset = y * bytesPerRow + x * bytesPerPixel
+                return bytes[offset + 3]
+            }
+
+            let corners = [
+                alpha(x: 0, y: 0),
+                alpha(x: width - 1, y: 0),
+                alpha(x: 0, y: height - 1),
+                alpha(x: width - 1, y: height - 1)
+            ]
+
+            guard corners.allSatisfy({ $0 == 0 }) else {
+                return false
+            }
+
+            // The share asset is a sticker on a transparent canvas, so most
+            // sampled background pixels should remain fully transparent.
+            var transparentSamples = 0
+            var sampleCount = 0
+            let columns = 12
+            let rows = 20
+
+            for column in 0..<columns {
+                for row in 0..<rows {
+                    let x = min(
+                        width - 1,
+                        column * (width - 1) / max(columns - 1, 1)
+                    )
+                    let y = min(
+                        height - 1,
+                        row * (height - 1) / max(rows - 1, 1)
+                    )
+
+                    if alpha(x: x, y: y) == 0 {
+                        transparentSamples += 1
+                    }
+                    sampleCount += 1
+                }
+            }
+
+            return sampleCount > 0
+                && Double(transparentSamples) / Double(sampleCount) >= 0.60
+        }
     }
 
     @MainActor
