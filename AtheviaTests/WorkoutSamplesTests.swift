@@ -112,14 +112,37 @@ struct WorkoutSamplesTests {
         #expect(metrics.first?.headline == TrainingFormatter.distance(meters: 100))
     }
 
-    @Test("A trained discipline still reports distance as a pace")
-    func trainedDisciplineKeepsPace() {
-        let samples = WorkoutSamples(distancePerMinute: [point(0, 40), point(1, 60)])
+    @Test("Running distance series is formatted as pace per kilometre")
+    func runningDistanceBecomesPace() {
+        let samples = WorkoutSamples(distancePerMinute: [point(0, 150), point(1, 150)])
 
         let metrics = WorkoutMetric.all(for: .running, samples: samples)
 
         #expect(metrics.map(\.kind) == [.distance])
         #expect(metrics.first?.title == "Pace")
+        #expect(metrics.first?.headline == "6:40")
+        #expect(metrics.first?.caption == "avg /km")
+    }
+
+    @Test("Cycling distance series is formatted as average speed")
+    func cyclingDistanceBecomesSpeed() {
+        let samples = WorkoutSamples(distancePerMinute: [point(0, 500), point(1, 500)])
+
+        let metrics = WorkoutMetric.all(for: .cycling, samples: samples)
+
+        #expect(metrics.map(\.kind) == [.distance])
+        #expect(metrics.first?.title == "Speed")
+        #expect(metrics.first?.headline == "30.0")
+        #expect(metrics.first?.caption == "avg km/h")
+    }
+
+    @Test("Multisport never invents one aggregate pace from mixed distances")
+    func multisportHasNoAggregatePace() {
+        let samples = WorkoutSamples(distancePerMinute: [point(0, 300), point(1, 150)])
+
+        let metrics = WorkoutMetric.all(for: .multisport, samples: samples)
+
+        #expect(metrics.isEmpty)
     }
 
     @Test("Steps during an untrained activity are movement, not cadence")
