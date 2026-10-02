@@ -108,9 +108,12 @@ struct ProgressOverviewView: View {
                     plans: plans
                 )
 
-                if setup.objective.kind == .event {
-                    compactEventJourney(setup: setup)
+                compactJourney(
+                    setup: setup,
+                    snapshot: snapshot
+                )
 
+                if setup.objective.kind == .event {
                     if let profile = profiles.first {
                         EventOutcomeResolutionCard(profile: profile)
                     }
@@ -150,27 +153,33 @@ struct ProgressOverviewView: View {
         }
     }
 
-    private func compactEventJourney(
-        setup: AthleteSetup
+    private func compactJourney(
+        setup: AthleteSetup,
+        snapshot: JourneyProgressSnapshot
     ) -> some View {
-        let eventName = setup.objective.event?.displayName
+        let title = setup.objective.event?.displayName
             ?? setup.objective.displayName
 
         return VStack(alignment: .leading, spacing: 10) {
             SectionEyebrow(text: "Journey")
 
             NavigationLink {
-                FullTrainingJourneyView(
+                journeyDestination(
                     setup: setup,
-                    plans: plans
+                    snapshot: snapshot
                 )
             } label: {
                 Card {
                     HStack(spacing: 12) {
-                        Image(systemName: "flag.checkered")
-                            .font(.headline)
+                        Image(
+                            systemName:
+                                setup.objective.kind == .event
+                                    ? "flag.checkered"
+                                    : "point.topleft.down.to.point.bottomright.curvepath"
+                        )
+                        .font(.headline)
 
-                        Text(eventName)
+                        Text(title)
                             .font(.subheadline.weight(.semibold))
                             .lineLimit(1)
 
@@ -189,8 +198,40 @@ struct ProgressOverviewView: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel(
-                "\(eventName), open race journey"
+                "\(title), open training journey"
             )
+        }
+    }
+
+    @ViewBuilder
+    private func journeyDestination(
+        setup: AthleteSetup,
+        snapshot: JourneyProgressSnapshot
+    ) -> some View {
+        if setup.objective.kind == .event {
+            FullTrainingJourneyView(
+                setup: setup,
+                plans: plans
+            )
+        } else {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    TrainingJourneySummaryView(
+                        journey: snapshot.journey,
+                        showsEventReadiness: false
+                    )
+
+                    if !snapshot.milestones.isEmpty {
+                        JourneyProgressView(snapshot: snapshot)
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 12)
+                .padding(.bottom, 28)
+            }
+            .atheviaScreen()
+            .navigationTitle("Training Journey")
+            .navigationBarTitleDisplayMode(.inline)
         }
     }
 
