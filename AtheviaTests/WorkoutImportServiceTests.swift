@@ -99,6 +99,79 @@ struct WorkoutImportServiceTests {
     }
 
 
+
+    @Test("Pre-plan Apple Health history survives reset and stays outside the plan")
+    func historicalHealthWorkoutSurvivesResetBoundary() async throws {
+        let context = try makeContext()
+        let plan = seededPlan(in: context)
+
+        let oldSwim = activity(
+            .swimming,
+            on: -1,
+            duration: 1_830,
+            distance: 180
+        )
+        let planDayRun = activity(
+            .running,
+            on: 0,
+            duration: 1_500,
+            distance: 5_000
+        )
+
+        var importer = service(
+            context,
+            [oldSwim, planDayRun]
+        )
+        importer.importCutoff = plan.startDate
+
+        let first = try await importer.syncHistoricalTrainingHistory(
+            before: plan.startDate
+        )
+        let second = try await importer.syncHistoricalTrainingHistory(
+            before: plan.startDate
+        )
+
+        #expect(first.unrecognised == 1)
+        #expect(first.alreadyKnown == 0)
+        #expect(second.unrecognised == 0)
+        #expect(second.alreadyKnown == 1)
+
+        let standalone = try context.fetch(
+            FetchDescriptor<PlannedWorkout>()
+        )
+        .filter {
+            $0.origin == .imported
+                && $0.plan == nil
+        }
+
+        #expect(standalone.count == 1)
+
+        let swim = try #require(standalone.first)
+        #expect(swim.title == "Swimming")
+        #expect(swim.discipline == .swimming)
+        #expect(swim.isCompleted)
+        #expect(swim.importedSummary?.healthKitUUID == oldSwim.healthKitUUID)
+        #expect(
+            calendar.isDate(
+                swim.date,
+                inSameDayAs: oldSwim.startDate
+            )
+        )
+
+        // The workout on/after the plan boundary is left for normal plan
+        // matching rather than being imported as standalone history.
+        #expect(
+            try context.fetch(
+                FetchDescriptor<ImportedWorkoutSummary>()
+            ).count == 1
+        )
+        #expect(
+            plan.trainingSessions
+                .filter(\.isCompleted)
+                .isEmpty
+        )
+    }
+
     @Test("Workouts from before Start Over are not re-imported")
     func resetBoundaryBlocksOldHealthWorkouts() async throws {
         let context = try makeContext()
