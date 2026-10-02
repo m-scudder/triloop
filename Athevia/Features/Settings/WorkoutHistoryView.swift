@@ -1,12 +1,11 @@
 import SwiftData
 import SwiftUI
 
-/// Read-only view of the athlete's real HealthKit workout history.
+/// Browser for the athlete's real HealthKit workout history.
 ///
-/// Shows everything, including activities Athevia does not train, because the
-/// question this answers is "what is actually in Health?" — and the importer's
-/// filtering is exactly what hides the answer. Nothing here is saved, matched to
-/// a plan, or fed to the training engine.
+/// Shows everything Health contains. Run, Cycle and Swim can be explicitly
+/// imported as standalone completed Athevia activities; browsing alone never
+/// matches a workout to a training-plan day.
 struct WorkoutHistoryView: View {
     @Environment(\.healthProvider) private var provider
     @Environment(\.modelContext) private var modelContext
@@ -94,7 +93,7 @@ struct WorkoutHistoryView: View {
                 }
                 .pickerStyle(.segmented)
             } footer: {
-                Text("Read-only. Nothing on this screen is imported, matched to a plan, or used for training.")
+                Text("Browsing is read-only. Use the Training history section to explicitly import Run, Cycle and Swim workouts; they are not matched to training-plan days.")
             }
 
             Section {
