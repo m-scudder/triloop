@@ -549,36 +549,99 @@ struct SettingsView: View {
     }
 
     private func importThisWeek() {
-        guard let plan = plans.currentPlan() else { return }
-        ProductAnalytics.shared.track(.action(.importWorkouts, .requested))
+        guard !plans.isEmpty else { return }
+
+        ProductAnalytics.shared.track(
+            .action(.importWorkouts, .requested)
+        )
         isWorking = true
-        progressMessage = "Importing workouts…"
+        progressMessage = "Syncing Apple Health…"
+
         Task {
             defer {
                 isWorking = false
                 progressMessage = nil
             }
+
             do {
-                let service = WorkoutImportService(context: modelContext, provider: health)
-                let outcome = try await service.importWorkouts(for: plan)
-                importMessage = message(for: outcome)
-                ProductAnalytics.shared.track(.action(.importWorkouts, .succeeded))
+                let service = WorkoutImportService(
+                    context: modelContext,
+                    provider: health
+                )
+                let orderedPlans = plans.sorted {
+                    $0.startDate < $1.startDate
+                }
+
+                var combined = WorkoutImportService.Outcome()
+
+                if let firstPlan = orderedPlans.first {
+                    let historical = try await service
+                        .syncHistoricalTrainingHistory(
+                            before: firstPlan.startDate
+                        )
+                    combined.matched += historical.matched
+                    combined.alreadyKnown += historical.alreadyKnown
+                    combined.unrecognised += historical.unrecognised
+                }
+
+                // Manual sync means "fetch everything now", not just this week.
+                // Walk every generated plan so older planned sessions and
+                // unmatched Health workouts are refreshed immediately.
+                for plan in orderedPlans {
+                    let outcome = try await service
+                        .importWorkouts(for: plan)
+                    combined.matched += outcome.matched
+                    combined.alreadyKnown += outcome.alreadyKnown
+                    combined.unrecognised += outcome.unrecognised
+                }
+
+                importMessage = message(for: combined)
+                ProductAnalytics.shared.track(
+                    .action(.importWorkouts, .succeeded)
+                )
             } catch {
-                importMessage = "Import failed."
-                ProductAnalytics.shared.track(.action(.importWorkouts, .failed))
+                importMessage = "Apple Health sync failed."
+                ProductAnalytics.shared.track(
+                    .action(.importWorkouts, .failed)
+                )
             }
         }
     }
 
-    private func message(for outcome: WorkoutImportService.Outcome) -> String {
-        if outcome.matched > 0 {
-            let sessions = outcome.matched == 1 ? "session" : "sessions"
-            return "Matched \(outcome.matched) \(sessions). Add how each one felt to complete them."
+    private func message(
+        for outcome: WorkoutImportService.Outcome
+    ) -> String {
+        let imported = outcome.matched + outcome.unrecognised
+
+        if imported > 0 {
+            var parts: [String] = []
+
+            if outcome.matched > 0 {
+                let label = outcome.matched == 1
+                    ? "planned workout"
+                    : "planned workouts"
+                parts.append(
+                    "Matched \(outcome.matched) \(label)"
+                )
+            }
+
+            if outcome.unrecognised > 0 {
+                let label = outcome.unrecognised == 1
+                    ? "workout"
+                    : "workouts"
+                parts.append(
+                    "Imported \(outcome.unrecognised) \(label)"
+                )
+            }
+
+            return parts.joined(separator: " · ") + "."
         }
+
         if outcome.alreadyKnown > 0 {
-            return "Nothing new since the last import."
+            return "Apple Health is already up to date."
         }
-        return "No matching workouts found for this week."
+
+        return "No relevant workouts found in Apple Health."
     }
 }
 
