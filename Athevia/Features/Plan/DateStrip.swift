@@ -263,6 +263,9 @@ struct DateStrip: View {
                 .frame(height: 16)
         } else if isSkipped || sports.isEmpty {
             let discipline = day.representative?.discipline
+            let tint = discipline?.themedTint(theme)
+                ?? Color.secondary
+
             Image(
                 systemName: isSkipped
                     ? "slash.circle"
@@ -271,11 +274,10 @@ struct DateStrip: View {
             .font(.footnote)
             .foregroundStyle(
                 isSelected
-                    ? discipline?.themedTint(theme) ?? .secondary
+                    ? tint
                     : isSkipped
                         ? Color.secondary.opacity(0.55)
-                        : discipline?.themedTint(theme).opacity(0.45)
-                            ?? Color.secondary.opacity(0.45)
+                        : tint.opacity(0.45)
             )
             .frame(height: 16)
         } else {
