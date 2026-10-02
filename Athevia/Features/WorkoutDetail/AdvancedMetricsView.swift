@@ -81,6 +81,21 @@ struct AdvancedMetricsView: View {
                     multisportSegmentValue(segment)
                 ))
             }
+
+            if let lengths = summary.swimmingLengths, lengths > 0 {
+                result.append(("Swim lengths", "\(lengths)"))
+            }
+
+            if let strokes = summary.swimmingStrokeCount, strokes > 0 {
+                result.append(("Swim strokes", "\(Int(strokes.rounded()))"))
+            }
+
+            if let continuous = summary.longestContinuousSwimMeters, continuous > 0 {
+                result.append((
+                    "Longest continuous swim",
+                    TrainingFormatter.distance(meters: continuous)
+                ))
+            }
         }
 
         if let summary, sport != .swimming {
