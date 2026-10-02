@@ -423,6 +423,7 @@ final class HealthKitWorkoutImporter: HealthDataProviding, @unchecked Sendable {
     }
 
     private static func normalizeMultisport(_ workout: HKWorkout) -> ImportedWorkout? {
+        let lengths = workout.swimmingLengths
         let segments = workout.workoutActivities.compactMap { activity -> RecordedMultisportSegment? in
             let type = activity.workoutConfiguration.activityType
             if type == .transition {
@@ -473,7 +474,9 @@ final class HealthKitWorkoutImporter: HealthDataProviding, @unchecked Sendable {
             averageHeartRate: workout.average(HKQuantityType(.heartRate), in: .heartRate),
             maximumHeartRate: workout.maximum(HKQuantityType(.heartRate), in: .heartRate),
             elevationAscendedMeters: workout.elevationAscendedMeters,
-            longestContinuousSwimMeters: Self.longestContinuous(in: workout.swimmingLengths),
+            swimmingLengths: lengths.isEmpty ? nil : lengths.count,
+            swimmingStrokeCount: workout.sum(HKQuantityType(.swimmingStrokeCount), in: .count()),
+            longestContinuousSwimMeters: Self.longestContinuous(in: lengths),
             metrics: metrics,
             plannedWorkoutID: (workout.metadata?[AtheviaWorkoutMetadata.plannedWorkoutIDKey] as? String)
                 .flatMap(UUID.init(uuidString:)),
