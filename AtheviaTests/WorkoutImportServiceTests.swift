@@ -82,6 +82,90 @@ struct WorkoutImportServiceTests {
         #expect(try context.fetch(FetchDescriptor<ImportedWorkoutSummary>()).count == 1)
     }
 
+    @Test("External workout identities are stable per provider")
+    func externalWorkoutIdentityIsDeterministic() {
+        let first = WorkoutImportIdentity.external(
+            providerID: "strava",
+            externalID: "123456"
+        )
+        let repeated = WorkoutImportIdentity.external(
+            providerID: "strava",
+            externalID: "123456"
+        )
+        let otherProvider =
+            WorkoutImportIdentity.external(
+                providerID: "runna",
+                externalID: "123456"
+            )
+
+        #expect(first.stableUUID == repeated.stableUUID)
+        #expect(first.stableUUID != otherProvider.stableUUID)
+    }
+
+    @Test("The same physical workout from another provider is not duplicated")
+    func crossSourceDuplicateRecordsAnAlias() async throws {
+        let context = try makeContext()
+        let plan = seededPlan(in: context)
+        let healthWorkout = activity(
+            .running,
+            on: 0,
+            duration: 1_680,
+            distance: 4_500
+        )
+
+        let first = try await service(
+            context,
+            [healthWorkout]
+        )
+        .importWorkouts(for: plan)
+        #expect(first.matched == 1)
+
+        let stravaWorkout = ImportedWorkout(
+            identity: .external(
+                providerID: "strava",
+                externalID: "987654321"
+            ),
+            sport: healthWorkout.sport,
+            startDate: healthWorkout.startDate,
+            endDate: healthWorkout.endDate,
+            duration: healthWorkout.duration,
+            distanceMeters:
+                healthWorkout.distanceMeters,
+            averageHeartRate:
+                healthWorkout.averageHeartRate,
+            source: "strava"
+        )
+
+        let second = try await service(
+            context,
+            [stravaWorkout]
+        )
+        .importWorkouts(for: plan)
+
+        #expect(second.matched == 0)
+        #expect(second.unrecognised == 0)
+        #expect(second.alreadyKnown == 1)
+
+        let summaries = try context.fetch(
+            FetchDescriptor<ImportedWorkoutSummary>()
+        )
+        #expect(summaries.count == 1)
+
+        let summary = try #require(
+            summaries.first
+        )
+        #expect(
+            summary.importAliases.contains(
+                healthWorkout.identity.alias
+            )
+        )
+        #expect(
+            summary.importAliases.contains(
+                stravaWorkout.identity.alias
+            )
+        )
+    }
+
     @Test("Importing twice imports nothing twice")
     func importIsIdempotent() async throws {
         let context = try makeContext()
