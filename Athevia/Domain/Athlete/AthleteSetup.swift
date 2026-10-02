@@ -71,6 +71,7 @@ struct AthleteSetup: Codable, Equatable, Sendable {
     /// stores created before these concepts existed.
     private var openWaterConsentData: Data?
     private var eventStateData: Data?
+    private var trainingDayTargetData: Data?
 
     /// Structured source of truth used by the app. It is computed so SwiftData
     /// never attempts to materialize EventSport/EventDistance from a missing
@@ -127,6 +128,23 @@ struct AthleteSetup: Codable, Equatable, Sendable {
         }
     }
 
+    /// Weekly training-day intent is separate from availability. A user may be
+    /// free on six days but only want three planned workouts.
+    ///
+    /// Onboarding exposes 2...4. The engine understands up to 5 so an athlete
+    /// can grow into a five-day week later without changing the model again.
+    var trainingDayTarget: Int {
+        get {
+            guard let trainingDayTargetData,
+                  let value = try? JSONDecoder().decode(Int.self, from: trainingDayTargetData)
+            else { return 3 }
+            return min(max(value, 2), 5)
+        }
+        set {
+            trainingDayTargetData = try? JSONEncoder().encode(min(max(newValue, 2), 5))
+        }
+    }
+
     var baseline: AthleteBaseline
     /// Anchors heart-rate zones. Optional because zones report Unavailable
     /// rather than guessing when the athlete would rather not say.
@@ -145,6 +163,7 @@ struct AthleteSetup: Codable, Equatable, Sendable {
         objective: TrainingObjective? = nil,
         openWaterTrainingConsent: OpenWaterTrainingConsent = .unavailable,
         eventState: AthleteEventState = .upcoming,
+        trainingDayTarget: Int = 3,
         baseline: AthleteBaseline = AthleteBaseline(),
         birthDate: Date? = nil,
         schedule: AthleteSchedule = .empty,
@@ -158,6 +177,7 @@ struct AthleteSetup: Codable, Equatable, Sendable {
         self.objectiveData = try? JSONEncoder().encode(resolvedObjective)
         self.openWaterConsentData = try? JSONEncoder().encode(openWaterTrainingConsent)
         self.eventStateData = try? JSONEncoder().encode(eventState)
+        self.trainingDayTargetData = try? JSONEncoder().encode(min(max(trainingDayTarget, 2), 5))
         self.baseline = baseline
         self.birthDate = birthDate
         self.schedule = schedule
@@ -189,6 +209,7 @@ struct AthleteSetup: Codable, Equatable, Sendable {
         case objectiveData
         case openWaterConsentData
         case eventStateData
+        case trainingDayTargetData
         case goal
         case baseline
         case birthDate
@@ -224,6 +245,7 @@ struct AthleteSetup: Codable, Equatable, Sendable {
         objectiveData = (try? container.decodeIfPresent(Data.self, forKey: .objectiveData)) ?? nil
         openWaterConsentData = (try? container.decodeIfPresent(Data.self, forKey: .openWaterConsentData)) ?? nil
         eventStateData = (try? container.decodeIfPresent(Data.self, forKey: .eventStateData)) ?? nil
+        trainingDayTargetData = (try? container.decodeIfPresent(Data.self, forKey: .trainingDayTargetData)) ?? nil
         baseline = value(.baseline, defaults.baseline)
         birthDate = (try? container.decodeIfPresent(Date.self, forKey: .birthDate)) ?? nil
         schedule = value(.schedule, defaults.schedule)
@@ -241,6 +263,7 @@ struct AthleteSetup: Codable, Equatable, Sendable {
         try container.encodeIfPresent(objectiveData, forKey: .objectiveData)
         try container.encodeIfPresent(openWaterConsentData, forKey: .openWaterConsentData)
         try container.encodeIfPresent(eventStateData, forKey: .eventStateData)
+        try container.encodeIfPresent(trainingDayTargetData, forKey: .trainingDayTargetData)
         try container.encode(goal, forKey: .goal)
         try container.encode(baseline, forKey: .baseline)
         try container.encodeIfPresent(birthDate, forKey: .birthDate)
