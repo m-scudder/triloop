@@ -17,6 +17,7 @@ struct ProgressOverviewView: View {
     }
 
     @State private var segment: Segment = .overview
+    @State private var showingFourWeekInfo = false
 
     private var current: CurrentTraining? {
         CurrentTraining(plans: plans)
@@ -86,6 +87,9 @@ struct ProgressOverviewView: View {
             .analyticsScreen(.progress)
         }
         .atheviaScreen()
+        .sheet(isPresented: $showingFourWeekInfo) {
+            fourWeekInfoSheet
+        }
     }
 
     @ViewBuilder
@@ -133,7 +137,6 @@ struct ProgressOverviewView: View {
                 fourWeekSummary
 
                 if let current, current.hasData {
-                    progressInterpretation(current)
                     currentTraining(current)
                 }
 
@@ -144,7 +147,6 @@ struct ProgressOverviewView: View {
                 fourWeekSummary
 
                 if let current, current.hasData {
-                    progressInterpretation(current)
                     currentTraining(current)
                 }
             }
@@ -155,35 +157,44 @@ struct ProgressOverviewView: View {
         setup: AthleteSetup,
         snapshot: JourneyProgressSnapshot
     ) -> some View {
-        let journey = snapshot.journey
         let eventName = setup.objective.event?.displayName
             ?? setup.objective.displayName
-
-        var parts = [
-            eventName,
-            journey.phase.displayName
-        ]
-
-        if let weeks = journey.weeksRemaining {
-            parts.append(
-                weeks == 1
-                    ? "1 week"
-                    : "\(weeks) weeks"
-            )
-        }
 
         return VStack(alignment: .leading, spacing: 10) {
             SectionEyebrow(text: "Journey")
 
-            Card {
-                Label(
-                    parts.joined(separator: " · "),
-                    systemImage: "flag.checkered"
+            NavigationLink {
+                FullTrainingJourneyView(
+                    setup: setup,
+                    plans: plans
                 )
-                .font(.subheadline.weight(.semibold))
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
+            } label: {
+                Card {
+                    HStack(spacing: 12) {
+                        Image(systemName: "flag.checkered")
+                            .font(.headline)
+
+                        Text(eventName)
+                            .font(.subheadline.weight(.semibold))
+                            .lineLimit(1)
+
+                        Spacer(minLength: 8)
+
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(
+                                AtheviaAdaptiveStyle(
+                                    .tertiary,
+                                    gaming: .secondaryText
+                                )
+                            )
+                    }
+                }
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel(
+                "\(eventName), open race journey"
+            )
         }
     }
 
@@ -191,7 +202,22 @@ struct ProgressOverviewView: View {
     /// training metrics.
     private var fourWeekSummary: some View {
         VStack(alignment: .leading, spacing: 10) {
-            SectionEyebrow(text: "Last 4 weeks")
+            HStack {
+                SectionEyebrow(text: "Last 4 weeks")
+
+                Spacer()
+
+                Button {
+                    showingFourWeekInfo = true
+                } label: {
+                    Image(systemName: "info.circle")
+                        .font(.subheadline)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(
+                    "About your last four weeks"
+                )
+            }
 
             Card {
                 HStack(alignment: .top, spacing: 8) {
@@ -207,26 +233,6 @@ struct ProgressOverviewView: View {
                         recentAdherence.map { "\(Int(($0 * 100).rounded()))%" } ?? "—",
                         caption: "Plan completed"
                     )
-                }
-            }
-        }
-    }
-
-    private func progressInterpretation(_ current: CurrentTraining) -> some View {
-        let summary = interpretation(for: current)
-
-        return VStack(alignment: .leading, spacing: 10) {
-            SectionEyebrow(text: "What this means")
-
-            Card {
-                VStack(alignment: .leading, spacing: 6) {
-                    Label(summary.title, systemImage: summary.symbol)
-                        .font(.headline)
-
-                    Text(summary.detail)
-                        .font(.subheadline)
-                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
-                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }
@@ -274,6 +280,90 @@ struct ProgressOverviewView: View {
             "Complete a few more workouts to show a clearer progress direction.",
             "chart.line.uptrend.xyaxis"
         )
+    }
+
+    private var fourWeekInfoSheet: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 20) {
+                if let current, current.hasData {
+                    let summary = interpretation(for: current)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label(
+                            summary.title,
+                            systemImage: summary.symbol
+                        )
+                        .font(.headline)
+
+                        Text(summary.detail)
+                            .font(.body)
+                            .foregroundStyle(
+                                AtheviaAdaptiveStyle(
+                                    .secondary,
+                                    gaming: .secondaryText
+                                )
+                            )
+                    }
+                } else {
+                    Text(
+                        "Complete a few workouts to build a clearer progress picture."
+                    )
+                    .font(.body)
+                }
+
+                Divider()
+
+                VStack(alignment: .leading, spacing: 14) {
+                    infoRow(
+                        "Training",
+                        detail:
+                            "Total completed training time from the last four plan weeks."
+                    )
+                    infoRow(
+                        "Workouts",
+                        detail:
+                            "Completed planned workouts from those weeks."
+                    )
+                    infoRow(
+                        "Plan completed",
+                        detail:
+                            "The share of planned workouts due so far that you completed."
+                    )
+                }
+
+                Spacer()
+            }
+            .padding(20)
+            .navigationTitle("Last 4 weeks")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") {
+                        showingFourWeekInfo = false
+                    }
+                }
+            }
+        }
+        .atheviaScreen()
+        .presentationDetents([.medium])
+    }
+
+    private func infoRow(
+        _ title: String,
+        detail: String
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+            Text(detail)
+                .font(.subheadline)
+                .foregroundStyle(
+                    AtheviaAdaptiveStyle(
+                        .secondary,
+                        gaming: .secondaryText
+                    )
+                )
+        }
     }
 
     /// Sport-level progress stays intentionally simple. Prescription details
