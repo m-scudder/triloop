@@ -172,6 +172,64 @@ struct WorkoutImportServiceTests {
         )
     }
 
+    @Test("A workout earlier in the first plan week but before onboarding stays visible as history")
+    func firstPlanGenerationBoundaryKeepsEarlierWeekHistory() async throws {
+        let context = try makeContext()
+        let plan = seededPlan(in: context)
+        plan.generationReasonCode = .initialAssessment
+
+        // The stored plan starts Monday, but onboarding actually completed
+        // Friday. A Thursday swim must be imported as historical evidence
+        // rather than falling between history import and plan matching.
+        let generatedAt = day(4, hour: 12)
+        plan.generatedAt = generatedAt
+
+        let thursdaySwim = activity(
+            .swimming,
+            on: 3,
+            duration: 1_800,
+            distance: 500
+        )
+        let provider = service(
+            context,
+            [thursdaySwim]
+        )
+
+        let boundary = WorkoutImportService.historicalBoundary(
+            for: [plan]
+        )
+        #expect(boundary == generatedAt)
+
+        let historical = try await provider
+            .syncHistoricalTrainingHistory(
+                before: boundary
+            )
+
+        #expect(historical.unrecognised == 1)
+
+        let standalone = try context.fetch(
+            FetchDescriptor<PlannedWorkout>()
+        )
+        .filter {
+            $0.origin == .imported
+                && $0.plan == nil
+                && $0.discipline == .swimming
+        }
+
+        let swim = try #require(standalone.first)
+        #expect(swim.isCompleted)
+        #expect(
+            swim.importedSummary?.healthKitUUID
+                == thursdaySwim.healthKitUUID
+        )
+        #expect(
+            calendar.isDate(
+                swim.date,
+                inSameDayAs: thursdaySwim.startDate
+            )
+        )
+    }
+
     @Test("Workouts from before Start Over are not re-imported")
     func resetBoundaryBlocksOldHealthWorkouts() async throws {
         let context = try makeContext()
