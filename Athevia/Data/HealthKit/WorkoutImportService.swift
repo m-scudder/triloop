@@ -1,19 +1,21 @@
 import Foundation
 import SwiftData
 
-/// Pulls completed activities from a health provider and attaches them to the
-/// week's planned sessions.
+/// Source-neutral workout ingestion.
 ///
-/// Idempotent: activities already stored are skipped by `healthKitUUID`, so
-/// importing repeatedly is safe.
+/// Providers normalize their activities into ImportedWorkout. From that point
+/// onward Athevia owns one path for historical visibility, plan matching,
+/// persistence, source aliases and duplicate protection.
 @MainActor
 struct WorkoutImportService {
     let context: ModelContext
-    let provider: any HealthDataProviding
+    let provider: any WorkoutImportProviding
     var matcher: WorkoutMatcher = WorkoutMatcher()
     var calendar: Calendar = .current
-    /// Activities before the most recent explicit Start Over belong to the
-    /// athlete's old training timeline and must not be attached to a fresh plan.
+
+    /// Activities before the most recent explicit Start Over must not be
+    /// attached to a newly generated plan. Historical visibility intentionally
+    /// ignores this cutoff.
     var importCutoff: Date? = TrainingResetBoundary.latest
 
     struct Outcome: Equatable, Sendable {
@@ -21,13 +23,29 @@ struct WorkoutImportService {
         var alreadyKnown: Int = 0
         var unrecognised: Int = 0
 
-        var foundSomething: Bool { matched > 0 || unrecognised > 0 }
+        var foundSomething: Bool {
+            matched > 0 || unrecognised > 0
+        }
+
+        mutating func merge(_ other: Outcome) {
+            matched += other.matched
+            alreadyKnown += other.alreadyKnown
+            unrecognised += other.unrecognised
+        }
     }
 
-    /// Boundary between pre-Athevia Health history and workouts eligible to
-    /// match generated plans. The first plan is stored as a Monday-Sunday week,
-    /// even when onboarding happened later in that week. Using only startDate
-    /// creates a blind spot for real workouts between Monday and generatedAt.
+    private struct ClassifiedActivities {
+        var fresh: [ImportedWorkout] = []
+        var known: [(ImportedWorkout, ImportedWorkoutSummary)] = []
+        var changedExisting = false
+    }
+
+    /// Boundary between pre-Athevia history and workouts eligible to match the
+    /// first generated plan.
+    ///
+    /// WeeklyPlan.startDate is always Monday. Onboarding can happen later in
+    /// that week, so using startDate alone creates a blind spot for workouts
+    /// completed between Monday and the actual plan-generation time.
     static func historicalBoundary(
         for plans: [WeeklyPlan],
         fallback: Date = .now
@@ -45,24 +63,74 @@ struct WorkoutImportService {
         return max(first.startDate, first.generatedAt)
     }
 
-    @MainActor
+    /// One entry point for an explicit "sync now" action, regardless of source.
+    ///
+    /// Callers do not decide date ownership. The service imports history before
+    /// Athevia took ownership, then processes every generated plan window.
     @discardableResult
-    func importWorkouts(for plan: WeeklyPlan) async throws -> Outcome {
-        // A session can start on the last day and finish after midnight.
-        let end = calendar.date(byAdding: .day, value: 1, to: plan.endDate) ?? plan.endDate
-        let activities = try await provider.workouts(from: plan.startDate, to: end)
+    func syncAllRelevantWorkouts(
+        plans: [WeeklyPlan]
+    ) async throws -> Outcome {
+        guard !PhoneWorkoutExecutionState.isActive else {
+            return Outcome()
+        }
 
-        // The fetch above can outlive the tap that starts a phone workout.
-        // Re-check ownership after awaiting HealthKit so an already in-flight
-        // import cannot attach a result and destroy the active player subtree.
-        guard !PhoneWorkoutExecutionState.isActive else { return Outcome() }
+        let ordered = plans.sorted {
+            $0.startDate < $1.startDate
+        }
+        guard !ordered.isEmpty else {
+            return Outcome()
+        }
 
-        let repairedMisdatedImport = reconcileMisdatedImportedWorkouts(in: plan)
+        var combined = Outcome()
+        let boundary = Self.historicalBoundary(
+            for: ordered
+        )
+
+        combined.merge(
+            try await syncHistoricalTrainingHistory(
+                before: boundary
+            )
+        )
+
+        for plan in ordered {
+            combined.merge(
+                try await importWorkouts(for: plan)
+            )
+        }
+
+        return combined
+    }
+
+    @discardableResult
+    func importWorkouts(
+        for plan: WeeklyPlan
+    ) async throws -> Outcome {
+        // A workout can start on the final day and finish after midnight.
+        let end = calendar.date(
+            byAdding: .day,
+            value: 1,
+            to: plan.endDate
+        ) ?? plan.endDate
+
+        let activities = try await provider.workouts(
+            from: plan.startDate,
+            to: end
+        )
+
+        // The provider fetch can outlive the tap that starts a phone workout.
+        guard !PhoneWorkoutExecutionState.isActive else {
+            return Outcome()
+        }
+
+        let repairedMisdatedImport =
+            reconcileMisdatedImportedWorkouts(in: plan)
 
         let effectiveCutoff: Date? = {
-            let planCutoff = plan.generationReasonCode == .initialAssessment
-                ? plan.generatedAt
-                : nil
+            let planCutoff =
+                plan.generationReasonCode == .initialAssessment
+                    ? plan.generatedAt
+                    : nil
 
             return [importCutoff, planCutoff]
                 .compactMap { $0 }
@@ -70,65 +138,72 @@ struct WorkoutImportService {
         }()
 
         let eligible = activities.filter { activity in
-            guard let effectiveCutoff else { return true }
+            guard let effectiveCutoff else {
+                return true
+            }
             return activity.startDate >= effectiveCutoff
         }
 
-        let storedSummaries = try context.fetch(FetchDescriptor<ImportedWorkoutSummary>())
-        let summariesByID = Dictionary(
-            uniqueKeysWithValues: storedSummaries.map { ($0.healthKitUUID, $0) }
+        let stored = try context.fetch(
+            FetchDescriptor<ImportedWorkoutSummary>()
         )
-        let refreshedKnownSummary = refreshKnownSummaries(
-            from: eligible,
-            summariesByID: summariesByID
+        let classified = classify(
+            eligible,
+            against: stored
         )
 
-        var known = Set(storedSummaries.map(\.healthKitUUID))
-        let fresh = eligible.filter { known.insert($0.healthKitUUID).inserted }
-
-        let result = matcher.match(planned: plan.orderedWorkouts, with: fresh)
+        let result = matcher.match(
+            planned: plan.orderedWorkouts,
+            with: classified.fresh
+        )
 
         for match in result.matches {
-            let summary = ImportedWorkoutSummary(match.imported)
+            let summary = ImportedWorkoutSummary(
+                match.imported
+            )
             context.insert(summary)
             match.planned.attach(summary)
         }
 
         for activity in result.unmatchedImported {
-            let recorded = PlannedWorkout(
-                date: calendar.startOfDay(for: activity.startDate),
-                discipline: activity.discipline,
-                title: activity.discipline == .multisport
-                    ? "Multisport"
-                    : activity.sport.displayName,
-                origin: .imported
+            let recorded = importedWorkout(
+                for: activity,
+                status: .completed
             )
-            let summary = ImportedWorkoutSummary(activity)
+            let summary = ImportedWorkoutSummary(
+                activity
+            )
+
             context.insert(recorded)
             context.insert(summary)
             recorded.attach(summary)
             plan.workouts.append(recorded)
         }
 
-        resolveEventCompletion(from: fresh)
+        resolveEventCompletion(
+            from: classified.fresh
+        )
 
-        if !fresh.isEmpty || repairedMisdatedImport || refreshedKnownSummary {
+        if !classified.fresh.isEmpty
+            || repairedMisdatedImport
+            || classified.changedExisting {
             try context.save()
         }
 
         return Outcome(
             matched: result.matches.count,
-            alreadyKnown: eligible.count - fresh.count,
-            unrecognised: result.unmatchedImported.count
+            alreadyKnown: classified.known.count,
+            unrecognised:
+                result.unmatchedImported.count
         )
     }
 
-    /// Syncs completed Run, Swim and Cycle history that predates the first
-    /// generated training plan. These activities belong to the athlete's real
-    /// history, but must never be matched onto a newer prescription.
+    /// Imports training that predates Athevia's ownership as standalone
+    /// completed workouts. These remain visible history but are never attached
+    /// to a newer prescription.
     ///
-    /// This intentionally ignores the Start Over import cutoff: resetting local
-    /// plan data must not make Apple Health history disappear from the app.
+    /// This intentionally ignores Start Over: resetting local plan data must
+    /// not erase the athlete's real history from connected sources.
     @discardableResult
     func syncHistoricalTrainingHistory(
         before boundary: Date
@@ -143,56 +218,42 @@ struct WorkoutImportService {
         )
         .filter { activity in
             activity.startDate < boundary
-                && (
-                    activity.discipline == .running
-                        || activity.discipline == .swimming
-                        || activity.discipline == .cycling
-                )
+                && activity.discipline.isTrainingSession
         }
 
-        let storedSummaries = try context.fetch(
+        let stored = try context.fetch(
             FetchDescriptor<ImportedWorkoutSummary>()
         )
-        let summariesByID = Dictionary(
-            uniqueKeysWithValues: storedSummaries.map {
-                ($0.healthKitUUID, $0)
-            }
-        )
-
-        let refreshedKnownSummary = refreshKnownSummaries(
-            from: activities,
-            summariesByID: summariesByID
+        let classified = classify(
+            activities,
+            against: stored
         )
 
         var importedCount = 0
-        var alreadyKnown = 0
 
-        for activity in activities {
-            if let existing = summariesByID[activity.healthKitUUID] {
-                alreadyKnown += 1
-
-                // A summary can survive without a visible workout if older
-                // persistence/import code created evidence first. Rehydrate a
-                // standalone history row rather than hiding that activity.
-                if existing.workout == nil {
-                    let workout = historicalWorkout(
-                        discipline: existing.discipline,
-                        sport: existing.sport,
-                        date: existing.startDate
-                    )
-                    context.insert(workout)
-                    workout.attach(existing)
-                    importedCount += 1
-                }
-                continue
-            }
-
-            let workout = historicalWorkout(
-                discipline: activity.discipline,
-                sport: activity.sport,
-                date: activity.startDate
+        // Older builds could persist evidence without a visible workout row.
+        // Rehydrate it rather than silently hiding a valid activity.
+        for (_, summary) in classified.known
+        where summary.workout == nil {
+            let workout = importedWorkout(
+                discipline: summary.discipline,
+                sport: summary.sport,
+                date: summary.startDate,
+                status: .completed
             )
-            let summary = ImportedWorkoutSummary(activity)
+            context.insert(workout)
+            workout.attach(summary)
+            importedCount += 1
+        }
+
+        for activity in classified.fresh {
+            let workout = importedWorkout(
+                for: activity,
+                status: .completed
+            )
+            let summary = ImportedWorkoutSummary(
+                activity
+            )
 
             context.insert(workout)
             context.insert(summary)
@@ -200,86 +261,365 @@ struct WorkoutImportService {
             importedCount += 1
         }
 
-        if importedCount > 0 || refreshedKnownSummary {
+        if importedCount > 0
+            || classified.changedExisting {
             try context.save()
         }
 
         return Outcome(
             matched: 0,
-            alreadyKnown: alreadyKnown,
+            alreadyKnown: classified.known.count,
             unrecognised: importedCount
         )
     }
 
-    private func historicalWorkout(
+    /// Splits incoming activities into new physical workouts and workouts that
+    /// Athevia already knows. Recognition has two layers:
+    ///
+    /// 1. exact provider identity / previously recorded source alias;
+    /// 2. conservative physical equivalence for the same activity arriving from
+    ///    another provider (for example Strava directly and via Apple Health).
+    private func classify(
+        _ activities: [ImportedWorkout],
+        against summaries: [ImportedWorkoutSummary]
+    ) -> ClassifiedActivities {
+        var result = ClassifiedActivities()
+
+        for activity in activities {
+            if let summary = existingSummary(
+                for: activity,
+                in: summaries
+            ) {
+                result.known.append(
+                    (activity, summary)
+                )
+                result.changedExisting =
+                    refresh(
+                        summary,
+                        from: activity
+                    ) || result.changedExisting
+            } else if !result.fresh.contains(
+                where: {
+                    samePhysicalWorkout(
+                        $0,
+                        activity
+                    )
+                }
+            ) {
+                result.fresh.append(activity)
+            }
+        }
+
+        return result
+    }
+
+    private func existingSummary(
+        for activity: ImportedWorkout,
+        in summaries: [ImportedWorkoutSummary]
+    ) -> ImportedWorkoutSummary? {
+        if let exact = summaries.first(
+            where: {
+                $0.importID == activity.importID
+            }
+        ) {
+            return exact
+        }
+
+        if let alias = summaries.first(
+            where: {
+                $0.importAliases.contains(
+                    activity.identity.alias
+                )
+            }
+        ) {
+            return alias
+        }
+
+        return summaries.first(
+            where: {
+                samePhysicalWorkout(
+                    $0,
+                    activity
+                )
+            }
+        )
+    }
+
+    /// Cross-source duplicate detection is intentionally conservative. A direct
+    /// provider and Apple Health normally preserve nearly identical timestamps,
+    /// duration and distance for the same physical workout.
+    private func samePhysicalWorkout(
+        _ summary: ImportedWorkoutSummary,
+        _ activity: ImportedWorkout
+    ) -> Bool {
+        guard summary.discipline
+                == activity.discipline else {
+            return false
+        }
+
+        let startDelta = abs(
+            summary.startDate.timeIntervalSince(
+                activity.startDate
+            )
+        )
+        guard startDelta <= 120 else {
+            return false
+        }
+
+        let durationDelta = abs(
+            summary.duration - activity.duration
+        )
+        let durationTolerance = max(
+            120,
+            max(
+                summary.duration,
+                activity.duration
+            ) * 0.05
+        )
+        guard durationDelta <= durationTolerance else {
+            return false
+        }
+
+        if let storedDistance = summary.distanceMeters,
+           let incomingDistance = activity.distanceMeters {
+            let distanceTolerance = max(
+                100,
+                max(
+                    storedDistance,
+                    incomingDistance
+                ) * 0.03
+            )
+            guard abs(
+                storedDistance - incomingDistance
+            ) <= distanceTolerance else {
+                return false
+            }
+        }
+
+        return true
+    }
+
+    private func samePhysicalWorkout(
+        _ lhs: ImportedWorkout,
+        _ rhs: ImportedWorkout
+    ) -> Bool {
+        guard lhs.discipline == rhs.discipline else {
+            return false
+        }
+
+        let startDelta = abs(
+            lhs.startDate.timeIntervalSince(
+                rhs.startDate
+            )
+        )
+        guard startDelta <= 120 else {
+            return false
+        }
+
+        let durationDelta = abs(
+            lhs.duration - rhs.duration
+        )
+        let durationTolerance = max(
+            120,
+            max(lhs.duration, rhs.duration) * 0.05
+        )
+        guard durationDelta <= durationTolerance else {
+            return false
+        }
+
+        if let left = lhs.distanceMeters,
+           let right = rhs.distanceMeters {
+            let distanceTolerance = max(
+                100,
+                max(left, right) * 0.03
+            )
+            guard abs(left - right)
+                    <= distanceTolerance else {
+                return false
+            }
+        }
+
+        return true
+    }
+
+    /// Refreshes known evidence without throwing away richer values already
+    /// captured from another source.
+    @discardableResult
+    private func refresh(
+        _ summary: ImportedWorkoutSummary,
+        from activity: ImportedWorkout
+    ) -> Bool {
+        summary.sport = activity.sport
+        summary.startDate = activity.startDate
+        summary.endDate = activity.endDate
+        summary.duration = activity.duration
+
+        if let value = activity.distanceMeters {
+            summary.distanceMeters = value
+        }
+        if let value = activity.averageHeartRate {
+            summary.averageHeartRate = value
+        }
+        if let value = activity.maximumHeartRate {
+            summary.maximumHeartRate = value
+        }
+        if let value = activity.elevationAscendedMeters {
+            summary.elevationAscendedMeters = value
+        }
+        if let value = activity.swimmingLengths {
+            summary.swimmingLengths = value
+        }
+        if let value = activity.swimmingStrokeCount {
+            summary.swimmingStrokeCount = value
+        }
+        if let value =
+            activity.longestContinuousSwimMeters {
+            summary.longestContinuousSwimMeters =
+                value
+        }
+        if let source = activity.source {
+            summary.source = source
+        }
+
+        var merged = summary.metrics
+            ?? RecordedMetrics()
+        mergeMetrics(
+            &merged,
+            incoming: activity.metrics
+        )
+        merged.recordImportAlias(
+            activity.identity.alias
+        )
+        summary.metrics = merged
+
+        if let workout = summary.workout,
+           workout.origin == .imported,
+           workout.title
+            != importedWorkoutTitle(
+                for: summary
+            ) {
+            workout.title = importedWorkoutTitle(
+                for: summary
+            )
+        }
+
+        return true
+    }
+
+    private func mergeMetrics(
+        _ target: inout RecordedMetrics,
+        incoming: RecordedMetrics
+    ) {
+        if let value = incoming.averageCadence {
+            target.averageCadence = value
+        }
+        if let value = incoming.averageRunningSpeed {
+            target.averageRunningSpeed = value
+        }
+        if let value = incoming.averageRunningPower {
+            target.averageRunningPower = value
+        }
+        if let value = incoming.averageStrideLength {
+            target.averageStrideLength = value
+        }
+        if let value =
+            incoming.averageGroundContactTime {
+            target.averageGroundContactTime = value
+        }
+        if let value =
+            incoming.averageVerticalOscillation {
+            target.averageVerticalOscillation = value
+        }
+        if let value = incoming.averageCyclingSpeed {
+            target.averageCyclingSpeed = value
+        }
+        if let value = incoming.averageCyclingCadence {
+            target.averageCyclingCadence = value
+        }
+        if let value = incoming.averageCyclingPower {
+            target.averageCyclingPower = value
+        }
+        if let value =
+            incoming.functionalThresholdPower {
+            target.functionalThresholdPower = value
+        }
+        if let value =
+            incoming.activeEnergyKilocalories {
+            target.activeEnergyKilocalories = value
+        }
+        if let value = incoming.workoutEffort {
+            target.workoutEffort = value
+        }
+        if let value =
+            incoming.estimatedWorkoutEffort {
+            target.estimatedWorkoutEffort = value
+        }
+        if !incoming.multisportSegments.isEmpty {
+            target.multisportSegments =
+                incoming.multisportSegments
+        }
+        if let value = incoming.swimEnvironment {
+            target.swimEnvironment = value
+        }
+        if !incoming.route.isEmpty {
+            target.route = incoming.route
+        }
+
+        for alias in incoming.importAliases {
+            target.recordImportAlias(alias)
+        }
+    }
+
+    private func importedWorkout(
+        for activity: ImportedWorkout,
+        status: WorkoutStatus
+    ) -> PlannedWorkout {
+        importedWorkout(
+            discipline: activity.discipline,
+            sport: activity.sport,
+            date: activity.startDate,
+            status: status
+        )
+    }
+
+    private func importedWorkout(
         discipline: Discipline,
         sport: Sport,
-        date: Date
+        date: Date,
+        status: WorkoutStatus
     ) -> PlannedWorkout {
         PlannedWorkout(
             date: calendar.startOfDay(for: date),
             discipline: discipline,
-            title: sport.displayName,
-            status: .completed,
+            title: discipline == .multisport
+                ? "Multisport"
+                : sport.displayName,
+            status: status,
             origin: .imported
         )
     }
 
-    /// Refresh normalized evidence for a HealthKit workout we already know.
-    /// This keeps imports idempotent while allowing a later permission grant or
-    /// a richer importer version to backfill fields such as swim strokes and
-    /// active energy without creating a second activity.
-    private func refreshKnownSummaries(
-        from activities: [ImportedWorkout],
-        summariesByID: [UUID: ImportedWorkoutSummary]
+    /// Older builds trusted an Athevia Watch planned-workout ID even when the
+    /// athlete actually recorded that workout on a different day.
+    private func reconcileMisdatedImportedWorkouts(
+        in plan: WeeklyPlan
     ) -> Bool {
         var changed = false
 
-        for activity in activities {
-            guard let summary = summariesByID[activity.healthKitUUID] else { continue }
-
-            summary.sport = activity.sport
-            summary.startDate = activity.startDate
-            summary.endDate = activity.endDate
-            summary.duration = activity.duration
-            summary.distanceMeters = activity.distanceMeters
-            summary.averageHeartRate = activity.averageHeartRate
-            summary.maximumHeartRate = activity.maximumHeartRate
-            summary.elevationAscendedMeters = activity.elevationAscendedMeters
-            summary.swimmingLengths = activity.swimmingLengths
-            summary.swimmingStrokeCount = activity.swimmingStrokeCount
-            summary.longestContinuousSwimMeters = activity.longestContinuousSwimMeters
-            summary.metrics = activity.metrics.isEmpty ? nil : activity.metrics
-            summary.source = activity.source
-
-            if let workout = summary.workout,
-               workout.origin == .imported,
-               workout.title != importedWorkoutTitle(for: summary) {
-                workout.title = importedWorkoutTitle(for: summary)
-            }
-
-            changed = true
-        }
-
-        return changed
-    }
-
-    /// Older builds trusted an Athevia Watch planned-workout ID even when the
-    /// athlete actually recorded that workout on a different day. Repair those
-    /// rows before de-duplication so the real activity sits on its HealthKit day
-    /// and the future prescription becomes available again.
-    private func reconcileMisdatedImportedWorkouts(in plan: WeeklyPlan) -> Bool {
-        var changed = false
-
-        for planned in plan.orderedWorkouts where planned.origin != .imported {
+        for planned in plan.orderedWorkouts
+        where planned.origin != .imported {
             guard planned.discipline.isTrainingSession,
                   let summary = planned.importedSummary,
-                  !calendar.isDate(planned.date, inSameDayAs: summary.startDate) else {
+                  !calendar.isDate(
+                    planned.date,
+                    inSameDayAs: summary.startDate
+                  ) else {
                 continue
             }
 
             let feedback = planned.feedback
-            let recoveryCheckIn = planned.recoveryCheckIn
+            let recoveryCheckIn =
+                planned.recoveryCheckIn
 
             planned.feedback = nil
             planned.recoveryCheckIn = nil
@@ -287,13 +627,11 @@ struct WorkoutImportService {
             planned.status = .planned
             planned.completedAt = nil
 
-            let recorded = PlannedWorkout(
-                date: calendar.startOfDay(for: summary.startDate),
+            let recorded = importedWorkout(
                 discipline: summary.discipline,
-                title: summary.discipline == .multisport
-                    ? "Multisport"
-                    : summary.sport.displayName,
-                origin: .imported
+                sport: summary.sport,
+                date: summary.startDate,
+                status: .completed
             )
             context.insert(recorded)
             plan.workouts.append(recorded)
@@ -303,7 +641,8 @@ struct WorkoutImportService {
                 recorded.feedback = feedback
             }
             if let recoveryCheckIn {
-                recorded.recoveryCheckIn = recoveryCheckIn
+                recorded.recoveryCheckIn =
+                    recoveryCheckIn
             }
 
             changed = true
@@ -320,28 +659,48 @@ struct WorkoutImportService {
             : summary.sport.displayName
     }
 
-    private func resolveEventCompletion(from activities: [ImportedWorkout]) {
+    private func resolveEventCompletion(
+        from activities: [ImportedWorkout]
+    ) {
         guard !activities.isEmpty,
-              let profile = try? context.fetch(FetchDescriptor<AthleteProfile>()).first,
+              let profile = try? context.fetch(
+                FetchDescriptor<AthleteProfile>()
+              ).first,
               var setup = profile.setup,
               setup.eventState.status == .upcoming,
               let event = setup.objective.event else {
             return
         }
 
-        let evidenceMatcher = EventCompletionEvidenceMatcher(calendar: calendar)
-        guard let evidence = activities.first(where: {
-            evidenceMatcher.matches(event: event, imported: $0)
-        }) else {
+        let evidenceMatcher =
+            EventCompletionEvidenceMatcher(
+                calendar: calendar
+            )
+        guard let evidence = activities.first(
+            where: {
+                evidenceMatcher.matches(
+                    event: event,
+                    imported: $0
+                )
+            }
+        ) else {
             return
+        }
+
+        let source: EventCompletionEvidenceSource
+        if evidence.plannedWorkoutID != nil {
+            source = .atheviaWorkout
+        } else if evidence.identity.providerID
+                    == "appleHealth" {
+            source = .healthKitImport
+        } else {
+            source = .importedWorkout
         }
 
         setup.eventState = AthleteEventState(
             status: .completed,
             resolvedAt: evidence.endDate,
-            completionEvidence: evidence.plannedWorkoutID == nil
-                ? .healthKitImport
-                : .atheviaWorkout
+            completionEvidence: source
         )
         profile.setup = setup
     }
