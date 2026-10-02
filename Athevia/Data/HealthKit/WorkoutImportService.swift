@@ -24,6 +24,27 @@ struct WorkoutImportService {
         var foundSomething: Bool { matched > 0 || unrecognised > 0 }
     }
 
+    /// Boundary between pre-Athevia Health history and workouts eligible to
+    /// match generated plans. The first plan is stored as a Monday-Sunday week,
+    /// even when onboarding happened later in that week. Using only startDate
+    /// creates a blind spot for real workouts between Monday and generatedAt.
+    static func historicalBoundary(
+        for plans: [WeeklyPlan],
+        fallback: Date = .now
+    ) -> Date {
+        guard let first = plans.min(by: {
+            $0.startDate < $1.startDate
+        }) else {
+            return fallback
+        }
+
+        guard first.generationReasonCode == .initialAssessment else {
+            return first.startDate
+        }
+
+        return max(first.startDate, first.generatedAt)
+    }
+
     @MainActor
     @discardableResult
     func importWorkouts(for plan: WeeklyPlan) async throws -> Outcome {
