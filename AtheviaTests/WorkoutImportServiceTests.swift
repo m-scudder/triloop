@@ -297,6 +297,58 @@ struct WorkoutImportServiceTests {
         #expect(swimming?.totalDistanceMeters == 550)
     }
 
+
+    @Test("Known HealthKit workouts refresh richer metrics without duplicating")
+    func knownWorkoutMetricsAreRefreshed() async throws {
+        let context = try makeContext()
+        let plan = seededPlan(in: context)
+        let swim = try #require(plan.orderedWorkouts.first { $0.discipline == .swimming })
+        let id = UUID()
+        let start = swim.date.addingTimeInterval(3_600)
+
+        let initial = ImportedWorkout(
+            healthKitUUID: id,
+            sport: .swimming,
+            startDate: start,
+            endDate: start.addingTimeInterval(900),
+            duration: 900,
+            distanceMeters: 300,
+            metrics: RecordedMetrics()
+        )
+
+        _ = try await service(context, [initial]).importWorkouts(for: plan)
+        let summary = try #require(swim.importedSummary)
+        #expect(summary.swimmingStrokeCount == nil)
+        #expect(summary.metrics?.activeEnergyKilocalories == nil)
+
+        let richer = ImportedWorkout(
+            healthKitUUID: id,
+            sport: .swimming,
+            startDate: start,
+            endDate: start.addingTimeInterval(900),
+            duration: 900,
+            distanceMeters: 300,
+            swimmingLengths: 12,
+            swimmingStrokeCount: 210,
+            longestContinuousSwimMeters: 150,
+            metrics: RecordedMetrics(
+                activeEnergyKilocalories: 145,
+                swimEnvironment: .pool
+            )
+        )
+
+        let outcome = try await service(context, [richer]).importWorkouts(for: plan)
+
+        #expect(outcome.alreadyKnown == 1)
+        #expect(outcome.matched == 0)
+        #expect(try context.fetch(FetchDescriptor<ImportedWorkoutSummary>()).count == 1)
+        #expect(summary.swimmingLengths == 12)
+        #expect(summary.swimmingStrokeCount == 210)
+        #expect(summary.longestContinuousSwimMeters == 150)
+        #expect(summary.metrics?.activeEnergyKilocalories == 145)
+        #expect(summary.metrics?.swimEnvironment == .pool)
+    }
+
     @Test("Automatic import covers the current week and the one before it")
     func autoImportCoversRecentWeeks() async throws {
         // Anchored to the current calendar: the importer builds its own matcher,
