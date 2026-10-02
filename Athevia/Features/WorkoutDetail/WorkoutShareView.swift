@@ -1,4 +1,5 @@
 import ImageIO
+import Photos
 import PhotosUI
 import SwiftUI
 import UIKit
@@ -145,6 +146,8 @@ struct WorkoutShareView: View {
     @State private var exportedFile: WorkoutShareFile?
     @State private var exportError: String?
     @State private var isExporting = false
+    @State private var isSavingToPhotos = false
+    @State private var saveMessage: String?
     @State private var lastExportURL: URL?
 
     private var snapshot: WorkoutShareSnapshot {
@@ -205,11 +208,30 @@ struct WorkoutShareView: View {
                 .padding(20)
             }
             .safeAreaInset(edge: .bottom) {
-                Button(action: exportCard) {
-                    Label("Share workout", systemImage: "square.and.arrow.up")
+                VStack(spacing: 8) {
+                    HStack(spacing: 10) {
+                        Button(action: saveToPhotos) {
+                            Label(
+                                isSavingToPhotos ? "Saving…" : "Save to Photos",
+                                systemImage: "square.and.arrow.down"
+                            )
+                        }
+                        .buttonStyle(SecondaryActionButtonStyle())
+                        .disabled(!canShare || isSavingToPhotos)
+
+                        Button(action: exportCard) {
+                            Label("Share workout", systemImage: "square.and.arrow.up")
+                        }
+                        .buttonStyle(PrimaryActionButtonStyle())
+                        .disabled(!canShare || isSavingToPhotos)
+                    }
+
+                    if let saveMessage {
+                        Text(saveMessage)
+                            .font(.caption)
+                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+                    }
                 }
-                .buttonStyle(PrimaryActionButtonStyle())
-                .disabled(!canShare)
                 .padding(.horizontal, 20)
                 .padding(.vertical, 12)
                 .background(AtheviaAdaptiveStyle(.bar, gaming: .surface))
@@ -378,15 +400,61 @@ struct WorkoutShareView: View {
     }
 
     @MainActor
-    private func exportCard() {
-        guard canShare else { return }
-        isExporting = true
-        defer { isExporting = false }
+    private func renderedPNGData() -> Data? {
         let renderer = ImageRenderer(content: card)
         renderer.proposedSize = ProposedViewSize(format.exportSize)
         renderer.scale = 1
         renderer.isOpaque = background != .transparent
-        guard let data = renderer.uiImage?.pngData() else {
+        return renderer.uiImage?.pngData()
+    }
+
+    @MainActor
+    private func saveToPhotos() {
+        guard canShare, !isSavingToPhotos else { return }
+        guard let data = renderedPNGData() else {
+            exportError = "Couldn't create the image. Please try again."
+            return
+        }
+
+        isSavingToPhotos = true
+        saveMessage = nil
+
+        Task {
+            let status = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
+            guard status == .authorized || status == .limited else {
+                await MainActor.run {
+                    isSavingToPhotos = false
+                    exportError = "Allow Photos access in Settings to save workout images."
+                }
+                return
+            }
+
+            do {
+                try await PHPhotoLibrary.shared().performChanges {
+                    let request = PHAssetCreationRequest.forAsset()
+                    let options = PHAssetResourceCreationOptions()
+                    options.originalFilename = "Athevia-Workout.png"
+                    request.addResource(with: .photo, data: data, options: options)
+                }
+                await MainActor.run {
+                    isSavingToPhotos = false
+                    saveMessage = "Saved to Photos."
+                }
+            } catch {
+                await MainActor.run {
+                    isSavingToPhotos = false
+                    exportError = "Couldn't save this workout to Photos. Please try again."
+                }
+            }
+        }
+    }
+
+    @MainActor
+    private func exportCard() {
+        guard canShare else { return }
+        isExporting = true
+        defer { isExporting = false }
+        guard let data = renderedPNGData() else {
             exportError = "Couldn't create the image. Please try again."
             return
         }
