@@ -75,6 +75,8 @@ protocol WorkoutImportProviding: Sendable {
     var workoutImportProviderID: String { get }
 
     /// Completed workouts Athevia understands, most recent first.
+    /// Providers may use their native boundary semantics; Athevia re-applies
+    /// its own [start, end) ownership rule before matching.
     func workouts(
         from startDate: Date,
         to endDate: Date
