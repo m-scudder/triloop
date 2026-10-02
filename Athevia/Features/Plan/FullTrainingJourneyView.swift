@@ -29,6 +29,8 @@ struct FullTrainingJourneyView: View {
                         ForEach(Array(weeks.enumerated()), id: \.element.id) { index, week in
                             JourneyWeekRow(
                                 week: week,
+                                setup: setup,
+                                plans: plans,
                                 isLast: index == weeks.count - 1
                             )
                         }
@@ -134,6 +136,8 @@ private struct JourneyWeekRow: View {
     @Environment(\.atheviaTheme) private var theme
 
     let week: JourneyWeekProjection
+    let setup: AthleteSetup
+    let plans: [WeeklyPlan]
     let isLast: Bool
 
     var body: some View {
@@ -157,73 +161,186 @@ private struct JourneyWeekRow: View {
                 }
             }
 
-            Card(padding: 14) {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(alignment: .firstTextBaseline) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            HStack(spacing: 7) {
-                                Text(week.title)
-                                    .font(.subheadline.weight(.semibold))
+            NavigationLink {
+                JourneyWeekPlanView(
+                    week: week,
+                    setup: setup,
+                    plans: plans
+                )
+            } label: {
+                Card(padding: 14) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack(alignment: .firstTextBaseline) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                HStack(spacing: 7) {
+                                    Text(week.title)
+                                        .font(.subheadline.weight(.semibold))
 
-                                if week.isCurrent {
-                                    Text("NOW")
-                                        .font(.caption2.weight(.bold))
-                                        .padding(.horizontal, 6)
-                                        .padding(.vertical, 2)
-                                        .background(week.phase.tint(theme: theme).opacity(0.14), in: .capsule)
-                                        .foregroundStyle(week.phase.tint(theme: theme))
+                                    if week.isCurrent {
+                                        Text("NOW")
+                                            .font(.caption2.weight(.bold))
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 2)
+                                            .background(week.phase.tint(theme: theme).opacity(0.14), in: .capsule)
+                                            .foregroundStyle(week.phase.tint(theme: theme))
+                                    }
                                 }
+
+                                Text(week.dateRange)
+                                    .font(.caption)
+                                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                             }
 
-                            Text(week.dateRange)
-                                .font(.caption)
-                                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+                            Spacer(minLength: 8)
+
+                            HStack(spacing: 6) {
+                                Text(week.phase.shortName)
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(week.phase.tint(theme: theme))
+
+                                Image(systemName: "chevron.right")
+                                    .font(.caption2.weight(.semibold))
+                                    .foregroundStyle(AtheviaAdaptiveStyle(.tertiary, gaming: .secondaryText))
+                            }
                         }
 
-                        Spacer(minLength: 8)
+                        HStack(spacing: 12) {
+                            Label(week.sessionLabel, systemImage: "figure.run")
+                                .font(.caption)
+                                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
 
-                        Text(week.phase.shortName)
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(week.phase.tint(theme: theme))
-                    }
+                            Spacer()
 
-                    HStack(spacing: 12) {
-                        Label(week.sessionLabel, systemImage: "figure.run")
-                            .font(.caption)
-                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+                            Text(week.focus)
+                                .font(.caption.weight(.medium))
+                                .lineLimit(1)
+                        }
 
-                        Spacer()
+                        if !week.sports.isEmpty {
+                            HStack(spacing: 8) {
+                                ForEach(week.sports, id: \.self) { sport in
+                                    Image(systemName: sport.discipline.symbolName)
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(sport.discipline.themedTint(theme))
+                                        .frame(width: 26, height: 26)
+                                        .background(
+                                            sport.discipline.themedTint(theme).opacity(0.10),
+                                            in: .circle
+                                        )
+                                }
 
-                        Text(week.focus)
-                            .font(.caption.weight(.medium))
-                            .lineLimit(1)
-                    }
-
-                    if !week.sports.isEmpty {
-                        HStack(spacing: 8) {
-                            ForEach(week.sports, id: \.self) { sport in
-                                Image(systemName: sport.discipline.symbolName)
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(sport.discipline.themedTint(theme))
-                                    .frame(width: 26, height: 26)
-                                    .background(
-                                        sport.discipline.themedTint(theme).opacity(0.10),
-                                        in: .circle
-                                    )
-                            }
-
-                            if week.isProjected {
-                                Spacer()
-                                Image(systemName: "sparkles")
-                                    .font(.caption2)
-                                    .foregroundStyle(AtheviaAdaptiveStyle(.tertiary, gaming: .secondaryText))
-                                    .accessibilityLabel("Projected")
+                                if week.isProjected {
+                                    Spacer()
+                                    Image(systemName: "sparkles")
+                                        .font(.caption2)
+                                        .foregroundStyle(AtheviaAdaptiveStyle(.tertiary, gaming: .secondaryText))
+                                        .accessibilityLabel("Projected")
+                                }
                             }
                         }
                     }
                 }
             }
+            .buttonStyle(.plain)
         }
+    }
+}
+
+private struct JourneyWeekPlanView: View {
+    let week: JourneyWeekProjection
+    let setup: AthleteSetup
+    let plans: [WeeklyPlan]
+
+    private var existingPlan: WeeklyPlan? {
+        plans.first {
+            $0.endDate >= week.startDate && $0.startDate <= week.endDate
+        }
+    }
+
+    private var displayedPlan: WeeklyPlan? {
+        if let existingPlan {
+            return existingPlan
+        }
+
+        let poolLength = plans
+            .sorted { $0.startDate < $1.startDate }
+            .last?
+            .parameters
+            .swimPoolLengthMeters ?? 25
+
+        let nextWeekNumber = (plans.map(\.weekNumber).max() ?? 0) + week.weekIndex
+
+        return try? FirstWeekBuilder().build(
+            setup: setup,
+            poolLengthMeters: poolLength,
+            startDate: week.startDate,
+            weekNumber: nextWeekNumber
+        )
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    Text(week.phase.shortName)
+                        .font(.subheadline.weight(.semibold))
+                    Spacer()
+                    if week.isProjected {
+                        Label("Projected", systemImage: "sparkles")
+                            .font(.caption)
+                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+                    }
+                }
+
+                if let plan = displayedPlan {
+                    Card(padding: 0) {
+                        VStack(spacing: 0) {
+                            ForEach(plan.orderedWorkouts, id: \.id) { workout in
+                                HStack(spacing: 12) {
+                                    DisciplineBadge(discipline: workout.discipline, size: 38)
+
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(TrainingFormatter.shortDate(workout.date))
+                                            .font(.subheadline.weight(.medium))
+
+                                        Text(workoutDetail(workout))
+                                            .font(.caption)
+                                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+                                            .lineLimit(2)
+                                    }
+
+                                    Spacer(minLength: 8)
+                                }
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 10)
+
+                                if workout.id != plan.orderedWorkouts.last?.id {
+                                    Divider().padding(.leading, 62)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 12)
+            .padding(.bottom, 24)
+        }
+        .atheviaScreen()
+        .navigationTitle(week.title)
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func workoutDetail(_ workout: PlannedWorkout) -> String {
+        guard workout.discipline.isTrainingSession else {
+            return workout.title
+        }
+
+        if let summary = WorkoutSummaryText.make(for: workout) {
+            return "\(workout.title) · \(summary)"
+        }
+
+        return workout.title
     }
 }
 
