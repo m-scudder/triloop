@@ -77,7 +77,9 @@ struct WorkoutImportService {
             let recorded = PlannedWorkout(
                 date: calendar.startOfDay(for: activity.startDate),
                 discipline: activity.discipline,
-                title: activity.discipline.displayName,
+                title: activity.discipline == .multisport
+                    ? "Multisport"
+                    : activity.sport.displayName,
                 origin: .imported
             )
             let summary = ImportedWorkoutSummary(activity)
@@ -129,8 +131,8 @@ struct WorkoutImportService {
 
             if let workout = summary.workout,
                workout.origin == .imported,
-               workout.title != summary.discipline.displayName {
-                workout.title = summary.discipline.displayName
+               workout.title != importedWorkoutTitle(for: summary) {
+                workout.title = importedWorkoutTitle(for: summary)
             }
 
             changed = true
@@ -165,7 +167,9 @@ struct WorkoutImportService {
             let recorded = PlannedWorkout(
                 date: calendar.startOfDay(for: summary.startDate),
                 discipline: summary.discipline,
-                title: summary.discipline.displayName,
+                title: summary.discipline == .multisport
+                    ? "Multisport"
+                    : summary.sport.displayName,
                 origin: .imported
             )
             context.insert(recorded)
@@ -183,6 +187,14 @@ struct WorkoutImportService {
         }
 
         return changed
+    }
+
+    private func importedWorkoutTitle(
+        for summary: ImportedWorkoutSummary
+    ) -> String {
+        summary.discipline == .multisport
+            ? "Multisport"
+            : summary.sport.displayName
     }
 
     private func resolveEventCompletion(from activities: [ImportedWorkout]) {
