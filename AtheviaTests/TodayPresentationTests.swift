@@ -190,6 +190,40 @@ struct TodayPresentationTests {
         #expect(presentation.alsoCompletedToday == [swim.id])
     }
 
+
+    @Test("An extra imported workout does not hide today's prescription")
+    func importedExtraActivityStaysSecondary() throws {
+        let context = ModelContext(try container())
+        let week = plan([.running], in: context)
+        let run = try #require(week.orderedWorkouts.first)
+
+        let swim = PlannedWorkout(
+            date: monday,
+            discipline: .swimming,
+            title: "Recorded Swimming",
+            status: .completed,
+            origin: .imported
+        )
+        let summary = ImportedWorkoutSummary(
+            healthKitUUID: UUID(),
+            sport: .swimming,
+            startDate: monday,
+            endDate: monday.addingTimeInterval(1_200),
+            duration: 1_200,
+            distanceMeters: 500,
+            metrics: RecordedMetrics(swimEnvironment: .pool)
+        )
+        context.insert(swim)
+        context.insert(summary)
+        week.workouts.append(swim)
+        swim.attach(summary)
+
+        let presentation = build(week)
+
+        #expect(presentation.state == .upcoming(workoutID: run.id))
+        #expect(presentation.alsoCompletedToday == [swim.id])
+    }
+
     @Test("Finished sessions are not listed once nothing is outstanding")
     func noOutstandingWork() throws {
         let context = ModelContext(try container())
