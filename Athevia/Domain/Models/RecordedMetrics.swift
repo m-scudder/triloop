@@ -64,6 +64,9 @@ struct RecordedMetrics: Codable, Equatable, Sendable {
     var averageCyclingPower: Double?
     var functionalThresholdPower: Double?
 
+    /// Active energy recorded for the workout.
+    var activeEnergyKilocalories: Double?
+
     /// Apple's effort score, rated by the athlete in the Workout app.
     /// Kept apart from Athevia's RPE on purpose: they are different questions.
     var workoutEffort: Double?
@@ -90,6 +93,7 @@ struct RecordedMetrics: Codable, Equatable, Sendable {
         averageCyclingCadence: Double? = nil,
         averageCyclingPower: Double? = nil,
         functionalThresholdPower: Double? = nil,
+        activeEnergyKilocalories: Double? = nil,
         workoutEffort: Double? = nil,
         estimatedWorkoutEffort: Double? = nil,
         multisportSegments: [RecordedMultisportSegment] = [],
@@ -106,6 +110,7 @@ struct RecordedMetrics: Codable, Equatable, Sendable {
         self.averageCyclingCadence = averageCyclingCadence
         self.averageCyclingPower = averageCyclingPower
         self.functionalThresholdPower = functionalThresholdPower
+        self.activeEnergyKilocalories = activeEnergyKilocalories
         self.workoutEffort = workoutEffort
         self.estimatedWorkoutEffort = estimatedWorkoutEffort
         self.multisportSegments = multisportSegments
@@ -133,6 +138,7 @@ struct RecordedMetrics: Codable, Equatable, Sendable {
         averageCyclingCadence = value(.averageCyclingCadence)
         averageCyclingPower = value(.averageCyclingPower)
         functionalThresholdPower = value(.functionalThresholdPower)
+        activeEnergyKilocalories = value(.activeEnergyKilocalories)
         workoutEffort = value(.workoutEffort)
         estimatedWorkoutEffort = value(.estimatedWorkoutEffort)
         multisportSegments = value(.multisportSegments) ?? []
@@ -152,6 +158,7 @@ struct RecordedMetrics: Codable, Equatable, Sendable {
             averageCyclingCadence,
             averageCyclingPower,
             functionalThresholdPower,
+            activeEnergyKilocalories,
             workoutEffort,
             estimatedWorkoutEffort
         ]
