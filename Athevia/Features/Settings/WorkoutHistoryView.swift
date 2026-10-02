@@ -289,8 +289,7 @@ struct WorkoutHistoryView: View {
                             HStack(spacing: 10) {
                                 Image(systemName: record.sport?.discipline.symbolName ?? "figure.mixed.cardio")
                                     .foregroundStyle(
-                                        record.sport?.discipline.themedTint(.classic)
-                                            ?? .secondary
+                                        record.sport?.discipline.tint ?? .secondary
                                     )
                                     .frame(width: 24)
 
