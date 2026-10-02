@@ -230,7 +230,9 @@ struct WorkoutDayDetail: View {
     /// analysis and is available as a collapsed reference.
     @ViewBuilder
     private var plannedWorkoutSection: some View {
-        if workout.isCompleted {
+        if workout.origin == .imported && workout.plan == nil {
+            EmptyView()
+        } else if workout.isCompleted {
             DisclosureCard(
                 workout.discipline == .rest ? "Rest day" : "Planned workout",
                 subtitle: WorkoutStructureSummary.text(for: workout) ?? WorkoutSummaryText.make(for: workout),
