@@ -65,15 +65,12 @@ struct RootView: View {
                     authentication: authentication,
                     backup: backup,
                     onReady: { session, seedLocalBackup in
-                        ProductAnalytics.shared.updateAccount(session.userID)
+                        ProductAnalytics.shared
+                            .updateAccount(session.userID)
                         accountReady = true
                         if seedLocalBackup {
                             seedAutomaticBackup(for: session)
                         }
-                    },
-                    onContinueLocally: {
-                        ProductAnalytics.shared.updateAccount(signedInAccountID)
-                        accountReady = true
                     }
                 )
             } else {
