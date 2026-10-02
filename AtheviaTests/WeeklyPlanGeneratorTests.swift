@@ -56,8 +56,8 @@ struct WeeklyPlanGeneratorTests {
         #expect(week2.trainingSessions.filter { $0.discipline == .running }.count == 2)
         #expect(week2.trainingSessions.filter { $0.discipline == .swimming }.count == 2)
         #expect(week2.trainingSessions.filter { $0.discipline == .cycling }.count == 2)
-        #expect(week2.orderedWorkouts.contains { $0.discipline == .rest } == false)
-        #expect(week2.orderedWorkouts.filter { $0.discipline == .recovery }.count == 1)
+        #expect(week2.orderedWorkouts.filter { $0.discipline == .rest }.count == 1)
+        #expect(week2.orderedWorkouts.filter { $0.discipline == .recovery }.isEmpty)
         #expect(week2.status == .active)
     }
 
