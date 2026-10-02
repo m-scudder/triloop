@@ -39,7 +39,7 @@ struct WatchWorkoutDetailView: View {
                     }
                 }
 
-                if !isCompleted && !isCurrentWorkout {
+                if !isCompleted && !isCurrentWorkout && isScheduledForToday {
                     NavigationLink {
                         WatchWorkoutSetupView(
                             workout: workout,
@@ -56,34 +56,47 @@ struct WatchWorkoutDetailView: View {
                     }
                 }
 
-                Button(action: startOrResume) {
-                    HStack {
-                        if isStarting || manager.state == .preparing {
-                            ProgressView()
-                        } else {
-                            Image(
-                                systemName: isCompleted
-                                    ? "checkmark.circle.fill"
-                                    : (isCurrentWorkout ? "play.fill" : "figure.run")
-                            )
-                        }
+                if isScheduledForToday || isCurrentWorkout || isCompleted {
+                    Button(action: startOrResume) {
+                        HStack {
+                            if isStarting || manager.state == .preparing {
+                                ProgressView()
+                            } else {
+                                Image(
+                                    systemName: isCompleted
+                                        ? "checkmark.circle.fill"
+                                        : (isCurrentWorkout ? "play.fill" : "figure.run")
+                                )
+                            }
 
-                        Text(buttonTitle)
+                            Text(buttonTitle)
+                        }
+                        .fontWeight(.semibold)
+                        .frame(maxWidth: .infinity)
                     }
-                    .fontWeight(.semibold)
-                    .frame(maxWidth: .infinity)
+                    .buttonStyle(.borderedProminent)
+                    .tint(theme.color(.accent, classic: .green))
+                    .disabled(
+                        isCompleted
+                        || isStarting
+                        || workout.status == .skipped
+                        || (manager.isActive && !isCurrentWorkout)
+                    )
+                } else {
+                    Label(
+                        "Available \(workout.date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)))",
+                        systemImage: "calendar"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(theme.color(.accent, classic: .green))
-                .disabled(
-                    isCompleted
-                    || isStarting
-                    || workout.status == .skipped
-                    || (manager.isActive && !isCurrentWorkout)
-                )
 
                 if isCompleted {
                     Text("This workout is complete and can’t be started again.")
+                        .font(.caption2)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+                } else if !isScheduledForToday && !isCurrentWorkout {
+                    Text("Only workouts scheduled for today can be started from Athevia Watch.")
                         .font(.caption2)
                         .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 }
@@ -115,6 +128,10 @@ struct WatchWorkoutDetailView: View {
         manager.activeWorkout?.id == workout.id && manager.isActive
     }
 
+    private var isScheduledForToday: Bool {
+        workout.isScheduledForToday()
+    }
+
     private var isCompleted: Bool {
         store.isCompleted(workout)
             || manager.completedPlannedWorkoutID == workout.id
@@ -129,6 +146,7 @@ struct WatchWorkoutDetailView: View {
 
     private func startOrResume() {
         guard !isCompleted else { return }
+        guard isCurrentWorkout || isScheduledForToday else { return }
 
         if isCurrentWorkout {
             showsPlayer = true
