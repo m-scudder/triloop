@@ -7,6 +7,7 @@ import SwiftUI
 struct AdvancedMetricsView: View {
     let metrics: RecordedMetrics
     let sport: Sport?
+    var summary: ImportedWorkoutSummary? = nil
 
     private var rows: [(name: String, value: String)] {
         var result: [(String, String)] = []
@@ -26,10 +27,55 @@ struct AdvancedMetricsView: View {
             append(&result, "Power", metrics.averageCyclingPower) { "\(Int($0.rounded())) W" }
             append(&result, "FTP", metrics.functionalThresholdPower) { "\(Int($0.rounded())) W" }
 
-        case .swimming, nil:
+        case .swimming:
+            if let environment = metrics.swimEnvironment {
+                result.append((
+                    "Environment",
+                    environment == .pool ? "Pool" : "Open water"
+                ))
+            }
+
+            if let summary {
+                if let distance = summary.distanceMeters,
+                   distance > 0,
+                   summary.duration > 0 {
+                    result.append((
+                        "Average pace",
+                        "\(TrainingFormatter.swimPace(secondsPer100m: summary.duration / (distance / 100))) /100 m"
+                    ))
+                }
+
+                if let lengths = summary.swimmingLengths, lengths > 0 {
+                    result.append(("Lengths", "\(lengths)"))
+                }
+
+                if let strokes = summary.swimmingStrokeCount, strokes > 0 {
+                    result.append(("Strokes", "\(Int(strokes.rounded()))"))
+                }
+
+                if let continuous = summary.longestContinuousSwimMeters, continuous > 0 {
+                    result.append((
+                        "Longest continuous",
+                        TrainingFormatter.distance(meters: continuous)
+                    ))
+                }
+
+                if let averageHeartRate = summary.averageHeartRate, averageHeartRate > 0 {
+                    result.append(("Average heart rate", "\(Int(averageHeartRate.rounded())) bpm"))
+                }
+
+                if let maximumHeartRate = summary.maximumHeartRate, maximumHeartRate > 0 {
+                    result.append(("Maximum heart rate", "\(Int(maximumHeartRate.rounded())) bpm"))
+                }
+            }
+
+        case nil:
             break
         }
 
+        append(&result, "Active calories", metrics.activeEnergyKilocalories) {
+            "\(Int($0.rounded())) kcal"
+        }
         append(&result, "Apple effort", metrics.workoutEffort) { "\(Int($0.rounded()))/10" }
         if metrics.workoutEffort == nil {
             append(&result, "Estimated effort", metrics.estimatedWorkoutEffort) { "\(Int($0.rounded()))/10" }
