@@ -32,13 +32,13 @@ enum CoachRequestScopeGuard {
     ]
 
     private static let trainingTerms = [
-        "workout", "training", "plan", "run", "running", "ride", "cycling",
+        "workout", "training", "run", "running", "ride", "cycling",
         "cycle", "bike", "swim", "swimming", "recovery", "rpe", "pace",
-        "distance", "duration", "heart rate", "hr", "session", "week",
-        "today", "tomorrow", "yesterday", "move", "reschedule", "skip",
-        "unavailable", "time off", "rest", "fatigue", "tired", "sleep",
-        "interval", "endurance", "easy", "effort", "5k", "10k", "marathon",
-        "triathlon", "history", "completed", "planned", "availability"
+        "heart rate", "session", "reschedule workout", "skip workout",
+        "training availability", "time off training", "fatigue", "tired",
+        "poor sleep", "interval", "endurance", "effort", "5k", "10k",
+        "half marathon", "marathon", "triathlon", "training history",
+        "completed workout", "planned workout"
     ]
 
     private static let safeFollowUps: Set<String> = [
