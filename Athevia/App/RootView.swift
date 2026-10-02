@@ -217,6 +217,10 @@ struct RootView: View {
             _ = WatchAppPlanSync.sync(plans.currentPlan())
             if automaticallyImport {
                 await autoImporter?.importRecentWeeks()
+            } else {
+                // Historical Apple Health visibility is independent of whether
+                // the athlete wants new workouts auto-matched to the plan.
+                await autoImporter?.syncHistoricalTrainingHistory()
             }
         }
         .task(id: automaticallySchedule) {
