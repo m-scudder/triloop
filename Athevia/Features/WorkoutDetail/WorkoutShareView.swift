@@ -1,6 +1,8 @@
+import ImageIO
 import Photos
 import SwiftUI
 import UIKit
+import UniformTypeIdentifiers
 
 private enum WorkoutShareLayout: String, CaseIterable, Identifiable {
     case centered
@@ -480,7 +482,37 @@ struct WorkoutShareView: View {
         )
         renderer.scale = 1
         renderer.isOpaque = false
-        return renderer.uiImage?.pngData()
+
+        // Encode the renderer's CGImage directly as PNG. Avoid passing through
+        // UIImage/JPEG-style conversion so the transparent canvas stays an
+        // actual alpha channel all the way to Photos and the share sheet.
+        guard let image = renderer.cgImage else {
+            return nil
+        }
+
+        let data = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(
+            data,
+            UTType.png.identifier as CFString,
+            1,
+            nil
+        ) else {
+            return nil
+        }
+
+        CGImageDestinationAddImage(
+            destination,
+            image,
+            [
+                kCGImagePropertyHasAlpha: true
+            ] as CFDictionary
+        )
+
+        guard CGImageDestinationFinalize(destination) else {
+            return nil
+        }
+
+        return data as Data
     }
 
     @MainActor
