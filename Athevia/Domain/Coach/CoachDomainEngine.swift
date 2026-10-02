@@ -19,26 +19,18 @@ struct CoachDomainEngine: Sendable {
         reshaper.calendar = calendar
 
         switch intent {
-        case .explainRPE:
-            return CoachDomainResponse(
-                message: "RPE means Rate of Perceived Exertion. Athevia uses a 1–10 scale for how hard a workout feels: 1 is very easy, 5–6 is moderate, and 9–10 is extremely hard.",
-                evidenceSummary: "",
-                preview: nil
-            )
-
-        case .describeWeek(let offset):
-            return describeWeek(
-                offset: offset,
-                context: context,
+        case .explainRPE, .describeWeek, .workoutMetrics:
+            if let response = respondWithoutContext(
+                to: intent,
                 currentPlan: currentPlan,
                 plans: plans
-            )
-
-        case .workoutMetrics(let date):
-            return workoutMetrics(
-                on: date,
-                context: context,
-                plans: plans
+            ) {
+                return response
+            }
+            return CoachDomainResponse(
+                message: "I couldn't resolve that training question from the local plan data.",
+                evidenceSummary: "",
+                preview: nil
             )
 
         case .explainWorkout(let date):
@@ -153,9 +145,39 @@ struct CoachDomainEngine: Sendable {
 
     // MARK: - Explanations
 
+    func respondWithoutContext(
+        to intent: CoachIntent,
+        currentPlan: WeeklyPlan,
+        plans: [WeeklyPlan]
+    ) -> CoachDomainResponse? {
+        switch intent {
+        case .explainRPE:
+            return CoachDomainResponse(
+                message: "RPE means Rate of Perceived Exertion. Athevia uses a 1–10 scale for how hard a workout feels: 1 is very easy, 5–6 is moderate, and 9–10 is extremely hard.",
+                evidenceSummary: "",
+                preview: nil
+            )
+
+        case .describeWeek(let offset):
+            return describeWeek(
+                offset: offset,
+                currentPlan: currentPlan,
+                plans: plans
+            )
+
+        case .workoutMetrics(let date):
+            return workoutMetrics(
+                on: date,
+                plans: plans
+            )
+
+        default:
+            return nil
+        }
+    }
+
     private func describeWeek(
         offset: Int,
-        context: AthleteContextSnapshot,
         currentPlan: WeeklyPlan,
         plans: [WeeklyPlan]
     ) -> CoachDomainResponse {
@@ -214,7 +236,6 @@ struct CoachDomainEngine: Sendable {
 
     private func workoutMetrics(
         on date: Date,
-        context: AthleteContextSnapshot,
         plans: [WeeklyPlan]
     ) -> CoachDomainResponse {
         let candidates = plans
