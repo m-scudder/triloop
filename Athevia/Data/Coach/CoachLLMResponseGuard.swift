@@ -237,7 +237,10 @@ enum CoachLLMResponseGuard {
     }
 
     private static func integer(_ value: Any?) -> Int? {
-        guard let number = value as? NSNumber else { return nil }
+        guard let number = value as? NSNumber,
+              String(cString: number.objCType) != "c" else {
+            return nil
+        }
         let double = number.doubleValue
         guard double.isFinite, double.rounded() == double else { return nil }
         return Int(double)
