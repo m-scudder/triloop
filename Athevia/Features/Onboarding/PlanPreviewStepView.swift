@@ -114,8 +114,8 @@ struct PlanPreviewStepView: View {
         }
     }
 
-    /// Weeks always run Monday to Sunday, so the useful thing to state is when
-    /// the athlete actually trains, not when the plan's calendar week opens.
+    /// Keep the preview focused on the first actual training session while the
+    /// underlying seven-day week begins on the athlete's selected start date.
     private func startLine(_ plan: WeeklyPlan) -> String {
         let calendar = Calendar.current
         guard let first = plan.trainingSessions.map(\.date).min() else {
