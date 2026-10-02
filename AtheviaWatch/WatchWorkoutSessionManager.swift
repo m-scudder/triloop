@@ -468,8 +468,15 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
             HKQuantityType(.distanceWalkingRunning),
             HKQuantityType(.distanceCycling),
             HKQuantityType(.distanceSwimming),
+            HKQuantityType(.swimmingStrokeCount),
             HKQuantityType(.runningSpeed),
-            HKQuantityType(.cyclingSpeed)
+            HKQuantityType(.runningPower),
+            HKQuantityType(.runningStrideLength),
+            HKQuantityType(.runningGroundContactTime),
+            HKQuantityType(.runningVerticalOscillation),
+            HKQuantityType(.cyclingSpeed),
+            HKQuantityType(.cyclingCadence),
+            HKQuantityType(.cyclingPower)
         ]
 
         try await healthStore.requestAuthorization(toShare: shareTypes, read: readTypes)
