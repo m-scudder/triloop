@@ -574,10 +574,14 @@ struct SettingsView: View {
 
                 var combined = WorkoutImportService.Outcome()
 
-                if let firstPlan = orderedPlans.first {
+                if !orderedPlans.isEmpty {
+                    let boundary = WorkoutImportService
+                        .historicalBoundary(
+                            for: orderedPlans
+                        )
                     let historical = try await service
                         .syncHistoricalTrainingHistory(
-                            before: firstPlan.startDate
+                            before: boundary
                         )
                     combined.matched += historical.matched
                     combined.alreadyKnown += historical.alreadyKnown
