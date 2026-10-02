@@ -53,7 +53,16 @@ struct WorkoutImportService {
             return activity.startDate >= effectiveCutoff
         }
 
-        var known = Set(try context.fetch(FetchDescriptor<ImportedWorkoutSummary>()).map(\.healthKitUUID))
+        let storedSummaries = try context.fetch(FetchDescriptor<ImportedWorkoutSummary>())
+        let summariesByID = Dictionary(
+            uniqueKeysWithValues: storedSummaries.map { ($0.healthKitUUID, $0) }
+        )
+        let refreshedKnownSummary = refreshKnownSummaries(
+            from: eligible,
+            summariesByID: summariesByID
+        )
+
+        var known = Set(storedSummaries.map(\.healthKitUUID))
         let fresh = eligible.filter { known.insert($0.healthKitUUID).inserted }
 
         let result = matcher.match(planned: plan.orderedWorkouts, with: fresh)
@@ -82,7 +91,7 @@ struct WorkoutImportService {
 
         resolveEventCompletion(from: fresh)
 
-        if !fresh.isEmpty || repairedMisdatedImport {
+        if !fresh.isEmpty || repairedMisdatedImport || refreshedKnownSummary {
             try context.save()
         }
 
@@ -91,6 +100,38 @@ struct WorkoutImportService {
             alreadyKnown: eligible.count - fresh.count,
             unrecognised: result.unmatchedImported.count
         )
+    }
+
+    /// Refresh normalized evidence for a HealthKit workout we already know.
+    /// This keeps imports idempotent while allowing a later permission grant or
+    /// a richer importer version to backfill fields such as swim strokes and
+    /// active energy without creating a second activity.
+    private func refreshKnownSummaries(
+        from activities: [ImportedWorkout],
+        summariesByID: [UUID: ImportedWorkoutSummary]
+    ) -> Bool {
+        var changed = false
+
+        for activity in activities {
+            guard let summary = summariesByID[activity.healthKitUUID] else { continue }
+
+            summary.sport = activity.sport
+            summary.startDate = activity.startDate
+            summary.endDate = activity.endDate
+            summary.duration = activity.duration
+            summary.distanceMeters = activity.distanceMeters
+            summary.averageHeartRate = activity.averageHeartRate
+            summary.maximumHeartRate = activity.maximumHeartRate
+            summary.elevationAscendedMeters = activity.elevationAscendedMeters
+            summary.swimmingLengths = activity.swimmingLengths
+            summary.swimmingStrokeCount = activity.swimmingStrokeCount
+            summary.longestContinuousSwimMeters = activity.longestContinuousSwimMeters
+            summary.metrics = activity.metrics.isEmpty ? nil : activity.metrics
+            summary.source = activity.source
+            changed = true
+        }
+
+        return changed
     }
 
     /// Older builds trusted an Athevia Watch planned-workout ID even when the
