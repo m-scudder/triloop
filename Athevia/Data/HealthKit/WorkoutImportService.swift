@@ -102,6 +102,108 @@ struct WorkoutImportService {
         )
     }
 
+    /// Syncs completed Run, Swim and Cycle history that predates the first
+    /// generated training plan. These activities belong to the athlete's real
+    /// history, but must never be matched onto a newer prescription.
+    ///
+    /// This intentionally ignores the Start Over import cutoff: resetting local
+    /// plan data must not make Apple Health history disappear from the app.
+    @discardableResult
+    func syncHistoricalTrainingHistory(
+        before boundary: Date
+    ) async throws -> Outcome {
+        guard !PhoneWorkoutExecutionState.isActive else {
+            return Outcome()
+        }
+
+        let activities = try await provider.workouts(
+            from: .distantPast,
+            to: boundary
+        )
+        .filter { activity in
+            activity.startDate < boundary
+                && (
+                    activity.discipline == .running
+                        || activity.discipline == .swimming
+                        || activity.discipline == .cycling
+                )
+        }
+
+        let storedSummaries = try context.fetch(
+            FetchDescriptor<ImportedWorkoutSummary>()
+        )
+        let summariesByID = Dictionary(
+            uniqueKeysWithValues: storedSummaries.map {
+                ($0.healthKitUUID, $0)
+            }
+        )
+
+        let refreshedKnownSummary = refreshKnownSummaries(
+            from: activities,
+            summariesByID: summariesByID
+        )
+
+        var importedCount = 0
+        var alreadyKnown = 0
+
+        for activity in activities {
+            if let existing = summariesByID[activity.healthKitUUID] {
+                alreadyKnown += 1
+
+                // A summary can survive without a visible workout if older
+                // persistence/import code created evidence first. Rehydrate a
+                // standalone history row rather than hiding that activity.
+                if existing.workout == nil {
+                    let workout = historicalWorkout(
+                        discipline: existing.discipline,
+                        sport: existing.sport,
+                        date: existing.startDate
+                    )
+                    context.insert(workout)
+                    workout.attach(existing)
+                    importedCount += 1
+                }
+                continue
+            }
+
+            let workout = historicalWorkout(
+                discipline: activity.discipline,
+                sport: activity.sport,
+                date: activity.startDate
+            )
+            let summary = ImportedWorkoutSummary(activity)
+
+            context.insert(workout)
+            context.insert(summary)
+            workout.attach(summary)
+            importedCount += 1
+        }
+
+        if importedCount > 0 || refreshedKnownSummary {
+            try context.save()
+        }
+
+        return Outcome(
+            matched: 0,
+            alreadyKnown: alreadyKnown,
+            unrecognised: importedCount
+        )
+    }
+
+    private func historicalWorkout(
+        discipline: Discipline,
+        sport: Sport,
+        date: Date
+    ) -> PlannedWorkout {
+        PlannedWorkout(
+            date: calendar.startOfDay(for: date),
+            discipline: discipline,
+            title: sport.displayName,
+            status: .completed,
+            origin: .imported
+        )
+    }
+
     /// Refresh normalized evidence for a HealthKit workout we already know.
     /// This keeps imports idempotent while allowing a later permission grant or
     /// a richer importer version to backfill fields such as swim strokes and
