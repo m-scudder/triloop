@@ -1,4 +1,3 @@
-import Charts
 import SwiftData
 import SwiftUI
 
@@ -12,7 +11,6 @@ struct ProgressOverviewView: View {
 
     private enum Segment: String, CaseIterable, Identifiable {
         case overview = "Overview"
-        case training = "Training"
         case recovery = "Recovery"
 
         var id: Self { self }
@@ -52,20 +50,6 @@ struct ProgressOverviewView: View {
         return Double(due.filter(\.isCompleted).count) / Double(due.count)
     }
 
-    private var weeklyTrend: [ProgressWeekSummary] {
-        recentPlans.map { plan in
-            let seconds = plan.completedPrescribedTrainingSessions.reduce(0) { total, session in
-                total + (session.importedSummary?.duration ?? session.estimatedDurationSeconds ?? 0)
-            }
-            return ProgressWeekSummary(
-                id: plan.id,
-                weekNumber: plan.weekNumber,
-                startDate: plan.startDate,
-                seconds: seconds
-            )
-        }
-    }
-
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
@@ -89,8 +73,6 @@ struct ProgressOverviewView: View {
                         switch segment {
                         case .overview:
                             overviewContent
-                        case .training:
-                            TrainingIntelligenceView()
                         case .recovery:
                             ProgressRecoveryView()
                         }
@@ -149,10 +131,6 @@ struct ProgressOverviewView: View {
             if let current, current.hasData {
                 progressInterpretation(current)
                 currentTraining(current)
-            }
-
-            if weeklyTrend.contains(where: { $0.seconds > 0 }) {
-                trainingTrend
             }
         }
     }
@@ -293,40 +271,6 @@ struct ProgressOverviewView: View {
         }
     }
 
-    /// Keep Overview to one visual trend. Detailed load/intensity/balance live
-    /// in Training rather than competing for attention here.
-    private var trainingTrend: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            SectionEyebrow(text: "Training trend")
-
-            Card {
-                Chart(weeklyTrend) { week in
-                    BarMark(
-                        x: .value("Week", week.startDate, unit: .weekOfYear),
-                        y: .value("Training minutes", week.seconds / 60)
-                    )
-                    .cornerRadius(3)
-                }
-                .frame(height: 130)
-                .chartYAxis {
-                    AxisMarks(position: .leading, values: .automatic(desiredCount: 3)) {
-                        AxisGridLine()
-                        AxisValueLabel()
-                    }
-                }
-                .chartXAxis {
-                    AxisMarks(values: .automatic(desiredCount: min(4, weeklyTrend.count))) {
-                        AxisValueLabel(format: .dateTime.day().month(.abbreviated))
-                    }
-                }
-
-                Text("Completed training time by week")
-                    .font(.caption)
-                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
-            }
-        }
-    }
-
     private func summaryFigure(_ value: String, caption: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(value)
@@ -341,14 +285,6 @@ struct ProgressOverviewView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
-
-private struct ProgressWeekSummary: Identifiable {
-    let id: UUID
-    let weekNumber: Int
-    let startDate: Date
-    let seconds: TimeInterval
-}
-
 #if DEBUG
 #Preview {
     ProgressOverviewView()
