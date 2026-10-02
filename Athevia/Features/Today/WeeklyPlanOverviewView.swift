@@ -16,10 +16,6 @@ struct WeeklyPlanOverviewView: View {
         sessions.filter(\.isCompleted).count
     }
 
-    private var plannedSeconds: TimeInterval {
-        sessions.compactMap(\.estimatedDurationSeconds).reduce(0, +)
-    }
-
     private var recoveryCount: Int {
         sessions.count { $0.discipline == .recovery }
     }
@@ -34,17 +30,12 @@ struct WeeklyPlanOverviewView: View {
         Card(padding: 12, gamingRole: .hero) {
             VStack(alignment: .leading, spacing: 9) {
                 HStack(alignment: .firstTextBaseline) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Week \(plan.weekNumber)")
-                            .font(.headline)
-                        Text(TrainingFormatter.weekRange(start: plan.startDate, end: plan.endDate))
-                            .font(.caption)
-                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
-                    }
+                    Text("Week \(plan.weekNumber)")
+                        .font(.headline)
 
                     Spacer()
 
-                    Text("\(TrainingFormatter.totalDuration(seconds: plannedSeconds)) planned")
+                    Text(TrainingFormatter.weekRange(start: plan.startDate, end: plan.endDate))
                         .font(.caption.weight(.medium))
                         .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 }
@@ -86,9 +77,21 @@ struct WeeklyPlanOverviewView: View {
 
     private func sportSummary(_ sport: Sport) -> some View {
         let sportSessions = sessions.filter { $0.discipline.sport == sport }
+        let duration = sportSessions.compactMap(\.estimatedDurationSeconds).reduce(0, +)
 
-        return Label("\(sportSessions.count)", systemImage: sport.discipline.symbolName)
-            .font(.caption.weight(.medium))
-            .foregroundStyle(sport.discipline.themedTint(theme))
+        return HStack(spacing: 6) {
+            Image(systemName: sport.discipline.symbolName)
+                .foregroundStyle(sport.discipline.themedTint(theme))
+            VStack(alignment: .leading, spacing: 1) {
+                Text(sport.discipline.displayName)
+                    .font(.caption.weight(.medium))
+                Text("\(sportSessions.count) · \(TrainingFormatter.totalDuration(seconds: duration))")
+                    .font(.caption2)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
