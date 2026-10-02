@@ -261,15 +261,22 @@ struct CoachLLMService {
 
         #if DEBUG
         if let localConfiguration = CoachLocalLLMConfiguration.current {
+            print("[CoachAI] Local model is enabled")
             do {
-                return try await CoachLocalLLMClient(
+                let response = try await CoachLocalLLMClient(
                     configuration: localConfiguration
                 ).respond(payloadJSON: json)
+                print("[CoachAI] Using local model response")
+                return response
             } catch {
+                print("[CoachAI] Local model failed: \(String(describing: error))")
+                print("[CoachAI] Falling back to Supabase/OpenAI")
                 // Debug local inference is best-effort. If the model server is
                 // unavailable or returns an invalid shape, preserve the normal
                 // authenticated Supabase/OpenAI path as fallback.
             }
+        } else {
+            print("[CoachAI] Local model is not configured; using Supabase/OpenAI")
         }
         #endif
 
