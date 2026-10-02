@@ -133,13 +133,12 @@ struct DateStrip: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .strokeBorder(
                     isSelected
-                        ? theme.color(.onAccent, classic: .white)
+                        ? tint
                         : isToday
-                            ? tint
+                            ? tint.opacity(0.75)
                             : .clear,
-                    lineWidth: isSelected ? 2.5 : 1.5
+                    lineWidth: isSelected ? 2 : 1.5
                 )
-                .padding(isSelected ? 2 : 0)
         }
         .opacity(isSelected ? 1 : (isSkipped ? 0.42 : 0.72))
         .contentShape(.rect)
@@ -181,15 +180,17 @@ struct DateStrip: View {
 
         guard sports.count > 1 else {
             let discipline = day.representative.discipline
-            return isSelected
-                ? AnyShapeStyle(discipline.themedGradient(theme))
-                : AnyShapeStyle(discipline.themedTint(theme).opacity(0.045))
+            return AnyShapeStyle(
+                discipline.themedTint(theme).opacity(isSelected ? 0.16 : 0.045)
+            )
         }
 
-        let colours = sports.map { $0.discipline.themedSurface(theme) }
+        let colours = sports.map {
+            $0.discipline.themedSurface(theme).opacity(isSelected ? 0.18 : 0.055)
+        }
         return AnyShapeStyle(
             LinearGradient(
-                colors: isSelected ? colours : colours.map { $0.opacity(0.055) },
+                colors: colours,
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
