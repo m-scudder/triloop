@@ -43,6 +43,7 @@ struct PlanStore {
         }
         configured.schedule = setup.schedule
         configured.preferences = setup.preferences
+        configured.targetTrainingDays = setup.trainingDayTarget
         let history = (try? context.fetch(
             FetchDescriptor<WeeklyPlan>(sortBy: [SortDescriptor(\.startDate)])
         )) ?? []
