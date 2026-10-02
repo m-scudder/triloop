@@ -226,12 +226,9 @@ final class HealthKitWorkoutImporter: HealthDataProviding, @unchecked Sendable {
             workout: workout,
             interval: minute
         )
-        async let distance = series(
-            workout.workoutActivityType.sport?.healthKitDistanceType ?? HKQuantityType(.distanceWalkingRunning),
-            unit: .meter(),
-            options: .cumulativeSum,
+        async let distance = distanceSeries(
+            for: workout,
             scope: scope,
-            workout: workout,
             interval: minute
         )
         async let energy = series(
@@ -297,6 +294,26 @@ final class HealthKitWorkoutImporter: HealthDataProviding, @unchecked Sendable {
             limit: 1
         )
         return try await descriptor.result(for: store).first
+    }
+
+    private func distanceSeries(
+        for workout: HKWorkout,
+        scope: NSPredicate,
+        interval: DateComponents
+    ) async throws -> [SamplePoint] {
+        // A swim-bike-run workout has multiple distance types. Treating it as
+        // walking/running distance creates a misleading aggregate pace chart.
+        // Per-leg distance already comes from HKWorkoutActivity statistics.
+        guard let sport = workout.workoutActivityType.sport else { return [] }
+
+        return try await series(
+            sport.healthKitDistanceType,
+            unit: .meter(),
+            options: .cumulativeSum,
+            scope: scope,
+            workout: workout,
+            interval: interval
+        )
     }
 
     /// Bucketed rather than raw: a 30 minute run can hold hundreds of heart-rate
