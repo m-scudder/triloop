@@ -45,9 +45,9 @@ struct CoachView: View {
     @FocusState private var isComposerFocused: Bool
 
     private let suggestions = [
-        "Analyze my last completed workout.",
-        "Create a workout for tomorrow based on my recent training.",
-        "Explain why this workout is planned today."
+        "Analyze my last workout",
+        "Create a workout for tomorrow",
+        "Adjust my training plan"
     ]
 
     var body: some View {
@@ -200,41 +200,37 @@ struct CoachView: View {
     }
 
     private var suggestedQuestions: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            SectionEyebrow(text: "Try asking")
-
-            LazyVGrid(
-                columns: [GridItem(.flexible()), GridItem(.flexible())],
-                spacing: 10
-            ) {
-                ForEach(Array(suggestions.enumerated()), id: \.element) { index, suggestion in
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(suggestions, id: \.self) { suggestion in
                     Button {
                         Task { await submit(suggestion) }
                     } label: {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text(suggestion)
-                                .font(.subheadline.weight(.medium))
-                                .foregroundStyle(.primary)
-                                .multilineTextAlignment(.leading)
-                                .lineLimit(3)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                        .padding(14)
-                        .frame(maxWidth: .infinity, minHeight: 112, alignment: .topLeading)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .fill(AtheviaAdaptiveStyle(.background.secondary, gaming: .surface))
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .strokeBorder(AtheviaAdaptiveStyle(.separator.opacity(0.5), gaming: .border), lineWidth: 0.5)
-                        )
+                        Text(suggestion)
+                            .font(.subheadline)
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 10)
+                            .background(
+                                AtheviaAdaptiveStyle(.background.secondary, gaming: .surface),
+                                in: Capsule()
+                            )
+                            .overlay(
+                                Capsule()
+                                    .strokeBorder(
+                                        AtheviaAdaptiveStyle(.separator.opacity(0.35), gaming: .border),
+                                        lineWidth: 0.5
+                                    )
+                            )
                     }
                     .buttonStyle(.plain)
                     .disabled(isWorking)
                 }
             }
+            .padding(.vertical, 2)
         }
+        .scrollClipDisabled()
     }
 
     @ViewBuilder
