@@ -554,53 +554,44 @@ struct CoachView: View {
     }
 
     private var composer: some View {
-        VStack(spacing: 0) {
-            Divider()
-
-            HStack(alignment: .bottom, spacing: 10) {
+        VStack(spacing: 8) {
+            HStack(alignment: .bottom, spacing: 8) {
                 TextField("Ask about your training…", text: $draft, axis: .vertical)
                     .focused($isComposerFocused)
                     .lineLimit(1...4)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 11)
+                    .padding(.horizontal, 15)
+                    .padding(.vertical, 12)
                     .background(
-                        AtheviaAdaptiveStyle(.fill.tertiary, gaming: .raisedSurface),
-                        in: RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        AtheviaAdaptiveStyle(.background.secondary, gaming: .surface),
+                        in: RoundedRectangle(cornerRadius: 20, style: .continuous)
                     )
                     .overlay(
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .strokeBorder(AtheviaAdaptiveStyle(.separator.opacity(0.45), gaming: .border), lineWidth: 0.5)
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .strokeBorder(
+                                AtheviaAdaptiveStyle(.separator.opacity(0.35), gaming: .border),
+                                lineWidth: 0.5
+                            )
                     )
                     .submitLabel(.send)
                     .onSubmit(sendDraft)
                     .disabled(isWorking || preview != nil)
 
-                Button(action: sendDraft) {
-                    Image(systemName: "arrow.up")
-                        .font(.body.weight(.bold))
-                        .frame(width: 42, height: 42)
-                        .foregroundStyle(theme.color(.onAccent, classic: Color.onActionSurface))
-                        .background(
-                            theme.color(.accent, classic: Color.actionSurface),
-                            in: Circle()
-                        )
-                }
-                .buttonStyle(.plain)
-                .disabled(
-                    isWorking
-                        || preview != nil
-                        || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                )
-                .opacity(
-                    isWorking
-                        || preview != nil
-                        || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                        ? 0.4 : 1
-                )
-                .accessibilityLabel("Send")
+                Button("Send", action: sendDraft)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(
+                        draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                            ? AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText)
+                            : theme.color(.accent, classic: Color.actionSurface)
+                    )
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 12)
+                    .buttonStyle(.plain)
+                    .disabled(
+                        isWorking
+                            || preview != nil
+                            || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    )
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
@@ -609,13 +600,16 @@ struct CoachView: View {
             }
 
             if preview != nil {
-                Text("Review the pending plan change before asking something new.")
+                Text("Review the plan change above before continuing.")
                     .font(.caption2)
                     .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
-                    .padding(.bottom, 8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .background(AtheviaAdaptiveStyle(.bar, gaming: .canvas))
+        .padding(.horizontal, 20)
+        .padding(.top, 8)
+        .padding(.bottom, 10)
+        .background(AtheviaAdaptiveStyle(.background.primary, gaming: .canvas))
     }
 
     private func sendDraft() {
