@@ -99,6 +99,31 @@ struct OnboardingFlowTests {
         #expect(OnboardingModel(context: ModelContext(container)).setup.isComplete)
     }
 
+    @Test func fourDayTargetPersistsButPreviewStartsAtThree() throws {
+        let container = try AtheviaModelContainer.make(inMemory: true)
+        let context = ModelContext(container)
+        let model = OnboardingModel(context: context)
+
+        model.toggleSport(.running)
+        model.choose(running: .runWalk)
+        model.advance()
+
+        model.chooseTrainingDays(4)
+        for day in [Weekday.monday, .tuesday, .wednesday, .thursday, .friday] {
+            model.toggleDay(day)
+        }
+        model.setSharedMaxDuration(60)
+        #expect(model.canAdvance)
+
+        model.advance()
+        let preview = try #require(model.preview)
+        #expect(model.setup.trainingDayTarget == 4)
+        #expect(preview.prescribedTrainingSessions.count == 3)
+
+        let resumed = OnboardingModel(context: ModelContext(container))
+        #expect(resumed.setup.trainingDayTarget == 4)
+    }
+
     @Test func selectedStartDateSurvivesResumeAndDrivesPreview() throws {
         let container = try AtheviaModelContainer.make(inMemory: true)
         let context = ModelContext(container)
