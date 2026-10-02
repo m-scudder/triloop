@@ -138,16 +138,10 @@ private struct WorkoutShareCard: View {
     }
 
     private var brand: some View {
-        HStack(spacing: 9) {
-            Image(systemName: "point.3.connected.trianglepath.dotted")
-                .font(.system(size: 20, weight: .semibold))
-
-            Text("ATHEVIA")
-                .font(.system(size: 20, weight: .bold, design: .rounded))
-                .tracking(2.4)
-        }
-        .foregroundStyle(.white.opacity(0.70))
-        .accessibilityElement(children: .combine)
+        Text("ATHEVIA")
+            .font(.system(size: 20, weight: .bold, design: .rounded))
+            .tracking(2.4)
+            .foregroundStyle(.white.opacity(0.70))
     }
 }
 
