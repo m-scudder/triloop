@@ -202,6 +202,23 @@ struct CoachLLMContextCompactorTests {
         #expect(compact.allSatisfy { $0.text.count <= 281 })
     }
 
+    @Test("Current request is not duplicated into prior chat context")
+    func excludesCurrentRequest() {
+        let messages = [
+            CoachChatMessage(role: .athlete, text: "What is RPE?"),
+            CoachChatMessage(role: .coach, text: "RPE is perceived effort."),
+            CoachChatMessage(role: .athlete, text: "Can you analyze my last workout?")
+        ]
+
+        let compact = CoachLLMContextCompactor.conversation(
+            from: messages,
+            excludingCurrentRequest: "Can you analyze my last workout?"
+        )
+
+        #expect(compact.count == 2)
+        #expect(compact.last?.role == .coach)
+    }
+
     @Test("Broad history questions get a larger but bounded context window")
     func requestAwareHistoryWindow() {
         #expect(
