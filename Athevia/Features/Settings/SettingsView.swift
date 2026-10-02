@@ -568,36 +568,10 @@ struct SettingsView: View {
                     context: modelContext,
                     provider: health
                 )
-                let orderedPlans = plans.sorted {
-                    $0.startDate < $1.startDate
-                }
-
-                var combined = WorkoutImportService.Outcome()
-
-                if !orderedPlans.isEmpty {
-                    let boundary = WorkoutImportService
-                        .historicalBoundary(
-                            for: orderedPlans
-                        )
-                    let historical = try await service
-                        .syncHistoricalTrainingHistory(
-                            before: boundary
-                        )
-                    combined.matched += historical.matched
-                    combined.alreadyKnown += historical.alreadyKnown
-                    combined.unrecognised += historical.unrecognised
-                }
-
-                // Manual sync means "fetch everything now", not just this week.
-                // Walk every generated plan so older planned sessions and
-                // unmatched Health workouts are refreshed immediately.
-                for plan in orderedPlans {
-                    let outcome = try await service
-                        .importWorkouts(for: plan)
-                    combined.matched += outcome.matched
-                    combined.alreadyKnown += outcome.alreadyKnown
-                    combined.unrecognised += outcome.unrecognised
-                }
+                let combined = try await service
+                    .syncAllRelevantWorkouts(
+                        plans: plans
+                    )
 
                 importMessage = message(for: combined)
                 ProductAnalytics.shared.track(
