@@ -21,6 +21,7 @@ final class HealthKitWorkoutImporter: HealthDataProviding, @unchecked Sendable {
             HKQuantityType(.distanceWalkingRunning),
             HKQuantityType(.distanceCycling),
             HKQuantityType(.distanceSwimming),
+            HKQuantityType(.swimmingStrokeCount),
             HKQuantityType(.runningSpeed),
             HKQuantityType(.runningPower),
             HKQuantityType(.runningStrideLength),
