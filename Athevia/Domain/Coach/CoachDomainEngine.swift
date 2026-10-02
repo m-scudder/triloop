@@ -19,6 +19,28 @@ struct CoachDomainEngine: Sendable {
         reshaper.calendar = calendar
 
         switch intent {
+        case .explainRPE:
+            return CoachDomainResponse(
+                message: "RPE means Rate of Perceived Exertion. Athevia uses a 1–10 scale for how hard a workout feels: 1 is very easy, 5–6 is moderate, and 9–10 is extremely hard.",
+                evidenceSummary: "",
+                preview: nil
+            )
+
+        case .describeWeek(let offset):
+            return describeWeek(
+                offset: offset,
+                context: context,
+                currentPlan: currentPlan,
+                plans: plans
+            )
+
+        case .workoutMetrics(let date):
+            return workoutMetrics(
+                on: date,
+                context: context,
+                plans: plans
+            )
+
         case .explainWorkout(let date):
             return explainWorkout(
                 on: date,
@@ -130,6 +152,141 @@ struct CoachDomainEngine: Sendable {
     }
 
     // MARK: - Explanations
+
+    private func describeWeek(
+        offset: Int,
+        context: AthleteContextSnapshot,
+        currentPlan: WeeklyPlan,
+        plans: [WeeklyPlan]
+    ) -> CoachDomainResponse {
+        let targetPlan: WeeklyPlan?
+        if offset <= 0 {
+            targetPlan = currentPlan
+        } else {
+            targetPlan = plans
+                .filter { $0.startDate > currentPlan.startDate }
+                .sorted { $0.startDate < $1.startDate }
+                .dropFirst(max(offset - 1, 0))
+                .first
+        }
+
+        guard let plan = targetPlan else {
+            let label = offset == 1 ? "Next week's" : "That week's"
+            return CoachDomainResponse(
+                message: "\(label) workout plan has not been generated yet.",
+                evidenceSummary: "",
+                preview: nil
+            )
+        }
+
+        let workouts = plan.orderedWorkouts.filter { $0.discipline.isPlannedWorkout }
+        guard !workouts.isEmpty else {
+            return CoachDomainResponse(
+                message: "There are no planned workouts in that week.",
+                evidenceSummary: "",
+                preview: nil
+            )
+        }
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEE"
+        let details = workouts.map { workout -> String in
+            var parts = ["\(formatter.string(from: workout.date)): \(workout.title)"]
+            if let duration = workout.estimatedDurationSeconds {
+                parts.append(minuteLabel(duration))
+            }
+            if let distance = workout.estimatedDistanceMeters {
+                parts.append(distanceLabel(distance))
+            }
+            if let rpe = workout.targetRPE {
+                parts.append("RPE \(TrainingFormatter.rpe(rpe))")
+            }
+            return parts.joined(separator: " · ")
+        }
+
+        let prefix = offset == 1 ? "Next week's plan:" : "This week's plan:"
+        return CoachDomainResponse(
+            message: prefix + "\n" + details.joined(separator: "\n"),
+            evidenceSummary: "",
+            preview: nil
+        )
+    }
+
+    private func workoutMetrics(
+        on date: Date,
+        context: AthleteContextSnapshot,
+        plans: [WeeklyPlan]
+    ) -> CoachDomainResponse {
+        let candidates = plans
+            .flatMap(\.orderedWorkouts)
+            .filter {
+                calendar.isDate($0.date, inSameDayAs: date)
+                    && $0.discipline.isPlannedWorkout
+            }
+
+        guard let workout = candidates.first else {
+            return CoachDomainResponse(
+                message: "I don't have a workout recorded for \(dayLabel(date)).",
+                evidenceSummary: "",
+                preview: nil
+            )
+        }
+
+        guard let actual = workout.importedSummary else {
+            var planned: [String] = []
+            if let duration = workout.estimatedDurationSeconds {
+                planned.append("planned duration \(minuteLabel(duration))")
+            }
+            if let distance = workout.estimatedDistanceMeters {
+                planned.append("planned distance \(distanceLabel(distance))")
+            }
+            let plannedText = planned.isEmpty
+                ? ""
+                : " I can only see the " + planned.joined(separator: " and ") + "."
+            return CoachDomainResponse(
+                message: "I can see \(workout.title) on \(dayLabel(date)), but I don't have recorded workout metrics for it.\(plannedText)",
+                evidenceSummary: "",
+                preview: nil
+            )
+        }
+
+        var metrics: [String] = []
+        metrics.append("duration \(minuteLabel(actual.duration))")
+
+        if let distance = actual.distanceMeters, distance > 0 {
+            metrics.append("distance \(distanceLabel(distance))")
+
+            if workout.discipline.sport == .running, actual.duration > 0 {
+                let secondsPerKilometer = actual.duration / (distance / 1_000)
+                if secondsPerKilometer.isFinite {
+                    let minutes = Int(secondsPerKilometer) / 60
+                    let seconds = Int(secondsPerKilometer.rounded()) % 60
+                    metrics.append(String(format: "average pace %d:%02d/km", minutes, seconds))
+                }
+            } else if workout.discipline.sport == .cycling, actual.duration > 0 {
+                let speed = (distance / 1_000) / (actual.duration / 3_600)
+                if speed.isFinite {
+                    metrics.append(String(format: "average speed %.1f km/h", speed))
+                }
+            }
+        }
+
+        if let heartRate = actual.averageHeartRate {
+            metrics.append("\(Int(heartRate.rounded())) bpm average heart rate")
+        }
+        if let rpe = workout.feedback?.rpe {
+            metrics.append("reported RPE \(rpe)/10")
+        }
+        if let pain = workout.feedback?.painScore {
+            metrics.append("pain \(pain)/10")
+        }
+
+        return CoachDomainResponse(
+            message: "\(workout.title) on \(dayLabel(date)): " + metrics.joined(separator: " · ") + ".",
+            evidenceSummary: "",
+            preview: nil
+        )
+    }
 
     private func explainWorkout(
         on date: Date,
