@@ -13,7 +13,7 @@ struct WorkoutShareSnapshot {
     @MainActor
     init(workout: PlannedWorkout, titleOverride: String? = nil) {
         let summary = workout.importedSummary
-        title = titleOverride ?? workout.title
+        title = titleOverride ?? Self.shareTitle(for: workout.discipline)
         discipline = workout.discipline
         date = summary?.startDate ?? workout.completedAt ?? workout.date
         duration = Self.positive(summary?.duration)
@@ -63,6 +63,23 @@ struct WorkoutShareSnapshot {
             return String(format: "%d:%02d:%02d", seconds / 3_600, seconds / 60 % 60, seconds % 60)
         }
         return String(format: "%d:%02d", seconds / 60, seconds % 60)
+    }
+
+    private static func shareTitle(for discipline: Discipline) -> String {
+        switch discipline {
+        case .running:
+            "Run"
+        case .swimming:
+            "Swim"
+        case .cycling:
+            "Cycle"
+        case .multisport:
+            "Multisport"
+        case .recovery:
+            "Recovery"
+        case .rest:
+            "Workout"
+        }
     }
 
     private static func positive(_ value: Double?) -> Double? {
