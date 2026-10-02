@@ -22,6 +22,7 @@ struct TodayView: View {
     @State private var isResolved = false
 
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.modelContext) private var modelContext
 
     private let scheduler = WorkoutKitScheduler()
 
@@ -478,6 +479,8 @@ struct TodayView: View {
 
     private func refresh() async {
         guard scenePhase == .active else { return }
+
+        try? PlanStore(context: modelContext).normalizeWorkoutTitles()
 
         await syncWatchState()
 
