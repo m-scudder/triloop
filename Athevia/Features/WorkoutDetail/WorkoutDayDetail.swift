@@ -23,6 +23,7 @@ struct WorkoutDayDetail: View {
     @State private var isConfirmingUnavailable = false
     @State private var actionMessage: String?
     @State private var samples: WorkoutSamples?
+    @State private var healthRoute: [RecordedRoutePoint] = []
     @State private var samplesFailure: String?
     @State private var isImporting = false
     @State private var importMessage: String?
@@ -154,7 +155,8 @@ struct WorkoutDayDetail: View {
                 AdvancedMetricsView(
                     metrics: summary.metrics ?? RecordedMetrics(),
                     sport: workout.discipline.sport,
-                    summary: summary
+                    summary: summary,
+                    route: healthRoute
                 )
             }
         }
@@ -593,6 +595,14 @@ struct WorkoutDayDetail: View {
                 : nil
         } catch {
             samplesFailure = "Could not read the sensor-based detail for this session."
+        }
+
+        do {
+            healthRoute = try await health.route(forWorkout: id)
+        } catch {
+            // Route evidence is optional. Keep the rest of the workout analysis
+            // usable when HealthKit has no route permission or no GPS samples.
+            healthRoute = []
         }
     }
 
