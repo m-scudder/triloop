@@ -3,6 +3,11 @@ import SwiftData
 import SwiftUI
 
 struct CoachView: View {
+    private enum Route: Hashable {
+        case conversation(UUID)
+        case newChat
+    }
+
     private struct Message: Identifiable {
         enum Role { case athlete, coach }
 
@@ -38,8 +43,10 @@ struct CoachView: View {
     @State private var canUndo = false
     @State private var conversations: [CoachConversation] = []
     @State private var currentConversationID: UUID?
-    @State private var showsHistory = false
     @State private var showsAIConsent = false
+    @State private var navigationPath: [Route] = []
+    @State private var startsAtHistory = false
+    @State private var didChooseInitialRoot = false
     @State private var pendingAIRequest: String?
     @AppStorage("athevia.coach.external-ai-consent.v1") private var externalAIConsent = false
     @FocusState private var isComposerFocused: Bool
@@ -51,97 +58,32 @@ struct CoachView: View {
     ]
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 18) {
-                            if messages.isEmpty {
-                                coachWelcome
-                                suggestedQuestions
-                            } else {
-                                conversationHeader
-                                ForEach(messages) { message in
-                                    messageRow(message)
-                                        .id(message.id)
-                                }
-                            }
-
-                            if let preview {
-                                previewCard(preview)
-                                    .id("coach-preview")
-                            }
-
-                            if isWorking {
-                                thinkingRow
-                                    .id("coach-working")
-                            }
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.top, 16)
-                        .padding(.bottom, 22)
-                    }
-                    .scrollDismissesKeyboard(.interactively)
-                    .contentShape(Rectangle())
-                    .onTapGesture { isComposerFocused = false }
-                    .onChange(of: messages.count) {
-                        if let last = messages.last {
-                            withAnimation(.easeOut(duration: 0.22)) {
-                                proxy.scrollTo(last.id, anchor: .bottom)
-                            }
-                        }
-                    }
-                    .onChange(of: preview?.id) {
-                        guard preview != nil else { return }
-                        withAnimation(.easeOut(duration: 0.22)) {
-                            proxy.scrollTo("coach-preview", anchor: .bottom)
-                        }
-                    }
-                }
-
-                composer
-            }
-            .atheviaScreen()
-            .navigationTitle("Coach")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        isComposerFocused = false
-                        refreshConversations()
-                        showsHistory = true
-                    } label: {
-                        Image(systemName: "clock.arrow.circlepath")
-                    }
-                    .accessibilityLabel("Conversation history")
-                }
-
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        startNewConversation()
-                    } label: {
-                        Image(systemName: "square.and.pencil")
-                    }
-                    .disabled(isWorking || preview != nil)
-                    .accessibilityLabel("New conversation")
+        NavigationStack(path: $navigationPath) {
+            Group {
+                if startsAtHistory {
+                    conversationHistoryRoot
+                } else {
+                    chatScreen
                 }
             }
-            .alert(
-                "Coach couldn't complete that",
-                isPresented: Binding(
-                    get: { errorMessage != nil },
-                    set: { if !$0 { errorMessage = nil } }
-                )
-            ) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                Text(errorMessage ?? "")
+            .navigationDestination(for: Route.self) { route in
+                chatScreen
+                    .onAppear {
+                        switch route {
+                        case .conversation(let id):
+                            if let conversation = conversations.first(where: { $0.id == id }),
+                               currentConversationID != id {
+                                loadConversation(conversation)
+                            }
+                        case .newChat:
+                            if currentConversationID != nil || !messages.isEmpty {
+                                startNewConversation()
+                            }
+                        }
+                    }
             }
         }
         .atheviaScreen()
-        .sheet(isPresented: $showsHistory) {
-            conversationHistorySheet
-        }
         .confirmationDialog(
             "Use AI Coach?",
             isPresented: $showsAIConsent,
@@ -167,7 +109,136 @@ struct CoachView: View {
         .onAppear {
             refreshUndoAvailability()
             refreshConversations()
+
+            if !didChooseInitialRoot {
+                startsAtHistory = !conversations.isEmpty
+                didChooseInitialRoot = true
+            }
         }
+    }
+
+    private var chatScreen: some View {
+        VStack(spacing: 0) {
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 18) {
+                        if messages.isEmpty {
+                            coachWelcome
+                            suggestedQuestions
+                        } else {
+                            conversationHeader
+                            ForEach(messages) { message in
+                                messageRow(message)
+                                    .id(message.id)
+                            }
+                        }
+
+                        if let preview {
+                            previewCard(preview)
+                                .id("coach-preview")
+                        }
+
+                        if isWorking {
+                            thinkingRow
+                                .id("coach-working")
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 16)
+                    .padding(.bottom, 22)
+                }
+                .scrollDismissesKeyboard(.interactively)
+                .contentShape(Rectangle())
+                .onTapGesture { isComposerFocused = false }
+                .onChange(of: messages.count) {
+                    if let last = messages.last {
+                        withAnimation(.easeOut(duration: 0.22)) {
+                            proxy.scrollTo(last.id, anchor: .bottom)
+                        }
+                    }
+                }
+                .onChange(of: preview?.id) {
+                    guard preview != nil else { return }
+                    withAnimation(.easeOut(duration: 0.22)) {
+                        proxy.scrollTo("coach-preview", anchor: .bottom)
+                    }
+                }
+            }
+
+            composer
+        }
+        .atheviaScreen()
+        .navigationTitle("Coach")
+        .navigationBarTitleDisplayMode(.inline)
+        .alert(
+            "Coach couldn't complete that",
+            isPresented: Binding(
+                get: { errorMessage != nil },
+                set: { if !$0 { errorMessage = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(errorMessage ?? "")
+        }
+    }
+
+    private var conversationHistoryRoot: some View {
+        ZStack(alignment: .bottomTrailing) {
+            List {
+                ForEach(conversations) { conversation in
+                    Button {
+                        loadConversation(conversation)
+                        navigationPath.append(.conversation(conversation.id))
+                    } label: {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(conversation.title)
+                                .font(.body.weight(.medium))
+                                .foregroundStyle(.primary)
+                                .lineLimit(2)
+
+                            HStack(spacing: 6) {
+                                Text(conversation.updatedAt, format: .dateTime.month(.abbreviated).day())
+                                Text("·")
+                                Text("\(conversation.messages.count) message\(conversation.messages.count == 1 ? "" : "s")")
+                            }
+                            .font(.caption)
+                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+                        }
+                        .padding(.vertical, 7)
+                    }
+                    .buttonStyle(.plain)
+                    .swipeActions {
+                        Button("Delete", role: .destructive) {
+                            deleteConversation(conversation)
+                        }
+                    }
+                }
+            }
+            .atheviaList()
+
+            Button {
+                startNewConversation()
+                navigationPath.append(.newChat)
+            } label: {
+                Image(systemName: "square.and.pencil")
+                    .font(.title3.weight(.semibold))
+                    .frame(width: 54, height: 54)
+                    .foregroundStyle(theme.color(.onAccent, classic: Color.onActionSurface))
+                    .background(
+                        theme.color(.accent, classic: Color.actionSurface),
+                        in: Circle()
+                    )
+                    .shadow(radius: 6, y: 3)
+            }
+            .buttonStyle(.plain)
+            .padding(.trailing, 20)
+            .padding(.bottom, 20)
+            .accessibilityLabel("New conversation")
+        }
+        .atheviaScreen()
+        .navigationTitle("Coach")
+        .navigationBarTitleDisplayMode(.inline)
     }
 
     private var coachWelcome: some View {
@@ -628,60 +699,6 @@ struct CoachView: View {
         draft = ""
         isComposerFocused = false
         Task { await submit(request) }
-    }
-
-    private var conversationHistorySheet: some View {
-        NavigationStack {
-            Group {
-                if conversations.isEmpty {
-                    ContentUnavailableView(
-                        "No conversations yet",
-                        systemImage: "bubble.left.and.bubble.right",
-                        description: Text("Your Coach conversations will appear here after you start chatting.")
-                    )
-                } else {
-                    List {
-                        ForEach(conversations) { conversation in
-                            Button {
-                                loadConversation(conversation)
-                                showsHistory = false
-                            } label: {
-                                VStack(alignment: .leading, spacing: 5) {
-                                    Text(conversation.title)
-                                        .font(.body.weight(.medium))
-                                        .foregroundStyle(.primary)
-                                        .lineLimit(2)
-                                    HStack(spacing: 6) {
-                                        Text(conversation.updatedAt, format: .dateTime.month(.abbreviated).day())
-                                        Text("·")
-                                        Text("\(conversation.messages.count) message\(conversation.messages.count == 1 ? "" : "s")")
-                                    }
-                                    .font(.caption)
-                                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
-                                }
-                                .padding(.vertical, 5)
-                            }
-                            .buttonStyle(.plain)
-                            .swipeActions {
-                                Button("Delete", role: .destructive) {
-                                    deleteConversation(conversation)
-                                }
-                            }
-                        }
-                    }
-                    .atheviaList()
-                }
-            }
-            .atheviaScreen()
-            .navigationTitle("Coach history")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { showsHistory = false }
-                }
-            }
-        }
-        .presentationDetents([.medium, .large])
     }
 
     @MainActor
