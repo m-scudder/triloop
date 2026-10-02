@@ -62,11 +62,17 @@ struct FirstWeekBuilder: Sendable {
             capability: capability,
             asOf: startDate
         )
+        let openingTarget = WeeklyTrainingFrequencyPolicy().openingTarget(
+            requested: setup.trainingDayTarget,
+            selectedSportCount: selectedSports.count,
+            availableDays: available.availableDays.count
+        )
         let frequencies = WeekShapePlanner.frequencies(
             for: selectedSports,
             schedule: available,
             baseline: setup.baseline,
-            priorities: setup.objective.kind == .event ? journey.sportPriorities : []
+            priorities: setup.objective.kind == .event ? journey.sportPriorities : [],
+            sessionLimit: openingTarget
         )
 
         let shape = planner.plan(
@@ -133,12 +139,12 @@ struct FirstWeekBuilder: Sendable {
             let discipline = shape.disciplines[weekday.offsetFromMonday]
             guard let sport = discipline.sport else {
                 workouts.append(
-                    available.isAvailable(on: weekday)
-                        ? PrescribedSessions.engagementRecoveryDay(on: date, for: selectedSports)
-                        : PrescribedSessions.restDay(
-                            on: date,
-                            reason: "No workout is scheduled because you marked this day unavailable."
-                        )
+                    PrescribedSessions.restDay(
+                        on: date,
+                        reason: available.isAvailable(on: weekday)
+                            ? "No workout is needed on this available day."
+                            : "No workout is scheduled because you marked this day unavailable."
+                    )
                 )
                 continue
             }
@@ -250,7 +256,12 @@ struct FirstWeekBuilder: Sendable {
             .joined(separator: ", ")
 
         let opening = "Built from your \(setup.objective.displayName.lowercased()) goal and what you can do today"
-        guard !sports.isEmpty else { return opening + "." }
+        let actualDays = shape.disciplines.filter(\.isTrainingSession).count
+        let frequencyReason = WeeklyTrainingFrequencyPolicy().explanation(
+            requested: setup.trainingDayTarget,
+            actual: actualDays
+        )
+        guard !sports.isEmpty else { return opening + ". " + frequencyReason }
 
         let selectedMinutes = setup.schedule.availableDays.compactMap(\.maxDurationMinutes).max()
         let plannedMinutes = shape.disciplines
