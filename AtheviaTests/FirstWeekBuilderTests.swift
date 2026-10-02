@@ -158,8 +158,8 @@ struct FirstWeekBuilderTests {
         #expect(plan.parameters.rideWorkSeconds >= TimeInterval(45 * 60))
     }
 
-    @Test("Starting mid-week still gives a full Monday to Sunday plan")
-    func midWeekStartCoversTheWholeWeek() throws {
+    @Test("Starting mid-week anchors a full seven-day training week")
+    func midWeekStartAnchorsTheWholeWeek() throws {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "UTC") ?? .gmt
         var builder = FirstWeekBuilder()
@@ -169,15 +169,54 @@ struct FirstWeekBuilderTests {
         let thursday = try #require(calendar.date(from: DateComponents(year: 2026, month: 8, day: 20)))
         let plan = try builder.build(setup: setup(), poolLengthMeters: 25, startDate: thursday)
 
-        #expect(Weekday(date: plan.startDate, calendar: calendar) == .monday)
-        #expect(Weekday(date: plan.endDate, calendar: calendar) == .sunday)
+        #expect(plan.startDate == thursday)
+        #expect(
+            plan.endDate
+                == calendar.date(
+                    byAdding: .day,
+                    value: 6,
+                    to: thursday
+                )
+        )
         #expect(plan.orderedWorkouts.count == 7)
+        #expect(plan.orderedWorkouts.allSatisfy { $0.date >= thursday })
+    }
 
-        // Nothing to do on the days that had already gone.
-        let elapsed = plan.orderedWorkouts.filter { $0.date < thursday }
-        #expect(elapsed.count == 3)
-        #expect(elapsed.allSatisfy { $0.discipline == .rest })
-        #expect(plan.trainingSessions.allSatisfy { $0.date >= thursday })
+    @Test("October 3 onboarding creates October 3 through October 9")
+    func octoberThirdStartIsNotBackdatedToMonday() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC") ?? .gmt
+        var builder = FirstWeekBuilder()
+        builder.calendar = calendar
+
+        let october3 = try #require(
+            calendar.date(
+                from: DateComponents(
+                    year: 2026,
+                    month: 10,
+                    day: 3
+                )
+            )
+        )
+        let october9 = try #require(
+            calendar.date(
+                from: DateComponents(
+                    year: 2026,
+                    month: 10,
+                    day: 9
+                )
+            )
+        )
+
+        let plan = try builder.build(
+            setup: setup(),
+            poolLengthMeters: 25,
+            startDate: october3
+        )
+
+        #expect(plan.startDate == october3)
+        #expect(plan.endDate == october9)
+        #expect(plan.orderedWorkouts.count == 7)
     }
 
     @Test("Sessions asked for are packed into the days that remain")
