@@ -11,9 +11,9 @@ enum WeeklyPlanStatus: String, Codable, CaseIterable, Sendable {
 final class WeeklyPlan {
     var id: UUID
     var weekNumber: Int
-    /// Start of day, Monday.
+    /// Start of the athlete's seven-day training week.
     var startDate: Date
-    /// Start of day, Sunday.
+    /// Sixth day after startDate.
     var endDate: Date
     var status: WeeklyPlanStatus
     var generatedAt: Date
