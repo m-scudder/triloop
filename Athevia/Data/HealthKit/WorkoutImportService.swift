@@ -165,6 +165,10 @@ struct WorkoutImportService {
             from: plan.startDate,
             to: end
         )
+        .filter {
+            $0.startDate >= plan.startDate
+                && $0.startDate < end
+        }
 
         // The provider fetch can outlive the tap that starts a phone workout.
         guard !PhoneWorkoutExecutionState.isActive else {
@@ -260,7 +264,9 @@ struct WorkoutImportService {
             to: end
         )
         .filter { activity in
-            guard activity.discipline.isTrainingSession else {
+            guard activity.startDate >= start,
+                  activity.startDate < end,
+                  activity.discipline.isTrainingSession else {
                 return false
             }
 
