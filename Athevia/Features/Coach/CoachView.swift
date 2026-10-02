@@ -171,33 +171,20 @@ struct CoachView: View {
     }
 
     private var coachWelcome: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .center, spacing: 14) {
-                coachMark(size: 52)
+        HStack(alignment: .center, spacing: 14) {
+            coachMark(size: 48)
 
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Athevia Coach")
-                        .font(.title2.weight(.bold))
-                    Text("Your training, explained and adjustable.")
-                        .font(.subheadline)
-                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
-                }
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Athevia Coach")
+                    .font(.title2.weight(.bold))
+                Text("Ask about your training or adjust your plan.")
+                    .font(.subheadline)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
 
-            Text("Ask about your plan, recent training, or make a safe change to the week ahead.")
-                .font(.body)
-                .fixedSize(horizontal: false, vertical: true)
-
-            HStack(spacing: 8) {
-                Label("Plan aware", systemImage: "calendar.badge.checkmark")
-                Label("Health aware", systemImage: "heart.text.square")
-            }
-            .font(.caption.weight(.medium))
-            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
-
-            privacyLine
+            Spacer(minLength: 0)
         }
-        .padding(18)
+        .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(AtheviaAdaptiveStyle(.background.secondary, gaming: .surface))
@@ -234,18 +221,6 @@ struct CoachView: View {
         }
         .frame(width: size, height: size)
         .accessibilityHidden(true)
-    }
-
-    private var privacyLine: some View {
-        HStack(alignment: .top, spacing: 8) {
-            Image(systemName: "lock.fill")
-                .font(.caption2)
-                .padding(.top, 2)
-            Text("Routine plan changes stay deterministic. AI analysis uses a bounded training context only after you enable it; GPS routes and free-form workout notes are excluded.")
-                .font(.caption)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
     }
 
     private var suggestedQuestions: some View {
