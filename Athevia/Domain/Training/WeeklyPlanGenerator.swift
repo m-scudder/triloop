@@ -13,6 +13,10 @@ struct WeeklyPlanGenerator: Sendable {
     /// ceiling. Current capability and sport-specific safety decide how many
     /// days carry training; unused availability is rest, never fake recovery.
     var preferences: [SportPreference] = []
+    /// Desired weekly training frequency. Availability remains only the pool of
+    /// days the planner may place those sessions on.
+    var targetTrainingDays: Int = 3
+    var frequencyPolicy = WeeklyTrainingFrequencyPolicy()
     var planner: WeekShapePlanner = WeekShapePlanner()
     /// Optional event journey context supplied by PlanStore. Safety analysis
     /// remains authoritative; this only redistributes non-recovery slots.
@@ -57,6 +61,13 @@ struct WeeklyPlanGenerator: Sendable {
         let selectedSports = Sport.allCases.filter { sport in
             preferences.first(where: { $0.sport == sport })?.isTrained == true
         }
+        let weeklyTarget = frequencyPolicy.nextTarget(
+            requested: targetTrainingDays,
+            selectedSportCount: selectedSports.count,
+            availableDays: schedule.availableDays.count,
+            previousPlan: plan,
+            analysis: analysis
+        )
 
         if selectedSports.isEmpty {
             // Legacy/tests without stored preferences retain the previous
@@ -71,18 +82,21 @@ struct WeeklyPlanGenerator: Sendable {
                 for: selectedSports,
                 schedule: schedule,
                 capability: capability,
-                priorities: journey?.sportPriorities ?? []
+                priorities: journey?.sportPriorities ?? [],
+                sessionLimit: weeklyTarget
             )
         } else if let journey {
             intendedFrequencies = WeekShapePlanner.frequencies(
                 for: selectedSports,
                 schedule: schedule,
-                priorities: journey.sportPriorities
+                priorities: journey.sportPriorities,
+                sessionLimit: weeklyTarget
             )
         } else {
             intendedFrequencies = WeekShapePlanner.frequencies(
                 for: selectedSports,
-                schedule: schedule
+                schedule: schedule,
+                sessionLimit: weeklyTarget
             )
         }
 
@@ -183,11 +197,11 @@ struct WeeklyPlanGenerator: Sendable {
                             on: date,
                             goal: recoveryGoal(for: recovering)
                         )
-                        : schedule.isAvailable(on: Weekday.trainingWeek[offset])
-                            ? PrescribedSessions.engagementRecoveryDay(on: date, for: selectedSports)
-                            : PrescribedSessions.restDay(
-                                on: date,
-                                reason: "No workout is scheduled because you marked this day unavailable."
+                        : PrescribedSessions.restDay(
+                            on: date,
+                            reason: schedule.isAvailable(on: Weekday.trainingWeek[offset])
+                                ? "No workout is needed on this available day."
+                                : "No workout is scheduled because you marked this day unavailable."
                             )
                 )
                 continue
@@ -249,12 +263,19 @@ struct WeeklyPlanGenerator: Sendable {
             }
         }
 
+        let frequencyReason = frequencyPolicy.explanation(
+            requested: targetTrainingDays,
+            actual: workouts.filter { $0.discipline.isTrainingSession }.count,
+            previousActual: plan.prescribedTrainingSessions.count,
+            analysis: analysis
+        )
+
         return WeeklyPlan(
             weekNumber: plan.weekNumber + 1,
             startDate: monday,
             endDate: day(6),
             status: .active,
-            generationReason: reason(from: analysis, parameters: parameters),
+            generationReason: reason(from: analysis, parameters: parameters) + " " + frequencyReason,
             generationReasonCode: PlanGenerationReason.from(analysis.sports.map(\.status)),
             parameters: parameters,
             workouts: workouts
