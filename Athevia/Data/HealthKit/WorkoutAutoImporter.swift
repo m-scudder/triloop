@@ -77,12 +77,25 @@ final class WorkoutAutoImporter {
             provider: health,
             importCutoff: effectiveImportCutoff
         )
-        var matched = 0
+        var imported = 0
+
+        // Apple Health history is independent of the current Athevia plan.
+        // A reset/re-onboarding may create a new first plan today, but yesterday's
+        // real Run/Swim/Cycle must remain visible across the app.
+        let historyBoundary = plans.first?.startDate ?? Date.now
+        if let outcome = try? await service.syncHistoricalTrainingHistory(
+            before: historyBoundary
+        ) {
+            imported += outcome.unrecognised
+        }
 
         for plan in plans.suffix(2) {
-            guard let outcome = try? await service.importWorkouts(for: plan) else { continue }
-            matched += outcome.matched
+            guard let outcome = try? await service.importWorkouts(for: plan) else {
+                continue
+            }
+            imported += outcome.matched + outcome.unrecognised
         }
-        return matched
+
+        return imported
     }
 }
