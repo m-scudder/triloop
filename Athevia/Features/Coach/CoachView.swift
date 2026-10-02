@@ -47,10 +47,7 @@ struct CoachView: View {
     private let suggestions = [
         "Analyze my last completed workout.",
         "Create a workout for tomorrow based on my recent training.",
-        "Explain why this workout is planned today.",
-        "Move Tuesday's workout to Thursday.",
-        "Skip Wednesday's workout.",
-        "I'm away from 2026-10-05 to 2026-10-09."
+        "Explain why this workout is planned today."
     ]
 
     var body: some View {
