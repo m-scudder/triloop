@@ -26,7 +26,7 @@ struct PlanView: View {
                     || (
                         workout.origin == .imported
                             && workout.plan == nil
-                            && workout.discipline.sport != nil
+                            && workout.discipline.isTrainingSession
                     )
             }
             .sorted { lhs, rhs in
