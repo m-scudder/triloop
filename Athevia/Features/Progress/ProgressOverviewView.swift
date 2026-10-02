@@ -1,8 +1,7 @@
 import SwiftData
 import SwiftUI
 
-/// Progress answers three questions without duplicating Plan:
-/// Am I progressing? What has my training looked like? How is recovery trending?
+/// Direct, user-facing progress summary without secondary tabs or analytics views.
 struct ProgressOverviewView: View {
     @Environment(\.atheviaTheme) private var theme
 
@@ -53,7 +52,7 @@ struct ProgressOverviewView: View {
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 22) {
-                        overviewContent
+                        progressContent
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 14)
@@ -71,7 +70,7 @@ struct ProgressOverviewView: View {
     }
 
     @ViewBuilder
-    private var overviewContent: some View {
+    private var progressContent: some View {
         if plans.isEmpty {
             ContentUnavailableView(
                 "No progress yet",
