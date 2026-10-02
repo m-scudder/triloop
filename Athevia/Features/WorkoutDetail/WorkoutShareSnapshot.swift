@@ -105,7 +105,9 @@ struct WorkoutShareSnapshot {
 
         let sportLegs = multisportSegments.filter { !$0.isTransition && $0.sport != nil }
         if !sportLegs.isEmpty {
-            let uniqueSports = Set(sportLegs.compactMap(\.sport))
+            let uniqueSports = Set(
+                sportLegs.compactMap { $0.sport?.rawValue }
+            )
             values.append(
                 WorkoutShareMetric(
                     label: uniqueSports.count == 1 ? "Sport" : "Sports",
