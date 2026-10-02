@@ -252,7 +252,8 @@ extension WeekShapePlanner {
         for sports: [Sport],
         schedule: AthleteSchedule,
         baseline: AthleteBaseline,
-        priorities: [SportPriority] = []
+        priorities: [SportPriority] = [],
+        sessionLimit: Int? = nil
     ) -> [SportFrequency] {
         let scores: [Sport: Int] = [
             .running: baseline.running.experienceScore,
@@ -263,7 +264,8 @@ extension WeekShapePlanner {
             for: sports,
             schedule: schedule,
             experienceScores: scores,
-            priorities: priorities
+            priorities: priorities,
+            sessionLimit: sessionLimit
         )
     }
 
@@ -273,7 +275,8 @@ extension WeekShapePlanner {
         for sports: [Sport],
         schedule: AthleteSchedule,
         capability: AthleteCapabilityAssessment,
-        priorities: [SportPriority] = []
+        priorities: [SportPriority] = [],
+        sessionLimit: Int? = nil
     ) -> [SportFrequency] {
         let scores: [Sport: Int] = [
             .running: runningExperienceScore(capability.running),
@@ -284,7 +287,8 @@ extension WeekShapePlanner {
             for: sports,
             schedule: schedule,
             experienceScores: scores,
-            priorities: priorities
+            priorities: priorities,
+            sessionLimit: sessionLimit
         )
     }
 
@@ -292,10 +296,12 @@ extension WeekShapePlanner {
         for sports: [Sport],
         schedule: AthleteSchedule,
         experienceScores: [Sport: Int],
-        priorities: [SportPriority]
+        priorities: [SportPriority],
+        sessionLimit: Int?
     ) -> [SportFrequency] {
         let selected = Sport.allCases.filter { sports.contains($0) }
-        let available = schedule.availableDays.count
+        let requestedLimit = sessionLimit.map { max($0, selected.count) } ?? schedule.availableDays.count
+        let available = min(schedule.availableDays.count, requestedLimit)
         guard available > 0, !selected.isEmpty else { return [] }
 
         // Low-impact single-sport plans can use the days the athlete explicitly
