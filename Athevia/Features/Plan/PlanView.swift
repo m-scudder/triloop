@@ -14,14 +14,19 @@ struct PlanView: View {
     @State private var hasChosenOpeningDay = false
     @State private var focused: UUID?
 
-    /// Plan contains prescribed sessions only. Health activities that could not
-    /// be matched to a prescription remain available in workout history and
-    /// analytics, but must not appear as a second "Recorded <sport>" Plan tab.
+    /// Keep the plan and what actually happened on the same calendar. An
+    /// unmatched HealthKit activity belongs on its recorded day beside the
+    /// prescription rather than being hidden in History.
     private var allWorkouts: [PlannedWorkout] {
         plans
             .flatMap(\.orderedWorkouts)
-            .filter { $0.origin != .imported }
-            .sorted { $0.date < $1.date }
+            .sorted { lhs, rhs in
+                if Calendar.current.isDate(lhs.date, inSameDayAs: rhs.date) {
+                    // The prescription leads; extra recorded activities follow.
+                    return lhs.origin != .imported && rhs.origin == .imported
+                }
+                return lhs.date < rhs.date
+            }
     }
 
     private var workoutsOnSelectedDay: [PlannedWorkout] {
