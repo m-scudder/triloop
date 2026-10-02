@@ -82,14 +82,22 @@ struct WeeklyPlanOverviewView: View {
         return HStack(spacing: 6) {
             Image(systemName: sport.discipline.symbolName)
                 .foregroundStyle(sport.discipline.themedTint(theme))
+
             VStack(alignment: .leading, spacing: 1) {
-                Text(sport.discipline.displayName)
-                    .font(.caption.weight(.medium))
-                Text("\(sportSessions.count) · \(TrainingFormatter.totalDuration(seconds: duration))")
+                HStack(spacing: 4) {
+                    Text(sport.discipline.displayName)
+                        .font(.caption.weight(.medium))
+
+                    Text("· \(TrainingFormatter.totalDuration(seconds: duration))")
+                        .font(.caption2)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
+
+                Text("\(sportSessions.count) workout\(sportSessions.count == 1 ? "" : "s")")
                     .font(.caption2)
                     .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
