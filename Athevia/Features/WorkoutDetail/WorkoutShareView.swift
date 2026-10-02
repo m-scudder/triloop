@@ -1,4 +1,3 @@
-import ImageIO
 import Photos
 import SwiftUI
 import UIKit
@@ -204,6 +203,450 @@ private struct WorkoutShareSticker: View {
     }
 
     private func displayValue(for item: WorkoutShareMetric) -> String {
+        switch item.label {
+        case "Distance · m":
+            return "\(item.value) m"
+        case "Distance · km":
+            return "\(item.value) km"
+        case "Avg pace · /100 m":
+            return "\(item.value) /100m"
+        case "Avg pace · /km":
+            return "\(item.value) /km"
+        case "Avg speed · km/h":
+            return "\(item.value) km/h"
+        default:
+            return item.value
+        }
+    }
+}
+
+
+private struct WorkoutSharePNGRenderer {
+    let snapshot: WorkoutShareSnapshot
+    let layout: WorkoutShareLayout
+    let route: WorkoutShareRoute
+
+    private let orange = UIColor(
+        red: 1.00,
+        green: 0.42,
+        blue: 0.16,
+        alpha: 1
+    )
+
+    func pngData() -> Data {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = false
+        format.preferredRange = .standard
+
+        let renderer = UIGraphicsImageRenderer(
+            size: WorkoutShareCanvas.exportSize,
+            format: format
+        )
+
+        return renderer.pngData { rendererContext in
+            let context = rendererContext.cgContext
+            context.clear(
+                CGRect(
+                    origin: .zero,
+                    size: WorkoutShareCanvas.exportSize
+                )
+            )
+
+            switch layout {
+            case .centered:
+                drawCentered(in: context)
+            case .side:
+                drawSide(in: context)
+            case .compact:
+                drawCompact(in: context)
+            }
+        }
+    }
+
+    private func drawCentered(in context: CGContext) {
+        var y: CGFloat
+
+        if route.hasRoute {
+            drawRoute(
+                in: CGRect(
+                    x: 130,
+                    y: 250,
+                    width: 820,
+                    height: 650
+                ),
+                context: context
+            )
+            y = 980
+        } else {
+            y = 570
+        }
+
+        for item in snapshot.metrics {
+            y = drawMetric(
+                item,
+                x: 140,
+                y: y,
+                width: 800,
+                alignment: .center,
+                valueSize: 66
+            ) + 34
+        }
+
+        drawSportMark(
+            center: CGPoint(
+                x: WorkoutShareCanvas.exportSize.width / 2,
+                y: y + 42
+            )
+        )
+
+        drawBrand(
+            in: CGRect(
+                x: 140,
+                y: y + 92,
+                width: 800,
+                height: 60
+            ),
+            alignment: .center
+        )
+    }
+
+    private func drawSide(in context: CGContext) {
+        let contentTop: CGFloat = 610
+
+        if route.hasRoute {
+            drawRoute(
+                in: CGRect(
+                    x: 70,
+                    y: contentTop,
+                    width: 470,
+                    height: 560
+                ),
+                context: context
+            )
+        } else {
+            drawSportMark(
+                center: CGPoint(
+                    x: 290,
+                    y: contentTop + 275
+                ),
+                pointSize: 86
+            )
+        }
+
+        let rightX: CGFloat = 610
+        let rightWidth: CGFloat = 390
+
+        drawBrand(
+            in: CGRect(
+                x: rightX,
+                y: contentTop,
+                width: rightWidth,
+                height: 60
+            ),
+            alignment: .left
+        )
+
+        var y = contentTop + 105
+        for item in snapshot.metrics {
+            y = drawMetric(
+                item,
+                x: rightX,
+                y: y,
+                width: rightWidth,
+                alignment: .left,
+                valueSize: 48
+            ) + 30
+        }
+    }
+
+    private func drawCompact(in context: CGContext) {
+        let top: CGFloat = 610
+
+        drawBrand(
+            in: CGRect(
+                x: 115,
+                y: top,
+                width: 330,
+                height: 60
+            ),
+            alignment: .left
+        )
+
+        _ = drawText(
+            snapshot.title,
+            in: CGRect(
+                x: 115,
+                y: top + 75,
+                width: 330,
+                height: 75
+            ),
+            font: roundedFont(
+                size: 52,
+                weight: .bold
+            ),
+            color: .white,
+            alignment: .left
+        )
+
+        _ = drawText(
+            TrainingFormatter.shortDate(
+                snapshot.date,
+                includeYear: true
+            ),
+            in: CGRect(
+                x: 115,
+                y: top + 155,
+                width: 330,
+                height: 45
+            ),
+            font: .systemFont(
+                ofSize: 24,
+                weight: .medium
+            ),
+            color: UIColor.white.withAlphaComponent(0.78),
+            alignment: .left
+        )
+
+        var y = top
+        for item in snapshot.metrics {
+            y = drawMetric(
+                item,
+                x: 560,
+                y: y,
+                width: 390,
+                alignment: .left,
+                valueSize: 46
+            ) + 28
+        }
+
+        if route.hasRoute {
+            drawRoute(
+                in: CGRect(
+                    x: 180,
+                    y: 1080,
+                    width: 720,
+                    height: 500
+                ),
+                context: context
+            )
+        } else {
+            drawSportMark(
+                center: CGPoint(
+                    x: WorkoutShareCanvas.exportSize.width / 2,
+                    y: 1120
+                ),
+                pointSize: 72
+            )
+        }
+    }
+
+    @discardableResult
+    private func drawMetric(
+        _ item: WorkoutShareMetric,
+        x: CGFloat,
+        y: CGFloat,
+        width: CGFloat,
+        alignment: NSTextAlignment,
+        valueSize: CGFloat
+    ) -> CGFloat {
+        let label = item.label
+            .replacingOccurrences(of: " · ", with: " ")
+
+        let labelHeight = drawText(
+            label,
+            in: CGRect(
+                x: x,
+                y: y,
+                width: width,
+                height: 42
+            ),
+            font: .systemFont(
+                ofSize: 25,
+                weight: .semibold
+            ),
+            color: UIColor.white.withAlphaComponent(0.88),
+            alignment: alignment
+        )
+
+        let valueHeight = drawText(
+            displayValue(for: item),
+            in: CGRect(
+                x: x,
+                y: y + labelHeight + 5,
+                width: width,
+                height: 86
+            ),
+            font: roundedFont(
+                size: valueSize,
+                weight: .bold
+            ),
+            color: .white,
+            alignment: alignment
+        )
+
+        return y + labelHeight + 5 + valueHeight
+    }
+
+    private func drawRoute(
+        in rect: CGRect,
+        context: CGContext
+    ) {
+        let fitted = route.fittedSegments(
+            in: rect.size,
+            inset: 30
+        )
+
+        context.saveGState()
+        context.translateBy(
+            x: rect.minX,
+            y: rect.minY
+        )
+        context.setLineCap(.round)
+        context.setLineJoin(.round)
+
+        for segment in fitted {
+            guard let first = segment.first else {
+                continue
+            }
+
+            let path = CGMutablePath()
+            path.move(to: first)
+            for point in segment.dropFirst() {
+                path.addLine(to: point)
+            }
+
+            context.addPath(path)
+            context.setStrokeColor(
+                UIColor.black.withAlphaComponent(0.25).cgColor
+            )
+            context.setLineWidth(18)
+            context.strokePath()
+
+            context.addPath(path)
+            context.setStrokeColor(orange.cgColor)
+            context.setLineWidth(11)
+            context.strokePath()
+        }
+
+        context.restoreGState()
+    }
+
+    private func drawSportMark(
+        center: CGPoint,
+        pointSize: CGFloat = 54
+    ) {
+        let configuration = UIImage.SymbolConfiguration(
+            pointSize: pointSize,
+            weight: .semibold
+        )
+
+        guard let symbol = UIImage(
+            systemName: snapshot.discipline.symbolName,
+            withConfiguration: configuration
+        )?.withTintColor(
+            orange,
+            renderingMode: .alwaysOriginal
+        ) else {
+            return
+        }
+
+        let origin = CGPoint(
+            x: center.x - symbol.size.width / 2,
+            y: center.y - symbol.size.height / 2
+        )
+        symbol.draw(at: origin)
+    }
+
+    private func drawBrand(
+        in rect: CGRect,
+        alignment: NSTextAlignment
+    ) {
+        _ = drawText(
+            "ATHEVIA",
+            in: rect,
+            font: roundedFont(
+                size: 38,
+                weight: .black
+            ),
+            color: .white,
+            alignment: alignment,
+            kern: 1.8
+        )
+    }
+
+    @discardableResult
+    private func drawText(
+        _ text: String,
+        in rect: CGRect,
+        font: UIFont,
+        color: UIColor,
+        alignment: NSTextAlignment,
+        kern: CGFloat = 0
+    ) -> CGFloat {
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = alignment
+        paragraph.lineBreakMode = .byClipping
+
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: color,
+            .paragraphStyle: paragraph,
+            .kern: kern
+        ]
+
+        let string = NSAttributedString(
+            string: text,
+            attributes: attributes
+        )
+        let measured = string.boundingRect(
+            with: CGSize(
+                width: rect.width,
+                height: rect.height
+            ),
+            options: [
+                .usesLineFragmentOrigin,
+                .usesFontLeading
+            ],
+            context: nil
+        )
+
+        string.draw(
+            in: CGRect(
+                x: rect.minX,
+                y: rect.minY,
+                width: rect.width,
+                height: min(
+                    rect.height,
+                    ceil(measured.height)
+                )
+            )
+        )
+
+        return ceil(measured.height)
+    }
+
+    private func roundedFont(
+        size: CGFloat,
+        weight: UIFont.Weight
+    ) -> UIFont {
+        let base = UIFont.systemFont(
+            ofSize: size,
+            weight: weight
+        )
+        guard let descriptor = base.fontDescriptor
+            .withDesign(.rounded) else {
+            return base
+        }
+        return UIFont(
+            descriptor: descriptor,
+            size: size
+        )
+    }
+
+    private func displayValue(
+        for item: WorkoutShareMetric
+    ) -> String {
         switch item.label {
         case "Distance · m":
             return "\(item.value) m"
@@ -478,118 +921,11 @@ struct WorkoutShareView: View {
 
     @MainActor
     private func renderedPNGData() -> Data? {
-        let size = WorkoutShareCanvas.exportSize
-        let width = Int(size.width)
-        let height = Int(size.height)
-        let bytesPerPixel = 4
-        let bytesPerRow = width * bytesPerPixel
-
-        guard let colorSpace = CGColorSpace(
-            name: CGColorSpace.sRGB
-        ),
-        let context = CGContext(
-            data: nil,
-            width: width,
-            height: height,
-            bitsPerComponent: 8,
-            bytesPerRow: bytesPerRow,
-            space: colorSpace,
-            bitmapInfo:
-                CGImageAlphaInfo.premultipliedLast.rawValue
-                | CGBitmapInfo.byteOrder32Big.rawValue
-        ) else {
-            return nil
-        }
-
-        // Start from an explicitly transparent RGBA canvas.
-        context.clear(
-            CGRect(
-                origin: .zero,
-                size: size
-            )
-        )
-
-        let renderer = ImageRenderer(
-            content: sticker(for: layout)
-        )
-        renderer.proposedSize = ProposedViewSize(size)
-        renderer.scale = 1
-        renderer.isOpaque = false
-
-        var didRender = false
-        renderer.render { renderedSize, draw in
-            guard renderedSize.width > 0,
-                  renderedSize.height > 0 else {
-                return
-            }
-
-            draw(context)
-            didRender = true
-        }
-
-        guard didRender,
-              transparentCornersArePreserved(
-                  context: context,
-                  width: width,
-                  height: height,
-                  bytesPerRow: bytesPerRow
-              ),
-              let image = context.makeImage() else {
-            return nil
-        }
-
-        let data = NSMutableData()
-        guard let destination = CGImageDestinationCreateWithData(
-            data,
-            UTType.png.identifier as CFString,
-            1,
-            nil
-        ) else {
-            return nil
-        }
-
-        CGImageDestinationAddImage(
-            destination,
-            image,
-            [
-                kCGImagePropertyHasAlpha: true
-            ] as CFDictionary
-        )
-
-        guard CGImageDestinationFinalize(destination) else {
-            return nil
-        }
-
-        return data as Data
-    }
-
-    private func transparentCornersArePreserved(
-        context: CGContext,
-        width: Int,
-        height: Int,
-        bytesPerRow: Int
-    ) -> Bool {
-        guard let raw = context.data else {
-            return false
-        }
-
-        let bytes = raw.bindMemory(
-            to: UInt8.self,
-            capacity: bytesPerRow * height
-        )
-
-        let points = [
-            (0, 0),
-            (width - 1, 0),
-            (0, height - 1),
-            (width - 1, height - 1)
-        ]
-
-        return points.allSatisfy { x, y in
-            let offset = y * bytesPerRow + x * 4
-            let alpha = bytes[offset + 3]
-            return alpha == 0
-        }
+        WorkoutSharePNGRenderer(
+            snapshot: snapshot,
+            layout: layout,
+            route: route
+        ).pngData()
     }
 
     @MainActor
