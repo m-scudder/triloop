@@ -61,6 +61,12 @@ struct CoachLocalLLMClient {
     var timeoutSeconds: TimeInterval = 60
 
     func respond(payloadJSON: String) async throws -> CoachLLMResponse {
+        debugLog("Local model request started")
+        debugLog("Endpoint: \(configuration.endpoint.absoluteString)")
+        debugLog("Model: \(configuration.model)")
+        debugLogBlock("System prompt", CoachLocalModelPrompt.instructions)
+        debugLogBlock("Sanitized Coach payload", prettyPrintedJSON(payloadJSON) ?? payloadJSON)
+
         var request = URLRequest(url: configuration.endpoint)
         request.httpMethod = "POST"
         request.timeoutInterval = timeoutSeconds
@@ -78,19 +84,66 @@ struct CoachLocalLLMClient {
 
         request.httpBody = try JSONEncoder().encode(body)
 
+        let startedAt = Date()
         let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse,
-              (200..<300).contains(httpResponse.statusCode) else {
+        let elapsed = Date().timeIntervalSince(startedAt)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            debugLog("Local model response had no HTTP status")
+            throw CoachLLMError.unavailable
+        }
+
+        debugLog("HTTP status: \(httpResponse.statusCode) in \(String(format: "%.2f", elapsed))s")
+        debugLogBlock("Raw Ollama HTTP response", String(data: data, encoding: .utf8) ?? "<non-UTF8 response>")
+
+        guard (200..<300).contains(httpResponse.statusCode) else {
+            debugLog("Local model request rejected by server")
             throw CoachLLMError.unavailable
         }
 
         let decoded = try JSONDecoder().decode(ResponseBody.self, from: data)
         guard let output = decoded.choices.first?.message.content,
               let outputData = output.data(using: .utf8) else {
+            debugLog("Local model response contained no assistant content")
             throw CoachLLMError.invalidResponse
         }
 
-        return try CoachLLMResponseGuard.decodeAndValidate(outputData)
+        debugLogBlock("Assistant content", output)
+
+        do {
+            let validated = try CoachLLMResponseGuard.decodeAndValidate(outputData)
+            debugLog("Local response accepted by CoachLLMResponseGuard")
+            debugLog("Response kind: \(validated.kind.rawValue)")
+            return validated
+        } catch {
+            debugLog("Local response rejected by CoachLLMResponseGuard: \(String(describing: error))")
+            throw error
+        }
+    }
+
+    private func debugLog(_ message: String) {
+        print("[CoachAI][Local] \(message)")
+    }
+
+    private func debugLogBlock(_ title: String, _ value: String) {
+        print("""
+        [CoachAI][Local] ----- \(title) -----
+        \(value)
+        [CoachAI][Local] ----- End \(title) -----
+        """)
+    }
+
+    private func prettyPrintedJSON(_ value: String) -> String? {
+        guard let data = value.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data),
+              let prettyData = try? JSONSerialization.data(
+                withJSONObject: object,
+                options: [.prettyPrinted, .sortedKeys]
+              ) else {
+            return nil
+        }
+
+        return String(data: prettyData, encoding: .utf8)
     }
 }
 
