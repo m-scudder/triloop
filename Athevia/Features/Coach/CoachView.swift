@@ -106,21 +106,17 @@ struct CoachView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button {
+                    Button("History") {
                         isComposerFocused = false
                         refreshConversations()
                         showsHistory = true
-                    } label: {
-                        Image(systemName: "clock.arrow.circlepath")
                     }
                     .accessibilityLabel("Conversation history")
                 }
 
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
+                    Button("New") {
                         startNewConversation()
-                    } label: {
-                        Image(systemName: "square.and.pencil")
                     }
                     .disabled(isWorking || preview != nil)
                     .accessibilityLabel("New conversation")
@@ -171,19 +167,14 @@ struct CoachView: View {
     }
 
     private var coachWelcome: some View {
-        HStack(alignment: .center, spacing: 14) {
-            coachMark(size: 48)
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Athevia Coach")
-                    .font(.title2.weight(.bold))
-                Text("Ask about your training or adjust your plan.")
-                    .font(.subheadline)
-                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
-            }
-
-            Spacer(minLength: 0)
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Athevia Coach")
+                .font(.title2.weight(.bold))
+            Text("Ask about your training or adjust your plan.")
+                .font(.subheadline)
+                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
@@ -196,31 +187,16 @@ struct CoachView: View {
     }
 
     private var conversationHeader: some View {
-        HStack(spacing: 10) {
-            coachMark(size: 34)
-            VStack(alignment: .leading, spacing: 1) {
-                Text("Athevia Coach")
-                    .font(.subheadline.weight(.semibold))
-                Text("Uses your current plan and available training evidence")
-                    .font(.caption)
-                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
-                    .lineLimit(1)
-            }
-            Spacer(minLength: 0)
+        VStack(alignment: .leading, spacing: 1) {
+            Text("Athevia Coach")
+                .font(.subheadline.weight(.semibold))
+            Text("Uses your current plan and available training evidence")
+                .font(.caption)
+                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+                .lineLimit(1)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.bottom, 2)
-    }
-
-    private func coachMark(size: CGFloat) -> some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: size * 0.30, style: .continuous)
-                .fill(theme.color(.accent, classic: Color.actionSurface))
-            Image(systemName: "figure.run")
-                .font(.system(size: size * 0.43, weight: .semibold))
-                .foregroundStyle(theme.color(.onAccent, classic: Color.onActionSurface))
-        }
-        .frame(width: size, height: size)
-        .accessibilityHidden(true)
     }
 
     private var suggestedQuestions: some View {
@@ -236,9 +212,6 @@ struct CoachView: View {
                         Task { await submit(suggestion) }
                     } label: {
                         VStack(alignment: .leading, spacing: 10) {
-                            Image(systemName: suggestionIcon(index))
-                                .font(.body.weight(.semibold))
-                                .foregroundStyle(theme.color(.accent, classic: .primary))
                             Text(suggestion)
                                 .font(.subheadline.weight(.medium))
                                 .foregroundStyle(.primary)
@@ -264,17 +237,6 @@ struct CoachView: View {
         }
     }
 
-    private func suggestionIcon(_ index: Int) -> String {
-        switch index {
-        case 0: "waveform.path.ecg.rectangle"
-        case 1: "sparkles"
-        case 2: "questionmark.circle"
-        case 3: "calendar.badge.clock"
-        case 4: "calendar.badge.minus"
-        default: "airplane"
-        }
-    }
-
     @ViewBuilder
     private func messageRow(_ message: Message) -> some View {
         if message.role == .athlete {
@@ -293,8 +255,6 @@ struct CoachView: View {
             }
         } else {
             HStack(alignment: .top, spacing: 10) {
-                coachMark(size: 30)
-
                 VStack(alignment: .leading, spacing: 8) {
                     Text(message.text)
                         .font(.body)
@@ -332,7 +292,6 @@ struct CoachView: View {
 
     private var thinkingRow: some View {
         HStack(alignment: .center, spacing: 10) {
-            coachMark(size: 30)
             HStack(spacing: 8) {
                 ProgressView()
                     .controlSize(.small)
