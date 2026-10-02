@@ -77,9 +77,7 @@ struct WorkoutImportService {
             let recorded = PlannedWorkout(
                 date: calendar.startOfDay(for: activity.startDate),
                 discipline: activity.discipline,
-                title: activity.discipline == .multisport
-                    ? "Recorded Multisport"
-                    : "Recorded \(activity.sport.displayName)",
+                title: activity.discipline.displayName,
                 origin: .imported
             )
             let summary = ImportedWorkoutSummary(activity)
@@ -160,9 +158,7 @@ struct WorkoutImportService {
             let recorded = PlannedWorkout(
                 date: calendar.startOfDay(for: summary.startDate),
                 discipline: summary.discipline,
-                title: summary.discipline == .multisport
-                    ? "Recorded Multisport"
-                    : "Recorded \(summary.sport.displayName)",
+                title: summary.discipline.displayName,
                 origin: .imported
             )
             context.insert(recorded)
