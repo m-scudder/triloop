@@ -106,17 +106,21 @@ struct CoachView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("History") {
+                    Button {
                         isComposerFocused = false
                         refreshConversations()
                         showsHistory = true
+                    } label: {
+                        Image(systemName: "clock.arrow.circlepath")
                     }
                     .accessibilityLabel("Conversation history")
                 }
 
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("New") {
+                    Button {
                         startNewConversation()
+                    } label: {
+                        Image(systemName: "square.and.pencil")
                     }
                     .disabled(isWorking || preview != nil)
                     .accessibilityLabel("New conversation")
@@ -572,22 +576,30 @@ struct CoachView: View {
                     .onSubmit(sendDraft)
                     .disabled(isWorking || preview != nil)
 
-                Button("Send", action: sendDraft)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(theme.color(.accent, classic: Color.actionSurface))
-                    .opacity(
-                        draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                            ? 0.4
-                            : 1
-                    )
-                    .padding(.horizontal, 4)
-                    .padding(.vertical, 12)
-                    .buttonStyle(.plain)
-                    .disabled(
-                        isWorking
-                            || preview != nil
-                            || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                    )
+                Button(action: sendDraft) {
+                    Image(systemName: "arrow.up")
+                        .font(.subheadline.weight(.bold))
+                        .frame(width: 38, height: 38)
+                        .foregroundStyle(theme.color(.onAccent, classic: Color.onActionSurface))
+                        .background(
+                            theme.color(.accent, classic: Color.actionSurface),
+                            in: Circle()
+                        )
+                }
+                .buttonStyle(.plain)
+                .disabled(
+                    isWorking
+                        || preview != nil
+                        || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                )
+                .opacity(
+                    isWorking
+                        || preview != nil
+                        || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        ? 0.4
+                        : 1
+                )
+                .accessibilityLabel("Send")
             }
 
             if preview != nil {
