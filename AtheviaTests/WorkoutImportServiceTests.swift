@@ -170,6 +170,43 @@ struct WorkoutImportServiceTests {
         #expect(plan.trainingSessions.filter { $0.origin == .imported }.count == 1)
     }
 
+
+    @Test("A Watch swim started early stays on its actual date")
+    func earlyWatchSwimBecomesRecordedWorkoutToday() async throws {
+        let context = try makeContext()
+        let plan = seededPlan(in: context)
+        let plannedSwim = try #require(plan.orderedWorkouts.first { $0.discipline == .swimming })
+        let actualStart = day(0, hour: 18)
+
+        let imported = ImportedWorkout(
+            healthKitUUID: UUID(),
+            sport: .swimming,
+            startDate: actualStart,
+            endDate: actualStart.addingTimeInterval(1_200),
+            duration: 1_200,
+            distanceMeters: 500,
+            plannedWorkoutID: plannedSwim.id,
+            source: "com.mayankagarwal.athevia.watch"
+        )
+
+        let outcome = try await service(context, [imported]).importWorkouts(for: plan)
+
+        #expect(outcome.matched == 0)
+        #expect(outcome.unrecognised == 1)
+        #expect(!plannedSwim.isCompleted)
+        #expect(plannedSwim.importedSummary == nil)
+
+        let recorded = try #require(
+            plan.trainingSessions.first {
+                $0.origin == .imported
+                    && $0.discipline == .swimming
+                    && calendar.isDate($0.date, inSameDayAs: actualStart)
+            }
+        )
+        #expect(recorded.isCompleted)
+        #expect(recorded.importedSummary?.healthKitUUID == imported.healthKitUUID)
+    }
+
     @Test("A short unmatched activity does not complete a longer prescription")
     func shortSessionReducesTheLoad() async throws {
         let context = try makeContext()
