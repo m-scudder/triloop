@@ -81,15 +81,7 @@ struct AccountAccessView: View {
                         .tracking(-1)
 
                     Text("Train. Learn. Adapt.")
-                        .font(.title3.weight(.semibold))
-
-                    Text("Adaptive training for running, cycling and swimming — built around what you actually do.")
-                        .font(.subheadline)
-                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
-                        .multilineTextAlignment(.center)
-                        .lineSpacing(3)
-                        .frame(maxWidth: 360)
-                }
+                        .font(.title3.weight(.semibold))                }
             }
 
             Spacer(minLength: 44)
@@ -103,19 +95,7 @@ struct AccountAccessView: View {
                         replaceLocalData: true
                     )
                 }
-                .frame(maxWidth: 420)
-
-                Text("Sign in to keep your training and automatic cloud backup tied to your account.")
-                    .font(.caption)
-                    .foregroundStyle(
-                        AtheviaAdaptiveStyle(
-                            .secondary,
-                            gaming: .secondaryText
-                        )
-                    )
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: 360)
-            }
+                .frame(maxWidth: 420)            }
 
             Spacer(minLength: 24)
         }
