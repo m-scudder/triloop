@@ -98,6 +98,39 @@ struct WorkoutImportServiceTests {
         #expect(try context.fetch(FetchDescriptor<ImportedWorkoutSummary>()).count == 2)
     }
 
+
+    @Test("Historical import creates standalone completed Run Swim and Cycle workouts")
+    func historicalImportIsStandaloneAndIdempotent() async throws {
+        let context = try makeContext()
+        let workouts = [
+            activity(.running, on: -30, duration: 1_800, distance: 5_000),
+            activity(.swimming, on: -20, duration: 1_200, distance: 600),
+            activity(.cycling, on: -10, duration: 2_400, distance: 15_000)
+        ]
+        let importer = service(context, workouts)
+
+        let first = try await importer.importHistoricalWorkouts(
+            from: day(-40, hour: 0),
+            to: day(0, hour: 23)
+        )
+        let second = try await importer.importHistoricalWorkouts(
+            from: day(-40, hour: 0),
+            to: day(0, hour: 23)
+        )
+
+        let stored = try context.fetch(FetchDescriptor<PlannedWorkout>())
+            .filter { $0.origin == .imported }
+            .sorted { $0.date < $1.date }
+
+        #expect(first.unrecognised == 3)
+        #expect(second.unrecognised == 0)
+        #expect(second.alreadyKnown == 3)
+        #expect(stored.count == 3)
+        #expect(stored.allSatisfy { $0.plan == nil })
+        #expect(stored.allSatisfy(\.isCompleted))
+        #expect(stored.map(\.title) == ["Run", "Swim", "Cycle"])
+    }
+
     @Test("Workouts from before Start Over are not re-imported")
     func resetBoundaryBlocksOldHealthWorkouts() async throws {
         let context = try makeContext()
