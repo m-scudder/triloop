@@ -256,7 +256,10 @@ struct CoachLLMService {
                 }
             ),
             recentWorkoutHistory: Array(history),
-            recentMessages: CoachLLMContextCompactor.conversation(from: recentMessages)
+            recentMessages: CoachLLMContextCompactor.conversation(
+                from: recentMessages,
+                excludingCurrentRequest: request
+            )
         )
 
         let encoder = JSONEncoder()
@@ -272,6 +275,12 @@ struct CoachLLMService {
         }
 
         #if DEBUG
+        print(
+            "[CoachAI] Compacted payload: \(data.count) bytes; " +
+            "\(history.count) workout records; " +
+            "\(CoachLLMContextCompactor.conversation(from: recentMessages, excludingCurrentRequest: request).count) prior chat turns"
+        )
+
         if let localConfiguration = CoachLocalLLMConfiguration.current {
             print("[CoachAI] Local model is enabled")
             do {
