@@ -259,6 +259,20 @@ struct CoachLLMService {
             throw CoachLLMError.invalidResponse
         }
 
+        #if DEBUG
+        if let localConfiguration = CoachLocalLLMConfiguration.current {
+            do {
+                return try await CoachLocalLLMClient(
+                    configuration: localConfiguration
+                ).respond(payloadJSON: json)
+            } catch {
+                // Debug local inference is best-effort. If the model server is
+                // unavailable or returns an invalid shape, preserve the normal
+                // authenticated Supabase/OpenAI path as fallback.
+            }
+        }
+        #endif
+
         do {
             let data: Data = try await client.functions.invoke(
                 functionName,
