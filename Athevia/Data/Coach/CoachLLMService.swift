@@ -81,16 +81,61 @@ struct CoachLLMService {
         plans: [WeeklyPlan],
         recentMessages: [CoachChatMessage]
     ) async throws -> CoachLLMResponse {
+        struct WorkoutPayload: Codable {
+            let date: Date
+            let discipline: Discipline
+            let title: String
+            let goal: String
+            let status: PlannedWorkoutStatus
+            let targetRPE: RPERange?
+            let plannedDurationSeconds: TimeInterval?
+            let plannedDistanceMeters: Double?
+        }
+
         struct PlanPayload: Codable {
-            let id: UUID
             let weekNumber: Int
             let startDate: Date
             let endDate: Date
-            let workouts: [CoachWorkoutSnapshot]
+            let workouts: [WorkoutPayload]
+        }
+
+        struct HealthWorkoutPayload: Codable {
+            let sport: Sport
+            let startDate: Date
+            let endDate: Date
+            let durationSeconds: TimeInterval
+            let distanceMeters: Double?
+            let longestContinuousSwimMeters: Double?
+            let evidenceKind: CoachEvidenceKind
+        }
+
+        struct RecoveryPayload: Codable {
+            let metric: String
+            let value: Double
+            let unit: String
+            let observedAt: Date
+            let sampleCount: Int
+            let evidenceKind: CoachEvidenceKind
+        }
+
+        struct ContextPayload: Codable {
+            let generatedAt: Date
+            let windowStart: Date
+            let windowEnd: Date
+            let trainingObjective: TrainingObjective
+            let experienceLevel: ExperienceLevel
+            let baseline: CoachBaselineContext
+            let availableSports: [Sport]
+            let availability: [CoachAvailabilityContext]
+            let capability: CoachCapabilityContext
+            let recentWeeks: [CoachWeekHistoryContext]
+            let recentHealthWorkouts: [HealthWorkoutPayload]
+            let recoveryEvidence: [RecoveryPayload]
+            let healthAccess: CoachHealthAccess
+            let caveats: [String]
         }
 
         struct WorkoutHistoryPayload: Codable {
-            let id: UUID
             let date: Date
             let title: String
             let discipline: Discipline
@@ -107,7 +152,7 @@ struct CoachLLMService {
 
         struct Payload: Codable {
             let request: String
-            let context: AthleteContextSnapshot
+            let context: ContextPayload
             let currentPlan: PlanPayload
             let recentWorkoutHistory: [WorkoutHistoryPayload]
             let recentMessages: [CoachChatMessage]
@@ -121,7 +166,6 @@ struct CoachLLMService {
             .prefix(40)
             .map { workout in
                 WorkoutHistoryPayload(
-                    id: workout.id,
                     date: workout.date,
                     title: workout.title,
                     discipline: workout.discipline,
@@ -137,15 +181,67 @@ struct CoachLLMService {
                 )
             }
 
+        guard CoachRequestScopeGuard.allows(request, recentMessages: recentMessages) else {
+            throw CoachLLMError.rejected(
+                "Athevia Coach can only help with your workout plan and workout history."
+            )
+        }
+
+        let sanitizedContext = ContextPayload(
+            generatedAt: context.generatedAt,
+            windowStart: context.windowStart,
+            windowEnd: context.windowEnd,
+            trainingObjective: context.trainingObjective,
+            experienceLevel: context.experienceLevel,
+            baseline: context.baseline,
+            availableSports: context.availableSports,
+            availability: context.availability,
+            capability: context.capability,
+            recentWeeks: context.recentWeeks,
+            recentHealthWorkouts: context.recentHealthWorkouts.map {
+                HealthWorkoutPayload(
+                    sport: $0.sport,
+                    startDate: $0.startDate,
+                    endDate: $0.endDate,
+                    durationSeconds: $0.durationSeconds,
+                    distanceMeters: $0.distanceMeters,
+                    longestContinuousSwimMeters: $0.longestContinuousSwimMeters,
+                    evidenceKind: $0.evidenceKind
+                )
+            },
+            recoveryEvidence: context.recoveryEvidence.map {
+                RecoveryPayload(
+                    metric: $0.metric,
+                    value: $0.value,
+                    unit: $0.unit,
+                    observedAt: $0.observedAt,
+                    sampleCount: $0.sampleCount,
+                    evidenceKind: $0.evidenceKind
+                )
+            },
+            healthAccess: context.healthAccess,
+            caveats: context.caveats
+        )
+
         let payload = Payload(
             request: String(request.prefix(1_200)),
-            context: context,
+            context: sanitizedContext,
             currentPlan: PlanPayload(
-                id: currentPlan.id,
                 weekNumber: currentPlan.weekNumber,
                 startDate: currentPlan.startDate,
                 endDate: currentPlan.endDate,
-                workouts: currentPlan.orderedWorkouts.map(CoachWorkoutSnapshot.init)
+                workouts: currentPlan.orderedWorkouts.map {
+                    WorkoutPayload(
+                        date: $0.date,
+                        discipline: $0.discipline,
+                        title: $0.title,
+                        goal: $0.goal,
+                        status: $0.status,
+                        targetRPE: $0.targetRPE,
+                        plannedDurationSeconds: $0.estimatedDurationSeconds,
+                        plannedDistanceMeters: $0.estimatedDistanceMeters
+                    )
+                }
             ),
             recentWorkoutHistory: Array(history),
             recentMessages: Array(recentMessages.suffix(12))
@@ -164,45 +260,19 @@ struct CoachLLMService {
         }
 
         do {
-            let response: CoachLLMResponse = try await client.functions.invoke(
+            let data: Data = try await client.functions.invoke(
                 functionName,
                 options: FunctionInvokeOptions(
                     body: CoachLLMRequest(payload: json),
                     timeoutInterval: 20
-                )
+                ),
+                decode: { data, _ in data }
             )
-            return try validate(response)
+            return try CoachLLMResponseGuard.decodeAndValidate(data)
+        } catch let error as CoachLLMError {
+            throw error
         } catch {
             throw CoachLLMError.unavailable
         }
-    }
-
-    private func validate(_ response: CoachLLMResponse) throws -> CoachLLMResponse {
-        let message = response.message.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !message.isEmpty, message.count <= 5_000 else {
-            throw CoachLLMError.invalidResponse
-        }
-
-        switch response.kind {
-        case .analysis:
-            guard response.workout == nil, response.intent == nil else {
-                throw CoachLLMError.invalidResponse
-            }
-
-        case .workoutProposal:
-            guard let workout = response.workout,
-                  response.intent == nil,
-                  (10...180).contains(workout.targetMinutes),
-                  !workout.goal.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                throw CoachLLMError.invalidResponse
-            }
-
-        case .deterministicIntent:
-            guard response.intent != nil, response.workout == nil else {
-                throw CoachLLMError.invalidResponse
-            }
-        }
-
-        return response
     }
 }
