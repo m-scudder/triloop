@@ -1,25 +1,19 @@
 import SwiftData
 import SwiftUI
 
-/// Browser for the athlete's real HealthKit workout history.
+/// Browser for the athlete's complete Apple Health workout history.
 ///
-/// Shows everything Health contains. Run, Cycle and Swim can be explicitly
-/// imported as standalone completed Athevia activities; browsing alone never
-/// matches a workout to a training-plan day.
+/// Every HealthKit workout type is shown. The compact calendar intentionally
+/// highlights only Run, Cycle and Swim so it stays consistent with Plan.
 struct WorkoutHistoryView: View {
     @Environment(\.healthProvider) private var provider
-    @Environment(\.modelContext) private var modelContext
-
-    @State private var range: HistoryRange = .sixMonths
+    @State private var range: HistoryRange = .everything
     @State private var state: LoadState = .idle
     @State private var query = ""
     @State private var sportFilter: SportFilter = .all
     @Query private var profiles: [AthleteProfile]
     @State private var analysisSessions: [LoadedSession] = []
     @State private var selectedHistoryDate = Date.now
-    @State private var isImportingHistory = false
-    @State private var importHistoryMessage: String?
-    @Query private var importedSummaries: [ImportedWorkoutSummary]
 
     enum SportFilter: String, CaseIterable, Identifiable {
         case all = "All"
@@ -93,7 +87,7 @@ struct WorkoutHistoryView: View {
                 }
                 .pickerStyle(.segmented)
             } footer: {
-                Text("Browsing is read-only. Use the Training history section to explicitly import Run, Cycle and Swim workouts; they are not matched to training-plan days.")
+                Text("Shows workouts directly from Apple Health. The calendar highlights Run, Cycle and Swim; the history list below includes every workout type Health returns.")
             }
 
             Section {
@@ -279,11 +273,7 @@ struct WorkoutHistoryView: View {
                 } else {
                     ForEach(selected) { record in
                         NavigationLink {
-                            if let imported = importedWorkout(for: record) {
-                                WorkoutDayDetail(workout: imported)
-                            } else {
-                                HealthWorkoutDetailView(record: record)
-                            }
+                            HealthWorkoutDetailView(record: record)
                         } label: {
                             HStack(spacing: 10) {
                                 Image(systemName: record.sport?.discipline.symbolName ?? "figure.mixed.cardio")
@@ -305,107 +295,18 @@ struct WorkoutHistoryView: View {
 
                                 Spacer()
 
-                                if importedWorkout(for: record) != nil {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .foregroundStyle(.green)
-                                        .accessibilityLabel("Imported")
-                                } else {
-                                    Image(systemName: "chevron.right")
-                                        .font(.caption)
-                                        .foregroundStyle(.tertiary)
-                                }
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundStyle(.tertiary)
                             }
                         }
                     }
                 }
 
-                Button {
-                    importHistoricalWorkouts()
-                } label: {
-                    HStack {
-                        if isImportingHistory {
-                            ProgressView()
-                        }
-                        Text(
-                            isImportingHistory
-                                ? "Importing…"
-                                : "Import Run, Cycle & Swim"
-                        )
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-                .disabled(isImportingHistory)
-
-                if let importHistoryMessage {
-                    Text(importHistoryMessage)
-                        .font(.caption)
-                        .foregroundStyle(
-                            AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText)
-                        )
-                }
             } header: {
-                Text("Training history")
+                Text("Run · Cycle · Swim")
             } footer: {
-                Text(
-                    "Imports completed Run, Cycle and Swim workouts from Apple Health without attaching them to a training-plan day."
-                )
-            }
-        }
-    }
-
-    private func importedWorkout(
-        for record: HealthWorkoutRecord
-    ) -> PlannedWorkout? {
-        importedSummaries.first {
-            $0.healthKitUUID == record.id
-        }?.workout
-    }
-
-    private func historySummary(_ record: HealthWorkoutRecord) -> String {
-        var parts = [
-            Duration.seconds(record.duration)
-                .formatted(.time(pattern: .hourMinute))
-        ]
-
-        if let distance = record.distanceMeters {
-            parts.append(TrainingFormatter.distance(meters: distance))
-        }
-
-        if let heartRate = record.averageHeartRate {
-            parts.append("\(Int(heartRate.rounded())) bpm")
-        }
-
-        return parts.joined(separator: " · ")
-    }
-
-    private func importHistoricalWorkouts() {
-        guard !isImportingHistory else { return }
-
-        isImportingHistory = true
-        importHistoryMessage = nil
-
-        Task { @MainActor in
-            defer { isImportingHistory = false }
-
-            do {
-                let end = Date.now
-                let start = range.startDate(endingAt: end)
-                let service = WorkoutImportService(
-                    context: modelContext,
-                    provider: provider
-                )
-                let outcome = try await service.importHistoricalWorkouts(
-                    from: start,
-                    to: end
-                )
-
-                if outcome.unrecognised > 0 {
-                    importHistoryMessage = "Imported \(outcome.unrecognised) workout\(outcome.unrecognised == 1 ? "" : "s")."
-                } else {
-                    importHistoryMessage = "All Run, Cycle and Swim workouts in this range are already imported."
-                }
-            } catch {
-                importHistoryMessage = "Could not import workout history from Apple Health."
+                Text("Tap a highlighted day to inspect the workouts Apple Health recorded on that date.")
             }
         }
     }
