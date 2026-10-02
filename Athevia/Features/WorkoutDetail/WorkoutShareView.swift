@@ -16,7 +16,7 @@ private enum WorkoutShareStyle: String, CaseIterable, Identifiable {
     }
 
     static let exportSize = CGSize(width: 1080, height: 1350)
-    static let routeSize = CGSize(width: 952, height: 620)
+    static let routeSize = CGSize(width: 952, height: 650)
 }
 
 private struct WorkoutShareCard: View {
@@ -33,59 +33,27 @@ private struct WorkoutShareCard: View {
                 Color.black
             }
 
-            VStack(alignment: .leading, spacing: 30) {
-                HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Athevia")
-                            .font(.system(size: 34, weight: .bold, design: .rounded))
-
-                        Text(snapshot.title)
-                            .font(.system(size: 54, weight: .bold))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.7)
-
-                        Text(TrainingFormatter.shortDate(snapshot.date, includeYear: true))
-                            .font(.system(size: 24, weight: .medium))
-                            .foregroundStyle(.white.opacity(0.72))
-                    }
-
-                    Spacer()
-
-                    Image(systemName: snapshot.discipline.symbolName)
-                        .font(.system(size: 42, weight: .semibold))
-                        .foregroundStyle(.orange)
-                }
+            VStack(alignment: .leading, spacing: 0) {
+                header
 
                 if hasRoute {
-                    Group {
-                        if style == .card, let mapImage {
-                            Image(uiImage: mapImage)
-                                .resizable()
-                                .scaledToFill()
-                                .frame(
-                                    width: WorkoutShareStyle.routeSize.width,
-                                    height: WorkoutShareStyle.routeSize.height
-                                )
-                                .clipped()
-                                .clipShape(.rect(cornerRadius: 24))
-                        } else {
-                            WorkoutShareRouteShape(route: route, color: .orange)
-                                .frame(height: WorkoutShareStyle.routeSize.height)
-                        }
-                    }
+                    routeHero
+                        .padding(.top, 38)
                 } else {
-                    Spacer(minLength: 0)
+                    Spacer(minLength: 90)
                 }
 
-                Spacer(minLength: 0)
+                Spacer(minLength: hasRoute ? 42 : 120)
 
-                HStack(alignment: .top, spacing: 26) {
-                    metrics
-                }
+                metricRow
+
+                Spacer(minLength: 38)
+
+                brand
             }
             .padding(.horizontal, 64)
-            .padding(.top, 70)
-            .padding(.bottom, 72)
+            .padding(.top, 66)
+            .padding(.bottom, 54)
         }
         .foregroundStyle(.white)
         .frame(
@@ -97,49 +65,99 @@ private struct WorkoutShareCard: View {
         .environment(\.dynamicTypeSize, .large)
     }
 
-    @ViewBuilder
-    private var metrics: some View {
-        if let distance = snapshot.distanceText {
-            metric(distance, label: snapshot.distanceLabel)
-        }
+    private var header: some View {
+        HStack(alignment: .top, spacing: 24) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(snapshot.title)
+                    .font(.system(size: 58, weight: .bold, design: .rounded))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
 
-        if let duration = snapshot.durationText {
-            metric(duration, label: "Time")
-        }
+                Text(TrainingFormatter.shortDate(snapshot.date, includeYear: true))
+                    .font(.system(size: 25, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.70))
+            }
 
-        if let pace = snapshot.paceOrSpeed {
-            metric(pace, label: snapshot.paceLabel)
-        }
+            Spacer(minLength: 24)
 
-        if snapshot.distanceText == nil,
-           snapshot.durationText == nil,
-           snapshot.paceOrSpeed == nil {
-            Text("Workout completed")
+            Image(systemName: snapshot.discipline.symbolName)
                 .font(.system(size: 42, weight: .semibold))
+                .symbolRenderingMode(.monochrome)
+                .foregroundStyle(.orange)
+                .frame(width: 66, height: 66)
+                .background(.white.opacity(style == .card ? 0.08 : 0.14), in: .circle)
         }
     }
 
-    private func metric(_ value: String, label: String) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Text(value)
-                .font(.system(size: 58, weight: .bold, design: .rounded))
-                .monospacedDigit()
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-
-            Text(label)
-                .font(.system(size: 22, weight: .medium))
-                .foregroundStyle(.white.opacity(0.72))
+    @ViewBuilder
+    private var routeHero: some View {
+        if style == .card, let mapImage {
+            Image(uiImage: mapImage)
+                .resizable()
+                .scaledToFill()
+                .frame(
+                    width: WorkoutShareStyle.routeSize.width,
+                    height: WorkoutShareStyle.routeSize.height
+                )
+                .clipped()
+                .clipShape(.rect(cornerRadius: 30))
+        } else {
+            WorkoutShareRouteShape(route: route, color: .orange)
+                .frame(
+                    width: WorkoutShareStyle.routeSize.width,
+                    height: WorkoutShareStyle.routeSize.height
+                )
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private var metricRow: some View {
+        if snapshot.metrics.isEmpty {
+            Text("Workout completed")
+                .font(.system(size: 44, weight: .semibold, design: .rounded))
+        } else {
+            HStack(alignment: .top, spacing: 28) {
+                ForEach(snapshot.metrics) { metric in
+                    VStack(alignment: .leading, spacing: 7) {
+                        Text(metric.value)
+                            .font(.system(size: 58, weight: .bold, design: .rounded))
+                            .monospacedDigit()
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.55)
+
+                        Text(metric.label)
+                            .font(.system(size: 21, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.68))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.72)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+        }
+    }
+
+    private var brand: some View {
+        HStack(spacing: 9) {
+            Image(systemName: "point.3.connected.trianglepath.dotted")
+                .font(.system(size: 20, weight: .semibold))
+
+            Text("ATHEVIA")
+                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .tracking(2.4)
+        }
+        .foregroundStyle(.white.opacity(0.70))
+        .accessibilityElement(children: .combine)
     }
 }
 
 struct WorkoutShareView: View {
     let workout: PlannedWorkout
     var titleOverride: String? = nil
+
     @Environment(\.dismiss) private var dismiss
     @Environment(\.healthProvider) private var health
+
     @State private var style: WorkoutShareStyle = .card
     @State private var loadedRoute: [RecordedRoutePoint] = []
     @State private var routeRevision = 0
@@ -161,9 +179,11 @@ struct WorkoutShareView: View {
     private var snapshot: WorkoutShareSnapshot {
         WorkoutShareSnapshot(workout: workout, titleOverride: titleOverride)
     }
+
     private var route: WorkoutShareRoute {
         WorkoutShareRoute(points: loadedRoute.isEmpty ? snapshot.route : loadedRoute)
     }
+
     private var mapRequest: String {
         "\(style.rawValue)-\(routeRevision)-\(mapRetry)"
     }
@@ -171,16 +191,19 @@ struct WorkoutShareView: View {
     private var canShare: Bool {
         !isExporting
             && !isLoadingRoute
-            && (style != .card || !route.hasRoute || (preparedMapRequest == mapRequest && !isLoadingMap))
+            && (style != .card
+                || !route.hasRoute
+                || (preparedMapRequest == mapRequest && !isLoadingMap))
     }
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 18) {
+                VStack(spacing: 16) {
                     preview
-                        .frame(maxWidth: previewMaxWidth)
+                        .frame(maxWidth: 360)
                         .frame(maxWidth: .infinity)
+
                     Picker("Style", selection: $style) {
                         ForEach(WorkoutShareStyle.allCases) { style in
                             Text(style.title).tag(style)
@@ -188,88 +211,65 @@ struct WorkoutShareView: View {
                     }
                     .pickerStyle(.segmented)
 
-                    if style == .transparent {
-                        Text("Transparent PNG for layering over Reels or your own media.")
-                            .font(.caption)
-                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-
-                    if isLoadingRoute {
+                    if mapFailed, style == .card, route.hasRoute {
                         HStack(spacing: 8) {
-                            ProgressView().controlSize(.small)
-                            Text("Checking for GPS route…")
+                            Text("Map unavailable. Route-only card will be used.")
                                 .font(.caption)
-                                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+                                .foregroundStyle(
+                                    AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText)
+                                )
+
+                            Spacer()
+
+                            Button("Retry") {
+                                mapRetry += 1
+                            }
+                            .font(.caption.weight(.semibold))
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    } else if !route.hasRoute, let routeMessage {
+                    } else if let routeMessage, !route.hasRoute {
                         Text(routeMessage)
                             .font(.caption)
-                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+                            .foregroundStyle(
+                                AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText)
+                            )
                             .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-
-                    if mapFailed, style == .card, route.hasRoute {
-                        HStack {
-                            Text("Map unavailable. Your route will still be shared.")
-                                .font(.caption)
-                                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
-                            Spacer()
-                            Button("Retry") { mapRetry += 1 }
-                        }
                     }
                 }
                 .padding(20)
             }
             .safeAreaInset(edge: .bottom) {
-                VStack(spacing: 8) {
-                    HStack(spacing: 10) {
-                        Button(action: saveToPhotos) {
-                            Label(
-                                isSavingToPhotos ? "Saving…" : "Save to Photos",
-                                systemImage: "square.and.arrow.down"
-                            )
-                        }
-                        .buttonStyle(SecondaryActionButtonStyle())
-                        .disabled(!canShare || isSavingToPhotos)
-
-                        Button(action: exportCard) {
-                            Label("Share workout", systemImage: "square.and.arrow.up")
-                        }
-                        .buttonStyle(PrimaryActionButtonStyle())
-                        .disabled(!canShare || isSavingToPhotos)
-                    }
-
-                    if let saveMessage {
-                        Text(saveMessage)
-                            .font(.caption)
-                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
-                    }
-                }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 12)
-                .background(AtheviaAdaptiveStyle(.bar, gaming: .surface))
+                actions
             }
             .atheviaScreen()
             .navigationTitle("Share workout")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }
+                    Button("Close") {
+                        dismiss()
+                    }
                 }
             }
-            .task(id: routeRequest) { await loadRoute() }
-            .task(id: mapRequest) { await loadMap() }
+            .task(id: routeRequest) {
+                await loadRoute()
+            }
+            .task(id: mapRequest) {
+                await loadMap()
+            }
             .sheet(item: $exportedFile, onDismiss: removeExport) { file in
                 WorkoutActivityView(file: file.url)
                     .presentationDetents([.medium, .large])
             }
-            .alert("Couldn't prepare your share", isPresented: Binding(
-                get: { exportError != nil },
-                set: { if !$0 { exportError = nil } }
-            )) {
-                Button("OK", role: .cancel) { exportError = nil }
+            .alert(
+                "Couldn't prepare your share",
+                isPresented: Binding(
+                    get: { exportError != nil },
+                    set: { if !$0 { exportError = nil } }
+                )
+            ) {
+                Button("OK", role: .cancel) {
+                    exportError = nil
+                }
             } message: {
                 Text(exportError ?? "Please try again.")
             }
@@ -289,17 +289,32 @@ struct WorkoutShareView: View {
     private var preview: some View {
         GeometryReader { geometry in
             card
-                .scaleEffect(geometry.size.width / WorkoutShareStyle.exportSize.width, anchor: .topLeading)
-                .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
+                .scaleEffect(
+                    geometry.size.width / WorkoutShareStyle.exportSize.width,
+                    anchor: .topLeading
+                )
+                .frame(
+                    width: geometry.size.width,
+                    height: geometry.size.height,
+                    alignment: .topLeading
+                )
         }
-        .aspectRatio(WorkoutShareStyle.exportSize.width / WorkoutShareStyle.exportSize.height, contentMode: .fit)
+        .aspectRatio(
+            WorkoutShareStyle.exportSize.width / WorkoutShareStyle.exportSize.height,
+            contentMode: .fit
+        )
         .background {
-            if style == .transparent { CheckerboardBackground() }
+            if style == .transparent {
+                CheckerboardBackground()
+            }
         }
-        .clipShape(.rect(cornerRadius: 18))
+        .clipShape(.rect(cornerRadius: 20))
         .overlay(alignment: .center) {
             if isLoadingRoute || isLoadingMap {
-                ProgressView().tint(.white).padding(12).background(.black.opacity(0.65), in: Capsule())
+                ProgressView()
+                    .tint(.white)
+                    .padding(12)
+                    .background(.black.opacity(0.68), in: .capsule)
             }
         }
         .accessibilityElement(children: .ignore)
@@ -307,21 +322,45 @@ struct WorkoutShareView: View {
         .accessibilityValue(previewAccessibilityValue)
     }
 
-    private var previewAccessibilityValue: String {
-        var parts: [String] = [snapshot.title]
-        if let distance = snapshot.distanceText {
-            parts.append("\(distance) kilometres")
+    private var actions: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 10) {
+                Button(action: saveToPhotos) {
+                    Label(
+                        isSavingToPhotos ? "Saving…" : "Save to Photos",
+                        systemImage: "square.and.arrow.down"
+                    )
+                }
+                .buttonStyle(SecondaryActionButtonStyle())
+                .disabled(!canShare || isSavingToPhotos)
+
+                Button(action: exportCard) {
+                    Label("Share", systemImage: "square.and.arrow.up")
+                }
+                .buttonStyle(PrimaryActionButtonStyle())
+                .disabled(!canShare || isSavingToPhotos)
+            }
+
+            if let saveMessage {
+                Text(saveMessage)
+                    .font(.caption)
+                    .foregroundStyle(
+                        AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText)
+                    )
+            }
         }
-        if let duration = snapshot.durationText {
-            parts.append(duration)
-        }
-        parts.append(route.hasRoute ? "route included" : "no route")
-        return parts.joined(separator: ", ")
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .background(AtheviaAdaptiveStyle(.bar, gaming: .surface))
     }
 
-    private var previewMaxWidth: CGFloat {
-        let size = WorkoutShareStyle.exportSize
-        return 320 * size.width / size.height
+    private var previewAccessibilityValue: String {
+        var parts: [String] = [snapshot.title]
+        parts.append(
+            contentsOf: snapshot.metrics.map { "\($0.value) \($0.label)" }
+        )
+        parts.append(route.hasRoute ? "route included" : "no route")
+        return parts.joined(separator: ", ")
     }
 
     @MainActor
@@ -329,22 +368,28 @@ struct WorkoutShareView: View {
         isLoadingRoute = true
         routeMessage = nil
         defer { isLoadingRoute = false }
+
         guard !WorkoutShareRoute(points: snapshot.route).hasRoute,
               let summary = workout.importedSummary,
-              !["Athevia iPhone", "Athevia iPhone"].contains(summary.source) else { return }
+              summary.source != "Athevia iPhone" else {
+            return
+        }
+
         do {
             try await health.requestAuthorization()
             let points = try await health.route(forWorkout: summary.healthKitUUID)
             try Task.checkCancellation()
+
             loadedRoute = points
             routeRevision += 1
+
             if !WorkoutShareRoute(points: points).hasRoute {
-                routeMessage = "No GPS route available. Check Workout Routes access in Apple Health, or retry after your watch syncs."
+                routeMessage = "No GPS route was recorded for this workout."
             }
         } catch is CancellationError {
             return
         } catch {
-            routeMessage = "Couldn't load the GPS route. You can still share your stats."
+            routeMessage = "GPS route couldn't be loaded. Your workout can still be shared."
         }
     }
 
@@ -354,10 +399,19 @@ struct WorkoutShareView: View {
         mapImage = nil
         mapFailed = false
         isLoadingMap = false
-        guard style == .card, route.hasRoute else { return }
+
+        guard style == .card, route.hasRoute else {
+            preparedMapRequest = request
+            return
+        }
+
         isLoadingMap = true
+
         do {
-            let image = try await WorkoutShareMap.image(route: route, size: WorkoutShareStyle.routeSize)
+            let image = try await WorkoutShareMap.image(
+                route: route,
+                size: WorkoutShareStyle.routeSize
+            )
             try Task.checkCancellation()
             guard request == mapRequest else { return }
             mapImage = image
@@ -365,6 +419,7 @@ struct WorkoutShareView: View {
             guard !Task.isCancelled, request == mapRequest else { return }
             mapFailed = true
         }
+
         preparedMapRequest = request
         isLoadingMap = false
     }
@@ -391,6 +446,7 @@ struct WorkoutShareView: View {
 
         Task {
             let status = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
+
             guard status == .authorized || status == .limited else {
                 await MainActor.run {
                     isSavingToPhotos = false
@@ -406,6 +462,7 @@ struct WorkoutShareView: View {
                     options.originalFilename = "Athevia-Workout.png"
                     request.addResource(with: .photo, data: data, options: options)
                 }
+
                 await MainActor.run {
                     isSavingToPhotos = false
                     saveMessage = "Saved to Photos."
@@ -424,10 +481,12 @@ struct WorkoutShareView: View {
         guard canShare else { return }
         isExporting = true
         defer { isExporting = false }
+
         guard let data = renderedPNGData() else {
             exportError = "Couldn't create the image. Please try again."
             return
         }
+
         do {
             let url = FileManager.default.temporaryDirectory
                 .appendingPathComponent("Athevia-\(UUID().uuidString).png")
@@ -440,7 +499,9 @@ struct WorkoutShareView: View {
     }
 
     private func removeExport() {
-        if let lastExportURL { try? FileManager.default.removeItem(at: lastExportURL) }
+        if let lastExportURL {
+            try? FileManager.default.removeItem(at: lastExportURL)
+        }
         lastExportURL = nil
     }
 }
@@ -454,11 +515,24 @@ private struct CheckerboardBackground: View {
     var body: some View {
         Canvas { context, size in
             let cell: CGFloat = 16
+
             for row in 0..<Int(ceil(size.height / cell)) {
                 for column in 0..<Int(ceil(size.width / cell)) {
-                    let shade = (row + column).isMultiple(of: 2) ? Color(white: 0.20) : Color(white: 0.28)
-                    context.fill(Path(CGRect(x: CGFloat(column) * cell, y: CGFloat(row) * cell,
-                                             width: cell, height: cell)), with: .color(shade))
+                    let shade = (row + column).isMultiple(of: 2)
+                        ? Color(white: 0.20)
+                        : Color(white: 0.28)
+
+                    context.fill(
+                        Path(
+                            CGRect(
+                                x: CGFloat(column) * cell,
+                                y: CGFloat(row) * cell,
+                                width: cell,
+                                height: cell
+                            )
+                        ),
+                        with: .color(shade)
+                    )
                 }
             }
         }
@@ -467,10 +541,17 @@ private struct CheckerboardBackground: View {
 
 private struct WorkoutActivityView: UIViewControllerRepresentable {
     let file: URL
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        // A PNG file keeps transparency; handing UIKit a UIImage can become JPEG.
-        UIActivityViewController(activityItems: [file], applicationActivities: nil)
-    }
-    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
-}
 
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        // Passing the PNG file rather than a UIImage preserves transparency.
+        UIActivityViewController(
+            activityItems: [file],
+            applicationActivities: nil
+        )
+    }
+
+    func updateUIViewController(
+        _ controller: UIActivityViewController,
+        context: Context
+    ) {}
+}
