@@ -21,19 +21,9 @@ struct WorkoutSharePNGRenderer {
     let layout: WorkoutShareLayout
     let route: WorkoutShareRoute
 
-    private let orange = UIColor(
-        red: 1.00,
-        green: 0.42,
-        blue: 0.16,
-        alpha: 1
-    )
-
-    private let routeGreen = UIColor(
-        red: 0.20,
-        green: 0.78,
-        blue: 0.43,
-        alpha: 1
-    )
+    private var workoutColor: UIColor {
+        snapshot.discipline.uiTint
+    }
 
     func pngData() -> Data {
         let format = UIGraphicsImageRendererFormat()
@@ -326,7 +316,7 @@ struct WorkoutSharePNGRenderer {
             context.strokePath()
 
             context.addPath(path)
-            context.setStrokeColor(routeGreen.cgColor)
+            context.setStrokeColor(workoutColor.cgColor)
             context.setLineWidth(11)
             context.strokePath()
         }
@@ -347,7 +337,7 @@ struct WorkoutSharePNGRenderer {
             systemName: snapshot.discipline.symbolName,
             withConfiguration: configuration
         )?.withTintColor(
-            orange,
+            workoutColor,
             renderingMode: .alwaysOriginal
         ) else {
             return
