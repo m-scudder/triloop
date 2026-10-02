@@ -22,7 +22,7 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
                 on: date,
                 parameters: parameters
             )
-            workout.title = sport.discipline.displayName
+            workout.title = sport.displayName
             return workout
         }
 
@@ -81,10 +81,10 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
         ordinal: Int
     ) -> String {
         guard objective?.kind == .event else {
-            return sport.discipline.displayName
+            return sport.displayName
         }
 
-        let sportName = sport.discipline.displayName
+        let sportName = sport.displayName
 
         switch phase {
         case .foundation:
