@@ -159,6 +159,34 @@ struct WorkoutMatcherTests {
         #expect(result.unmatchedImported.count == 1)
     }
 
+
+    @Test("Watch workout ID cannot move an activity onto another day")
+    func exactWatchIDStillRequiresRecordedDay() throws {
+        let plan = plan()
+        let swim = try #require(plan.orderedWorkouts.first { $0.discipline == .swimming })
+        let actualStart = calendar.date(byAdding: .day, value: -1, to: swim.date) ?? swim.date
+
+        let imported = ImportedWorkout(
+            healthKitUUID: UUID(),
+            sport: .swimming,
+            startDate: actualStart,
+            endDate: actualStart.addingTimeInterval(1_200),
+            duration: 1_200,
+            distanceMeters: 500,
+            plannedWorkoutID: swim.id
+        )
+
+        let result = matcher().match(
+            planned: plan.orderedWorkouts,
+            with: [imported],
+            asOf: day(7)
+        )
+
+        #expect(result.matches.isEmpty)
+        #expect(result.unmatchedImported.map(\.healthKitUUID) == [imported.healthKitUUID])
+        #expect(result.unmatchedPlanned.contains { $0.id == swim.id })
+    }
+
     @Test("A full week of training matches every session")
     func aFullWeekMatches() {
         let plan = plan()
