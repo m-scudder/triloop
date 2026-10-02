@@ -21,19 +21,6 @@ private enum WorkoutShareStyle: String, CaseIterable, Identifiable {
 
 private struct WorkoutShareCard: View {
     let snapshot: WorkoutShareSnapshot
-    let format: WorkoutShareFormat
-    let background: WorkoutShareBackground
-    let route: WorkoutShareRoute
-    let showsRoute: Bool
-    let mapImage: UIImage?
-    let photo: UIImage?
-
-    private var isStory: Bool { format == .story }
-
-    var body: some View {
-        ZStack {
-            if backgprivate struct WorkoutShareCard: View {
-    let snapshot: WorkoutShareSnapshot
     let style: WorkoutShareStyle
     let route: WorkoutShareRoute
     let mapImage: UIImage?
@@ -75,8 +62,10 @@ private struct WorkoutShareCard: View {
                             Image(uiImage: mapImage)
                                 .resizable()
                                 .scaledToFill()
-                                .frame(width: WorkoutShareStyle.routeSize.width,
-                                       height: WorkoutShareStyle.routeSize.height)
+                                .frame(
+                                    width: WorkoutShareStyle.routeSize.width,
+                                    height: WorkoutShareStyle.routeSize.height
+                                )
                                 .clipped()
                                 .clipShape(.rect(cornerRadius: 24))
                         } else {
@@ -99,8 +88,10 @@ private struct WorkoutShareCard: View {
             .padding(.bottom, 72)
         }
         .foregroundStyle(.white)
-        .frame(width: WorkoutShareStyle.exportSize.width,
-               height: WorkoutShareStyle.exportSize.height)
+        .frame(
+            width: WorkoutShareStyle.exportSize.width,
+            height: WorkoutShareStyle.exportSize.height
+        )
         .clipped()
         .environment(\.colorScheme, .dark)
         .environment(\.dynamicTypeSize, .large)
@@ -109,15 +100,20 @@ private struct WorkoutShareCard: View {
     @ViewBuilder
     private var metrics: some View {
         if let distance = snapshot.distanceText {
-            metric(distance, label: snapshot.discipline == .swimming ? "Distance · km" : "Distance · km")
+            metric(distance, label: "Distance · km")
         }
+
         if let duration = snapshot.durationText {
             metric(duration, label: "Time")
         }
+
         if let pace = snapshot.paceOrSpeed {
             metric(pace, label: snapshot.paceLabel)
         }
-        if snapshot.distanceText == nil, snapshot.durationText == nil, snapshot.paceOrSpeed == nil {
+
+        if snapshot.distanceText == nil,
+           snapshot.durationText == nil,
+           snapshot.paceOrSpeed == nil {
             Text("Workout completed")
                 .font(.system(size: 42, weight: .semibold))
         }
