@@ -6,6 +6,42 @@ import SwiftData
 /// Providers normalize their activities into ImportedWorkout. From that point
 /// onward Athevia owns one path for historical visibility, plan matching,
 /// persistence, source aliases and duplicate protection.
+/// Coordinates an explicit sync across every connected workout source.
+///
+/// The caller supplies whichever providers are connected. Each provider uses
+/// the exact same ingestion rules, and later providers see summaries inserted
+/// by earlier providers so cross-source aliases can collapse duplicates.
+@MainActor
+struct WorkoutImportCoordinator {
+    let context: ModelContext
+    var calendar: Calendar = .current
+    var importCutoff: Date? = TrainingResetBoundary.latest
+
+    func syncAll(
+        providers: [any WorkoutImportProviding],
+        plans: [WeeklyPlan]
+    ) async throws -> WorkoutImportService.Outcome {
+        var combined = WorkoutImportService.Outcome()
+
+        for provider in providers {
+            var service = WorkoutImportService(
+                context: context,
+                provider: provider
+            )
+            service.calendar = calendar
+            service.importCutoff = importCutoff
+
+            combined.merge(
+                try await service.syncAllRelevantWorkouts(
+                    plans: plans
+                )
+            )
+        }
+
+        return combined
+    }
+}
+
 @MainActor
 struct WorkoutImportService {
     let context: ModelContext
