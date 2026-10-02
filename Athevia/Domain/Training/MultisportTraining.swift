@@ -211,7 +211,7 @@ enum MultisportPrescribedSessions {
         return PlannedWorkout(
             date: date,
             discipline: .multisport,
-            title: "Bike, Then Run",
+            title: "Brick",
             goal: "Practise how it feels to finish cycling, change shoes, and begin running without rushing.",
             targetRPE: RPERange(3, 5),
             steps: steps
@@ -228,7 +228,7 @@ enum MultisportPrescribedSessions {
             parameters: parameters,
             prescription: prescription
         )
-        workout.title = "Practice Your Bike-to-Run Event"
+        workout.title = "Race Simulation"
         workout.goal = "Practise event pacing, equipment and transition flow without testing maximum performance."
         workout.targetRPE = RPERange(4, 6)
         if let bike = workout.orderedSteps.first(where: { $0.kind == .cyclingSegment && $0.title == "Bike before your run" }) {
@@ -248,7 +248,7 @@ enum MultisportPrescribedSessions {
     ) {
         guard multiplier < 1 else { return }
         if multiplier == 0 {
-            workout.title = "Light Movement After Your Event"
+            workout.title = "Recovery"
             workout.goal = "Recover before beginning the next training objective."
             workout.discipline = .recovery
             workout.targetRPE = nil
