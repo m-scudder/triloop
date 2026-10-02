@@ -320,22 +320,44 @@ struct TodayMetricsRow: View {
                 StatTile(value: TrainingFormatter.distance(meters: distance), label: "Distance")
             }
 
-            if let pace = paceText {
-                StatTile(value: pace, label: sport == .swimming ? "Per 100m" : "Pace")
+            if let secondaryMetric {
+                StatTile(value: secondaryMetric.value, label: secondaryMetric.label)
             }
 
             Spacer(minLength: 0)
         }
     }
 
-    private var paceText: String? {
-        guard let distance = summary.distanceMeters, distance > 0, summary.duration > 0 else { return nil }
-
-        if sport == .swimming {
-            return TrainingFormatter.swimPace(secondsPer100m: summary.duration / (distance / 100))
+    private var secondaryMetric: (value: String, label: String)? {
+        guard let distance = summary.distanceMeters,
+              distance > 0,
+              summary.duration > 0 else {
+            return nil
         }
-        let secondsPerKm = Int((summary.duration / (distance / 1_000)).rounded())
-        return String(format: "%d:%02d", secondsPerKm / 60, secondsPerKm % 60)
+
+        switch sport {
+        case .swimming:
+            return (
+                TrainingFormatter.swimPace(
+                    secondsPer100m: summary.duration / (distance / 100)
+                ),
+                "Per 100m"
+            )
+
+        case .cycling:
+            let kilometresPerHour = distance / summary.duration * 3.6
+            return (String(format: "%.1f", kilometresPerHour), "Avg speed · km/h")
+
+        case .running:
+            let secondsPerKm = Int((summary.duration / (distance / 1_000)).rounded())
+            return (
+                String(format: "%d:%02d", secondsPerKm / 60, secondsPerKm % 60),
+                "Pace · /km"
+            )
+
+        case nil:
+            return nil
+        }
     }
 }
 
