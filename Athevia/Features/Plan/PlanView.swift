@@ -6,6 +6,7 @@ import SwiftUI
 /// Home owns workout execution. Plan owns prescription, completed analysis and
 /// schedule management, so there is no extra workout-detail navigation step.
 struct PlanView: View {
+    @Environment(\.modelContext) private var modelContext
     @Query(sort: \WeeklyPlan.startDate) private var plans: [WeeklyPlan]
     @Query private var profiles: [AthleteProfile]
 
@@ -176,7 +177,10 @@ struct PlanView: View {
             .sheet(isPresented: $isPresentingCalendar) {
                 calendarSheet
             }
-            .onAppear(perform: selectSensibleDay)
+            .onAppear {
+                try? PlanStore(context: modelContext).normalizeWorkoutTitles()
+                selectSensibleDay()
+            }
         }
         .atheviaScreen()
     }
