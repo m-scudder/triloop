@@ -61,6 +61,59 @@ struct WeeklyPlanGeneratorTests {
         #expect(week2.status == .active)
     }
 
+    @Test("A non-Monday plan keeps the same weekday anchor next week")
+    func rollingWeekAnchorContinues() {
+        let saturday = calendar.date(
+            byAdding: .day,
+            value: 5,
+            to: monday()
+        ) ?? monday()
+        let friday = calendar.date(
+            byAdding: .day,
+            value: 6,
+            to: saturday
+        ) ?? saturday
+
+        let week1 = WeeklyPlan(
+            weekNumber: 1,
+            startDate: saturday,
+            endDate: friday,
+            parameters: TrainingParameters(),
+            workouts: (0..<7).map { offset in
+                let date = calendar.date(
+                    byAdding: .day,
+                    value: offset,
+                    to: saturday
+                ) ?? saturday
+                return PrescribedSessions.restDay(
+                    on: date
+                )
+            }
+        )
+
+        let week2 = generator().generate(
+            after: week1,
+            analysis: WeeklyAnalyser().analyse(week1)
+        )
+
+        #expect(
+            week2.startDate
+                == calendar.date(
+                    byAdding: .day,
+                    value: 7,
+                    to: saturday
+                )
+        )
+        #expect(
+            week2.endDate
+                == calendar.date(
+                    byAdding: .day,
+                    value: 13,
+                    to: saturday
+                )
+        )
+    }
+
     @Test("A good week lengthens the running interval only")
     func goodWeekProgressesRunning() {
         let week1 = seededWeek()
