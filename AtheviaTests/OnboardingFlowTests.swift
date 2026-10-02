@@ -79,6 +79,7 @@ struct OnboardingFlowTests {
         #expect(model.stage == .days)
 
         model.choose(goal: .improveEndurance)
+        model.chooseTrainingDays(2)
         model.toggleDay(.monday)
         model.toggleDay(.wednesday)
         model.setSharedMaxDuration(60)
@@ -107,6 +108,7 @@ struct OnboardingFlowTests {
         model.choose(running: .continuous10Minutes)
         model.advance()
 
+        model.chooseTrainingDays(2)
         model.toggleDay(.sunday)
         model.toggleDay(.monday)
         model.setSharedMaxDuration(60)
@@ -169,6 +171,7 @@ struct OnboardingFlowTests {
         model.jump(to: .running)
         model.toggleSport(.running)
         model.jump(to: .days)
+        model.chooseTrainingDays(2)
         model.toggleDay(.tuesday)
         model.toggleDay(.saturday)
         model.setSharedMaxDuration(90)
@@ -191,6 +194,7 @@ struct OnboardingFlowTests {
 
         model.toggleSport(.running)
         model.advance()
+        model.chooseTrainingDays(2)
         model.toggleDay(.monday)
         model.toggleDay(.wednesday)
         model.setSharedMaxDuration(45)
@@ -223,6 +227,7 @@ struct OnboardingFlowTests {
 
         model.toggleSport(.running)
         model.advance()
+        model.chooseTrainingDays(2)
         model.toggleDay(.monday)
         model.toggleDay(.wednesday)
         model.setSharedMaxDuration(45)
