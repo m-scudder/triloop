@@ -478,19 +478,63 @@ struct WorkoutShareView: View {
 
     @MainActor
     private func renderedPNGData() -> Data? {
+        let size = WorkoutShareCanvas.exportSize
+        let width = Int(size.width)
+        let height = Int(size.height)
+        let bytesPerPixel = 4
+        let bytesPerRow = width * bytesPerPixel
+
+        guard let colorSpace = CGColorSpace(
+            name: CGColorSpace.sRGB
+        ),
+        let context = CGContext(
+            data: nil,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: bytesPerRow,
+            space: colorSpace,
+            bitmapInfo:
+                CGImageAlphaInfo.premultipliedLast.rawValue
+                | CGBitmapInfo.byteOrder32Big.rawValue
+        ) else {
+            return nil
+        }
+
+        // Start from an explicitly transparent RGBA canvas.
+        context.clear(
+            CGRect(
+                origin: .zero,
+                size: size
+            )
+        )
+
         let renderer = ImageRenderer(
             content: sticker(for: layout)
         )
-        renderer.proposedSize = ProposedViewSize(
-            WorkoutShareCanvas.exportSize
-        )
+        renderer.proposedSize = ProposedViewSize(size)
         renderer.scale = 1
         renderer.isOpaque = false
 
-        // Encode the renderer's CGImage directly as PNG. Avoid passing through
-        // UIImage/JPEG-style conversion so the transparent canvas stays an
-        // actual alpha channel all the way to Photos and the share sheet.
-        guard let image = renderer.cgImage else {
+        var didRender = false
+        renderer.render { renderedSize, draw in
+            guard renderedSize.width > 0,
+                  renderedSize.height > 0 else {
+                return
+            }
+
+            draw(context)
+            didRender = true
+        }
+
+        guard didRender,
+              transparentCornersArePreserved(
+                  context: context,
+                  width: width,
+                  height: height,
+                  bytesPerRow: bytesPerRow
+              ),
+              let image = context.makeImage() else {
             return nil
         }
 
@@ -517,6 +561,35 @@ struct WorkoutShareView: View {
         }
 
         return data as Data
+    }
+
+    private func transparentCornersArePreserved(
+        context: CGContext,
+        width: Int,
+        height: Int,
+        bytesPerRow: Int
+    ) -> Bool {
+        guard let raw = context.data else {
+            return false
+        }
+
+        let bytes = raw.bindMemory(
+            to: UInt8.self,
+            capacity: bytesPerRow * height
+        )
+
+        let points = [
+            (0, 0),
+            (width - 1, 0),
+            (0, height - 1),
+            (width - 1, height - 1)
+        ]
+
+        return points.allSatisfy { x, y in
+            let offset = y * bytesPerRow + x * 4
+            let alpha = bytes[offset + 3]
+            return alpha == 0
+        }
     }
 
     @MainActor
@@ -571,6 +644,7 @@ struct WorkoutShareView: View {
                         let request = PHAssetCreationRequest.forAsset()
                         let options = PHAssetResourceCreationOptions()
                         options.originalFilename = fileURL.lastPathComponent
+                        options.uniformTypeIdentifier = UTType.png.identifier
                         options.shouldMoveFile = false
 
                         request.addResource(
