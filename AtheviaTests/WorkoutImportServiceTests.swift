@@ -166,6 +166,164 @@ struct WorkoutImportServiceTests {
         )
     }
 
+    @Test("Full sync imports a workout before onboarding inside the first plan week")
+    func fullSyncClosesFirstWeekOwnershipGap() async throws {
+        let context = try makeContext()
+        let plan = seededPlan(in: context)
+        plan.generationReasonCode = .initialAssessment
+        plan.generatedAt = day(4, hour: 12)
+
+        let thursdaySwim = activity(
+            .swimming,
+            on: 3,
+            duration: 1_800,
+            distance: 500
+        )
+
+        var coordinator = WorkoutImportCoordinator(
+            context: context
+        )
+        coordinator.calendar = calendar
+        coordinator.importCutoff = nil
+
+        let providers: [any WorkoutImportProviding] = [
+            StubHealthDataProvider(
+                stored: [thursdaySwim]
+            )
+        ]
+        let outcome = try await coordinator.syncAll(
+            providers: providers,
+            plans: [plan]
+        )
+
+        #expect(outcome.unrecognised == 1)
+
+        let standalone = try context.fetch(
+            FetchDescriptor<PlannedWorkout>()
+        )
+        .filter {
+            $0.origin == .imported
+                && $0.plan == nil
+                && $0.discipline == .swimming
+        }
+
+        let swim = try #require(standalone.first)
+        #expect(
+            calendar.isDate(
+                swim.date,
+                inSameDayAs: thursdaySwim.startDate
+            )
+        )
+    }
+
+    @Test("Full sync preserves training outside every generated plan window")
+    func fullSyncImportsUnownedTrainingHistory() async throws {
+        let context = try makeContext()
+        let plan = seededPlan(in: context)
+        plan.generationReasonCode = nil
+        plan.generatedAt = monday()
+
+        let laterRide = activity(
+            .cycling,
+            on: 8,
+            duration: 2_400,
+            distance: 15_000
+        )
+
+        var service = service(
+            context,
+            [laterRide]
+        )
+        service.importCutoff = nil
+
+        let outcome = try await service
+            .syncAllRelevantWorkouts(
+                plans: [plan]
+            )
+
+        #expect(outcome.unrecognised == 1)
+
+        let standalone = try context.fetch(
+            FetchDescriptor<PlannedWorkout>()
+        )
+        .filter {
+            $0.origin == .imported
+                && $0.plan == nil
+                && $0.discipline == .cycling
+        }
+
+        #expect(standalone.count == 1)
+        #expect(
+            calendar.isDate(
+                standalone[0].date,
+                inSameDayAs: laterRide.startDate
+            )
+        )
+    }
+
+    @Test("Multi-provider sync collapses the same physical workout")
+    func coordinatorDeduplicatesAcrossProviders() async throws {
+        let context = try makeContext()
+        let plan = seededPlan(in: context)
+        plan.generationReasonCode = nil
+        plan.generatedAt = monday()
+
+        let healthWorkout = activity(
+            .running,
+            on: 0,
+            duration: 1_680,
+            distance: 4_500
+        )
+        let stravaWorkout = ImportedWorkout(
+            identity: .external(
+                providerID: "strava",
+                externalID: "activity-42"
+            ),
+            sport: healthWorkout.sport,
+            startDate: healthWorkout.startDate,
+            endDate: healthWorkout.endDate,
+            duration: healthWorkout.duration,
+            distanceMeters:
+                healthWorkout.distanceMeters,
+            averageHeartRate:
+                healthWorkout.averageHeartRate,
+            source: "strava"
+        )
+
+        let providers: [any WorkoutImportProviding] = [
+            StubHealthDataProvider(
+                stored: [healthWorkout]
+            ),
+            StubHealthDataProvider(
+                stored: [stravaWorkout]
+            )
+        ]
+
+        var coordinator = WorkoutImportCoordinator(
+            context: context
+        )
+        coordinator.calendar = calendar
+        coordinator.importCutoff = nil
+
+        let outcome = try await coordinator.syncAll(
+            providers: providers,
+            plans: [plan]
+        )
+
+        #expect(outcome.matched == 1)
+        #expect(outcome.alreadyKnown >= 1)
+
+        let summaries = try context.fetch(
+            FetchDescriptor<ImportedWorkoutSummary>()
+        )
+        #expect(summaries.count == 1)
+        #expect(
+            summaries[0].importAliases.contains(
+                stravaWorkout.identity.alias
+            )
+        )
+    }
+
     @Test("Importing twice imports nothing twice")
     func importIsIdempotent() async throws {
         let context = try makeContext()
