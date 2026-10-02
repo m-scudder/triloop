@@ -109,10 +109,7 @@ struct ProgressOverviewView: View {
                 )
 
                 if setup.objective.kind == .event {
-                    compactEventJourney(
-                        setup: setup,
-                        snapshot: snapshot
-                    )
+                    compactEventJourney(setup: setup)
 
                     if let profile = profiles.first {
                         EventOutcomeResolutionCard(profile: profile)
@@ -154,8 +151,7 @@ struct ProgressOverviewView: View {
     }
 
     private func compactEventJourney(
-        setup: AthleteSetup,
-        snapshot: JourneyProgressSnapshot
+        setup: AthleteSetup
     ) -> some View {
         let eventName = setup.objective.event?.displayName
             ?? setup.objective.displayName
