@@ -291,23 +291,16 @@ final class OnboardingModel {
         persist()
     }
 
-    /// If the chosen date falls after every available training day in that
-    /// calendar week, begin on the following Monday instead of generating an
-    /// empty first week. Otherwise the selected date remains the first active
-    /// day and earlier days in that Monday–Sunday week become Rest.
+    /// The athlete's selected date is the true start of their seven-day
+    /// training week. Availability controls which dates receive workouts; it
+    /// never moves the plan boundary to a calendar Monday.
     static func effectiveStartDate(
         requested: Date,
         schedule: AthleteSchedule,
         calendar: Calendar = .current
     ) -> Date {
-        let start = calendar.startOfDay(for: requested)
-        guard let weekday = Weekday(date: start, calendar: calendar) else { return start }
-
-        let hasTrainingDayLeft = schedule.availableDays.contains { $0.weekday >= weekday }
-        guard !hasTrainingDayLeft else { return start }
-
-        let daysUntilNextMonday = 7 - weekday.offsetFromMonday
-        return calendar.date(byAdding: .day, value: daysUntilNextMonday, to: start) ?? start
+        _ = schedule
+        return calendar.startOfDay(for: requested)
     }
 
     /// Built but not saved. The athlete sees the week before it becomes theirs.
