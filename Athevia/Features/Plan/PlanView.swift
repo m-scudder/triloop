@@ -69,67 +69,6 @@ struct PlanView: View {
                     )
                 } else {
                     VStack(spacing: 0) {
-                        if let setup = profiles.first?.setup,
-                           setup.objective.event?.eventDate != nil {
-                            EventCountdownView(objective: setup.objective)
-                                .padding(.horizontal, 20)
-                                .padding(.top, 10)
-
-                            let journey = TrainingJourneyPlanner().plan(
-                                setup: setup,
-                                recentPlans: Array(plans.suffix(4))
-                            )
-                            if let focus = journey.primaryFocus {
-                                HStack {
-                                    Text("This week's focus")
-                                    Spacer()
-                                    Text(focus.kind.displayName)
-                                }
-                                .font(.caption)
-                                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
-                                .padding(.horizontal, 20)
-                                .padding(.bottom, 8)
-                            }
-
-                            NavigationLink {
-                                FullTrainingJourneyView(
-                                    setup: setup,
-                                    plans: plans
-                                )
-                            } label: {
-                                HStack(spacing: 10) {
-                                    Image(systemName: "point.topleft.down.to.point.bottomright.curvepath")
-                                        .font(.subheadline.weight(.semibold))
-
-                                    Text("Race plan")
-                                        .font(.subheadline.weight(.semibold))
-
-                                    Spacer()
-
-                                    if let weeks = journey.weeksRemaining {
-                                        Text("\(weeks) wk")
-                                            .font(.caption.monospacedDigit())
-                                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
-                                    }
-
-                                    Image(systemName: "chevron.right")
-                                        .font(.caption.weight(.semibold))
-                                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
-                                }
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 11)
-                                .background(
-                                    AtheviaAdaptiveStyle(.fill.tertiary, gaming: .raisedSurface),
-                                    in: .rect(cornerRadius: 12)
-                                )
-                            }
-                            .buttonStyle(.plain)
-                            .padding(.horizontal, 20)
-                            .padding(.bottom, 12)
-
-                            Divider()
-                        }
-
                         DateStrip(
                             workouts: allWorkouts,
                             selection: $selection,
