@@ -36,6 +36,8 @@ struct WorkoutImportService {
         // import cannot attach a result and destroy the active player subtree.
         guard !PhoneWorkoutExecutionState.isActive else { return Outcome() }
 
+        let repairedMisdatedImport = reconcileMisdatedImportedWorkouts(in: plan)
+
         let effectiveCutoff: Date? = {
             let planCutoff = plan.generationReasonCode == .initialAssessment
                 ? plan.generatedAt
@@ -80,7 +82,7 @@ struct WorkoutImportService {
 
         resolveEventCompletion(from: fresh)
 
-        if !fresh.isEmpty {
+        if !fresh.isEmpty || repairedMisdatedImport {
             try context.save()
         }
 
@@ -89,6 +91,54 @@ struct WorkoutImportService {
             alreadyKnown: eligible.count - fresh.count,
             unrecognised: result.unmatchedImported.count
         )
+    }
+
+    /// Older builds trusted an Athevia Watch planned-workout ID even when the
+    /// athlete actually recorded that workout on a different day. Repair those
+    /// rows before de-duplication so the real activity sits on its HealthKit day
+    /// and the future prescription becomes available again.
+    private func reconcileMisdatedImportedWorkouts(in plan: WeeklyPlan) -> Bool {
+        var changed = false
+
+        for planned in plan.orderedWorkouts where planned.origin != .imported {
+            guard planned.discipline.isTrainingSession,
+                  let summary = planned.importedSummary,
+                  !calendar.isDate(planned.date, inSameDayAs: summary.startDate) else {
+                continue
+            }
+
+            let feedback = planned.feedback
+            let recoveryCheckIn = planned.recoveryCheckIn
+
+            planned.feedback = nil
+            planned.recoveryCheckIn = nil
+            planned.importedSummary = nil
+            planned.status = .planned
+            planned.completedAt = nil
+
+            let recorded = PlannedWorkout(
+                date: calendar.startOfDay(for: summary.startDate),
+                discipline: summary.discipline,
+                title: summary.discipline == .multisport
+                    ? "Recorded Multisport"
+                    : "Recorded \(summary.sport.displayName)",
+                origin: .imported
+            )
+            context.insert(recorded)
+            plan.workouts.append(recorded)
+            recorded.attach(summary)
+
+            if let feedback {
+                recorded.feedback = feedback
+            }
+            if let recoveryCheckIn {
+                recorded.recoveryCheckIn = recoveryCheckIn
+            }
+
+            changed = true
+        }
+
+        return changed
     }
 
     private func resolveEventCompletion(from activities: [ImportedWorkout]) {
