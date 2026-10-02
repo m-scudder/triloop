@@ -493,7 +493,13 @@ final class HealthKitWorkoutImporter: HealthDataProviding, @unchecked Sendable {
     /// A nil sport is an activity Athevia does not train, which still has an
     /// effort score and nothing sport-specific worth reading.
     static func recordedMetrics(of workout: HKWorkout, sport: Sport?) -> RecordedMetrics {
-        var metrics = RecordedMetrics(averageCadence: averageCadence(of: workout))
+        var metrics = RecordedMetrics(
+            averageCadence: averageCadence(of: workout),
+            activeEnergyKilocalories: workout.sum(
+                HKQuantityType(.activeEnergyBurned),
+                in: .kilocalorie()
+            )
+        )
 
         // Effort is deliberately not read here. It is stored as samples *related*
         // to the workout rather than collected by it, so workout statistics
