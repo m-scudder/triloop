@@ -331,19 +331,6 @@ struct CoachView: View {
                         .font(.body)
                         .textSelection(.enabled)
                         .fixedSize(horizontal: false, vertical: true)
-
-                    if let evidence = message.evidence {
-                        HStack(alignment: .top, spacing: 6) {
-                            Image(systemName: "checkmark.shield")
-                                .font(.caption2)
-                                .padding(.top, 2)
-                            Text(evidence)
-                                .font(.caption)
-                                .textSelection(.enabled)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
-                    }
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
