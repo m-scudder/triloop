@@ -418,6 +418,9 @@ struct WorkoutImportServiceTests {
             duration: 3_390,
             averageHeartRate: 151,
             maximumHeartRate: 178,
+            swimmingLengths: 16,
+            swimmingStrokeCount: 288,
+            longestContinuousSwimMeters: 200,
             metrics: RecordedMetrics(
                 activeEnergyKilocalories: 510,
                 multisportSegments: segments
@@ -436,6 +439,9 @@ struct WorkoutImportServiceTests {
         let summary = try #require(recorded.importedSummary)
         #expect(summary.discipline == .multisport)
         #expect(summary.metrics?.multisportSegments == segments)
+        #expect(summary.swimmingLengths == 16)
+        #expect(summary.swimmingStrokeCount == 288)
+        #expect(summary.longestContinuousSwimMeters == 200)
         #expect(summary.metrics?.activeEnergyKilocalories == 510)
     }
 
