@@ -28,6 +28,13 @@ struct WorkoutSharePNGRenderer {
         alpha: 1
     )
 
+    private let routeGreen = UIColor(
+        red: 0.20,
+        green: 0.78,
+        blue: 0.43,
+        alpha: 1
+    )
+
     func pngData() -> Data {
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1
@@ -319,7 +326,7 @@ struct WorkoutSharePNGRenderer {
             context.strokePath()
 
             context.addPath(path)
-            context.setStrokeColor(orange.cgColor)
+            context.setStrokeColor(routeGreen.cgColor)
             context.setLineWidth(11)
             context.strokePath()
         }
