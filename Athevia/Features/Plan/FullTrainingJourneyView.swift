@@ -357,6 +357,15 @@ private struct JourneyWeekPlanView: View {
                             .font(.body)
                     }
 
+                    if let plan = displayedPlan, !plan.generationReason.isEmpty {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Why this week")
+                                .font(.subheadline.weight(.semibold))
+                            Text(plan.generationReason)
+                                .font(.body)
+                        }
+                    }
+
                     if week.isProjected {
                         Text("This week can change as your training progresses.")
                             .font(.footnote)
