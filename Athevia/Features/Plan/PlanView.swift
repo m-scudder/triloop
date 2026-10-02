@@ -130,7 +130,11 @@ struct PlanView: View {
                             Divider()
                         }
 
-                        DateStrip(workouts: allWorkouts, selection: $selection)
+                        DateStrip(
+                            workouts: allWorkouts,
+                            selection: $selection,
+                            anchorDate: profiles.first?.setup?.planStartDate
+                        )
 
                         Divider()
 
