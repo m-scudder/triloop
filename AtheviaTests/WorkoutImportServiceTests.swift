@@ -207,6 +207,45 @@ struct WorkoutImportServiceTests {
         #expect(recorded.importedSummary?.healthKitUUID == imported.healthKitUUID)
     }
 
+
+    @Test("Previously misdated Watch imports are repaired on sync")
+    func existingMisdatedWatchImportIsReconciled() async throws {
+        let context = try makeContext()
+        let plan = seededPlan(in: context)
+        let plannedSwim = try #require(plan.orderedWorkouts.first { $0.discipline == .swimming })
+        let actualStart = day(0, hour: 18)
+
+        let imported = ImportedWorkout(
+            healthKitUUID: UUID(),
+            sport: .swimming,
+            startDate: actualStart,
+            endDate: actualStart.addingTimeInterval(1_200),
+            duration: 1_200,
+            distanceMeters: 500,
+            plannedWorkoutID: plannedSwim.id,
+            source: "com.mayankagarwal.athevia.watch"
+        )
+        let summary = ImportedWorkoutSummary(imported)
+        context.insert(summary)
+        plannedSwim.attach(summary)
+        try context.save()
+
+        _ = try await service(context, []).importWorkouts(for: plan)
+
+        #expect(!plannedSwim.isCompleted)
+        #expect(plannedSwim.importedSummary == nil)
+
+        let recorded = try #require(
+            plan.trainingSessions.first {
+                $0.origin == .imported
+                    && $0.discipline == .swimming
+                    && calendar.isDate($0.date, inSameDayAs: actualStart)
+            }
+        )
+        #expect(recorded.isCompleted)
+        #expect(recorded.importedSummary?.healthKitUUID == imported.healthKitUUID)
+    }
+
     @Test("A short unmatched activity does not complete a longer prescription")
     func shortSessionReducesTheLoad() async throws {
         let context = try makeContext()
