@@ -398,10 +398,8 @@ struct SettingsView: View {
     }
 
     private var appVersion: String {
-        let info = Bundle.main.infoDictionary
-        let version = info?["CFBundleShortVersionString"] as? String ?? "—"
-        let build = info?["CFBundleVersion"] as? String ?? "—"
-        return "\(version) (\(build))"
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
+            ?? "—"
     }
 
     private var showingImportMessage: Binding<Bool> {
