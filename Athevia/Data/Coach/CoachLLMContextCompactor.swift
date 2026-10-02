@@ -10,9 +10,18 @@ enum CoachLLMContextCompactor {
     static let maximumConversationCharacters = 280
 
     static func conversation(
-        from messages: [CoachChatMessage]
+        from messages: [CoachChatMessage],
+        excludingCurrentRequest request: String? = nil
     ) -> [CoachLLMConversationTurn] {
-        messages
+        var candidates = messages
+        if let request,
+           let last = candidates.last,
+           last.role == .athlete,
+           normalize(last.text) == normalize(request) {
+            candidates.removeLast()
+        }
+
+        return candidates
             .suffix(maximumConversationTurns)
             .map {
                 CoachLLMConversationTurn(
@@ -40,11 +49,15 @@ enum CoachLLMContextCompactor {
     }
 
     static func compact(_ value: String, limit: Int) -> String {
-        let normalized = value
+        let normalized = normalize(value)
+        guard normalized.count > limit else { return normalized }
+        return String(normalized.prefix(limit)).trimmingCharacters(in: .whitespaces) + "…"
+    }
+
+    private static func normalize(_ value: String) -> String {
+        value
             .replacingOccurrences(of: "\n", with: " ")
             .split(whereSeparator: \.isWhitespace)
             .joined(separator: " ")
-        guard normalized.count > limit else { return normalized }
-        return String(normalized.prefix(limit)).trimmingCharacters(in: .whitespaces) + "…"
     }
 }
