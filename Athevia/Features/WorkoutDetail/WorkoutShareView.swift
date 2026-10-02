@@ -1,10 +1,9 @@
-import ImageIO
 import Photos
 import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
 
-private enum WorkoutShareLayout: String, CaseIterable, Identifiable {
+enum WorkoutShareLayout: String, CaseIterable, Identifiable {
     case centered
     case side
     case compact
@@ -14,215 +13,10 @@ private enum WorkoutShareLayout: String, CaseIterable, Identifiable {
 
 private enum WorkoutShareCanvas {
     static let exportSize = CGSize(width: 1080, height: 1920)
-    static let routeLarge = CGSize(width: 820, height: 650)
-    static let routeSide = CGSize(width: 470, height: 560)
 }
 
-private struct WorkoutShareSticker: View {
-    let snapshot: WorkoutShareSnapshot
-    let layout: WorkoutShareLayout
-    let route: WorkoutShareRoute
-
-    private var hasRoute: Bool { route.hasRoute }
-
-    var body: some View {
-        Group {
-            switch layout {
-            case .centered:
-                centeredLayout
-            case .side:
-                sideLayout
-            case .compact:
-                compactLayout
-            }
-        }
-        .foregroundStyle(.white)
-        .frame(
-            width: WorkoutShareCanvas.exportSize.width,
-            height: WorkoutShareCanvas.exportSize.height
-        )
-        .clipped()
-        // Export appearance is intentionally fixed. The surrounding app may
-        // be in Light, Dark, or Gaming theme, but the transparent sticker must
-        // produce identical pixels in every case.
-        .environment(\.atheviaTheme, .classic)
-        .environment(\.colorScheme, .dark)
-        .environment(\.dynamicTypeSize, .large)
-    }
-
-    private var centeredLayout: some View {
-        VStack(spacing: 0) {
-            Spacer(minLength: hasRoute ? 300 : 470)
-
-            if hasRoute {
-                WorkoutShareRouteShape(route: route, color: .orange)
-                    .frame(
-                        width: WorkoutShareCanvas.routeLarge.width,
-                        height: WorkoutShareCanvas.routeLarge.height
-                    )
-                    .padding(.bottom, 70)
-            }
-
-            centeredMetrics
-
-            Spacer(minLength: hasRoute ? 250 : 470)
-        }
-        .frame(maxWidth: .infinity)
-    }
-
-    private var sideLayout: some View {
-        VStack {
-            Spacer()
-
-            HStack(alignment: .center, spacing: 72) {
-                if hasRoute {
-                    WorkoutShareRouteShape(route: route, color: .orange)
-                        .frame(
-                            width: WorkoutShareCanvas.routeSide.width,
-                            height: WorkoutShareCanvas.routeSide.height
-                        )
-                } else {
-                    sportMark
-                        .frame(width: 290)
-                }
-
-                VStack(alignment: .leading, spacing: 34) {
-                    brand
-
-                    ForEach(snapshot.metrics) { item in
-                        metric(
-                            item,
-                            alignment: .leading,
-                            valueSize: 48
-                        )
-                    }
-                }
-                .frame(maxWidth: 380, alignment: .leading)
-            }
-            .padding(.horizontal, 80)
-
-            Spacer()
-        }
-    }
-
-    private var compactLayout: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Spacer(minLength: hasRoute ? 360 : 520)
-
-            HStack(alignment: .top, spacing: 52) {
-                VStack(alignment: .leading, spacing: 18) {
-                    brand
-
-                    Text(snapshot.title)
-                        .font(.system(size: 52, weight: .bold, design: .rounded))
-                        .lineLimit(1)
-
-                    Text(TrainingFormatter.shortDate(snapshot.date, includeYear: true))
-                        .font(.system(size: 24, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.78))
-                }
-                .frame(width: 310, alignment: .leading)
-
-                VStack(alignment: .leading, spacing: 30) {
-                    ForEach(snapshot.metrics) { item in
-                        metric(
-                            item,
-                            alignment: .leading,
-                            valueSize: 46
-                        )
-                    }
-                }
-                .frame(width: 360, alignment: .leading)
-            }
-            .frame(maxWidth: .infinity, alignment: .center)
-
-            if hasRoute {
-                WorkoutShareRouteShape(route: route, color: .orange)
-                    .frame(width: 720, height: 500)
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 70)
-            } else {
-                sportMark
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 54)
-            }
-
-            Spacer(minLength: hasRoute ? 260 : 440)
-        }
-    }
-
-    private var centeredMetrics: some View {
-        VStack(spacing: 34) {
-            ForEach(snapshot.metrics) { item in
-                metric(
-                    item,
-                    alignment: .center,
-                    valueSize: 66
-                )
-            }
-
-            sportMark
-                .padding(.top, 14)
-
-            brand
-                .padding(.top, 8)
-        }
-        .frame(maxWidth: .infinity)
-    }
-
-    private var sportMark: some View {
-        Image(systemName: snapshot.discipline.symbolName)
-            .font(.system(size: 54, weight: .semibold))
-            .symbolRenderingMode(.monochrome)
-            .foregroundStyle(.orange)
-    }
-
-    private var brand: some View {
-        Text("ATHEVIA")
-            .font(.system(size: 38, weight: .black, design: .rounded))
-            .tracking(1.8)
-    }
-
-    private func metric(
-        _ item: WorkoutShareMetric,
-        alignment: HorizontalAlignment,
-        valueSize: CGFloat
-    ) -> some View {
-        VStack(alignment: alignment, spacing: 4) {
-            Text(item.label.replacingOccurrences(of: " · ", with: " "))
-                .font(.system(size: 25, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.88))
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-
-            Text(displayValue(for: item))
-                .font(.system(size: valueSize, weight: .bold, design: .rounded))
-                .monospacedDigit()
-                .lineLimit(1)
-                .minimumScaleFactor(0.55)
-        }
-    }
-
-    private func displayValue(for item: WorkoutShareMetric) -> String {
-        switch item.label {
-        case "Distance · m":
-            return "\(item.value) m"
-        case "Distance · km":
-            return "\(item.value) km"
-        case "Avg pace · /100 m":
-            return "\(item.value) /100m"
-        case "Avg pace · /km":
-            return "\(item.value) /km"
-        case "Avg speed · km/h":
-            return "\(item.value) km/h"
-        default:
-            return item.value
-        }
-    }
-}
-
-
-private struct WorkoutSharePNGRenderer {
+@MainActor
+struct WorkoutSharePNGRenderer {
     let snapshot: WorkoutShareSnapshot
     let layout: WorkoutShareLayout
     let route: WorkoutShareRoute
@@ -675,12 +469,13 @@ struct WorkoutShareView: View {
     @State private var layout: WorkoutShareLayout = .centered
     @State private var loadedRoute: [RecordedRoutePoint] = []
     @State private var isLoadingRoute = true
-    @State private var exportedFile: WorkoutShareFile?
+    @State private var exportedPNG: WorkoutSharePNG?
+    @State private var previews: [WorkoutShareLayout: WorkoutSharePNG] = [:]
+    @State private var exportDocument: WorkoutSharePNGDocument?
+    @State private var isSavingToFiles = false
     @State private var exportError: String?
-    @State private var isExporting = false
     @State private var isSavingToPhotos = false
     @State private var saveMessage: String?
-    @State private var lastExportURL: URL?
 
     private var snapshot: WorkoutShareSnapshot {
         WorkoutShareSnapshot(
@@ -698,7 +493,8 @@ struct WorkoutShareView: View {
     }
 
     private var canShare: Bool {
-        !isExporting && !isLoadingRoute
+        !isLoadingRoute && !isSavingToPhotos && !isSavingToFiles
+            && exportedPNG == nil && previews[layout] != nil
     }
 
     var body: some View {
@@ -753,13 +549,28 @@ struct WorkoutShareView: View {
             }
             .task {
                 await loadRoute()
+                guard !Task.isCancelled else { return }
+                preparePreviews()
             }
-            .sheet(
-                item: $exportedFile,
-                onDismiss: removeExport
-            ) { file in
-                WorkoutActivityView(file: file.url)
+            .sheet(item: $exportedPNG) { png in
+                WorkoutActivityView(png: png)
                     .presentationDetents([.medium, .large])
+            }
+            .fileExporter(
+                isPresented: $isSavingToFiles,
+                document: exportDocument,
+                contentType: .png,
+                defaultFilename: "Athevia-Workout.png"
+            ) { result in
+                switch result {
+                case .success:
+                    saveMessage = "PNG saved to Files."
+                case .failure(let error):
+                    if (error as NSError).code != NSUserCancelledError {
+                        exportError = "Couldn't save the PNG. Please try again."
+                    }
+                }
+                exportDocument = nil
             }
             .alert(
                 "Couldn't prepare your share",
@@ -782,16 +593,6 @@ struct WorkoutShareView: View {
         .atheviaScreen()
     }
 
-    private func sticker(
-        for layout: WorkoutShareLayout
-    ) -> some View {
-        WorkoutShareSticker(
-            snapshot: snapshot,
-            layout: layout,
-            route: route
-        )
-    }
-
     private func preview(
         for layout: WorkoutShareLayout
     ) -> some View {
@@ -804,25 +605,32 @@ struct WorkoutShareView: View {
                 * WorkoutShareCanvas.exportSize.height
                 / WorkoutShareCanvas.exportSize.width
 
-            sticker(for: layout)
-                .scaleEffect(
-                    width / WorkoutShareCanvas.exportSize.width,
-                    anchor: .topLeading
-                )
-                .frame(
-                    width: width,
-                    height: height,
-                    alignment: .topLeading
-                )
-                .background {
-                    CheckerboardBackground()
+            Group {
+                if let png = previews[layout] {
+                    // Decode the exact PNG that Save, Copy and Share deliver.
+                    // The checkerboard belongs only to this preview container.
+                    Image(uiImage: png.image)
+                        .renderingMode(.original)
+                        .resizable()
+                        .scaledToFit()
+                } else {
+                    ProgressView()
                 }
-                .clipShape(.rect(cornerRadius: 16))
-                .frame(
-                    maxWidth: .infinity,
-                    maxHeight: .infinity,
-                    alignment: .center
-                )
+            }
+            .frame(
+                width: width,
+                height: height,
+                alignment: .topLeading
+            )
+            .background {
+                CheckerboardBackground()
+            }
+            .clipShape(.rect(cornerRadius: 16))
+            .frame(
+                maxWidth: .infinity,
+                maxHeight: .infinity,
+                alignment: .center
+            )
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Workout sharing preview")
@@ -832,16 +640,19 @@ struct WorkoutShareView: View {
     private var actions: some View {
         VStack(spacing: 8) {
             HStack(spacing: 10) {
-                Button(action: saveToPhotos) {
+                Menu {
+                    Button("Save PNG to Files", systemImage: "folder", action: saveToFiles)
+                    Button("Save to Photos", systemImage: "photo", action: saveToPhotos)
+                } label: {
                     Label(
-                        isSavingToPhotos
-                            ? "Saving…"
-                            : "Save",
+                        isSavingToPhotos ? "Saving…" : "Save PNG",
                         systemImage: "arrow.down.circle"
                     )
+                } primaryAction: {
+                    saveToFiles()
                 }
                 .buttonStyle(SecondaryActionButtonStyle())
-                .disabled(!canShare || isSavingToPhotos)
+                .disabled(!canShare)
 
                 Button(action: exportSticker) {
                     Label(
@@ -850,8 +661,12 @@ struct WorkoutShareView: View {
                     )
                 }
                 .buttonStyle(PrimaryActionButtonStyle())
-                .disabled(!canShare || isSavingToPhotos)
+                .disabled(!canShare)
             }
+
+            Button("Copy sticker", systemImage: "doc.on.doc", action: copySticker)
+                .font(.subheadline.weight(.semibold))
+                .disabled(!canShare)
 
             if let saveMessage {
                 Text(saveMessage)
@@ -921,137 +736,37 @@ struct WorkoutShareView: View {
     }
 
     @MainActor
-    private func renderedPNGData() -> Data? {
-        let data = WorkoutSharePNGRenderer(
-            snapshot: snapshot,
-            layout: layout,
-            route: route
-        ).pngData()
-
-        guard Self.pngHasTransparentBackground(data) else {
-            return nil
+    private func preparePreviews() {
+        var rendered: [WorkoutShareLayout: WorkoutSharePNG] = [:]
+        for candidate in WorkoutShareLayout.allCases {
+            let data = WorkoutSharePNGRenderer(
+                snapshot: snapshot,
+                layout: candidate,
+                route: route
+            ).pngData()
+            guard let png = WorkoutSharePNG(data: data) else {
+                previews = [:]
+                exportError = "Couldn't create a transparent PNG. Please try again."
+                return
+            }
+            rendered[candidate] = png
         }
-
-        return data
+        previews = rendered
     }
 
-    private static func pngHasTransparentBackground(
-        _ data: Data
-    ) -> Bool {
-        guard let source = CGImageSourceCreateWithData(
-            data as CFData,
-            nil
-        ),
-        let image = CGImageSourceCreateImageAtIndex(
-            source,
-            0,
-            nil
-        ) else {
-            return false
-        }
+    @MainActor
+    private func saveToFiles() {
+        guard canShare, let png = previews[layout] else { return }
+        saveMessage = nil
+        exportDocument = WorkoutSharePNGDocument(data: png.data)
+        isSavingToFiles = true
+    }
 
-        switch image.alphaInfo {
-        case .none, .noneSkipFirst, .noneSkipLast:
-            return false
-        default:
-            break
-        }
-
-        let width = image.width
-        let height = image.height
-        guard width > 1, height > 1 else {
-            return false
-        }
-
-        let bytesPerPixel = 4
-        let bytesPerRow = width * bytesPerPixel
-        let byteCount = bytesPerRow * height
-        var pixels = [UInt8](
-            repeating: 0,
-            count: byteCount
-        )
-
-        guard let colorSpace = CGColorSpace(
-            name: CGColorSpace.sRGB
-        ) else {
-            return false
-        }
-
-        return pixels.withUnsafeMutableBytes { buffer in
-            guard let baseAddress = buffer.baseAddress,
-                  let context = CGContext(
-                    data: baseAddress,
-                    width: width,
-                    height: height,
-                    bitsPerComponent: 8,
-                    bytesPerRow: bytesPerRow,
-                    space: colorSpace,
-                    bitmapInfo:
-                        CGImageAlphaInfo.premultipliedLast.rawValue
-                        | CGBitmapInfo.byteOrder32Big.rawValue
-                  ) else {
-                return false
-            }
-
-            context.draw(
-                image,
-                in: CGRect(
-                    x: 0,
-                    y: 0,
-                    width: width,
-                    height: height
-                )
-            )
-
-            let bytes = buffer.bindMemory(to: UInt8.self)
-
-            func alpha(
-                x: Int,
-                y: Int
-            ) -> UInt8 {
-                let offset = y * bytesPerRow + x * bytesPerPixel
-                return bytes[offset + 3]
-            }
-
-            let corners = [
-                alpha(x: 0, y: 0),
-                alpha(x: width - 1, y: 0),
-                alpha(x: 0, y: height - 1),
-                alpha(x: width - 1, y: height - 1)
-            ]
-
-            guard corners.allSatisfy({ $0 == 0 }) else {
-                return false
-            }
-
-            // The share asset is a sticker on a transparent canvas, so most
-            // sampled background pixels should remain fully transparent.
-            var transparentSamples = 0
-            var sampleCount = 0
-            let columns = 12
-            let rows = 20
-
-            for column in 0..<columns {
-                for row in 0..<rows {
-                    let x = min(
-                        width - 1,
-                        column * (width - 1) / max(columns - 1, 1)
-                    )
-                    let y = min(
-                        height - 1,
-                        row * (height - 1) / max(rows - 1, 1)
-                    )
-
-                    if alpha(x: x, y: y) == 0 {
-                        transparentSamples += 1
-                    }
-                    sampleCount += 1
-                }
-            }
-
-            return sampleCount > 0
-                && Double(transparentSamples) / Double(sampleCount) >= 0.60
-        }
+    @MainActor
+    private func copySticker() {
+        guard canShare, let png = previews[layout] else { return }
+        png.copy(to: .general)
+        saveMessage = "Sticker copied. Paste it over your photo or video."
     }
 
     @MainActor
@@ -1060,10 +775,8 @@ struct WorkoutShareView: View {
             return
         }
 
-        guard let data = renderedPNGData() else {
-            exportError = "The generated PNG did not preserve transparency, so it was not saved."
-            return
-        }
+        guard let png = previews[layout] else { return }
+        let data = png.data
 
         let fileURL = FileManager.default.temporaryDirectory
             .appendingPathComponent(
@@ -1106,7 +819,7 @@ struct WorkoutShareView: View {
                         let request = PHAssetCreationRequest.forAsset()
                         let options = PHAssetResourceCreationOptions()
                         options.originalFilename = fileURL.lastPathComponent
-                        options.contentType = .png
+                        options.uniformTypeIdentifier = UTType.png.identifier
                         options.shouldMoveFile = false
 
                         request.addResource(
@@ -1131,51 +844,10 @@ struct WorkoutShareView: View {
 
     @MainActor
     private func exportSticker() {
-        guard canShare else {
-            return
-        }
-
-        isExporting = true
-        defer {
-            isExporting = false
-        }
-
-        guard let data = renderedPNGData() else {
-            exportError = "Couldn't create the image. Please try again."
-            return
-        }
-
-        do {
-            let url = FileManager.default
-                .temporaryDirectory
-                .appendingPathComponent(
-                    "Athevia-\(UUID().uuidString).png"
-                )
-
-            try data.write(
-                to: url,
-                options: .atomic
-            )
-            lastExportURL = url
-            exportedFile = WorkoutShareFile(url: url)
-        } catch {
-            exportError = "Couldn't save the image for sharing. Please try again."
-        }
+        guard canShare, let png = previews[layout] else { return }
+        saveMessage = nil
+        exportedPNG = png
     }
-
-    private func removeExport() {
-        if let lastExportURL {
-            try? FileManager.default.removeItem(
-                at: lastExportURL
-            )
-        }
-        lastExportURL = nil
-    }
-}
-
-private struct WorkoutShareFile: Identifiable {
-    let url: URL
-    var id: URL { url }
 }
 
 private struct CheckerboardBackground: View {
@@ -1214,16 +886,19 @@ private struct CheckerboardBackground: View {
 
 private struct WorkoutActivityView:
     UIViewControllerRepresentable {
-    let file: URL
+    let png: WorkoutSharePNG
 
     func makeUIViewController(
         context: Context
     ) -> UIActivityViewController {
-        // Passing the PNG file rather than a UIImage preserves transparency.
-        UIActivityViewController(
-            activityItems: [file],
-            applicationActivities: nil
+        let configuration = UIActivityItemsConfiguration(
+            itemProviders: [png.itemProvider()]
         )
+        let controller = UIActivityViewController(activityItemsConfiguration: configuration)
+        // Use the explicit PNG Save/Copy actions above. The generic activities
+        // may negotiate a UIImage representation or copy a file URL instead.
+        controller.excludedActivityTypes = [.saveToCameraRoll, .copyToPasteboard]
+        return controller
     }
 
     func updateUIViewController(
@@ -1231,3 +906,4 @@ private struct WorkoutActivityView:
         context: Context
     ) {}
 }
+
