@@ -155,15 +155,21 @@ struct CoachLLMService {
             let context: ContextPayload
             let currentPlan: PlanPayload
             let recentWorkoutHistory: [WorkoutHistoryPayload]
-            let recentMessages: [CoachChatMessage]
+            let recentMessages: [CoachLLMConversationTurn]
         }
 
-        let historyCutoff = Calendar.current.date(byAdding: .day, value: -56, to: .now) ?? .distantPast
+        let historyWindowDays = CoachLLMContextCompactor.historyWindowDays(for: request)
+        let maximumWorkoutRecords = CoachLLMContextCompactor.maximumWorkoutRecords(for: request)
+        let historyCutoff = Calendar.current.date(
+            byAdding: .day,
+            value: -historyWindowDays,
+            to: .now
+        ) ?? .distantPast
         let history = plans
             .flatMap(\.orderedWorkouts)
             .filter { $0.date >= historyCutoff && $0.discipline.isPlannedWorkout }
             .sorted { $0.date > $1.date }
-            .prefix(40)
+            .prefix(maximumWorkoutRecords)
             .map { workout in
                 WorkoutHistoryPayload(
                     date: workout.date,
@@ -197,8 +203,11 @@ struct CoachLLMService {
             availableSports: context.availableSports,
             availability: context.availability,
             capability: context.capability,
-            recentWeeks: context.recentWeeks,
-            recentHealthWorkouts: context.recentHealthWorkouts.map {
+            recentWeeks: Array(context.recentWeeks.suffix(2)),
+            recentHealthWorkouts: context.recentHealthWorkouts
+                .filter { $0.endDate >= historyCutoff }
+                .prefix(maximumWorkoutRecords)
+                .map {
                 HealthWorkoutPayload(
                     sport: $0.sport,
                     startDate: $0.startDate,
@@ -209,7 +218,10 @@ struct CoachLLMService {
                     evidenceKind: $0.evidenceKind
                 )
             },
-            recoveryEvidence: context.recoveryEvidence.map {
+            recoveryEvidence: context.recoveryEvidence
+                .sorted { $0.observedAt > $1.observedAt }
+                .prefix(3)
+                .map {
                 RecoveryPayload(
                     metric: $0.metric,
                     value: $0.value,
@@ -224,7 +236,7 @@ struct CoachLLMService {
         )
 
         let payload = Payload(
-            request: String(request.prefix(1_200)),
+            request: CoachLLMContextCompactor.compact(request, limit: 600),
             context: sanitizedContext,
             currentPlan: PlanPayload(
                 weekNumber: currentPlan.weekNumber,
@@ -244,7 +256,7 @@ struct CoachLLMService {
                 }
             ),
             recentWorkoutHistory: Array(history),
-            recentMessages: Array(recentMessages.suffix(12))
+            recentMessages: CoachLLMContextCompactor.conversation(from: recentMessages)
         )
 
         let encoder = JSONEncoder()
