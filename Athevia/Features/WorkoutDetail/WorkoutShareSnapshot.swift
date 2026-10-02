@@ -53,7 +53,17 @@ struct WorkoutShareSnapshot {
     }
 
     var distanceText: String? {
-        distanceMeters.map { String(format: "%.2f", $0 / 1_000) }
+        guard let distanceMeters else { return nil }
+
+        if discipline == .swimming {
+            return "\(Int(distanceMeters.rounded()))"
+        }
+
+        return String(format: "%.2f", distanceMeters / 1_000)
+    }
+
+    var distanceLabel: String {
+        discipline == .swimming ? "Distance · m" : "Distance · km"
     }
 
     var durationText: String? {
