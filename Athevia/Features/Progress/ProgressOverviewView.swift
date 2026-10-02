@@ -103,36 +103,108 @@ struct ProgressOverviewView: View {
                     setup: setup,
                     plans: plans
                 )
-                TrainingJourneySummaryView(
-                    journey: snapshot.journey,
-                    showsEventReadiness: setup.objective.kind == .event
-                )
 
                 if setup.objective.kind == .event {
+                    compactEventJourney(
+                        setup: setup,
+                        snapshot: snapshot
+                    )
+
                     if let profile = profiles.first {
                         EventOutcomeResolutionCard(profile: profile)
                     }
+
                     if snapshot.journey.phase == .raceWeek,
                        let event = setup.objective.event,
                        !snapshot.journey.eventResolutionRequired {
                         RaceWeekPreparationView(event: event)
                     }
+
                     if snapshot.journey.requiresNextObjective,
                        let event = setup.objective.event,
                        let profile = profiles.first {
-                        NextObjectivePromptView(event: event, profile: profile)
+                        NextObjectivePromptView(
+                            event: event,
+                            profile: profile
+                        )
                     }
+                }
+
+                fourWeekSummary
+
+                if let current, current.hasData {
+                    progressInterpretation(current)
+                    currentTraining(current)
+                }
+
+                if !snapshot.milestones.isEmpty {
                     JourneyProgressView(snapshot: snapshot)
                 }
-            }
+            } else {
+                fourWeekSummary
 
-            fourWeekSummary
-
-            if let current, current.hasData {
-                progressInterpretation(current)
-                currentTraining(current)
+                if let current, current.hasData {
+                    progressInterpretation(current)
+                    currentTraining(current)
+                }
             }
         }
+    }
+
+    private func compactEventJourney(
+        setup: AthleteSetup,
+        snapshot: JourneyProgressSnapshot
+    ) -> some View {
+        let journey = snapshot.journey
+        let eventName = setup.objective.event?.displayName
+            ?? setup.objective.displayName
+
+        return VStack(alignment: .leading, spacing: 10) {
+            SectionEyebrow(text: "Journey")
+
+            Card {
+                HStack(spacing: 10) {
+                    Image(systemName: "flag.checkered")
+                        .foregroundStyle(.secondary)
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(eventName)
+                            .font(.subheadline.weight(.semibold))
+                            .lineLimit(1)
+
+                        Text(journeyLine(journey))
+                            .font(.caption)
+                            .foregroundStyle(
+                                AtheviaAdaptiveStyle(
+                                    .secondary,
+                                    gaming: .secondaryText
+                                )
+                            )
+                            .lineLimit(1)
+                    }
+
+                    Spacer(minLength: 8)
+                }
+            }
+        }
+    }
+
+    private func journeyLine(_ journey: TrainingJourney) -> String {
+        var parts = [journey.phase.displayName]
+
+        if let weeks = journey.weeksRemaining {
+            parts.append(
+                weeks == 1
+                    ? "1 week remaining"
+                    : "\(weeks) weeks remaining"
+            )
+        }
+
+        if let focus = journey.primaryFocus {
+            parts.append(focus.kind.displayName)
+        }
+
+        return parts.joined(separator: " · ")
     }
 
     /// One glance at recent consistency before the athlete reads any deeper
@@ -188,7 +260,7 @@ struct ProgressOverviewView: View {
         if statuses.contains(.recoveryRequired) {
             return (
                 "Recovery is leading the plan",
-                "At least one sport is paused from progression based on your recent reports. Follow the lighter sessions currently prescribed.",
+                "One or more sports needs extra recovery, so your upcoming training is lighter.",
                 "pause.circle"
             )
         }
@@ -196,7 +268,7 @@ struct ProgressOverviewView: View {
         if statuses.contains(.reduce) {
             return (
                 "Athevia is easing training back",
-                "Recent sessions suggest at least one sport needs a lighter step. The current plan reduces demand before building again.",
+                "Recent workouts suggest backing off a little before building again.",
                 "arrow.down.right.circle"
             )
         }
@@ -204,7 +276,7 @@ struct ProgressOverviewView: View {
         if statuses.contains(.maintain) {
             return (
                 "Training is holding steady",
-                "Athevia is keeping at least one sport at its current level while it gathers more completed sessions and feedback.",
+                "Your training is staying steady while Athevia gathers more completed workouts.",
                 "arrow.right.circle"
             )
         }
@@ -212,21 +284,20 @@ struct ProgressOverviewView: View {
         if !statuses.isEmpty && statuses.allSatisfy({ $0 == .progress }) {
             return (
                 "Training is building gradually",
-                "Your recent completed sessions support progression, so the current prescriptions are moving forward.",
+                "Your recent workouts support gradually increasing training.",
                 "arrow.up.right.circle"
             )
         }
 
         return (
-            "Keep completing and reporting sessions",
-            "A few more completed workouts and reports will give Athevia enough evidence to show how your training is changing.",
+            "Building your progress picture",
+            "Complete a few more workouts to show a clearer progress direction.",
             "chart.line.uptrend.xyaxis"
         )
     }
 
-    /// Current capability/prescription plus the most recent training direction.
-    /// It says where each sport is heading without asking the athlete to open a
-    /// week review or inspect individual sessions.
+    /// Sport-level progress stays intentionally simple. Prescription details
+    /// belong to Plan; Progress only says which direction each sport is moving.
     private func currentTraining(_ current: CurrentTraining) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             SectionEyebrow(text: "Your progress")
@@ -235,28 +306,46 @@ struct ProgressOverviewView: View {
                 VStack(spacing: 0) {
                     ForEach(current.states) { state in
                         HStack(spacing: 14) {
-                            Image(systemName: state.sport.discipline.symbolName)
-                                .font(.headline)
-                                .foregroundStyle(state.sport.discipline.themedTint(theme))
-                                .frame(width: 38, height: 38)
-                                .background(state.sport.discipline.themedTint(theme).opacity(0.12), in: .circle)
+                            Image(
+                                systemName:
+                                    state.sport.discipline.symbolName
+                            )
+                            .font(.headline)
+                            .foregroundStyle(
+                                state.sport.discipline
+                                    .themedTint(theme)
+                            )
+                            .frame(width: 38, height: 38)
+                            .background(
+                                state.sport.discipline
+                                    .themedTint(theme)
+                                    .opacity(0.12),
+                                in: .circle
+                            )
 
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(state.sport.displayName)
-                                    .font(.subheadline.weight(.semibold))
-                                Text(state.prescription)
-                                    .font(.subheadline)
-                                    .monospacedDigit()
-                                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
-                            }
+                            Text(state.sport.displayName)
+                                .font(.subheadline.weight(.semibold))
 
                             Spacer(minLength: 8)
 
                             if let status = state.status {
-                                Label(status.directionLabel, systemImage: status.directionSymbol)
-                                    .labelStyle(.titleAndIcon)
-                                    .font(.caption.weight(.medium))
-                                    .foregroundStyle(status.tint)
+                                Label(
+                                    status.directionLabel,
+                                    systemImage:
+                                        status.directionSymbol
+                                )
+                                .labelStyle(.titleAndIcon)
+                                .font(.subheadline.weight(.medium))
+                                .foregroundStyle(status.tint)
+                            } else {
+                                Text("Building history")
+                                    .font(.caption)
+                                    .foregroundStyle(
+                                        AtheviaAdaptiveStyle(
+                                            .secondary,
+                                            gaming: .secondaryText
+                                        )
+                                    )
                             }
                         }
                         .padding(.horizontal, 14)
