@@ -311,6 +311,23 @@ struct WorkoutHistoryView: View {
         }
     }
 
+    private func historySummary(_ record: HealthWorkoutRecord) -> String {
+        var parts = [
+            Duration.seconds(record.duration)
+                .formatted(.time(pattern: .hourMinute))
+        ]
+
+        if let distance = record.distanceMeters {
+            parts.append(TrainingFormatter.distance(meters: distance))
+        }
+
+        if let heartRate = record.averageHeartRate {
+            parts.append("\(Int(heartRate.rounded())) bpm")
+        }
+
+        return parts.joined(separator: " · ")
+    }
+
     private func summary(_ records: [HealthWorkoutRecord]) -> some View {
         Section("Summary") {
             LabeledContent("Workouts", value: "\(records.count)")
