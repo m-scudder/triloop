@@ -20,9 +20,8 @@ struct FirstWeekBuilder: Sendable {
     }
 
     /// - Parameters:
-    ///   - startDate: the first day the athlete will train. The plan still runs
-    ///     Monday to Sunday — days before this become rest — so every week in
-    ///     the app has the same shape.
+    ///   - startDate: the first day of the athlete's seven-day training week.
+    ///     Weeks are anchored to this date rather than to the calendar's Monday.
     ///   - weekNumber: where this sits in the athlete's history. Not always 1:
     ///     an existing athlete completing setup gets their next week, never a
     ///     second week one.
@@ -35,13 +34,7 @@ struct FirstWeekBuilder: Sendable {
         guard setup.canGeneratePlan else { throw BuildFailure.scheduleUnusable }
 
         let start = calendar.startOfDay(for: startDate)
-        let firstWeekday = Weekday(date: start, calendar: calendar) ?? .monday
-        let monday = calendar.date(byAdding: .day, value: -firstWeekday.offsetFromMonday, to: start) ?? start
-
-        // Both the ask and the placement use the days that are left, so a
-        // partial first week is simply smaller rather than reported as a week
-        // that failed to fit.
-        let available = remaining(setup.schedule, from: firstWeekday)
+        let available = setup.schedule
 
         let parameters = resolver.resolve(
             baseline: setup.baseline,
@@ -101,38 +94,27 @@ struct FirstWeekBuilder: Sendable {
         )
         var brickPlaced = false
 
-        for weekday in Weekday.trainingWeek {
+        for offset in 0..<7 {
             guard let date = calendar.date(
                 byAdding: .day,
-                value: weekday.offsetFromMonday,
-                to: monday
+                value: offset,
+                to: start
+            ),
+            let weekday = Weekday(
+                date: date,
+                calendar: calendar
             ) else {
                 continue
             }
 
             // Event Day is a lifecycle fact, not another training slot. It must
             // replace normal training even when the week shape would otherwise
-            // have left this date as recovery.
-            if weekday >= firstWeekday,
-               let event = setup.objective.event,
+            // have left this date as rest.
+            if let event = setup.objective.event,
                setup.eventState.status == .upcoming,
                let eventDate = event.eventDate,
                calendar.isDate(date, inSameDayAs: eventDate) {
                 workouts.append(EventDayPrescription.workout(for: event, on: date))
-                continue
-            }
-
-            // Days already gone by the time setup finished are rest, not a
-            // session the athlete silently failed to do. An available day that
-            // does not need training is also rest; Recovery is prescribed only
-            // when the training model has an actual recovery reason.
-            if weekday < firstWeekday {
-                workouts.append(
-                    PrescribedSessions.restDay(
-                        on: date,
-                        reason: "This day had already passed when your plan was created."
-                    )
-                )
                 continue
             }
 
@@ -205,25 +187,13 @@ struct FirstWeekBuilder: Sendable {
 
         return WeeklyPlan(
             weekNumber: weekNumber,
-            startDate: monday,
-            endDate: calendar.date(byAdding: .day, value: 6, to: monday) ?? monday,
+            startDate: start,
+            endDate: calendar.date(byAdding: .day, value: 6, to: start) ?? start,
             status: .active,
             generationReason: reason(for: setup, shape: shape, parameters: parameters),
             generationReasonCode: .initialAssessment,
             parameters: parameters,
             workouts: workouts
-        )
-    }
-
-    /// The schedule with elapsed days closed off, so every session the athlete
-    /// asked for is placed in the part of the week they still have.
-    private func remaining(_ schedule: AthleteSchedule, from weekday: Weekday) -> AthleteSchedule {
-        AthleteSchedule(
-            days: schedule.days.map { day in
-                var updated = day
-                if day.weekday < weekday { updated.isAvailable = false }
-                return updated
-            }
         )
     }
 
