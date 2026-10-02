@@ -7,6 +7,8 @@ import SwiftUI
 struct AdvancedMetricsView: View {
     let metrics: RecordedMetrics
     let sport: Sport?
+    var summary: ImportedWorkoutSummary? = nil
+    var route: [RecordedRoutePoint] = []
 
     private var rows: [(name: String, value: String)] {
         var result: [(String, String)] = []
@@ -26,10 +28,93 @@ struct AdvancedMetricsView: View {
             append(&result, "Power", metrics.averageCyclingPower) { "\(Int($0.rounded())) W" }
             append(&result, "FTP", metrics.functionalThresholdPower) { "\(Int($0.rounded())) W" }
 
-        case .swimming, nil:
+        case .swimming:
+            if let environment = metrics.swimEnvironment {
+                result.append((
+                    "Environment",
+                    environment == .pool ? "Pool" : "Open water"
+                ))
+            }
+
+            if let summary {
+                if let distance = summary.distanceMeters,
+                   distance > 0,
+                   summary.duration > 0 {
+                    result.append((
+                        "Average pace",
+                        "\(TrainingFormatter.swimPace(secondsPer100m: summary.duration / (distance / 100))) /100 m"
+                    ))
+                }
+
+                if let lengths = summary.swimmingLengths, lengths > 0 {
+                    result.append(("Lengths", "\(lengths)"))
+                }
+
+                if let strokes = summary.swimmingStrokeCount, strokes > 0 {
+                    result.append(("Strokes", "\(Int(strokes.rounded()))"))
+                }
+
+                if let continuous = summary.longestContinuousSwimMeters, continuous > 0 {
+                    result.append((
+                        "Longest continuous",
+                        TrainingFormatter.distance(meters: continuous)
+                    ))
+                }
+
+                if let averageHeartRate = summary.averageHeartRate, averageHeartRate > 0 {
+                    result.append(("Average heart rate", "\(Int(averageHeartRate.rounded())) bpm"))
+                }
+
+                if let maximumHeartRate = summary.maximumHeartRate, maximumHeartRate > 0 {
+                    result.append(("Maximum heart rate", "\(Int(maximumHeartRate.rounded())) bpm"))
+                }
+            }
+
+        case nil:
             break
         }
 
+        if let summary, summary.discipline == .multisport {
+            for (index, segment) in metrics.multisportSegments.enumerated() {
+                result.append((
+                    multisportSegmentName(segment, index: index),
+                    multisportSegmentValue(segment)
+                ))
+            }
+
+            if let lengths = summary.swimmingLengths, lengths > 0 {
+                result.append(("Swim lengths", "\(lengths)"))
+            }
+
+            if let strokes = summary.swimmingStrokeCount, strokes > 0 {
+                result.append(("Swim strokes", "\(Int(strokes.rounded()))"))
+            }
+
+            if let continuous = summary.longestContinuousSwimMeters, continuous > 0 {
+                result.append((
+                    "Longest continuous swim",
+                    TrainingFormatter.distance(meters: continuous)
+                ))
+            }
+        }
+
+        if let summary, sport != .swimming {
+            if let averageHeartRate = summary.averageHeartRate, averageHeartRate > 0 {
+                result.append(("Average heart rate", "\(Int(averageHeartRate.rounded())) bpm"))
+            }
+
+            if let maximumHeartRate = summary.maximumHeartRate, maximumHeartRate > 0 {
+                result.append(("Maximum heart rate", "\(Int(maximumHeartRate.rounded())) bpm"))
+            }
+        }
+
+        if let elevation = summary?.elevationAscendedMeters, elevation > 0 {
+            result.append(("Elevation gain", "\(Int(elevation.rounded())) m"))
+        }
+
+        append(&result, "Active calories", metrics.activeEnergyKilocalories) {
+            "\(Int($0.rounded())) kcal"
+        }
         append(&result, "Apple effort", metrics.workoutEffort) { "\(Int($0.rounded()))/10" }
         if metrics.workoutEffort == nil {
             append(&result, "Estimated effort", metrics.estimatedWorkoutEffort) { "\(Int($0.rounded()))/10" }
@@ -61,8 +146,53 @@ struct AdvancedMetricsView: View {
                 }
             }
 
-            WorkoutRouteView(points: metrics.route)
+            WorkoutRouteView(points: route.isEmpty ? metrics.route : route)
         }
+    }
+
+    private func multisportSegmentName(
+        _ segment: RecordedMultisportSegment,
+        index: Int
+    ) -> String {
+        if segment.isTransition {
+            return "Leg \(index + 1) · Transition"
+        }
+
+        let name = segment.sport?.discipline.displayName ?? "Activity"
+        return "Leg \(index + 1) · \(name)"
+    }
+
+    private func multisportSegmentValue(_ segment: RecordedMultisportSegment) -> String {
+        var parts: [String] = [
+            TrainingFormatter.totalDuration(seconds: segment.durationSeconds)
+        ]
+
+        if let distance = segment.distanceMeters, distance > 0 {
+            parts.append(TrainingFormatter.distance(meters: distance))
+
+            guard segment.durationSeconds > 0 else {
+                return parts.joined(separator: " · ")
+            }
+
+            switch segment.sport {
+            case .running:
+                let secondsPerKm = Int((segment.durationSeconds / (distance / 1_000)).rounded())
+                parts.append(String(format: "%d:%02d /km", secondsPerKm / 60, secondsPerKm % 60))
+
+            case .cycling:
+                let speed = distance / segment.durationSeconds * 3.6
+                parts.append(String(format: "%.1f km/h", speed))
+
+            case .swimming:
+                let pace = segment.durationSeconds / (distance / 100)
+                parts.append("\(TrainingFormatter.swimPace(secondsPer100m: pace)) /100 m")
+
+            case nil:
+                break
+            }
+        }
+
+        return parts.joined(separator: " · ")
     }
 
     private func append(

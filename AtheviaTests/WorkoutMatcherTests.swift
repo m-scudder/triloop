@@ -159,6 +159,110 @@ struct WorkoutMatcherTests {
         #expect(result.unmatchedImported.count == 1)
     }
 
+
+    @Test("Watch workout ID cannot move an activity onto another day")
+    func exactWatchIDStillRequiresRecordedDay() throws {
+        let plan = plan()
+        let swim = try #require(plan.orderedWorkouts.first { $0.discipline == .swimming })
+        let actualStart = calendar.date(byAdding: .day, value: -1, to: swim.date) ?? swim.date
+
+        let imported = ImportedWorkout(
+            healthKitUUID: UUID(),
+            sport: .swimming,
+            startDate: actualStart,
+            endDate: actualStart.addingTimeInterval(1_200),
+            duration: 1_200,
+            distanceMeters: 500,
+            plannedWorkoutID: swim.id
+        )
+
+        let result = matcher().match(
+            planned: plan.orderedWorkouts,
+            with: [imported],
+            asOf: day(7)
+        )
+
+        #expect(result.matches.isEmpty)
+        #expect(result.unmatchedImported.map(\.healthKitUUID) == [imported.healthKitUUID])
+        #expect(result.unmatchedPlanned.contains { $0.id == swim.id })
+    }
+
+
+    @Test("Watch IDs cannot cross dates for run cycle or multisport")
+    func exactWatchIDDateGuardAppliesAcrossDisciplines() {
+        let planned: [PlannedWorkout] = [
+            PlannedWorkout(
+                date: day(1),
+                discipline: .running,
+                title: "Run",
+                prescribedDurationSeconds: 1_800
+            ),
+            PlannedWorkout(
+                date: day(1),
+                discipline: .cycling,
+                title: "Cycle",
+                prescribedDurationSeconds: 1_800
+            ),
+            PlannedWorkout(
+                date: day(1),
+                discipline: .multisport,
+                title: "Brick",
+                prescribedDurationSeconds: 2_700
+            )
+        ]
+
+        let imported: [ImportedWorkout] = [
+            ImportedWorkout(
+                healthKitUUID: UUID(),
+                sport: .running,
+                startDate: day(0),
+                endDate: day(0).addingTimeInterval(1_800),
+                duration: 1_800,
+                plannedWorkoutID: planned[0].id
+            ),
+            ImportedWorkout(
+                healthKitUUID: UUID(),
+                sport: .cycling,
+                startDate: day(0),
+                endDate: day(0).addingTimeInterval(1_800),
+                duration: 1_800,
+                plannedWorkoutID: planned[1].id
+            ),
+            ImportedWorkout(
+                healthKitUUID: UUID(),
+                sport: .cycling,
+                startDate: day(0),
+                endDate: day(0).addingTimeInterval(2_700),
+                duration: 2_700,
+                metrics: RecordedMetrics(
+                    multisportSegments: [
+                        RecordedMultisportSegment(
+                            sport: .cycling,
+                            durationSeconds: 1_800,
+                            distanceMeters: 10_000
+                        ),
+                        RecordedMultisportSegment(
+                            sport: .running,
+                            durationSeconds: 900,
+                            distanceMeters: 2_500
+                        )
+                    ]
+                ),
+                plannedWorkoutID: planned[2].id
+            )
+        ]
+
+        let result = matcher().match(
+            planned: planned,
+            with: imported,
+            asOf: day(2)
+        )
+
+        #expect(result.matches.isEmpty)
+        #expect(result.unmatchedImported.count == 3)
+        #expect(result.unmatchedPlanned.count == 3)
+    }
+
     @Test("A full week of training matches every session")
     func aFullWeekMatches() {
         let plan = plan()

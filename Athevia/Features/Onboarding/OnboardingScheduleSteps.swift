@@ -45,7 +45,28 @@ struct TrainingDaysStepView: View {
             }
 
             VStack(alignment: .leading, spacing: 10) {
-                SectionEyebrow(text: "Days you can train")
+                SectionEyebrow(text: "Workouts per week")
+
+                HStack(spacing: 8) {
+                    ForEach(model.trainingDayOptions, id: \.self) { count in
+                        AtheviaChoiceChip(
+                            title: "\(count)",
+                            isSelected: model.setup.trainingDayTarget == count
+                        ) {
+                            model.chooseTrainingDays(count)
+                        }
+                    }
+                }
+
+                if model.setup.trainingDayTarget > 3 {
+                    Text("Starts at 3 · builds toward \(model.setup.trainingDayTarget)")
+                        .font(.caption)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                SectionEyebrow(text: "Days you're available")
 
                 HStack(spacing: 6) {
                     ForEach(Weekday.trainingWeek, id: \.self) { weekday in
@@ -88,9 +109,9 @@ struct TrainingDaysStepView: View {
                 }
             }
 
-            if model.setup.schedule.availableDays.count < model.minimumTrainingDays {
+            if model.setup.schedule.availableDays.count < model.setup.trainingDayTarget {
                 Label(
-                    "Choose at least \(model.minimumTrainingDays) training days.",
+                    "Choose at least \(model.setup.trainingDayTarget) available days.",
                     systemImage: "info.circle"
                 )
                 .font(.footnote)

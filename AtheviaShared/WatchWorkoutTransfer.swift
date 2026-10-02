@@ -61,6 +61,15 @@ struct WatchWorkoutPayload: Codable, Equatable, Identifiable, Sendable {
     let steps: [WatchWorkoutStepPayload]
 }
 
+extension WatchWorkoutPayload {
+    func isScheduledForToday(
+        now: Date = .now,
+        calendar: Calendar = .current
+    ) -> Bool {
+        calendar.isDate(date, inSameDayAs: now)
+    }
+}
+
 enum WatchWorkoutDiscipline: String, Codable, Equatable, Sendable {
     case running
     case swimming

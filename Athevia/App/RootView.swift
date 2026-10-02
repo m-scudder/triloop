@@ -65,15 +65,12 @@ struct RootView: View {
                     authentication: authentication,
                     backup: backup,
                     onReady: { session, seedLocalBackup in
-                        ProductAnalytics.shared.updateAccount(session.userID)
+                        ProductAnalytics.shared
+                            .updateAccount(session.userID)
                         accountReady = true
                         if seedLocalBackup {
                             seedAutomaticBackup(for: session)
                         }
-                    },
-                    onContinueLocally: {
-                        ProductAnalytics.shared.updateAccount(signedInAccountID)
-                        accountReady = true
                     }
                 )
             } else {
@@ -217,6 +214,10 @@ struct RootView: View {
             _ = WatchAppPlanSync.sync(plans.currentPlan())
             if automaticallyImport {
                 await autoImporter?.importRecentWeeks()
+            } else {
+                // Historical Apple Health visibility is independent of whether
+                // the athlete wants new workouts auto-matched to the plan.
+                await autoImporter?.syncHistoricalTrainingHistory()
             }
         }
         .task(id: automaticallySchedule) {

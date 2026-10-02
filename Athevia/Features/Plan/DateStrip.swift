@@ -11,26 +11,26 @@ struct DateStrip: View {
 
     let workouts: [PlannedWorkout]
     @Binding var selection: Date
+    var anchorDate: Date? = nil
     var calendar: Calendar = .current
 
     private struct Week: Identifiable {
-        let id: PersistentIdentifier
+        let id: Date
         let start: Date
         let days: [Day]
     }
 
-    /// One tile per day, not per workout: a day can hold more than one session
-    /// once the athlete adds their own alongside the plan.
+    /// One tile per calendar day. Empty days are kept so every page is a stable
+    /// seven-day week even when the athlete only has one historical workout.
     private struct Day: Identifiable {
         let id: Date
         let workouts: [PlannedWorkout]
 
         var date: Date { id }
 
-        /// What the tile shows. Training leads, so a session added to a rest day
-        /// is not represented by the rest placeholder.
-        var representative: PlannedWorkout {
-            workouts.first { $0.discipline.isTrainingSession } ?? workouts[0]
+        /// Training leads over recovery/rest when more than one item shares a day.
+        var representative: PlannedWorkout? {
+            workouts.first { $0.discipline.isTrainingSession } ?? workouts.first
         }
 
         /// The day's sports in swim, bike, run order, so a brick day always
@@ -41,26 +41,115 @@ struct DateStrip: View {
         }
     }
 
-    /// Grouped by the plan each day belongs to, not by `.weekOfYear`: the plan
-    /// runs Monday to Sunday, while the calendar's week starts on whichever day
-    /// the locale says, which splits a training week across two pages.
-    ///
-    /// Keyed on the plan itself rather than its start date, so two plans that
-    /// somehow share a date stay separate pages instead of merging into one
-    /// fourteen-day strip.
+    /// The calendar is anchored to the athlete's chosen plan-start day rather
+    /// than a hard-coded weekday. One page immediately before that anchor is
+    /// exposed so recent Apple Health history remains reachable after reset.
     private var weeks: [Week] {
-        let grouped = Dictionary(grouping: workouts.filter { $0.plan != nil }) { $0.plan!.persistentModelID }
-
-        return grouped.compactMap { id, workouts -> Week? in
-            guard let start = workouts.first?.plan?.startDate else { return nil }
-
-            let days = Dictionary(grouping: workouts) { calendar.startOfDay(for: $0.date) }
-                .map { Day(id: $0.key, workouts: $0.value.sorted { $0.date < $1.date }) }
-                .sorted { $0.date < $1.date }
-
-            return Week(id: id, start: start, days: days)
+        guard let lastWorkout = workouts.max(by: { $0.date < $1.date }) else {
+            return []
         }
-        .sorted { $0.start < $1.start }
+
+        let fallbackAnchor = workouts
+            .filter { $0.plan != nil }
+            .map(\.date)
+            .min()
+            ?? workouts.map(\.date).min()
+            ?? lastWorkout.date
+
+        let currentAnchor = calendar.startOfDay(
+            for: anchorDate ?? fallbackAnchor
+        )
+        let firstWeek = calendar.date(
+            byAdding: .day,
+            value: -7,
+            to: currentAnchor
+        ) ?? currentAnchor
+        let lastWeek = pageStart(
+            containing: lastWorkout.date,
+            anchoredAt: currentAnchor
+        )
+
+        var result: [Week] = []
+        var weekStart = firstWeek
+
+        while weekStart <= lastWeek {
+            let days = (0..<7).map { offset -> Day in
+                let date = calendar.date(
+                    byAdding: .day,
+                    value: offset,
+                    to: weekStart
+                ) ?? weekStart
+
+                let startOfDay = calendar.startOfDay(for: date)
+                let onDay = workouts
+                    .filter {
+                        calendar.isDate(
+                            $0.date,
+                            inSameDayAs: startOfDay
+                        )
+                    }
+                    .sorted { lhs, rhs in
+                        if lhs.origin != rhs.origin {
+                            return lhs.origin != .imported
+                        }
+                        return (lhs.completedAt ?? lhs.date)
+                            < (rhs.completedAt ?? rhs.date)
+                    }
+
+                return Day(
+                    id: startOfDay,
+                    workouts: onDay
+                )
+            }
+
+            result.append(
+                Week(
+                    id: weekStart,
+                    start: weekStart,
+                    days: days
+                )
+            )
+
+            guard let next = calendar.date(
+                byAdding: .day,
+                value: 7,
+                to: weekStart
+            ) else {
+                break
+            }
+            weekStart = next
+        }
+
+        return result
+    }
+
+    /// Finds the 7-day page containing `date`, using the athlete's chosen
+    /// plan-start date as page zero. This works for any starting weekday.
+    private func pageStart(
+        containing date: Date,
+        anchoredAt anchor: Date
+    ) -> Date {
+        let day = calendar.startOfDay(for: date)
+        let distance = calendar.dateComponents(
+            [.day],
+            from: anchor,
+            to: day
+        ).day ?? 0
+
+        let pageOffset: Int
+        if distance >= 0 {
+            pageOffset = distance / 7
+        } else {
+            pageOffset = Int(
+                floor(Double(distance) / 7.0)
+            )
+        }
+
+        return calendar.date(
+            byAdding: .day,
+            value: pageOffset * 7,
+            to: anchor
+        ) ?? anchor
     }
 
     var body: some View {
@@ -71,7 +160,6 @@ struct DateStrip: View {
                         HStack(spacing: 6) {
                             ForEach(week.days) { day in
                                 tile(day)
-                                    .onTapGesture { selection = day.date }
                             }
                         }
                         .padding(.horizontal, 16)
@@ -105,67 +193,147 @@ struct DateStrip: View {
 
     private func tile(_ day: Day) -> some View {
         let workout = day.representative
-        let isSelected = calendar.isDate(day.date, inSameDayAs: selection)
+        let isSelected = calendar.isDate(
+            day.date,
+            inSameDayAs: selection
+        )
         let isToday = calendar.isDateInToday(day.date)
-        let isSkipped = day.workouts.allSatisfy(\.isSkipped)
-        // Matches the first stop of the tile's gradient rather than whichever
-        // session happens to be first in the day.
-        let tint = day.sports.first?.discipline.themedTint(theme) ?? workout.discipline.themedTint(theme)
+        let isSkipped = !day.workouts.isEmpty
+            && day.workouts.allSatisfy(\.isSkipped)
+        let tint = day.sports.first?.discipline.themedTint(theme)
+            ?? workout?.discipline.themedTint(theme)
+            ?? .secondary
 
         return VStack(spacing: 6) {
-            Text(TrainingFormatter.weekdayInitial(for: day.date))
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(isSelected ? tint : .secondary.opacity(0.72))
+            Text(
+                TrainingFormatter.weekdayInitial(
+                    for: day.date
+                )
+            )
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(
+                isSelected
+                    ? tint
+                    : .secondary.opacity(0.72)
+            )
 
-            icons(for: day, isSelected: isSelected, isSkipped: isSkipped)
+            icons(
+                for: day,
+                isSelected: isSelected,
+                isSkipped: isSkipped
+            )
 
             Circle()
-                .fill(marker(for: day, isSelected: isSelected))
+                .fill(
+                    marker(
+                        for: day,
+                        isSelected: isSelected
+                    )
+                )
                 .frame(width: 4, height: 4)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 10)
         .background {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(background(for: day, isSelected: isSelected))
+            RoundedRectangle(
+                cornerRadius: 14,
+                style: .continuous
+            )
+            .fill(
+                background(
+                    for: day,
+                    isSelected: isSelected
+                )
+            )
         }
         .overlay {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(
-                    isSelected
-                        ? theme.color(.onAccent, classic: .white)
-                        : isToday
-                            ? tint
-                            : .clear,
-                    lineWidth: isSelected ? 2.5 : 1.5
-                )
-                .padding(isSelected ? 2 : 0)
+            RoundedRectangle(
+                cornerRadius: 14,
+                style: .continuous
+            )
+            .strokeBorder(
+                isSelected
+                    ? tint
+                    : isToday
+                        ? tint.opacity(0.75)
+                        : .clear,
+                lineWidth: isSelected ? 2 : 1.5
+            )
         }
-        .opacity(isSelected ? 1 : (isSkipped ? 0.42 : 0.72))
+        .opacity(
+            isSelected
+                ? 1
+                : day.workouts.isEmpty
+                    ? 0.36
+                    : isSkipped
+                        ? 0.42
+                        : 0.72
+        )
         .contentShape(.rect)
+        .onTapGesture {
+            selection = day.date
+        }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(label(for: day))
-        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+        .accessibilityAddTraits(
+            isSelected ? [.isSelected] : []
+        )
     }
 
     /// One glyph per sport, so a brick day reads as both rather than as whichever
     /// session happens to be first.
     @ViewBuilder
-    private func icons(for day: Day, isSelected: Bool, isSkipped: Bool) -> some View {
+    private func icons(
+        for day: Day,
+        isSelected: Bool,
+        isSkipped: Bool
+    ) -> some View {
         let sports = day.sports
 
-        if isSkipped || sports.isEmpty {
-            Image(systemName: isSkipped ? "slash.circle" : day.representative.discipline.symbolName)
-                .font(.footnote)
-                .foregroundStyle(isSelected ? day.representative.discipline.themedTint(theme) : (isSkipped ? Color.secondary.opacity(0.55) : day.representative.discipline.themedTint(theme).opacity(0.45)))
+        if day.workouts.isEmpty {
+            Image(systemName: "circle")
+                .font(.caption2)
+                .foregroundStyle(.secondary.opacity(0.24))
                 .frame(height: 16)
+        } else if isSkipped || sports.isEmpty {
+            let discipline = day.representative?.discipline
+            let tint = discipline?.themedTint(theme)
+                ?? Color.secondary
+
+            Image(
+                systemName: isSkipped
+                    ? "slash.circle"
+                    : discipline?.symbolName ?? "circle"
+            )
+            .font(.footnote)
+            .foregroundStyle(
+                isSelected
+                    ? tint
+                    : isSkipped
+                        ? Color.secondary.opacity(0.55)
+                        : tint.opacity(0.45)
+            )
+            .frame(height: 16)
         } else {
             HStack(spacing: 2) {
                 ForEach(sports, id: \.self) { sport in
                     Image(systemName: sport.discipline.symbolName)
-                        // Three glyphs have to fit the same tile as one.
-                        .font(sports.count > 2 ? .caption2 : .footnote)
-                        .foregroundStyle(isSelected ? AnyShapeStyle(sport.discipline.themedTint(theme)) : AnyShapeStyle(sport.discipline.themedTint(theme).opacity(0.45)))
+                        .font(
+                            sports.count > 2
+                                ? .caption2
+                                : .footnote
+                        )
+                        .foregroundStyle(
+                            isSelected
+                                ? AnyShapeStyle(
+                                    sport.discipline.themedTint(theme)
+                                )
+                                : AnyShapeStyle(
+                                    sport.discipline
+                                        .themedTint(theme)
+                                        .opacity(0.45)
+                                )
+                        )
                 }
             }
             .frame(height: 16)
@@ -180,16 +348,25 @@ struct DateStrip: View {
         let sports = day.sports
 
         guard sports.count > 1 else {
-            let discipline = day.representative.discipline
-            return isSelected
-                ? AnyShapeStyle(discipline.themedGradient(theme))
-                : AnyShapeStyle(discipline.themedTint(theme).opacity(0.045))
+            let tint = day.representative?.discipline.themedTint(theme)
+                ?? Color.secondary
+            return AnyShapeStyle(
+                tint.opacity(
+                    isSelected
+                        ? 0.16
+                        : day.workouts.isEmpty
+                            ? 0.02
+                            : 0.045
+                )
+            )
         }
 
-        let colours = sports.map { $0.discipline.themedSurface(theme) }
+        let colours = sports.map {
+            $0.discipline.themedSurface(theme).opacity(isSelected ? 0.18 : 0.055)
+        }
         return AnyShapeStyle(
             LinearGradient(
-                colors: isSelected ? colours : colours.map { $0.opacity(0.055) },
+                colors: colours,
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -198,15 +375,51 @@ struct DateStrip: View {
 
     private func label(for day: Day) -> String {
         let date = TrainingFormatter.shortDate(day.date)
-        let titles = day.workouts.map(\.title).joined(separator: ", ")
-        return "\(date), \(titles)\(stateLabel(for: day.representative))"
+        guard let representative = day.representative else {
+            return "\(date), no workout"
+        }
+
+        let titles = day.workouts
+            .map(\.title)
+            .joined(separator: ", ")
+        return "\(date), \(titles)\(stateLabel(for: representative))"
     }
 
-    private func marker(for day: Day, isSelected: Bool) -> Color {
-        if day.workouts.contains(where: \.hasReport) { return isSelected ? day.representative.discipline.themedTint(theme) : .green }
-        if day.workouts.contains(where: { $0.isMissed(calendar: calendar) }) {
-            return isSelected ? day.representative.discipline.themedTint(theme) : .orange
+    private func marker(
+        for day: Day,
+        isSelected: Bool
+    ) -> Color {
+        guard let representative = day.representative else {
+            return .clear
         }
+
+        if day.workouts.contains(where: \.hasReport) {
+            return isSelected
+                ? representative.discipline.themedTint(theme)
+                : .green
+        }
+
+        if day.workouts.contains(
+            where: { $0.isMissed(calendar: calendar) }
+        ) {
+            return isSelected
+                ? representative.discipline.themedTint(theme)
+                : .orange
+        }
+
+        if day.workouts.contains(
+            where: {
+                $0.origin == .imported
+                    && $0.isCompleted
+            }
+        ) {
+            return isSelected
+                ? representative.discipline.themedTint(theme)
+                : representative.discipline
+                    .themedTint(theme)
+                    .opacity(0.65)
+        }
+
         return .clear
     }
 

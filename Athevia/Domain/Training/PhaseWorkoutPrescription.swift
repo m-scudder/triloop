@@ -17,13 +17,21 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
         sportOrdinal: Int = 0
     ) -> PlannedWorkout {
         guard let journey else {
-            return PrescribedSessions.session(sport.discipline, on: date, parameters: parameters)
+            let workout = PrescribedSessions.session(
+                sport.discipline,
+                on: date,
+                parameters: parameters
+            )
+            workout.title = sport.displayName
+            return workout
         }
 
         let current = capability
+        let workout: PlannedWorkout
+
         switch sport {
         case .running:
-            return running(
+            workout = running(
                 on: date,
                 parameters: parameters,
                 phase: journey.phase,
@@ -31,8 +39,9 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
                 capability: current,
                 ordinal: sportOrdinal
             )
+
         case .cycling:
-            return cycling(
+            workout = cycling(
                 on: date,
                 parameters: parameters,
                 phase: journey.phase,
@@ -40,8 +49,9 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
                 capability: current,
                 ordinal: sportOrdinal
             )
+
         case .swimming:
-            return swimming(
+            workout = swimming(
                 on: date,
                 parameters: parameters,
                 phase: journey.phase,
@@ -50,6 +60,60 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
                 openWaterConsent: openWaterConsent,
                 ordinal: sportOrdinal
             )
+        }
+
+        workout.title = displayTitle(
+            sport: sport,
+            phase: journey.phase,
+            objective: objective,
+            ordinal: sportOrdinal
+        )
+        return workout
+    }
+
+    /// Regular training stays deliberately plain: the sport is the workout
+    /// name. Event plans may add only a small athletics vocabulary so the title
+    /// communicates purpose without inventing a new name for every session.
+    private func displayTitle(
+        sport: Sport,
+        phase: TrainingPhase,
+        objective: TrainingObjective?,
+        ordinal: Int
+    ) -> String {
+        guard objective?.kind == .event else {
+            return sport.displayName
+        }
+
+        let sportName = sport.displayName
+
+        switch phase {
+        case .foundation:
+            return sport == .swimming
+                ? "Technique \(sportName)"
+                : "Easy \(sportName)"
+
+        case .build:
+            return ordinal.isMultiple(of: 2)
+                ? "Easy \(sportName)"
+                : "Endurance \(sportName)"
+
+        case .specific:
+            switch ordinal % 3 {
+            case 2:
+                return "Race Pace \(sportName)"
+            case 1:
+                return "Endurance \(sportName)"
+            default:
+                return sport == .swimming
+                    ? "Technique \(sportName)"
+                    : "Easy \(sportName)"
+            }
+
+        case .taper, .raceWeek:
+            return "Easy \(sportName)"
+
+        case .recovery:
+            return "Recovery"
         }
     }
 

@@ -112,14 +112,37 @@ struct WorkoutSamplesTests {
         #expect(metrics.first?.headline == TrainingFormatter.distance(meters: 100))
     }
 
-    @Test("A trained discipline still reports distance as a pace")
-    func trainedDisciplineKeepsPace() {
-        let samples = WorkoutSamples(distancePerMinute: [point(0, 40), point(1, 60)])
+    @Test("Running distance series is formatted as pace per kilometre")
+    func runningDistanceBecomesPace() {
+        let samples = WorkoutSamples(distancePerMinute: [point(0, 150), point(1, 150)])
 
         let metrics = WorkoutMetric.all(for: .running, samples: samples)
 
         #expect(metrics.map(\.kind) == [.distance])
         #expect(metrics.first?.title == "Pace")
+        #expect(metrics.first?.headline == "6:40")
+        #expect(metrics.first?.caption == "avg /km")
+    }
+
+    @Test("Cycling distance series is formatted as average speed")
+    func cyclingDistanceBecomesSpeed() {
+        let samples = WorkoutSamples(distancePerMinute: [point(0, 500), point(1, 500)])
+
+        let metrics = WorkoutMetric.all(for: .cycling, samples: samples)
+
+        #expect(metrics.map(\.kind) == [.distance])
+        #expect(metrics.first?.title == "Speed")
+        #expect(metrics.first?.headline == "30.0")
+        #expect(metrics.first?.caption == "avg km/h")
+    }
+
+    @Test("Multisport never invents one aggregate pace from mixed distances")
+    func multisportHasNoAggregatePace() {
+        let samples = WorkoutSamples(distancePerMinute: [point(0, 300), point(1, 150)])
+
+        let metrics = WorkoutMetric.all(for: .multisport, samples: samples)
+
+        #expect(metrics.isEmpty)
     }
 
     @Test("Steps during an untrained activity are movement, not cadence")
@@ -171,5 +194,140 @@ struct WorkoutSamplesTests {
 
         let activity = try await provider.dailyActivity(on: .now)
         #expect(activity.hasAnything == false)
+    }
+}
+
+
+@MainActor
+@Suite("Workout share metrics")
+struct WorkoutShareMetricTests {
+    private func workout(
+        discipline: Discipline,
+        duration: TimeInterval,
+        distance: Double,
+        metrics: RecordedMetrics = RecordedMetrics()
+    ) -> PlannedWorkout {
+        let workout = PlannedWorkout(
+            date: .now,
+            discipline: discipline,
+            title: discipline.displayName
+        )
+        let sport: Sport = switch discipline {
+        case .running: .running
+        case .swimming: .swimming
+        case .cycling: .cycling
+        case .multisport, .recovery, .rest: .running
+        }
+        let summary = ImportedWorkoutSummary(
+            healthKitUUID: UUID(),
+            sport: sport,
+            startDate: .now,
+            endDate: Date.now.addingTimeInterval(duration),
+            duration: duration,
+            distanceMeters: distance,
+            metrics: metrics
+        )
+        workout.attach(summary)
+        return workout
+    }
+
+    @Test("Run shares distance time and average pace")
+    func runMetrics() {
+        let snapshot = WorkoutShareSnapshot(
+            workout: workout(
+                discipline: .running,
+                duration: 1_500,
+                distance: 5_000
+            )
+        )
+
+        #expect(snapshot.metrics.map(\.label) == [
+            "Distance · km",
+            "Time",
+            "Avg pace · /km"
+        ])
+        #expect(snapshot.metrics.map(\.value) == ["5.00", "25:00", "5:00"])
+    }
+
+    @Test("Swim shares metres time and pace per hundred")
+    func swimMetrics() {
+        let snapshot = WorkoutShareSnapshot(
+            workout: workout(
+                discipline: .swimming,
+                duration: 600,
+                distance: 500
+            )
+        )
+
+        #expect(snapshot.metrics.map(\.label) == [
+            "Distance · m",
+            "Time",
+            "Avg pace · /100 m"
+        ])
+        #expect(snapshot.metrics.map(\.value) == ["500", "10:00", "2:00"])
+    }
+
+    @Test("Cycle shares distance time and average speed")
+    func cycleMetrics() {
+        let snapshot = WorkoutShareSnapshot(
+            workout: workout(
+                discipline: .cycling,
+                duration: 3_600,
+                distance: 20_000,
+                metrics: RecordedMetrics(averageCyclingSpeed: 20_000 / 3_600)
+            )
+        )
+
+        #expect(snapshot.metrics.map(\.label) == [
+            "Distance · km",
+            "Time",
+            "Avg speed · km/h"
+        ])
+        #expect(snapshot.metrics.map(\.value) == ["20.00", "1:00:00", "20.0"])
+    }
+
+    @Test("Multisport share avoids mixed-distance pace")
+    func multisportMetrics() {
+        let segments = [
+            RecordedMultisportSegment(
+                sport: .swimming,
+                durationSeconds: 600,
+                distanceMeters: 400
+            ),
+            RecordedMultisportSegment(
+                sport: nil,
+                isTransition: true,
+                durationSeconds: 90
+            ),
+            RecordedMultisportSegment(
+                sport: .cycling,
+                durationSeconds: 1_800,
+                distanceMeters: 12_000
+            ),
+            RecordedMultisportSegment(
+                sport: .running,
+                durationSeconds: 900,
+                distanceMeters: 2_500
+            )
+        ]
+        let workout = PlannedWorkout(
+            date: .now,
+            discipline: .multisport,
+            title: "Brick"
+        )
+        let summary = ImportedWorkoutSummary(
+            healthKitUUID: UUID(),
+            sport: .swimming,
+            startDate: .now,
+            endDate: Date.now.addingTimeInterval(3_390),
+            duration: 3_390,
+            metrics: RecordedMetrics(multisportSegments: segments)
+        )
+        workout.attach(summary)
+
+        let snapshot = WorkoutShareSnapshot(workout: workout)
+
+        #expect(snapshot.metrics.map(\.label) == ["Time", "Sports", "Legs"])
+        #expect(snapshot.metrics.map(\.value) == ["56:30", "3", "3"])
     }
 }

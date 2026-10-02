@@ -64,6 +64,9 @@ struct RecordedMetrics: Codable, Equatable, Sendable {
     var averageCyclingPower: Double?
     var functionalThresholdPower: Double?
 
+    /// Active energy recorded for the workout.
+    var activeEnergyKilocalories: Double?
+
     /// Apple's effort score, rated by the athlete in the Workout app.
     /// Kept apart from Athevia's RPE on purpose: they are different questions.
     var workoutEffort: Double?
@@ -74,6 +77,11 @@ struct RecordedMetrics: Codable, Equatable, Sendable {
     /// transition has nil sport and isTransition=true.
     var multisportSegments: [RecordedMultisportSegment]
     var swimEnvironment: RecordedSwimEnvironment?
+
+    /// Source aliases already observed for this physical workout. This lets a
+    /// workout first seen through Apple Health later be recognized when a
+    /// direct Strava/Runna/Garmin integration returns the same activity.
+    var importAliases: [WorkoutImportAlias]
 
     /// GPS points captured by Athevia itself. HealthKit imports normally leave
     /// this empty because their sample stream remains in HealthKit.
@@ -90,10 +98,12 @@ struct RecordedMetrics: Codable, Equatable, Sendable {
         averageCyclingCadence: Double? = nil,
         averageCyclingPower: Double? = nil,
         functionalThresholdPower: Double? = nil,
+        activeEnergyKilocalories: Double? = nil,
         workoutEffort: Double? = nil,
         estimatedWorkoutEffort: Double? = nil,
         multisportSegments: [RecordedMultisportSegment] = [],
         swimEnvironment: RecordedSwimEnvironment? = nil,
+        importAliases: [WorkoutImportAlias] = [],
         route: [RecordedRoutePoint] = []
     ) {
         self.averageCadence = averageCadence
@@ -106,10 +116,12 @@ struct RecordedMetrics: Codable, Equatable, Sendable {
         self.averageCyclingCadence = averageCyclingCadence
         self.averageCyclingPower = averageCyclingPower
         self.functionalThresholdPower = functionalThresholdPower
+        self.activeEnergyKilocalories = activeEnergyKilocalories
         self.workoutEffort = workoutEffort
         self.estimatedWorkoutEffort = estimatedWorkoutEffort
         self.multisportSegments = multisportSegments
         self.swimEnvironment = swimEnvironment
+        self.importAliases = importAliases
         self.route = route
     }
 
@@ -133,10 +145,12 @@ struct RecordedMetrics: Codable, Equatable, Sendable {
         averageCyclingCadence = value(.averageCyclingCadence)
         averageCyclingPower = value(.averageCyclingPower)
         functionalThresholdPower = value(.functionalThresholdPower)
+        activeEnergyKilocalories = value(.activeEnergyKilocalories)
         workoutEffort = value(.workoutEffort)
         estimatedWorkoutEffort = value(.estimatedWorkoutEffort)
         multisportSegments = value(.multisportSegments) ?? []
         swimEnvironment = value(.swimEnvironment)
+        importAliases = value(.importAliases) ?? []
         route = value(.route) ?? []
     }
 
@@ -152,16 +166,23 @@ struct RecordedMetrics: Codable, Equatable, Sendable {
             averageCyclingCadence,
             averageCyclingPower,
             functionalThresholdPower,
+            activeEnergyKilocalories,
             workoutEffort,
             estimatedWorkoutEffort
         ]
         return scalarMetrics.allSatisfy { $0 == nil }
             && multisportSegments.isEmpty
             && swimEnvironment == nil
+            && importAliases.isEmpty
             && route.isEmpty
     }
 
     /// The effort Apple holds, preferring what the athlete rated over what the
     /// system guessed.
     var appleEffort: Double? { workoutEffort ?? estimatedWorkoutEffort }
+
+    mutating func recordImportAlias(_ alias: WorkoutImportAlias) {
+        guard !importAliases.contains(alias) else { return }
+        importAliases.append(alias)
+    }
 }

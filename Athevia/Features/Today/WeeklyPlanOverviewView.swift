@@ -16,10 +16,6 @@ struct WeeklyPlanOverviewView: View {
         sessions.filter(\.isCompleted).count
     }
 
-    private var plannedSeconds: TimeInterval {
-        sessions.compactMap(\.estimatedDurationSeconds).reduce(0, +)
-    }
-
     private var recoveryCount: Int {
         sessions.count { $0.discipline == .recovery }
     }
@@ -30,71 +26,46 @@ struct WeeklyPlanOverviewView: View {
         }
     }
 
-    private var focus: String? {
-        if let reason = plan.generationReasonCode {
-            return reason.displayName
-        }
-        let reason = plan.generationReason.trimmingCharacters(in: .whitespacesAndNewlines)
-        return reason.isEmpty ? nil : reason
-    }
-
     var body: some View {
-        Card(gamingRole: .hero) {
-            VStack(alignment: .leading, spacing: 14) {
+        Card(padding: 12, gamingRole: .hero) {
+            VStack(alignment: .leading, spacing: 9) {
                 HStack(alignment: .firstTextBaseline) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Week \(plan.weekNumber)")
-                            .font(.headline)
-                        Text(TrainingFormatter.weekRange(start: plan.startDate, end: plan.endDate))
-                            .font(.caption)
-                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
-                    }
+                    Text("Week \(plan.weekNumber)")
+                        .font(.headline)
 
                     Spacer()
 
-                    Text("\(TrainingFormatter.totalDuration(seconds: plannedSeconds)) planned")
+                    Text(TrainingFormatter.weekRange(start: plan.startDate, end: plan.endDate))
                         .font(.caption.weight(.medium))
                         .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 }
 
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack {
-                        Text("\(completedCount) of \(sessions.count) completed")
-                            .font(.subheadline.weight(.medium))
-                        Spacer()
-                        Text("\(Int(progress * 100))%")
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
-                    }
+                HStack(spacing: 10) {
+                    Text("\(completedCount)/\(sessions.count) completed")
+                        .font(.caption.weight(.medium))
 
                     ProgressView(value: progress)
                         .tint(.accentColor)
+
+                    Text("\(Int(progress * 100))%")
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 }
 
-                if recoveryCount > 0 {
-                    Label("\(recoveryCount) recovery workout\(recoveryCount == 1 ? "" : "s")", systemImage: Discipline.recovery.symbolName)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                if !activeSports.isEmpty {
-                    HStack(spacing: 8) {
+                if !activeSports.isEmpty || recoveryCount > 0 {
+                    HStack(spacing: 12) {
                         ForEach(activeSports, id: \.rawValue) { sport in
                             sportSummary(sport)
+                        }
+
+                        if recoveryCount > 0 {
+                            Label("\(recoveryCount)", systemImage: Discipline.recovery.symbolName)
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(.secondary)
                         }
                     }
                 }
 
-                if let focus {
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Text("Focus")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
-                        Text(focus)
-                            .font(.caption)
-                            .lineLimit(2)
-                    }
-                }
             }
         }
     }
@@ -111,14 +82,22 @@ struct WeeklyPlanOverviewView: View {
         return HStack(spacing: 6) {
             Image(systemName: sport.discipline.symbolName)
                 .foregroundStyle(sport.discipline.themedTint(theme))
+
             VStack(alignment: .leading, spacing: 1) {
-                Text(sport.discipline.displayName)
-                    .font(.caption.weight(.medium))
-                Text("\(sportSessions.count) · \(TrainingFormatter.totalDuration(seconds: duration))")
+                HStack(spacing: 4) {
+                    Text(sport.discipline.displayName)
+                        .font(.caption.weight(.medium))
+
+                    Text("· \(TrainingFormatter.totalDuration(seconds: duration))")
+                        .font(.caption2)
+                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
+
+                Text("\(sportSessions.count) workout\(sportSessions.count == 1 ? "" : "s")")
                     .font(.caption2)
                     .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

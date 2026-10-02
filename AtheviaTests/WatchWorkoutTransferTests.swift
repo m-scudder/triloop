@@ -84,4 +84,39 @@ struct WatchWorkoutTransferTests {
 
         #expect(before != after)
     }
+    @Test("Only the scheduled day is executable on Watch")
+    func watchPayloadDayEligibility() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC") ?? .gmt
+        let today = Date(timeIntervalSince1970: 1_800_000_000)
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: today)!
+
+        let todayWorkout = WatchWorkoutPayload(
+            id: UUID(),
+            date: today,
+            discipline: .swimming,
+            title: "Swim",
+            goal: "",
+            estimatedDurationSeconds: 1_200,
+            estimatedDistanceMeters: 500,
+            status: .planned,
+            steps: []
+        )
+        let tomorrowWorkout = WatchWorkoutPayload(
+            id: UUID(),
+            date: tomorrow,
+            discipline: .swimming,
+            title: "Swim",
+            goal: "",
+            estimatedDurationSeconds: 1_200,
+            estimatedDistanceMeters: 500,
+            status: .planned,
+            steps: []
+        )
+
+        #expect(todayWorkout.isScheduledForToday(now: today, calendar: calendar))
+        #expect(!tomorrowWorkout.isScheduledForToday(now: today, calendar: calendar))
+    }
+
+
 }

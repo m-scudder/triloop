@@ -21,6 +21,7 @@ final class HealthKitWorkoutImporter: HealthDataProviding, @unchecked Sendable {
             HKQuantityType(.distanceWalkingRunning),
             HKQuantityType(.distanceCycling),
             HKQuantityType(.distanceSwimming),
+            HKQuantityType(.swimmingStrokeCount),
             HKQuantityType(.runningSpeed),
             HKQuantityType(.runningPower),
             HKQuantityType(.runningStrideLength),
@@ -225,12 +226,9 @@ final class HealthKitWorkoutImporter: HealthDataProviding, @unchecked Sendable {
             workout: workout,
             interval: minute
         )
-        async let distance = series(
-            workout.workoutActivityType.sport?.healthKitDistanceType ?? HKQuantityType(.distanceWalkingRunning),
-            unit: .meter(),
-            options: .cumulativeSum,
+        async let distance = distanceSeries(
+            for: workout,
             scope: scope,
-            workout: workout,
             interval: minute
         )
         async let energy = series(
@@ -296,6 +294,26 @@ final class HealthKitWorkoutImporter: HealthDataProviding, @unchecked Sendable {
             limit: 1
         )
         return try await descriptor.result(for: store).first
+    }
+
+    private func distanceSeries(
+        for workout: HKWorkout,
+        scope: NSPredicate,
+        interval: DateComponents
+    ) async throws -> [SamplePoint] {
+        // A swim-bike-run workout has multiple distance types. Treating it as
+        // walking/running distance creates a misleading aggregate pace chart.
+        // Per-leg distance already comes from HKWorkoutActivity statistics.
+        guard let sport = workout.workoutActivityType.sport else { return [] }
+
+        return try await series(
+            sport.healthKitDistanceType,
+            unit: .meter(),
+            options: .cumulativeSum,
+            scope: scope,
+            workout: workout,
+            interval: interval
+        )
     }
 
     /// Bucketed rather than raw: a 30 minute run can hold hundreds of heart-rate
@@ -405,6 +423,7 @@ final class HealthKitWorkoutImporter: HealthDataProviding, @unchecked Sendable {
     }
 
     private static func normalizeMultisport(_ workout: HKWorkout) -> ImportedWorkout? {
+        let lengths = workout.swimmingLengths
         let segments = workout.workoutActivities.compactMap { activity -> RecordedMultisportSegment? in
             let type = activity.workoutConfiguration.activityType
             if type == .transition {
@@ -455,7 +474,9 @@ final class HealthKitWorkoutImporter: HealthDataProviding, @unchecked Sendable {
             averageHeartRate: workout.average(HKQuantityType(.heartRate), in: .heartRate),
             maximumHeartRate: workout.maximum(HKQuantityType(.heartRate), in: .heartRate),
             elevationAscendedMeters: workout.elevationAscendedMeters,
-            longestContinuousSwimMeters: Self.longestContinuous(in: workout.swimmingLengths),
+            swimmingLengths: lengths.isEmpty ? nil : lengths.count,
+            swimmingStrokeCount: workout.sum(HKQuantityType(.swimmingStrokeCount), in: .count()),
+            longestContinuousSwimMeters: Self.longestContinuous(in: lengths),
             metrics: metrics,
             plannedWorkoutID: (workout.metadata?[AtheviaWorkoutMetadata.plannedWorkoutIDKey] as? String)
                 .flatMap(UUID.init(uuidString:)),
@@ -493,7 +514,13 @@ final class HealthKitWorkoutImporter: HealthDataProviding, @unchecked Sendable {
     /// A nil sport is an activity Athevia does not train, which still has an
     /// effort score and nothing sport-specific worth reading.
     static func recordedMetrics(of workout: HKWorkout, sport: Sport?) -> RecordedMetrics {
-        var metrics = RecordedMetrics(averageCadence: averageCadence(of: workout))
+        var metrics = RecordedMetrics(
+            averageCadence: averageCadence(of: workout),
+            activeEnergyKilocalories: workout.sum(
+                HKQuantityType(.activeEnergyBurned),
+                in: .kilocalorie()
+            )
+        )
 
         // Effort is deliberately not read here. It is stored as samples *related*
         // to the workout rather than collected by it, so workout statistics

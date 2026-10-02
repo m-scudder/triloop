@@ -72,6 +72,10 @@ final class OnboardingModel {
         max(2, selectedSports.count)
     }
 
+    var trainingDayOptions: [Int] {
+        Array(minimumTrainingDays...4)
+    }
+
     /// One shared availability cap is applied to every day. A nil value means
     /// the athlete has not answered the time question yet, or is resuming a
     /// legacy schedule with mixed per-day limits.
@@ -94,7 +98,8 @@ final class OnboardingModel {
         case .days:
             return setup.canGeneratePlan
                 && sharedTrainingMinutes != nil
-                && setup.schedule.availableDays.count >= minimumTrainingDays
+                && setup.trainingDayTarget >= minimumTrainingDays
+                && setup.schedule.availableDays.count >= setup.trainingDayTarget
                 && objectiveValidationIssues.isEmpty
 
         default:
@@ -181,6 +186,16 @@ final class OnboardingModel {
             setup.preferences[index].typicalMinutes = opening.typicalMinutes
         }
 
+        if setup.trainingDayTarget < minimumTrainingDays {
+            setup.trainingDayTarget = minimumTrainingDays
+        }
+
+        persist()
+    }
+
+    func chooseTrainingDays(_ count: Int) {
+        guard count >= minimumTrainingDays, count <= 4 else { return }
+        setup.trainingDayTarget = count
         persist()
     }
 

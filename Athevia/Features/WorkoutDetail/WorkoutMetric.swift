@@ -189,21 +189,51 @@ extension WorkoutMetric {
             }
         }
 
-        if !samples.distancePerMinute.isEmpty, let discipline, discipline != .swimming {
+        if !samples.distancePerMinute.isEmpty, let discipline {
             let total = samples.distancePerMinute.reduce(0) { $0 + $1.value }
-            let perMinute = total / Double(max(samples.distancePerMinute.count, 1))
-            metrics.append(
-                WorkoutMetric(
-                    kind: .distance,
-                    title: "Pace",
-                    headline: TrainingFormatter.distance(meters: perMinute),
-                    caption: "per minute",
-                    symbol: "speedometer",
-                    points: samples.distancePerMinute,
-                    lengths: [],
-                    tint: tint
-                )
-            )
+            let sampledSeconds = Double(samples.distancePerMinute.count) * 60
+
+            switch discipline {
+            case .running:
+                let speed = summary?.metrics?.averageRunningSpeed
+                    ?? (sampledSeconds > 0 ? total / sampledSeconds : 0)
+                if speed > 0 {
+                    let secondsPerKm = Int((1_000 / speed).rounded())
+                    metrics.append(
+                        WorkoutMetric(
+                            kind: .distance,
+                            title: "Pace",
+                            headline: String(format: "%d:%02d", secondsPerKm / 60, secondsPerKm % 60),
+                            caption: "avg /km",
+                            symbol: "speedometer",
+                            points: samples.distancePerMinute,
+                            lengths: [],
+                            tint: tint
+                        )
+                    )
+                }
+
+            case .cycling:
+                let speed = summary?.metrics?.averageCyclingSpeed
+                    ?? (sampledSeconds > 0 ? total / sampledSeconds : 0)
+                if speed > 0 {
+                    metrics.append(
+                        WorkoutMetric(
+                            kind: .distance,
+                            title: "Speed",
+                            headline: String(format: "%.1f", speed * 3.6),
+                            caption: "avg km/h",
+                            symbol: "speedometer",
+                            points: samples.distancePerMinute,
+                            lengths: [],
+                            tint: tint
+                        )
+                    )
+                }
+
+            case .swimming, .multisport, .recovery, .rest:
+                break
+            }
         } else if !samples.distancePerMinute.isEmpty, discipline == nil {
             // Reported as a total rather than a pace: distance covered while
             // lifting is incidental, and a pace would read as a performance.

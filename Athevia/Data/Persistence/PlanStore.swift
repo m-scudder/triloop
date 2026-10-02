@@ -20,6 +20,112 @@ struct PlanStore {
         return ((try? context.fetchCount(descriptor)) ?? 0) > 0
     }
 
+    /// Normalizes headline workout names written by older builds. Only
+    /// Athevia-prescribed training sessions are touched; imported and
+    /// athlete-authored workouts keep their own identity.
+    @discardableResult
+    func normalizeWorkoutTitles() throws -> Int {
+        guard let setup = athleteSetup() else { return 0 }
+
+        let plans = try context.fetch(
+            FetchDescriptor<WeeklyPlan>()
+        )
+        var changed = 0
+
+        for plan in plans {
+            for workout in plan.prescribedTrainingSessions {
+                guard let sport = workout.discipline.sport else {
+                    if workout.discipline == .multisport {
+                        let replacement = normalizedMultisportTitle(
+                            workout.title,
+                            objective: setup.objective
+                        )
+                        if workout.title != replacement {
+                            workout.title = replacement
+                            changed += 1
+                        }
+                    }
+                    continue
+                }
+
+                let replacement = normalizedTitle(
+                    workout.title,
+                    sport: sport,
+                    objective: setup.objective
+                )
+
+                if workout.title != replacement {
+                    workout.title = replacement
+                    changed += 1
+                }
+            }
+        }
+
+        if changed > 0 {
+            try context.save()
+        }
+
+        return changed
+    }
+
+    private func normalizedTitle(
+        _ existing: String,
+        sport: Sport,
+        objective: TrainingObjective
+    ) -> String {
+        guard objective.kind == .event else {
+            return sport.displayName
+        }
+
+        let value = existing.lowercased()
+        let sportName = sport.displayName
+
+        if value.contains("race")
+            || value.contains("event pace")
+            || value.contains("event riding")
+            || value.contains("practice for your event") {
+            return "Race Pace \(sportName)"
+        }
+
+        if value.contains("longer")
+            || value.contains("endurance") {
+            return "Endurance \(sportName)"
+        }
+
+        if value.contains("interval") {
+            return "Intervals \(sportName)"
+        }
+
+        if value.contains("tempo") {
+            return "Tempo \(sportName)"
+        }
+
+        if sport == .swimming,
+           value.contains("technique")
+                || value.contains("basics")
+                || value.contains("fundamentals")
+                || value.contains("comfortable swimming") {
+            return "Technique Swimming"
+        }
+
+        return "Easy \(sportName)"
+    }
+
+    private func normalizedMultisportTitle(
+        _ existing: String,
+        objective: TrainingObjective
+    ) -> String {
+        guard objective.kind == .event else {
+            return "Multisport"
+        }
+
+        let value = existing.lowercased()
+        return value.contains("simulation")
+            || value.contains("event")
+            ? "Race Simulation"
+            : "Brick"
+    }
+
     /// Returns `nil` when the following week already exists, so tapping twice
     /// cannot produce two week 2s.
     @discardableResult
@@ -43,6 +149,7 @@ struct PlanStore {
         }
         configured.schedule = setup.schedule
         configured.preferences = setup.preferences
+        configured.targetTrainingDays = setup.trainingDayTarget
         let history = (try? context.fetch(
             FetchDescriptor<WeeklyPlan>(sortBy: [SortDescriptor(\.startDate)])
         )) ?? []

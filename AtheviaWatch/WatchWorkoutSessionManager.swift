@@ -89,6 +89,11 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
             return activeWorkout?.id == workout.id
         }
 
+        guard workout.isScheduledForToday() else {
+            errorMessage = "Only workouts scheduled for today can be started from Athevia Watch."
+            return false
+        }
+
         guard HKHealthStore.isHealthDataAvailable() else {
             errorMessage = "Health data is unavailable on this Apple Watch."
             return false
@@ -463,8 +468,15 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
             HKQuantityType(.distanceWalkingRunning),
             HKQuantityType(.distanceCycling),
             HKQuantityType(.distanceSwimming),
+            HKQuantityType(.swimmingStrokeCount),
             HKQuantityType(.runningSpeed),
-            HKQuantityType(.cyclingSpeed)
+            HKQuantityType(.runningPower),
+            HKQuantityType(.runningStrideLength),
+            HKQuantityType(.runningGroundContactTime),
+            HKQuantityType(.runningVerticalOscillation),
+            HKQuantityType(.cyclingSpeed),
+            HKQuantityType(.cyclingCadence),
+            HKQuantityType(.cyclingPower)
         ]
 
         try await healthStore.requestAuthorization(toShare: shareTypes, read: readTypes)

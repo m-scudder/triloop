@@ -21,10 +21,12 @@ struct FirstWeekBuilderTests {
         swimming: SwimmingBaseline = .continuous25,
         cycling: CyclingBaseline = .twentyToThirty,
         schedule: AthleteSchedule = .everyDay(),
+        trainingDayTarget: Int = 3,
         preferences: [SportPreference]? = nil
     ) -> AthleteSetup {
         AthleteSetup(
             goal: goal,
+            trainingDayTarget: trainingDayTarget,
             baseline: AthleteBaseline(running: running, swimming: swimming, cycling: cycling),
             schedule: schedule,
             preferences: preferences ?? [
@@ -58,6 +60,58 @@ struct FirstWeekBuilderTests {
         #expect(recovery.isCompleted)
         #expect(rest.acceptsFeedback == false)
         #expect(rest.canCompleteWithoutFeedback == false)
+    }
+
+
+    @Test("Two day target starts with two workouts")
+    func twoDayTargetStartsAtTwo() throws {
+        let plan = try builder.build(
+            setup: setup(
+                schedule: .everyDay(),
+                trainingDayTarget: 2,
+                preferences: [SportPreference(sport: .running, sessionsPerWeek: 1)]
+            ),
+            poolLengthMeters: 25,
+            startDate: monday()
+        )
+
+        #expect(plan.prescribedTrainingSessions.count == 2)
+        #expect(plan.orderedWorkouts.filter { $0.discipline == .recovery }.isEmpty)
+    }
+
+    @Test("Three day beginner running target starts with three runs")
+    func threeDayBeginnerRunStartsAtThree() throws {
+        let plan = try builder.build(
+            setup: setup(
+                running: .none,
+                schedule: .everyDay(),
+                trainingDayTarget: 3,
+                preferences: [SportPreference(sport: .running, sessionsPerWeek: 1)]
+            ),
+            poolLengthMeters: 25,
+            startDate: monday()
+        )
+
+        #expect(plan.prescribedTrainingSessions.count == 3)
+        #expect(plan.prescribedTrainingSessions.allSatisfy { $0.discipline == .running })
+    }
+
+    @Test("Four day target opens at three and leaves unused availability as rest")
+    func fourDayTargetOpensAtThree() throws {
+        let plan = try builder.build(
+            setup: setup(
+                schedule: .everyDay(),
+                trainingDayTarget: 4,
+                preferences: [SportPreference(sport: .cycling, sessionsPerWeek: 1)]
+            ),
+            poolLengthMeters: 25,
+            startDate: monday()
+        )
+
+        #expect(plan.prescribedTrainingSessions.count == 3)
+        #expect(plan.orderedWorkouts.filter { $0.discipline == .recovery }.isEmpty)
+        #expect(plan.orderedWorkouts.filter { $0.discipline == .rest }.count == 4)
+        #expect(plan.generationReason.contains("builds gradually toward 4"))
     }
 
     @Test("The first week is built from the assessment, not a seed")
@@ -221,7 +275,7 @@ struct FirstWeekBuilderTests {
         )
 
         let rides = plan.trainingSessions.filter { $0.discipline == .cycling }
-        #expect(rides.count == 7)
+        #expect(rides.count == 3)
         #expect(rides.allSatisfy {
             guard let duration = $0.estimatedDurationSeconds else { return false }
             return duration > 0 && duration <= TimeInterval(60 * 60)
@@ -657,6 +711,44 @@ struct FirstWeekBuilderTests {
         #expect(plan.trainingSessions.contains { $0.title == "Open-Water Preparation" })
         #expect(plan.trainingSessions.contains { $0.title == "Bike, Then Run" })
         #expect(!plan.trainingSessions.contains { $0.title == "Bike + Run Race Rehearsal" })
+    }
+
+    @Test("Four-day intent opens at three training days")
+    func fourDayIntentOpensAtThree() throws {
+        var athlete = setup(
+            schedule: .everyDay(maxDurationMinutes: 60),
+            preferences: [
+                SportPreference(sport: .running, sessionsPerWeek: 1),
+                SportPreference(sport: .cycling, sessionsPerWeek: 1)
+            ]
+        )
+        athlete.trainingDayTarget = 4
+
+        let plan = try builder.build(
+            setup: athlete,
+            poolLengthMeters: 25,
+            startDate: monday()
+        )
+
+        #expect(plan.trainingSessions.count == 3)
+        #expect(plan.generationReason.localizedCaseInsensitiveContains("builds gradually toward 4"))
+    }
+
+    @Test("Two-day intent starts with two training days")
+    func twoDayIntentStartsAtTwo() throws {
+        var athlete = setup(
+            schedule: .everyDay(maxDurationMinutes: 60),
+            preferences: [SportPreference(sport: .running, sessionsPerWeek: 1)]
+        )
+        athlete.trainingDayTarget = 2
+
+        let plan = try builder.build(
+            setup: athlete,
+            poolLengthMeters: 25,
+            startDate: monday()
+        )
+
+        #expect(plan.trainingSessions.count == 2)
     }
 
 }

@@ -1,21 +1,19 @@
 import SwiftData
 import SwiftUI
 
-/// Read-only view of the athlete's real HealthKit workout history.
+/// Browser for the athlete's complete Apple Health workout history.
 ///
-/// Shows everything, including activities Athevia does not train, because the
-/// question this answers is "what is actually in Health?" — and the importer's
-/// filtering is exactly what hides the answer. Nothing here is saved, matched to
-/// a plan, or fed to the training engine.
+/// Every HealthKit workout type is shown. The compact calendar intentionally
+/// highlights only Run, Cycle and Swim so it stays consistent with Plan.
 struct WorkoutHistoryView: View {
     @Environment(\.healthProvider) private var provider
-
-    @State private var range: HistoryRange = .sixMonths
+    @State private var range: HistoryRange = .everything
     @State private var state: LoadState = .idle
     @State private var query = ""
     @State private var sportFilter: SportFilter = .all
     @Query private var profiles: [AthleteProfile]
     @State private var analysisSessions: [LoadedSession] = []
+    @State private var selectedHistoryDate = Date.now
 
     enum SportFilter: String, CaseIterable, Identifiable {
         case all = "All"
@@ -89,7 +87,7 @@ struct WorkoutHistoryView: View {
                 }
                 .pickerStyle(.segmented)
             } footer: {
-                Text("Read-only. Nothing on this screen is imported, matched to a plan, or used for training.")
+                Text("Shows workouts directly from Apple Health. The calendar highlights Run, Cycle and Swim; the history list below includes every workout type Health returns.")
             }
 
             Section {
@@ -166,6 +164,7 @@ struct WorkoutHistoryView: View {
                         .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                 }
             } else {
+                historicalCalendar(matching)
                 summary(matching)
                 analysis(matching)
                 coverage(matching)
@@ -245,6 +244,88 @@ struct WorkoutHistoryView: View {
         let bySport = records.filter(sportFilter.matches)
         guard !term.isEmpty else { return bySport }
         return bySport.filter { $0.activityName.localizedCaseInsensitiveContains(term) }
+    }
+
+    @ViewBuilder
+    private func historicalCalendar(_ records: [HealthWorkoutRecord]) -> some View {
+        let trained = records.filter { $0.sport != nil }
+
+        if !trained.isEmpty {
+            Section {
+                HealthWorkoutDateStrip(
+                    records: trained,
+                    selection: $selectedHistoryDate
+                )
+
+                let selected = trained.filter {
+                    Calendar.current.isDate(
+                        $0.start,
+                        inSameDayAs: selectedHistoryDate
+                    )
+                }
+
+                if selected.isEmpty {
+                    Text("No Run, Cycle or Swim workout on this day.")
+                        .font(.caption)
+                        .foregroundStyle(
+                            AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText)
+                        )
+                } else {
+                    ForEach(selected) { record in
+                        NavigationLink {
+                            HealthWorkoutDetailView(record: record)
+                        } label: {
+                            HStack(spacing: 10) {
+                                Image(systemName: record.sport?.discipline.symbolName ?? "figure.mixed.cardio")
+                                    .foregroundStyle(
+                                        record.sport?.discipline.tint ?? .secondary
+                                    )
+                                    .frame(width: 24)
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(record.sport?.discipline.displayName ?? record.activityName)
+                                        .font(.subheadline.weight(.medium))
+
+                                    Text(historySummary(record))
+                                        .font(.caption)
+                                        .foregroundStyle(
+                                            AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText)
+                                        )
+                                }
+
+                                Spacer()
+
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
+                    }
+                }
+
+            } header: {
+                Text("Run · Cycle · Swim")
+            } footer: {
+                Text("Tap a highlighted day to inspect the workouts Apple Health recorded on that date.")
+            }
+        }
+    }
+
+    private func historySummary(_ record: HealthWorkoutRecord) -> String {
+        var parts = [
+            Duration.seconds(record.duration)
+                .formatted(.time(pattern: .hourMinute))
+        ]
+
+        if let distance = record.distanceMeters {
+            parts.append(TrainingFormatter.distance(meters: distance))
+        }
+
+        if let heartRate = record.averageHeartRate {
+            parts.append("\(Int(heartRate.rounded())) bpm")
+        }
+
+        return parts.joined(separator: " · ")
     }
 
     private func summary(_ records: [HealthWorkoutRecord]) -> some View {
@@ -351,7 +432,15 @@ struct WorkoutHistoryView: View {
         let start = range.startDate(endingAt: end)
 
         do {
-            state = .loaded(try await reader.workoutHistory(from: start, to: end))
+            let records = try await reader.workoutHistory(from: start, to: end)
+            state = .loaded(records)
+
+            if let latest = records
+                .filter({ $0.sport != nil })
+                .map(\.start)
+                .max() {
+                selectedHistoryDate = latest
+            }
         } catch {
             state = .failed(String(describing: error))
         }

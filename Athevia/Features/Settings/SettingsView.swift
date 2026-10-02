@@ -314,7 +314,9 @@ struct SettingsView: View {
                     showsDeleteConfirmation = true
                 } label: {
                     Label("Delete Account", systemImage: "trash")
+                        .foregroundStyle(.red)
                 }
+                .tint(.red)
                 .disabled(isWorking)
 
             case .signedOut, .failed:
@@ -396,10 +398,8 @@ struct SettingsView: View {
     }
 
     private var appVersion: String {
-        let info = Bundle.main.infoDictionary
-        let version = info?["CFBundleShortVersionString"] as? String ?? "—"
-        let build = info?["CFBundleVersion"] as? String ?? "—"
-        return "\(version) (\(build))"
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
+            ?? "—"
     }
 
     private var showingImportMessage: Binding<Bool> {
@@ -547,36 +547,77 @@ struct SettingsView: View {
     }
 
     private func importThisWeek() {
-        guard let plan = plans.currentPlan() else { return }
-        ProductAnalytics.shared.track(.action(.importWorkouts, .requested))
+        guard !plans.isEmpty else { return }
+
+        ProductAnalytics.shared.track(
+            .action(.importWorkouts, .requested)
+        )
         isWorking = true
-        progressMessage = "Importing workouts…"
+        progressMessage = "Syncing Apple Health…"
+
         Task {
             defer {
                 isWorking = false
                 progressMessage = nil
             }
+
             do {
-                let service = WorkoutImportService(context: modelContext, provider: health)
-                let outcome = try await service.importWorkouts(for: plan)
-                importMessage = message(for: outcome)
-                ProductAnalytics.shared.track(.action(.importWorkouts, .succeeded))
+                let coordinator = WorkoutImportCoordinator(
+                    context: modelContext
+                )
+                let combined = try await coordinator
+                    .syncAll(
+                        providers: [health],
+                        plans: plans
+                    )
+
+                importMessage = message(for: combined)
+                ProductAnalytics.shared.track(
+                    .action(.importWorkouts, .succeeded)
+                )
             } catch {
-                importMessage = "Import failed."
-                ProductAnalytics.shared.track(.action(.importWorkouts, .failed))
+                importMessage = "Apple Health sync failed."
+                ProductAnalytics.shared.track(
+                    .action(.importWorkouts, .failed)
+                )
             }
         }
     }
 
-    private func message(for outcome: WorkoutImportService.Outcome) -> String {
-        if outcome.matched > 0 {
-            let sessions = outcome.matched == 1 ? "session" : "sessions"
-            return "Matched \(outcome.matched) \(sessions). Add how each one felt to complete them."
+    private func message(
+        for outcome: WorkoutImportService.Outcome
+    ) -> String {
+        let imported = outcome.matched + outcome.unrecognised
+
+        if imported > 0 {
+            var parts: [String] = []
+
+            if outcome.matched > 0 {
+                let label = outcome.matched == 1
+                    ? "planned workout"
+                    : "planned workouts"
+                parts.append(
+                    "Matched \(outcome.matched) \(label)"
+                )
+            }
+
+            if outcome.unrecognised > 0 {
+                let label = outcome.unrecognised == 1
+                    ? "workout"
+                    : "workouts"
+                parts.append(
+                    "Imported \(outcome.unrecognised) \(label)"
+                )
+            }
+
+            return parts.joined(separator: " · ") + "."
         }
+
         if outcome.alreadyKnown > 0 {
-            return "Nothing new since the last import."
+            return "Apple Health is already up to date."
         }
-        return "No matching workouts found for this week."
+
+        return "No relevant workouts found in Apple Health."
     }
 }
 

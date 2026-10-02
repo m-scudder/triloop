@@ -25,6 +25,12 @@ struct PlanPreviewStepView: View {
                     description: Text(failure)
                 )
             } else if let plan = model.preview {
+                if model.setup.objective.kind == .event,
+                   model.setup.objective.event?.eventDate != nil {
+                    racePlanHeader(plan)
+                }
+
+                trainingFrequencySummary(plan)
                 week(plan)
             } else {
                 ProgressView()
@@ -33,6 +39,79 @@ struct PlanPreviewStepView: View {
             }
         }
         .task { if model.preview == nil { model.buildPreview() } }
+    }
+
+    private func trainingFrequencySummary(_ plan: WeeklyPlan) -> some View {
+        let actual = plan.prescribedTrainingSessions.count
+        let target = model.setup.trainingDayTarget
+
+        return HStack(spacing: 8) {
+            Label("\(actual) workouts", systemImage: "calendar")
+                .font(.caption.weight(.semibold))
+
+            Spacer()
+
+            if actual < target {
+                Text("Builds toward \(target)")
+                    .font(.caption)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+            } else {
+                Text("Weekly target")
+                    .font(.caption)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func racePlanHeader(_ plan: WeeklyPlan) -> some View {
+        if let event = model.setup.objective.event,
+           let eventDate = event.eventDate {
+            NavigationLink {
+                FullTrainingJourneyView(
+                    setup: model.setup,
+                    plans: [plan]
+                )
+            } label: {
+                Card {
+                    HStack(spacing: 12) {
+                        ZStack {
+                            Circle()
+                                .fill(AtheviaAdaptiveStyle(.fill.tertiary, gaming: .raisedSurface))
+                                .frame(width: 42, height: 42)
+
+                            Image(systemName: "flag.checkered")
+                                .font(.subheadline.weight(.semibold))
+                        }
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(event.displayName)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.primary)
+                                .lineLimit(1)
+
+                            Text(TrainingFormatter.shortDate(eventDate, includeYear: true))
+                                .font(.caption)
+                                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+                        }
+
+                        Spacer(minLength: 8)
+
+                        if let weeks = event.weeksRemaining() {
+                            Text("\(weeks) wk")
+                                .font(.caption.weight(.semibold).monospacedDigit())
+                                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+                        }
+
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+                    }
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Race plan for \(event.displayName)")
+        }
     }
 
     /// Weeks always run Monday to Sunday, so the useful thing to state is when

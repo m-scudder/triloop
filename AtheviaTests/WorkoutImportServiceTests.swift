@@ -82,6 +82,248 @@ struct WorkoutImportServiceTests {
         #expect(try context.fetch(FetchDescriptor<ImportedWorkoutSummary>()).count == 1)
     }
 
+    @Test("External workout identities are stable per provider")
+    func externalWorkoutIdentityIsDeterministic() {
+        let first = WorkoutImportIdentity.external(
+            providerID: "strava",
+            externalID: "123456"
+        )
+        let repeated = WorkoutImportIdentity.external(
+            providerID: "strava",
+            externalID: "123456"
+        )
+        let otherProvider =
+            WorkoutImportIdentity.external(
+                providerID: "runna",
+                externalID: "123456"
+            )
+
+        #expect(first.stableUUID == repeated.stableUUID)
+        #expect(first.stableUUID != otherProvider.stableUUID)
+    }
+
+    @Test("The same physical workout from another provider is not duplicated")
+    func crossSourceDuplicateRecordsAnAlias() async throws {
+        let context = try makeContext()
+        let plan = seededPlan(in: context)
+        let healthWorkout = activity(
+            .running,
+            on: 0,
+            duration: 1_680,
+            distance: 4_500
+        )
+
+        let first = try await service(
+            context,
+            [healthWorkout]
+        )
+        .importWorkouts(for: plan)
+        #expect(first.matched == 1)
+
+        let stravaWorkout = ImportedWorkout(
+            identity: .external(
+                providerID: "strava",
+                externalID: "987654321"
+            ),
+            sport: healthWorkout.sport,
+            startDate: healthWorkout.startDate,
+            endDate: healthWorkout.endDate,
+            duration: healthWorkout.duration,
+            distanceMeters:
+                healthWorkout.distanceMeters,
+            averageHeartRate:
+                healthWorkout.averageHeartRate,
+            source: "strava"
+        )
+
+        let second = try await service(
+            context,
+            [stravaWorkout]
+        )
+        .importWorkouts(for: plan)
+
+        #expect(second.matched == 0)
+        #expect(second.unrecognised == 0)
+        #expect(second.alreadyKnown == 1)
+
+        let summaries = try context.fetch(
+            FetchDescriptor<ImportedWorkoutSummary>()
+        )
+        #expect(summaries.count == 1)
+
+        let summary = try #require(
+            summaries.first
+        )
+        #expect(
+            summary.importAliases.contains(
+                healthWorkout.identity.alias
+            )
+        )
+        #expect(
+            summary.importAliases.contains(
+                stravaWorkout.identity.alias
+            )
+        )
+    }
+
+    @Test("Full sync imports a workout before onboarding inside the first plan week")
+    func fullSyncClosesFirstWeekOwnershipGap() async throws {
+        let context = try makeContext()
+        let plan = seededPlan(in: context)
+        plan.generationReasonCode = .initialAssessment
+        plan.generatedAt = day(4, hour: 12)
+
+        let thursdaySwim = activity(
+            .swimming,
+            on: 3,
+            duration: 1_800,
+            distance: 500
+        )
+
+        var coordinator = WorkoutImportCoordinator(
+            context: context
+        )
+        coordinator.calendar = calendar
+        coordinator.importCutoff = nil
+
+        let providers: [any WorkoutImportProviding] = [
+            StubHealthDataProvider(
+                stored: [thursdaySwim]
+            )
+        ]
+        let outcome = try await coordinator.syncAll(
+            providers: providers,
+            plans: [plan]
+        )
+
+        #expect(outcome.unrecognised == 1)
+
+        let standalone = try context.fetch(
+            FetchDescriptor<PlannedWorkout>()
+        )
+        .filter {
+            $0.origin == .imported
+                && $0.plan == nil
+                && $0.discipline == .swimming
+        }
+
+        let swim = try #require(standalone.first)
+        #expect(
+            calendar.isDate(
+                swim.date,
+                inSameDayAs: thursdaySwim.startDate
+            )
+        )
+    }
+
+    @Test("Full sync preserves training outside every generated plan window")
+    func fullSyncImportsUnownedTrainingHistory() async throws {
+        let context = try makeContext()
+        let plan = seededPlan(in: context)
+        plan.generationReasonCode = nil
+        plan.generatedAt = monday()
+
+        let laterRide = activity(
+            .cycling,
+            on: 8,
+            duration: 2_400,
+            distance: 15_000
+        )
+
+        var service = service(
+            context,
+            [laterRide]
+        )
+        service.importCutoff = nil
+
+        let outcome = try await service
+            .syncAllRelevantWorkouts(
+                plans: [plan]
+            )
+
+        #expect(outcome.unrecognised == 1)
+
+        let standalone = try context.fetch(
+            FetchDescriptor<PlannedWorkout>()
+        )
+        .filter {
+            $0.origin == .imported
+                && $0.plan == nil
+                && $0.discipline == .cycling
+        }
+
+        #expect(standalone.count == 1)
+        #expect(
+            calendar.isDate(
+                standalone[0].date,
+                inSameDayAs: laterRide.startDate
+            )
+        )
+    }
+
+    @Test("Multi-provider sync collapses the same physical workout")
+    func coordinatorDeduplicatesAcrossProviders() async throws {
+        let context = try makeContext()
+        let plan = seededPlan(in: context)
+        plan.generationReasonCode = nil
+        plan.generatedAt = monday()
+
+        let healthWorkout = activity(
+            .running,
+            on: 0,
+            duration: 1_680,
+            distance: 4_500
+        )
+        let stravaWorkout = ImportedWorkout(
+            identity: .external(
+                providerID: "strava",
+                externalID: "activity-42"
+            ),
+            sport: healthWorkout.sport,
+            startDate: healthWorkout.startDate,
+            endDate: healthWorkout.endDate,
+            duration: healthWorkout.duration,
+            distanceMeters:
+                healthWorkout.distanceMeters,
+            averageHeartRate:
+                healthWorkout.averageHeartRate,
+            source: "strava"
+        )
+
+        let providers: [any WorkoutImportProviding] = [
+            StubHealthDataProvider(
+                stored: [healthWorkout]
+            ),
+            StubHealthDataProvider(
+                stored: [stravaWorkout]
+            )
+        ]
+
+        var coordinator = WorkoutImportCoordinator(
+            context: context
+        )
+        coordinator.calendar = calendar
+        coordinator.importCutoff = nil
+
+        let outcome = try await coordinator.syncAll(
+            providers: providers,
+            plans: [plan]
+        )
+
+        #expect(outcome.matched == 1)
+        #expect(outcome.alreadyKnown >= 1)
+
+        let summaries = try context.fetch(
+            FetchDescriptor<ImportedWorkoutSummary>()
+        )
+        #expect(summaries.count == 1)
+        #expect(
+            summaries[0].importAliases.contains(
+                stravaWorkout.identity.alias
+            )
+        )
+    }
+
     @Test("Importing twice imports nothing twice")
     func importIsIdempotent() async throws {
         let context = try makeContext()
@@ -96,6 +338,138 @@ struct WorkoutImportServiceTests {
         #expect(second.matched == 0)
         #expect(second.alreadyKnown == 2)
         #expect(try context.fetch(FetchDescriptor<ImportedWorkoutSummary>()).count == 2)
+    }
+
+
+
+    @Test("Pre-plan Apple Health history survives reset and stays outside the plan")
+    func historicalHealthWorkoutSurvivesResetBoundary() async throws {
+        let context = try makeContext()
+        let plan = seededPlan(in: context)
+
+        let oldSwim = activity(
+            .swimming,
+            on: -1,
+            duration: 1_830,
+            distance: 180
+        )
+        let planDayRun = activity(
+            .running,
+            on: 0,
+            duration: 1_500,
+            distance: 5_000
+        )
+
+        var importer = service(
+            context,
+            [oldSwim, planDayRun]
+        )
+        importer.importCutoff = plan.startDate
+
+        let first = try await importer.syncHistoricalTrainingHistory(
+            before: plan.startDate
+        )
+        let second = try await importer.syncHistoricalTrainingHistory(
+            before: plan.startDate
+        )
+
+        #expect(first.unrecognised == 1)
+        #expect(first.alreadyKnown == 0)
+        #expect(second.unrecognised == 0)
+        #expect(second.alreadyKnown == 1)
+
+        let standalone = try context.fetch(
+            FetchDescriptor<PlannedWorkout>()
+        )
+        .filter {
+            $0.origin == .imported
+                && $0.plan == nil
+        }
+
+        #expect(standalone.count == 1)
+
+        let swim = try #require(standalone.first)
+        #expect(swim.title == "Swimming")
+        #expect(swim.discipline == .swimming)
+        #expect(swim.isCompleted)
+        #expect(swim.importedSummary?.healthKitUUID == oldSwim.healthKitUUID)
+        #expect(
+            calendar.isDate(
+                swim.date,
+                inSameDayAs: oldSwim.startDate
+            )
+        )
+
+        // The workout on/after the plan boundary is left for normal plan
+        // matching rather than being imported as standalone history.
+        #expect(
+            try context.fetch(
+                FetchDescriptor<ImportedWorkoutSummary>()
+            ).count == 1
+        )
+        #expect(
+            plan.trainingSessions
+                .filter(\.isCompleted)
+                .isEmpty
+        )
+    }
+
+    @Test("A workout earlier in the first plan week but before onboarding stays visible as history")
+    func firstPlanGenerationBoundaryKeepsEarlierWeekHistory() async throws {
+        let context = try makeContext()
+        let plan = seededPlan(in: context)
+        plan.generationReasonCode = .initialAssessment
+
+        // The stored plan starts Monday, but onboarding actually completed
+        // Friday. A Thursday swim must be imported as historical evidence
+        // rather than falling between history import and plan matching.
+        let generatedAt = day(4, hour: 12)
+        plan.generatedAt = generatedAt
+
+        let thursdaySwim = activity(
+            .swimming,
+            on: 3,
+            duration: 1_800,
+            distance: 500
+        )
+        let provider = service(
+            context,
+            [thursdaySwim]
+        )
+
+        let boundary = WorkoutImportService.historicalBoundary(
+            for: [plan]
+        )
+        #expect(boundary == generatedAt)
+
+        let historical = try await provider
+            .syncHistoricalTrainingHistory(
+                before: boundary
+            )
+
+        #expect(historical.unrecognised == 1)
+
+        let standalone = try context.fetch(
+            FetchDescriptor<PlannedWorkout>()
+        )
+        .filter {
+            $0.origin == .imported
+                && $0.plan == nil
+                && $0.discipline == .swimming
+        }
+
+        let swim = try #require(standalone.first)
+        #expect(swim.isCompleted)
+        #expect(
+            swim.importedSummary?.healthKitUUID
+                == thursdaySwim.healthKitUUID
+        )
+        #expect(
+            calendar.isDate(
+                swim.date,
+                inSameDayAs: thursdaySwim.startDate
+            )
+        )
     }
 
     @Test("Workouts from before Start Over are not re-imported")
@@ -170,6 +544,82 @@ struct WorkoutImportServiceTests {
         #expect(plan.trainingSessions.filter { $0.origin == .imported }.count == 1)
     }
 
+
+    @Test("A Watch swim started early stays on its actual date")
+    func earlyWatchSwimBecomesRecordedWorkoutToday() async throws {
+        let context = try makeContext()
+        let plan = seededPlan(in: context)
+        let plannedSwim = try #require(plan.orderedWorkouts.first { $0.discipline == .swimming })
+        let actualStart = day(0, hour: 18)
+
+        let imported = ImportedWorkout(
+            healthKitUUID: UUID(),
+            sport: .swimming,
+            startDate: actualStart,
+            endDate: actualStart.addingTimeInterval(1_200),
+            duration: 1_200,
+            distanceMeters: 500,
+            plannedWorkoutID: plannedSwim.id,
+            source: "com.mayankagarwal.athevia.watch"
+        )
+
+        let outcome = try await service(context, [imported]).importWorkouts(for: plan)
+
+        #expect(outcome.matched == 0)
+        #expect(outcome.unrecognised == 1)
+        #expect(!plannedSwim.isCompleted)
+        #expect(plannedSwim.importedSummary == nil)
+
+        let recorded = try #require(
+            plan.trainingSessions.first {
+                $0.origin == .imported
+                    && $0.discipline == .swimming
+                    && calendar.isDate($0.date, inSameDayAs: actualStart)
+            }
+        )
+        #expect(recorded.isCompleted)
+        #expect(recorded.importedSummary?.healthKitUUID == imported.healthKitUUID)
+    }
+
+
+    @Test("Previously misdated Watch imports are repaired on sync")
+    func existingMisdatedWatchImportIsReconciled() async throws {
+        let context = try makeContext()
+        let plan = seededPlan(in: context)
+        let plannedSwim = try #require(plan.orderedWorkouts.first { $0.discipline == .swimming })
+        let actualStart = day(0, hour: 18)
+
+        let imported = ImportedWorkout(
+            healthKitUUID: UUID(),
+            sport: .swimming,
+            startDate: actualStart,
+            endDate: actualStart.addingTimeInterval(1_200),
+            duration: 1_200,
+            distanceMeters: 500,
+            plannedWorkoutID: plannedSwim.id,
+            source: "com.mayankagarwal.athevia.watch"
+        )
+        let summary = ImportedWorkoutSummary(imported)
+        context.insert(summary)
+        plannedSwim.attach(summary)
+        try context.save()
+
+        _ = try await service(context, []).importWorkouts(for: plan)
+
+        #expect(!plannedSwim.isCompleted)
+        #expect(plannedSwim.importedSummary == nil)
+
+        let recorded = try #require(
+            plan.trainingSessions.first {
+                $0.origin == .imported
+                    && $0.discipline == .swimming
+                    && calendar.isDate($0.date, inSameDayAs: actualStart)
+            }
+        )
+        #expect(recorded.isCompleted)
+        #expect(recorded.importedSummary?.healthKitUUID == imported.healthKitUUID)
+    }
+
     @Test("A short unmatched activity does not complete a longer prescription")
     func shortSessionReducesTheLoad() async throws {
         let context = try makeContext()
@@ -219,6 +669,205 @@ struct WorkoutImportServiceTests {
 
         // 250 m imported for Tuesday, 300 m planned for the unmatched Friday swim.
         #expect(swimming?.totalDistanceMeters == 550)
+    }
+
+
+
+    @Test("Running sensor metrics survive Health import")
+    func runningMetricsPersist() async throws {
+        let context = try makeContext()
+        let plan = seededPlan(in: context)
+        let run = try #require(plan.orderedWorkouts.first { $0.discipline == .running })
+        let start = run.date.addingTimeInterval(3_600)
+
+        let imported = ImportedWorkout(
+            healthKitUUID: UUID(),
+            sport: .running,
+            startDate: start,
+            endDate: start.addingTimeInterval(1_680),
+            duration: 1_680,
+            distanceMeters: 4_500,
+            averageHeartRate: 148,
+            maximumHeartRate: 171,
+            elevationAscendedMeters: 62,
+            metrics: RecordedMetrics(
+                averageCadence: 172,
+                averageRunningSpeed: 2.68,
+                averageRunningPower: 248,
+                averageStrideLength: 1.06,
+                averageGroundContactTime: 238,
+                averageVerticalOscillation: 8.1,
+                activeEnergyKilocalories: 285
+            )
+        )
+
+        let outcome = try await service(context, [imported]).importWorkouts(for: plan)
+
+        #expect(outcome.matched == 1)
+        let summary = try #require(run.importedSummary)
+        #expect(summary.averageHeartRate == 148)
+        #expect(summary.maximumHeartRate == 171)
+        #expect(summary.elevationAscendedMeters == 62)
+        #expect(summary.metrics?.averageCadence == 172)
+        #expect(summary.metrics?.averageRunningSpeed == 2.68)
+        #expect(summary.metrics?.averageRunningPower == 248)
+        #expect(summary.metrics?.averageStrideLength == 1.06)
+        #expect(summary.metrics?.averageGroundContactTime == 238)
+        #expect(summary.metrics?.averageVerticalOscillation == 8.1)
+        #expect(summary.metrics?.activeEnergyKilocalories == 285)
+    }
+
+    @Test("Cycling sensor metrics survive Health import")
+    func cyclingMetricsPersist() async throws {
+        let context = try makeContext()
+        let plan = seededPlan(in: context)
+        let ride = try #require(plan.orderedWorkouts.first { $0.discipline == .cycling })
+        let start = ride.date.addingTimeInterval(3_600)
+
+        let imported = ImportedWorkout(
+            healthKitUUID: UUID(),
+            sport: .cycling,
+            startDate: start,
+            endDate: start.addingTimeInterval(1_800),
+            duration: 1_800,
+            distanceMeters: 12_000,
+            averageHeartRate: 142,
+            maximumHeartRate: 166,
+            elevationAscendedMeters: 105,
+            metrics: RecordedMetrics(
+                averageCyclingSpeed: 6.67,
+                averageCyclingCadence: 87,
+                averageCyclingPower: 196,
+                activeEnergyKilocalories: 330
+            )
+        )
+
+        let outcome = try await service(context, [imported]).importWorkouts(for: plan)
+
+        #expect(outcome.matched == 1)
+        let summary = try #require(ride.importedSummary)
+        #expect(summary.averageHeartRate == 142)
+        #expect(summary.maximumHeartRate == 166)
+        #expect(summary.elevationAscendedMeters == 105)
+        #expect(summary.metrics?.averageCyclingSpeed == 6.67)
+        #expect(summary.metrics?.averageCyclingCadence == 87)
+        #expect(summary.metrics?.averageCyclingPower == 196)
+        #expect(summary.metrics?.activeEnergyKilocalories == 330)
+    }
+
+    @Test("Unplanned multisport import preserves individual legs")
+    func multisportSegmentsPersist() async throws {
+        let context = try makeContext()
+        let plan = seededPlan(in: context)
+        let start = day(6, hour: 7)
+        let segments = [
+            RecordedMultisportSegment(
+                sport: .swimming,
+                durationSeconds: 600,
+                distanceMeters: 400,
+                swimEnvironment: .openWater
+            ),
+            RecordedMultisportSegment(
+                sport: nil,
+                isTransition: true,
+                durationSeconds: 90
+            ),
+            RecordedMultisportSegment(
+                sport: .cycling,
+                durationSeconds: 1_800,
+                distanceMeters: 12_000
+            ),
+            RecordedMultisportSegment(
+                sport: .running,
+                durationSeconds: 900,
+                distanceMeters: 2_500
+            )
+        ]
+
+        let imported = ImportedWorkout(
+            healthKitUUID: UUID(),
+            sport: .swimming,
+            startDate: start,
+            endDate: start.addingTimeInterval(3_390),
+            duration: 3_390,
+            averageHeartRate: 151,
+            maximumHeartRate: 178,
+            swimmingLengths: 16,
+            swimmingStrokeCount: 288,
+            longestContinuousSwimMeters: 200,
+            metrics: RecordedMetrics(
+                activeEnergyKilocalories: 510,
+                multisportSegments: segments
+            )
+        )
+
+        let outcome = try await service(context, [imported]).importWorkouts(for: plan)
+
+        #expect(outcome.matched == 0)
+        #expect(outcome.unrecognised == 1)
+        let recorded = try #require(
+            plan.trainingSessions.first {
+                $0.origin == .imported && $0.discipline == .multisport
+            }
+        )
+        let summary = try #require(recorded.importedSummary)
+        #expect(summary.discipline == .multisport)
+        #expect(summary.metrics?.multisportSegments == segments)
+        #expect(summary.swimmingLengths == 16)
+        #expect(summary.swimmingStrokeCount == 288)
+        #expect(summary.longestContinuousSwimMeters == 200)
+        #expect(summary.metrics?.activeEnergyKilocalories == 510)
+    }
+
+    @Test("Known HealthKit workouts refresh richer metrics without duplicating")
+    func knownWorkoutMetricsAreRefreshed() async throws {
+        let context = try makeContext()
+        let plan = seededPlan(in: context)
+        let swim = try #require(plan.orderedWorkouts.first { $0.discipline == .swimming })
+        let id = UUID()
+        let start = swim.date.addingTimeInterval(3_600)
+
+        let initial = ImportedWorkout(
+            healthKitUUID: id,
+            sport: .swimming,
+            startDate: start,
+            endDate: start.addingTimeInterval(900),
+            duration: 900,
+            distanceMeters: 300,
+            metrics: RecordedMetrics()
+        )
+
+        _ = try await service(context, [initial]).importWorkouts(for: plan)
+        let summary = try #require(swim.importedSummary)
+        #expect(summary.swimmingStrokeCount == nil)
+        #expect(summary.metrics?.activeEnergyKilocalories == nil)
+
+        let richer = ImportedWorkout(
+            healthKitUUID: id,
+            sport: .swimming,
+            startDate: start,
+            endDate: start.addingTimeInterval(900),
+            duration: 900,
+            distanceMeters: 300,
+            swimmingLengths: 12,
+            swimmingStrokeCount: 210,
+            longestContinuousSwimMeters: 150,
+            metrics: RecordedMetrics(
+                activeEnergyKilocalories: 145,
+                swimEnvironment: .pool
+            )
+        )
+
+        let outcome = try await service(context, [richer]).importWorkouts(for: plan)
+
+        #expect(outcome.alreadyKnown == 1)
+        #expect(outcome.matched == 0)
+        #expect(try context.fetch(FetchDescriptor<ImportedWorkoutSummary>()).count == 1)
+        #expect(summary.swimmingLengths == 12)
+        #expect(summary.swimmingStrokeCount == 210)
+        #expect(summary.longestContinuousSwimMeters == 150)
+        #expect(summary.metrics?.activeEnergyKilocalories == 145)
+        #expect(summary.metrics?.swimEnvironment == .pool)
     }
 
     @Test("Automatic import covers the current week and the one before it")

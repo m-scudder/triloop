@@ -9,6 +9,7 @@ enum AthleteEventStatus: String, Codable, CaseIterable, Sendable {
 
 enum EventCompletionEvidenceSource: String, Codable, Sendable {
     case healthKitImport
+    case importedWorkout
     case atheviaWorkout
     case athleteConfirmation
 }

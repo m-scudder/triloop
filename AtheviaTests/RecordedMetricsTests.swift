@@ -26,6 +26,7 @@ struct RecordedMetricsTests {
 
         #expect(metrics.averageCadence == 168)
         #expect(metrics.averageRunningPower == nil)
+        #expect(metrics.activeEnergyKilocalories == nil)
         #expect(metrics.multisportSegments.isEmpty)
         #expect(metrics.swimEnvironment == nil)
         #expect(!metrics.isEmpty)
@@ -50,6 +51,7 @@ struct RecordedMetricsTests {
             averageCyclingCadence: 88,
             averageCyclingPower: 190,
             functionalThresholdPower: 230,
+            activeEnergyKilocalories: 410,
             workoutEffort: 6,
             estimatedWorkoutEffort: 5,
             multisportSegments: [

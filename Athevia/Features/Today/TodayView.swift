@@ -22,6 +22,7 @@ struct TodayView: View {
     @State private var isResolved = false
 
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.modelContext) private var modelContext
 
     private let scheduler = WorkoutKitScheduler()
 
@@ -34,18 +35,57 @@ struct TodayView: View {
                     }
 
                     if let setup = profiles.first?.setup,
-                       setup.objective.event?.eventDate != nil {
-                        EventCountdownView(objective: setup.objective)
+                       let event = setup.objective.event,
+                       let eventDate = event.eventDate {
+                        NavigationLink {
+                            FullTrainingJourneyView(
+                                setup: setup,
+                                plans: plans
+                            )
+                        } label: {
+                            Card {
+                                HStack(spacing: 12) {
+                                    ZStack {
+                                        Circle()
+                                            .fill(AtheviaAdaptiveStyle(.fill.tertiary, gaming: .raisedSurface))
+                                            .frame(width: 42, height: 42)
 
-                        let journey = TrainingJourneyPlanner().plan(
-                            setup: setup,
-                            recentPlans: Array(plans.prefix(4))
-                        )
-                        if let focus = journey.primaryFocus {
-                            Text("Focus · \(focus.kind.displayName)")
-                                .font(.subheadline.weight(.medium))
-                                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+                                        Image(systemName: "flag.checkered")
+                                            .font(.subheadline.weight(.semibold))
+                                    }
+
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("Race Plan")
+                                            .font(.subheadline.weight(.semibold))
+                                            .foregroundStyle(.primary)
+
+                                        Text(event.displayName)
+                                            .font(.caption)
+                                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+                                            .lineLimit(1)
+                                    }
+
+                                    Spacer(minLength: 8)
+
+                                    VStack(alignment: .trailing, spacing: 2) {
+                                        if let days = event.daysRemaining(), days >= 0 {
+                                            Text("\(days) days")
+                                                .font(.caption.weight(.semibold).monospacedDigit())
+                                                .foregroundStyle(.primary)
+                                        }
+
+                                        Text(TrainingFormatter.shortDate(eventDate))
+                                            .font(.caption2)
+                                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+                                    }
+
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(AtheviaAdaptiveStyle(.tertiary, gaming: .secondaryText))
+                                }
+                            }
                         }
+                        .buttonStyle(.plain)
                     }
 
                     if let pending = pendingCheckIn {
@@ -304,13 +344,39 @@ struct TodayView: View {
             VStack(alignment: .leading, spacing: 8) {
                 SectionEyebrow(text: "Also today")
                 ForEach(finished) { workout in
-                    HStack(spacing: 8) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(AtheviaAdaptiveStyle(.green, gaming: .success))
-                        Text(workout.title)
-                        Spacer(minLength: 0)
+                    NavigationLink {
+                        WorkoutDayDetail(workout: workout)
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(AtheviaAdaptiveStyle(.green, gaming: .success))
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(workout.discipline.displayName)
+                                    .font(.subheadline.weight(.medium))
+
+                                if let summary = workout.importedSummary {
+                                    Text(
+                                        [
+                                            TrainingFormatter.totalDuration(seconds: summary.duration),
+                                            summary.distanceMeters.map { TrainingFormatter.distance(meters: $0) }
+                                        ]
+                                        .compactMap { $0 }
+                                        .joined(separator: " · ")
+                                    )
+                                    .font(.caption)
+                                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+                                }
+                            }
+
+                            Spacer(minLength: 0)
+
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.tertiary)
+                        }
                     }
-                    .font(.subheadline)
+                    .buttonStyle(.plain)
                 }
             }
         }
@@ -413,6 +479,8 @@ struct TodayView: View {
 
     private func refresh() async {
         guard scenePhase == .active else { return }
+
+        try? PlanStore(context: modelContext).normalizeWorkoutTitles()
 
         await syncWatchState()
 

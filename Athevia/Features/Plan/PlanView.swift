@@ -6,7 +6,9 @@ import SwiftUI
 /// Home owns workout execution. Plan owns prescription, completed analysis and
 /// schedule management, so there is no extra workout-detail navigation step.
 struct PlanView: View {
+    @Environment(\.modelContext) private var modelContext
     @Query(sort: \WeeklyPlan.startDate) private var plans: [WeeklyPlan]
+    @Query(sort: \PlannedWorkout.date) private var storedWorkouts: [PlannedWorkout]
     @Query private var profiles: [AthleteProfile]
 
     @State private var selection: Date = .now
@@ -14,14 +16,30 @@ struct PlanView: View {
     @State private var hasChosenOpeningDay = false
     @State private var focused: UUID?
 
-    /// Plan contains prescribed sessions only. Health activities that could not
-    /// be matched to a prescription remain available in workout history and
-    /// analytics, but must not appear as a second "Recorded <sport>" Plan tab.
+    /// Plan is one calendar for both prescriptions and real training history.
+    /// Generated/library sessions come from WeeklyPlan; standalone imported
+    /// Run/Swim/Cycle can predate the first plan after a reset.
     private var allWorkouts: [PlannedWorkout] {
-        plans
-            .flatMap(\.orderedWorkouts)
-            .filter { $0.origin != .imported }
-            .sorted { $0.date < $1.date }
+        storedWorkouts
+            .filter { workout in
+                workout.plan != nil
+                    || (
+                        workout.origin == .imported
+                            && workout.plan == nil
+                            && workout.discipline.isTrainingSession
+                    )
+            }
+            .sorted { lhs, rhs in
+                if Calendar.current.isDate(lhs.date, inSameDayAs: rhs.date) {
+                    // Prescription first; completed imported activity follows.
+                    if lhs.origin != rhs.origin {
+                        return lhs.origin != .imported
+                    }
+                    return (lhs.completedAt ?? lhs.date)
+                        < (rhs.completedAt ?? rhs.date)
+                }
+                return lhs.date < rhs.date
+            }
     }
 
     private var workoutsOnSelectedDay: [PlannedWorkout] {
@@ -51,32 +69,11 @@ struct PlanView: View {
                     )
                 } else {
                     VStack(spacing: 0) {
-                        if let setup = profiles.first?.setup,
-                           setup.objective.event?.eventDate != nil {
-                            EventCountdownView(objective: setup.objective)
-                                .padding(.horizontal, 20)
-                                .padding(.top, 10)
-
-                            let journey = TrainingJourneyPlanner().plan(
-                                setup: setup,
-                                recentPlans: Array(plans.suffix(4))
-                            )
-                            if let focus = journey.primaryFocus {
-                                HStack {
-                                    Text("This week's focus")
-                                    Spacer()
-                                    Text(focus.kind.displayName)
-                                }
-                                .font(.caption)
-                                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
-                                .padding(.horizontal, 20)
-                                .padding(.bottom, 10)
-                            }
-
-                            Divider()
-                        }
-
-                        DateStrip(workouts: allWorkouts, selection: $selection)
+                        DateStrip(
+                            workouts: allWorkouts,
+                            selection: $selection,
+                            anchorDate: profiles.first?.setup?.planStartDate
+                        )
 
                         Divider()
 
@@ -135,7 +132,10 @@ struct PlanView: View {
             .sheet(isPresented: $isPresentingCalendar) {
                 calendarSheet
             }
-            .onAppear(perform: selectSensibleDay)
+            .onAppear {
+                try? PlanStore(context: modelContext).normalizeWorkoutTitles()
+                selectSensibleDay()
+            }
         }
         .atheviaScreen()
     }

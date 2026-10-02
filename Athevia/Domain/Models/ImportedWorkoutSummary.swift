@@ -1,15 +1,23 @@
 import Foundation
 import SwiftData
 
-/// Normalized record of a workout imported from HealthKit.
+/// Normalized record of a workout imported from any connected source.
 ///
-/// HealthKit remains the source of truth (§34); this stores only the values the
-/// training engine needs, keyed by `healthKitUUID` so a repeated import updates
-/// nothing and duplicates nothing.
+/// The stored UUID column keeps its legacy name for SwiftData compatibility,
+/// but the ingestion layer treats it as a provider-neutral import identity.
+/// Source aliases live inside RecordedMetrics so adding Strava/Runna does not
+/// require a schema migration.
 @Model
 final class ImportedWorkoutSummary {
     var id: UUID
     @Attribute(.unique) var healthKitUUID: UUID
+
+    /// Provider-neutral name for the legacy persisted UUID column.
+    var importID: UUID { healthKitUUID }
+
+    var importAliases: [WorkoutImportAlias] {
+        metrics?.importAliases ?? []
+    }
     var sport: Sport
     var startDate: Date
     var endDate: Date
@@ -70,8 +78,11 @@ final class ImportedWorkoutSummary {
     }
 
     convenience init(_ imported: ImportedWorkout, importedAt: Date = .now) {
+        var recorded = imported.metrics
+        recorded.recordImportAlias(imported.identity.alias)
+
         self.init(
-            healthKitUUID: imported.healthKitUUID,
+            healthKitUUID: imported.importID,
             sport: imported.sport,
             startDate: imported.startDate,
             endDate: imported.endDate,
@@ -83,7 +94,7 @@ final class ImportedWorkoutSummary {
             swimmingLengths: imported.swimmingLengths,
             swimmingStrokeCount: imported.swimmingStrokeCount,
             longestContinuousSwimMeters: imported.longestContinuousSwimMeters,
-            metrics: imported.metrics,
+            metrics: recorded,
             source: imported.source,
             importedAt: importedAt
         )
@@ -94,8 +105,19 @@ final class ImportedWorkoutSummary {
     }
 
     var imported: ImportedWorkout {
-        ImportedWorkout(
-            healthKitUUID: healthKitUUID,
+        let identity: WorkoutImportIdentity = {
+            if let alias = importAliases.first {
+                return WorkoutImportIdentity(
+                    providerID: alias.providerID,
+                    externalID: alias.externalID,
+                    stableUUID: importID
+                )
+            }
+            return .appleHealth(importID)
+        }()
+
+        return ImportedWorkout(
+            identity: identity,
             sport: sport,
             startDate: startDate,
             endDate: endDate,

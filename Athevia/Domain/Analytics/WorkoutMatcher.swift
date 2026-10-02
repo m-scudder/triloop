@@ -59,6 +59,13 @@ struct WorkoutMatcher: Sendable {
             let session = sessions[plannedIndex]
             let plannedDay = calendar.startOfDay(for: session.date)
             let activityDay = calendar.startOfDay(for: activity.startDate)
+
+            // Athevia Watch IDs identify the intended prescription, but the
+            // recorded day remains authoritative. Starting a future workout
+            // early must not move today's activity onto tomorrow's plan.
+            guard calendar.isDate(plannedDay, inSameDayAs: activityDay) else {
+                continue
+            }
             let offset = calendar.dateComponents(
                 [.day],
                 from: plannedDay,

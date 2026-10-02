@@ -58,6 +58,38 @@ final class WorkoutAutoImporter {
         }
     }
 
+    /// Keeps Apple Health training history visible even when automatic plan
+    /// matching is disabled. Historical visibility is a data-source concern,
+    /// not a training-plan preference.
+    @discardableResult
+    func syncHistoricalTrainingHistory() async -> Int {
+        guard !PhoneWorkoutExecutionState.isActive else { return 0 }
+        guard await health.authorizationStatus == .authorized else { return 0 }
+
+        let context = container.mainContext
+        let descriptor = FetchDescriptor<WeeklyPlan>(
+            sortBy: [SortDescriptor(\.startDate)]
+        )
+        let plans = (try? context.fetch(descriptor)) ?? []
+        let boundary = WorkoutImportService.historicalBoundary(
+            for: plans
+        )
+
+        let service = WorkoutImportService(
+            context: context,
+            provider: health,
+            importCutoff: effectiveImportCutoff
+        )
+
+        guard let outcome = try? await service.syncHistoricalTrainingHistory(
+            before: boundary
+        ) else {
+            return 0
+        }
+
+        return outcome.unrecognised
+    }
+
     /// The current week and the one before it. A session finished late on a
     /// Sunday can be saved after the next week has already begun.
     @discardableResult
@@ -77,12 +109,17 @@ final class WorkoutAutoImporter {
             provider: health,
             importCutoff: effectiveImportCutoff
         )
-        var matched = 0
+        var imported = 0
+
+        imported += await syncHistoricalTrainingHistory()
 
         for plan in plans.suffix(2) {
-            guard let outcome = try? await service.importWorkouts(for: plan) else { continue }
-            matched += outcome.matched
+            guard let outcome = try? await service.importWorkouts(for: plan) else {
+                continue
+            }
+            imported += outcome.matched + outcome.unrecognised
         }
-        return matched
+
+        return imported
     }
 }

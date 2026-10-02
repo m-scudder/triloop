@@ -23,6 +23,7 @@ struct WorkoutDayDetail: View {
     @State private var isConfirmingUnavailable = false
     @State private var actionMessage: String?
     @State private var samples: WorkoutSamples?
+    @State private var healthRoute: [RecordedRoutePoint] = []
     @State private var samplesFailure: String?
     @State private var isImporting = false
     @State private var importMessage: String?
@@ -107,13 +108,15 @@ struct WorkoutDayDetail: View {
     /// device evidence removes sensor-only sections rather than leaving holes.
     private var analysisSection: some View {
         VStack(alignment: .leading, spacing: 24) {
-            HStack(alignment: .firstTextBaseline) {
-                SectionEyebrow(text: "Workout analysis")
-                Spacer()
-                if let execution {
-                    Text(execution.overall.displayName)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.primary)
+            if !(showsManagementMenu && workout.isCompleted) {
+                HStack(alignment: .firstTextBaseline) {
+                    SectionEyebrow(text: "Workout analysis")
+                    Spacer()
+                    if let execution {
+                        Text(execution.overall.displayName)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.primary)
+                    }
                 }
             }
 
@@ -150,8 +153,13 @@ struct WorkoutDayDetail: View {
 
             intensity(with: zoneBreakdown)
 
-            if let metrics = workout.importedSummary?.metrics {
-                AdvancedMetricsView(metrics: metrics, sport: workout.discipline.sport)
+            if let summary = workout.importedSummary {
+                AdvancedMetricsView(
+                    metrics: summary.metrics ?? RecordedMetrics(),
+                    sport: workout.discipline.sport,
+                    summary: summary,
+                    route: healthRoute
+                )
             }
         }
     }
@@ -222,7 +230,9 @@ struct WorkoutDayDetail: View {
     /// analysis and is available as a collapsed reference.
     @ViewBuilder
     private var plannedWorkoutSection: some View {
-        if workout.isCompleted {
+        if workout.origin == .imported && workout.plan == nil {
+            EmptyView()
+        } else if workout.isCompleted {
             DisclosureCard(
                 workout.discipline == .rest ? "Rest day" : "Planned workout",
                 subtitle: WorkoutStructureSummary.text(for: workout) ?? WorkoutSummaryText.make(for: workout),
@@ -589,6 +599,14 @@ struct WorkoutDayDetail: View {
                 : nil
         } catch {
             samplesFailure = "Could not read the sensor-based detail for this session."
+        }
+
+        do {
+            healthRoute = try await health.route(forWorkout: id)
+        } catch {
+            // Route evidence is optional. Keep the rest of the workout analysis
+            // usable when HealthKit has no route permission or no GPS samples.
+            healthRoute = []
         }
     }
 

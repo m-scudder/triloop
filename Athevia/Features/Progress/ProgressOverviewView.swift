@@ -1,24 +1,14 @@
-import Charts
 import SwiftData
 import SwiftUI
 
-/// Progress answers three questions without duplicating Plan:
-/// Am I progressing? What has my training looked like? How is recovery trending?
+/// Direct, user-facing progress summary without secondary tabs or analytics views.
 struct ProgressOverviewView: View {
     @Environment(\.atheviaTheme) private var theme
 
     @Query(sort: \WeeklyPlan.startDate) private var plans: [WeeklyPlan]
     @Query private var profiles: [AthleteProfile]
 
-    private enum Segment: String, CaseIterable, Identifiable {
-        case overview = "Overview"
-        case training = "Training"
-        case recovery = "Recovery"
-
-        var id: Self { self }
-    }
-
-    @State private var segment: Segment = .overview
+    @State private var showingFourWeekInfo = false
 
     private var current: CurrentTraining? {
         CurrentTraining(plans: plans)
@@ -52,20 +42,6 @@ struct ProgressOverviewView: View {
         return Double(due.filter(\.isCompleted).count) / Double(due.count)
     }
 
-    private var weeklyTrend: [ProgressWeekSummary] {
-        recentPlans.map { plan in
-            let seconds = plan.completedPrescribedTrainingSessions.reduce(0) { total, session in
-                total + (session.importedSummary?.duration ?? session.estimatedDurationSeconds ?? 0)
-            }
-            return ProgressWeekSummary(
-                id: plan.id,
-                weekNumber: plan.weekNumber,
-                startDate: plan.startDate,
-                seconds: seconds
-            )
-        }
-    }
-
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
@@ -74,28 +50,12 @@ struct ProgressOverviewView: View {
                     .padding(.top, 10)
                     .padding(.bottom, 8)
 
-                Picker("Progress view", selection: $segment) {
-                    ForEach(Segment.allCases) { segment in
-                        Text(segment.rawValue).tag(segment)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal, 20)
-                .padding(.top, 8)
-                .padding(.bottom, 14)
-
                 ScrollView {
                     VStack(alignment: .leading, spacing: 22) {
-                        switch segment {
-                        case .overview:
-                            overviewContent
-                        case .training:
-                            TrainingIntelligenceView()
-                        case .recovery:
-                            ProgressRecoveryView()
-                        }
+                        progressContent
                     }
                     .padding(.horizontal, 20)
+                    .padding(.top, 14)
                     .padding(.bottom, 24)
                 }
             }
@@ -104,10 +64,13 @@ struct ProgressOverviewView: View {
             .analyticsScreen(.progress)
         }
         .atheviaScreen()
+        .sheet(isPresented: $showingFourWeekInfo) {
+            fourWeekInfoSheet
+        }
     }
 
     @ViewBuilder
-    private var overviewContent: some View {
+    private var progressContent: some View {
         if plans.isEmpty {
             ContentUnavailableView(
                 "No progress yet",
@@ -121,39 +84,131 @@ struct ProgressOverviewView: View {
                     setup: setup,
                     plans: plans
                 )
-                TrainingJourneySummaryView(
-                    journey: snapshot.journey,
-                    showsEventReadiness: setup.objective.kind == .event
+
+                compactJourney(
+                    setup: setup,
+                    snapshot: snapshot
                 )
 
                 if setup.objective.kind == .event {
                     if let profile = profiles.first {
                         EventOutcomeResolutionCard(profile: profile)
                     }
+
                     if snapshot.journey.phase == .raceWeek,
                        let event = setup.objective.event,
                        !snapshot.journey.eventResolutionRequired {
                         RaceWeekPreparationView(event: event)
                     }
+
                     if snapshot.journey.requiresNextObjective,
                        let event = setup.objective.event,
                        let profile = profiles.first {
-                        NextObjectivePromptView(event: event, profile: profile)
+                        NextObjectivePromptView(
+                            event: event,
+                            profile: profile
+                        )
                     }
+                }
+
+                fourWeekSummary
+
+                if let current, current.hasData {
+                    currentTraining(current)
+                }
+
+                if !snapshot.milestones.isEmpty {
                     JourneyProgressView(snapshot: snapshot)
                 }
-            }
+            } else {
+                fourWeekSummary
 
-            fourWeekSummary
-
-            if let current, current.hasData {
-                progressInterpretation(current)
-                currentTraining(current)
+                if let current, current.hasData {
+                    currentTraining(current)
+                }
             }
+        }
+    }
 
-            if weeklyTrend.contains(where: { $0.seconds > 0 }) {
-                trainingTrend
+    private func compactJourney(
+        setup: AthleteSetup,
+        snapshot: JourneyProgressSnapshot
+    ) -> some View {
+        let title = setup.objective.event?.displayName
+            ?? setup.objective.displayName
+
+        return VStack(alignment: .leading, spacing: 10) {
+            SectionEyebrow(text: "Journey")
+
+            NavigationLink {
+                journeyDestination(
+                    setup: setup,
+                    snapshot: snapshot
+                )
+            } label: {
+                Card {
+                    HStack(spacing: 12) {
+                        Image(
+                            systemName:
+                                setup.objective.kind == .event
+                                    ? "flag.checkered"
+                                    : "point.topleft.down.to.point.bottomright.curvepath"
+                        )
+                        .font(.headline)
+
+                        Text(title)
+                            .font(.subheadline.weight(.semibold))
+                            .lineLimit(1)
+
+                        Spacer(minLength: 8)
+
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(
+                                AtheviaAdaptiveStyle(
+                                    .tertiary,
+                                    gaming: .secondaryText
+                                )
+                            )
+                    }
+                }
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel(
+                "\(title), open training journey"
+            )
+        }
+    }
+
+    @ViewBuilder
+    private func journeyDestination(
+        setup: AthleteSetup,
+        snapshot: JourneyProgressSnapshot
+    ) -> some View {
+        if setup.objective.kind == .event {
+            FullTrainingJourneyView(
+                setup: setup,
+                plans: plans
+            )
+        } else {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    TrainingJourneySummaryView(
+                        journey: snapshot.journey,
+                        showsEventReadiness: false
+                    )
+
+                    if !snapshot.milestones.isEmpty {
+                        JourneyProgressView(snapshot: snapshot)
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 12)
+                .padding(.bottom, 28)
+            }
+            .atheviaScreen()
+            .navigationTitle("Training Journey")
+            .navigationBarTitleDisplayMode(.inline)
         }
     }
 
@@ -161,7 +216,22 @@ struct ProgressOverviewView: View {
     /// training metrics.
     private var fourWeekSummary: some View {
         VStack(alignment: .leading, spacing: 10) {
-            SectionEyebrow(text: "Last 4 weeks")
+            HStack {
+                SectionEyebrow(text: "Last 4 weeks")
+
+                Spacer()
+
+                Button {
+                    showingFourWeekInfo = true
+                } label: {
+                    Image(systemName: "info.circle")
+                        .font(.subheadline)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(
+                    "About your last four weeks"
+                )
+            }
 
             Card {
                 HStack(alignment: .top, spacing: 8) {
@@ -182,26 +252,6 @@ struct ProgressOverviewView: View {
         }
     }
 
-    private func progressInterpretation(_ current: CurrentTraining) -> some View {
-        let summary = interpretation(for: current)
-
-        return VStack(alignment: .leading, spacing: 10) {
-            SectionEyebrow(text: "What this means")
-
-            Card {
-                VStack(alignment: .leading, spacing: 6) {
-                    Label(summary.title, systemImage: summary.symbol)
-                        .font(.headline)
-
-                    Text(summary.detail)
-                        .font(.subheadline)
-                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-        }
-    }
-
     private func interpretation(
         for current: CurrentTraining
     ) -> (title: String, detail: String, symbol: String) {
@@ -210,7 +260,7 @@ struct ProgressOverviewView: View {
         if statuses.contains(.recoveryRequired) {
             return (
                 "Recovery is leading the plan",
-                "At least one sport is paused from progression based on your recent reports. Follow the lighter sessions currently prescribed.",
+                "One or more sports needs extra recovery, so your upcoming training is lighter.",
                 "pause.circle"
             )
         }
@@ -218,7 +268,7 @@ struct ProgressOverviewView: View {
         if statuses.contains(.reduce) {
             return (
                 "Athevia is easing training back",
-                "Recent sessions suggest at least one sport needs a lighter step. The current plan reduces demand before building again.",
+                "Recent workouts suggest backing off a little before building again.",
                 "arrow.down.right.circle"
             )
         }
@@ -226,7 +276,7 @@ struct ProgressOverviewView: View {
         if statuses.contains(.maintain) {
             return (
                 "Training is holding steady",
-                "Athevia is keeping at least one sport at its current level while it gathers more completed sessions and feedback.",
+                "Your training is staying steady while Athevia gathers more completed workouts.",
                 "arrow.right.circle"
             )
         }
@@ -234,21 +284,104 @@ struct ProgressOverviewView: View {
         if !statuses.isEmpty && statuses.allSatisfy({ $0 == .progress }) {
             return (
                 "Training is building gradually",
-                "Your recent completed sessions support progression, so the current prescriptions are moving forward.",
+                "Your recent workouts support gradually increasing training.",
                 "arrow.up.right.circle"
             )
         }
 
         return (
-            "Keep completing and reporting sessions",
-            "A few more completed workouts and reports will give Athevia enough evidence to show how your training is changing.",
+            "Building your progress picture",
+            "Complete a few more workouts to show a clearer progress direction.",
             "chart.line.uptrend.xyaxis"
         )
     }
 
-    /// Current capability/prescription plus the most recent training direction.
-    /// It says where each sport is heading without asking the athlete to open a
-    /// week review or inspect individual sessions.
+    private var fourWeekInfoSheet: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 20) {
+                if let current, current.hasData {
+                    let summary = interpretation(for: current)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label(
+                            summary.title,
+                            systemImage: summary.symbol
+                        )
+                        .font(.headline)
+
+                        Text(summary.detail)
+                            .font(.body)
+                            .foregroundStyle(
+                                AtheviaAdaptiveStyle(
+                                    .secondary,
+                                    gaming: .secondaryText
+                                )
+                            )
+                    }
+                } else {
+                    Text(
+                        "Complete a few workouts to build a clearer progress picture."
+                    )
+                    .font(.body)
+                }
+
+                Divider()
+
+                VStack(alignment: .leading, spacing: 14) {
+                    infoRow(
+                        "Training",
+                        detail:
+                            "Total completed training time from the last four plan weeks."
+                    )
+                    infoRow(
+                        "Workouts",
+                        detail:
+                            "Completed planned workouts from those weeks."
+                    )
+                    infoRow(
+                        "Plan completed",
+                        detail:
+                            "The share of planned workouts due so far that you completed."
+                    )
+                }
+
+                Spacer()
+            }
+            .padding(20)
+            .navigationTitle("Last 4 weeks")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") {
+                        showingFourWeekInfo = false
+                    }
+                }
+            }
+        }
+        .atheviaScreen()
+        .presentationDetents([.medium])
+    }
+
+    private func infoRow(
+        _ title: String,
+        detail: String
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+            Text(detail)
+                .font(.subheadline)
+                .foregroundStyle(
+                    AtheviaAdaptiveStyle(
+                        .secondary,
+                        gaming: .secondaryText
+                    )
+                )
+        }
+    }
+
+    /// Sport-level progress stays intentionally simple. Prescription details
+    /// belong to Plan; Progress only says which direction each sport is moving.
     private func currentTraining(_ current: CurrentTraining) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             SectionEyebrow(text: "Your progress")
@@ -257,28 +390,46 @@ struct ProgressOverviewView: View {
                 VStack(spacing: 0) {
                     ForEach(current.states) { state in
                         HStack(spacing: 14) {
-                            Image(systemName: state.sport.discipline.symbolName)
-                                .font(.headline)
-                                .foregroundStyle(state.sport.discipline.themedTint(theme))
-                                .frame(width: 38, height: 38)
-                                .background(state.sport.discipline.themedTint(theme).opacity(0.12), in: .circle)
+                            Image(
+                                systemName:
+                                    state.sport.discipline.symbolName
+                            )
+                            .font(.headline)
+                            .foregroundStyle(
+                                state.sport.discipline
+                                    .themedTint(theme)
+                            )
+                            .frame(width: 38, height: 38)
+                            .background(
+                                state.sport.discipline
+                                    .themedTint(theme)
+                                    .opacity(0.12),
+                                in: .circle
+                            )
 
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(state.sport.displayName)
-                                    .font(.subheadline.weight(.semibold))
-                                Text(state.prescription)
-                                    .font(.subheadline)
-                                    .monospacedDigit()
-                                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
-                            }
+                            Text(state.sport.displayName)
+                                .font(.subheadline.weight(.semibold))
 
                             Spacer(minLength: 8)
 
                             if let status = state.status {
-                                Label(status.directionLabel, systemImage: status.directionSymbol)
-                                    .labelStyle(.titleAndIcon)
-                                    .font(.caption.weight(.medium))
-                                    .foregroundStyle(status.tint)
+                                Label(
+                                    status.directionLabel,
+                                    systemImage:
+                                        status.directionSymbol
+                                )
+                                .labelStyle(.titleAndIcon)
+                                .font(.subheadline.weight(.medium))
+                                .foregroundStyle(status.tint)
+                            } else {
+                                Text("Building history")
+                                    .font(.caption)
+                                    .foregroundStyle(
+                                        AtheviaAdaptiveStyle(
+                                            .secondary,
+                                            gaming: .secondaryText
+                                        )
+                                    )
                             }
                         }
                         .padding(.horizontal, 14)
@@ -289,40 +440,6 @@ struct ProgressOverviewView: View {
                         }
                     }
                 }
-            }
-        }
-    }
-
-    /// Keep Overview to one visual trend. Detailed load/intensity/balance live
-    /// in Training rather than competing for attention here.
-    private var trainingTrend: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            SectionEyebrow(text: "Training trend")
-
-            Card {
-                Chart(weeklyTrend) { week in
-                    BarMark(
-                        x: .value("Week", week.startDate, unit: .weekOfYear),
-                        y: .value("Training minutes", week.seconds / 60)
-                    )
-                    .cornerRadius(3)
-                }
-                .frame(height: 130)
-                .chartYAxis {
-                    AxisMarks(position: .leading, values: .automatic(desiredCount: 3)) {
-                        AxisGridLine()
-                        AxisValueLabel()
-                    }
-                }
-                .chartXAxis {
-                    AxisMarks(values: .automatic(desiredCount: min(4, weeklyTrend.count))) {
-                        AxisValueLabel(format: .dateTime.day().month(.abbreviated))
-                    }
-                }
-
-                Text("Completed training time by week")
-                    .font(.caption)
-                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }
         }
     }
@@ -341,14 +458,6 @@ struct ProgressOverviewView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
-
-private struct ProgressWeekSummary: Identifiable {
-    let id: UUID
-    let weekNumber: Int
-    let startDate: Date
-    let seconds: TimeInterval
-}
-
 #if DEBUG
 #Preview {
     ProgressOverviewView()
