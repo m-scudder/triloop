@@ -298,6 +298,147 @@ struct WorkoutImportServiceTests {
     }
 
 
+
+    @Test("Running sensor metrics survive Health import")
+    func runningMetricsPersist() async throws {
+        let context = try makeContext()
+        let plan = seededPlan(in: context)
+        let run = try #require(plan.orderedWorkouts.first { $0.discipline == .running })
+        let start = run.date.addingTimeInterval(3_600)
+
+        let imported = ImportedWorkout(
+            healthKitUUID: UUID(),
+            sport: .running,
+            startDate: start,
+            endDate: start.addingTimeInterval(1_680),
+            duration: 1_680,
+            distanceMeters: 4_500,
+            averageHeartRate: 148,
+            maximumHeartRate: 171,
+            elevationAscendedMeters: 62,
+            metrics: RecordedMetrics(
+                averageCadence: 172,
+                averageRunningSpeed: 2.68,
+                averageRunningPower: 248,
+                averageStrideLength: 1.06,
+                averageGroundContactTime: 238,
+                averageVerticalOscillation: 8.1,
+                activeEnergyKilocalories: 285
+            )
+        )
+
+        let outcome = try await service(context, [imported]).importWorkouts(for: plan)
+
+        #expect(outcome.matched == 1)
+        let summary = try #require(run.importedSummary)
+        #expect(summary.averageHeartRate == 148)
+        #expect(summary.maximumHeartRate == 171)
+        #expect(summary.elevationAscendedMeters == 62)
+        #expect(summary.metrics?.averageCadence == 172)
+        #expect(summary.metrics?.averageRunningSpeed == 2.68)
+        #expect(summary.metrics?.averageRunningPower == 248)
+        #expect(summary.metrics?.averageStrideLength == 1.06)
+        #expect(summary.metrics?.averageGroundContactTime == 238)
+        #expect(summary.metrics?.averageVerticalOscillation == 8.1)
+        #expect(summary.metrics?.activeEnergyKilocalories == 285)
+    }
+
+    @Test("Cycling sensor metrics survive Health import")
+    func cyclingMetricsPersist() async throws {
+        let context = try makeContext()
+        let plan = seededPlan(in: context)
+        let ride = try #require(plan.orderedWorkouts.first { $0.discipline == .cycling })
+        let start = ride.date.addingTimeInterval(3_600)
+
+        let imported = ImportedWorkout(
+            healthKitUUID: UUID(),
+            sport: .cycling,
+            startDate: start,
+            endDate: start.addingTimeInterval(1_800),
+            duration: 1_800,
+            distanceMeters: 12_000,
+            averageHeartRate: 142,
+            maximumHeartRate: 166,
+            elevationAscendedMeters: 105,
+            metrics: RecordedMetrics(
+                averageCyclingSpeed: 6.67,
+                averageCyclingCadence: 87,
+                averageCyclingPower: 196,
+                activeEnergyKilocalories: 330
+            )
+        )
+
+        let outcome = try await service(context, [imported]).importWorkouts(for: plan)
+
+        #expect(outcome.matched == 1)
+        let summary = try #require(ride.importedSummary)
+        #expect(summary.averageHeartRate == 142)
+        #expect(summary.maximumHeartRate == 166)
+        #expect(summary.elevationAscendedMeters == 105)
+        #expect(summary.metrics?.averageCyclingSpeed == 6.67)
+        #expect(summary.metrics?.averageCyclingCadence == 87)
+        #expect(summary.metrics?.averageCyclingPower == 196)
+        #expect(summary.metrics?.activeEnergyKilocalories == 330)
+    }
+
+    @Test("Unplanned multisport import preserves individual legs")
+    func multisportSegmentsPersist() async throws {
+        let context = try makeContext()
+        let plan = seededPlan(in: context)
+        let start = day(6, hour: 7)
+        let segments = [
+            RecordedMultisportSegment(
+                sport: .swimming,
+                durationSeconds: 600,
+                distanceMeters: 400,
+                swimEnvironment: .openWater
+            ),
+            RecordedMultisportSegment(
+                sport: nil,
+                isTransition: true,
+                durationSeconds: 90
+            ),
+            RecordedMultisportSegment(
+                sport: .cycling,
+                durationSeconds: 1_800,
+                distanceMeters: 12_000
+            ),
+            RecordedMultisportSegment(
+                sport: .running,
+                durationSeconds: 900,
+                distanceMeters: 2_500
+            )
+        ]
+
+        let imported = ImportedWorkout(
+            healthKitUUID: UUID(),
+            sport: .swimming,
+            startDate: start,
+            endDate: start.addingTimeInterval(3_390),
+            duration: 3_390,
+            averageHeartRate: 151,
+            maximumHeartRate: 178,
+            metrics: RecordedMetrics(
+                activeEnergyKilocalories: 510,
+                multisportSegments: segments
+            )
+        )
+
+        let outcome = try await service(context, [imported]).importWorkouts(for: plan)
+
+        #expect(outcome.matched == 0)
+        #expect(outcome.unrecognised == 1)
+        let recorded = try #require(
+            plan.trainingSessions.first {
+                $0.origin == .imported && $0.discipline == .multisport
+            }
+        )
+        let summary = try #require(recorded.importedSummary)
+        #expect(summary.discipline == .multisport)
+        #expect(summary.metrics?.multisportSegments == segments)
+        #expect(summary.metrics?.activeEnergyKilocalories == 510)
+    }
+
     @Test("Known HealthKit workouts refresh richer metrics without duplicating")
     func knownWorkoutMetricsAreRefreshed() async throws {
         let context = try makeContext()
