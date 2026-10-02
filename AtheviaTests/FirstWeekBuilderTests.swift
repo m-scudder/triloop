@@ -79,6 +79,23 @@ struct FirstWeekBuilderTests {
         #expect(plan.orderedWorkouts.filter { $0.discipline == .recovery }.isEmpty)
     }
 
+    @Test("Three day beginner running target starts with three runs")
+    func threeDayBeginnerRunStartsAtThree() throws {
+        let plan = try builder.build(
+            setup: setup(
+                running: .none,
+                schedule: .everyDay(),
+                trainingDayTarget: 3,
+                preferences: [SportPreference(sport: .running, sessionsPerWeek: 1)]
+            ),
+            poolLengthMeters: 25,
+            startDate: monday()
+        )
+
+        #expect(plan.prescribedTrainingSessions.count == 3)
+        #expect(plan.prescribedTrainingSessions.allSatisfy { $0.discipline == .running })
+    }
+
     @Test("Four day target opens at three and leaves unused availability as rest")
     func fourDayTargetOpensAtThree() throws {
         let plan = try builder.build(
