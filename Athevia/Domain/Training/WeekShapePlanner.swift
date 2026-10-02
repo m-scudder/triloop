@@ -308,9 +308,20 @@ extension WeekShapePlanner {
         let available = min(schedule.availableDays.count, requestedLimit)
         guard available > 0, !selected.isEmpty else { return [] }
 
+        // An explicit weekly target owns frequency. Running still keeps its
+        // non-consecutive-day placement rule, but baseline experience must not
+        // silently reduce a user-selected 3-day week back to 2.
+        if selected == [.running], let sessionLimit {
+            return [
+                SportFrequency(
+                    sport: .running,
+                    sessions: min(available, sessionLimit, safeRunningSessions(in: schedule))
+                )
+            ]
+        }
+
         // Low-impact single-sport plans can use the days the athlete explicitly
-        // selected. Intensity and duration remain capability-controlled; frequency
-        // itself does not need the same impact protection as running.
+        // selected. Intensity and duration remain capability-controlled.
         if selected == [.cycling] {
             return [SportFrequency(sport: .cycling, sessions: available)]
         }
@@ -326,13 +337,18 @@ extension WeekShapePlanner {
         // A weak discipline matters in multisport training, but does not erase
         // capability already established in the other sports.
         let capacityScore = (average * 0.7) + (minimum * 0.3)
-        let target = min(
-            available,
-            openingSessionTarget(
-                selectedSportCount: selected.count,
-                capacityScore: capacityScore
+        let target: Int
+        if sessionLimit != nil {
+            target = available
+        } else {
+            target = min(
+                available,
+                openingSessionTarget(
+                    selectedSportCount: selected.count,
+                    capacityScore: capacityScore
+                )
             )
-        )
+        }
 
         var counts = Dictionary(uniqueKeysWithValues: selected.map { ($0, 0) })
         var remaining = target
