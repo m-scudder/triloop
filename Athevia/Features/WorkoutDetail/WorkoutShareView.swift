@@ -1,3 +1,4 @@
+import ImageIO
 import Photos
 import SwiftUI
 import UIKit
@@ -921,11 +922,129 @@ struct WorkoutShareView: View {
 
     @MainActor
     private func renderedPNGData() -> Data? {
-        WorkoutSharePNGRenderer(
+        let data = WorkoutSharePNGRenderer(
             snapshot: snapshot,
             layout: layout,
             route: route
         ).pngData()
+
+        guard Self.pngHasTransparentBackground(data) else {
+            return nil
+        }
+
+        return data
+    }
+
+    private static func pngHasTransparentBackground(
+        _ data: Data
+    ) -> Bool {
+        guard let source = CGImageSourceCreateWithData(
+            data as CFData,
+            nil
+        ),
+        let image = CGImageSourceCreateImageAtIndex(
+            source,
+            0,
+            nil
+        ) else {
+            return false
+        }
+
+        switch image.alphaInfo {
+        case .none, .noneSkipFirst, .noneSkipLast:
+            return false
+        default:
+            break
+        }
+
+        let width = image.width
+        let height = image.height
+        guard width > 1, height > 1 else {
+            return false
+        }
+
+        let bytesPerPixel = 4
+        let bytesPerRow = width * bytesPerPixel
+        let byteCount = bytesPerRow * height
+        var pixels = [UInt8](
+            repeating: 0,
+            count: byteCount
+        )
+
+        guard let colorSpace = CGColorSpace(
+            name: CGColorSpace.sRGB
+        ),
+        let context = CGContext(
+            data: &pixels,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: bytesPerRow,
+            space: colorSpace,
+            bitmapInfo:
+                CGImageAlphaInfo.premultipliedLast.rawValue
+                | CGBitmapInfo.byteOrder32Big.rawValue
+        ) else {
+            return false
+        }
+
+        context.draw(
+            image,
+            in: CGRect(
+                x: 0,
+                y: 0,
+                width: width,
+                height: height
+            )
+        )
+
+        func alpha(
+            x: Int,
+            y: Int
+        ) -> UInt8 {
+            let offset = y * bytesPerRow + x * bytesPerPixel
+            return pixels[offset + 3]
+        }
+
+        let corners = [
+            alpha(x: 0, y: 0),
+            alpha(x: width - 1, y: 0),
+            alpha(x: 0, y: height - 1),
+            alpha(x: width - 1, y: height - 1)
+        ]
+
+        guard corners.allSatisfy({ $0 == 0 }) else {
+            return false
+        }
+
+        // The share asset is a sticker on a transparent canvas, so most sampled
+        // background pixels should be fully transparent. This catches cases
+        // where an encoder silently flattened alpha to black or white.
+        var transparentSamples = 0
+        var sampleCount = 0
+        let columns = 12
+        let rows = 20
+
+        for column in 0..<columns {
+            for row in 0..<rows {
+                let x = min(
+                    width - 1,
+                    column * (width - 1) / max(columns - 1, 1)
+                )
+                let y = min(
+                    height - 1,
+                    row * (height - 1) / max(rows - 1, 1)
+                )
+
+                if alpha(x: x, y: y) == 0 {
+                    transparentSamples += 1
+                }
+                sampleCount += 1
+            }
+        }
+
+        return sampleCount > 0
+            && Double(transparentSamples) / Double(sampleCount) >= 0.60
     }
 
     @MainActor
@@ -935,7 +1054,7 @@ struct WorkoutShareView: View {
         }
 
         guard let data = renderedPNGData() else {
-            exportError = "Couldn't create the PNG. Please try again."
+            exportError = "The generated PNG did not preserve transparency, so it was not saved."
             return
         }
 
@@ -980,7 +1099,7 @@ struct WorkoutShareView: View {
                         let request = PHAssetCreationRequest.forAsset()
                         let options = PHAssetResourceCreationOptions()
                         options.originalFilename = fileURL.lastPathComponent
-                        options.uniformTypeIdentifier = UTType.png.identifier
+                        options.contentType = .png
                         options.shouldMoveFile = false
 
                         request.addResource(
@@ -992,7 +1111,7 @@ struct WorkoutShareView: View {
 
                 await MainActor.run {
                     isSavingToPhotos = false
-                    saveMessage = "PNG saved to Photos."
+                    saveMessage = "Transparent PNG saved to Photos."
                 }
             } catch {
                 await MainActor.run {
