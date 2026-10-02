@@ -70,8 +70,44 @@ struct PlanView: View {
                                 .font(.caption)
                                 .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                                 .padding(.horizontal, 20)
-                                .padding(.bottom, 10)
+                                .padding(.bottom, 8)
                             }
+
+                            NavigationLink {
+                                FullTrainingJourneyView(
+                                    setup: setup,
+                                    plans: plans
+                                )
+                            } label: {
+                                HStack(spacing: 10) {
+                                    Image(systemName: "point.topleft.down.to.point.bottomright.curvepath")
+                                        .font(.subheadline.weight(.semibold))
+
+                                    Text("Race plan")
+                                        .font(.subheadline.weight(.semibold))
+
+                                    Spacer()
+
+                                    if let weeks = journey.weeksRemaining {
+                                        Text("\(weeks) wk")
+                                            .font(.caption.monospacedDigit())
+                                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+                                    }
+
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+                                }
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 11)
+                                .background(
+                                    AtheviaAdaptiveStyle(.fill.tertiary, gaming: .raisedSurface),
+                                    in: .rect(cornerRadius: 12)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.horizontal, 20)
+                            .padding(.bottom, 12)
 
                             Divider()
                         }
