@@ -8,6 +8,7 @@ struct AdvancedMetricsView: View {
     let metrics: RecordedMetrics
     let sport: Sport?
     var summary: ImportedWorkoutSummary? = nil
+    var route: [RecordedRoutePoint] = []
 
     private var rows: [(name: String, value: String)] {
         var result: [(String, String)] = []
@@ -130,7 +131,7 @@ struct AdvancedMetricsView: View {
                 }
             }
 
-            WorkoutRouteView(points: metrics.route)
+            WorkoutRouteView(points: route.isEmpty ? metrics.route : route)
         }
     }
 
