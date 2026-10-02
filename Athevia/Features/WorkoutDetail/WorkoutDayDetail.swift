@@ -150,8 +150,12 @@ struct WorkoutDayDetail: View {
 
             intensity(with: zoneBreakdown)
 
-            if let metrics = workout.importedSummary?.metrics {
-                AdvancedMetricsView(metrics: metrics, sport: workout.discipline.sport)
+            if let summary = workout.importedSummary {
+                AdvancedMetricsView(
+                    metrics: summary.metrics ?? RecordedMetrics(),
+                    sport: workout.discipline.sport,
+                    summary: summary
+                )
             }
         }
     }
