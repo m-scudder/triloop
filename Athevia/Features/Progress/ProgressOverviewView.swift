@@ -9,14 +9,6 @@ struct ProgressOverviewView: View {
     @Query(sort: \WeeklyPlan.startDate) private var plans: [WeeklyPlan]
     @Query private var profiles: [AthleteProfile]
 
-    private enum Segment: String, CaseIterable, Identifiable {
-        case overview = "Overview"
-        case recovery = "Recovery"
-
-        var id: Self { self }
-    }
-
-    @State private var segment: Segment = .overview
     @State private var showingFourWeekInfo = false
 
     private var current: CurrentTraining? {
@@ -59,26 +51,12 @@ struct ProgressOverviewView: View {
                     .padding(.top, 10)
                     .padding(.bottom, 8)
 
-                Picker("Progress view", selection: $segment) {
-                    ForEach(Segment.allCases) { segment in
-                        Text(segment.rawValue).tag(segment)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal, 20)
-                .padding(.top, 8)
-                .padding(.bottom, 14)
-
                 ScrollView {
                     VStack(alignment: .leading, spacing: 22) {
-                        switch segment {
-                        case .overview:
-                            overviewContent
-                        case .recovery:
-                            ProgressRecoveryView()
-                        }
+                        overviewContent
                     }
                     .padding(.horizontal, 20)
+                    .padding(.top, 14)
                     .padding(.bottom, 24)
                 }
             }
