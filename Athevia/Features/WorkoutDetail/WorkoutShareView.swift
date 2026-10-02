@@ -471,8 +471,6 @@ struct WorkoutShareView: View {
     @State private var isLoadingRoute = true
     @State private var exportedPNG: WorkoutSharePNG?
     @State private var previews: [WorkoutShareLayout: WorkoutSharePNG] = [:]
-    @State private var exportDocument: WorkoutSharePNGDocument?
-    @State private var isSavingToFiles = false
     @State private var exportError: String?
     @State private var isSavingToPhotos = false
     @State private var saveMessage: String?
@@ -493,7 +491,7 @@ struct WorkoutShareView: View {
     }
 
     private var canShare: Bool {
-        !isLoadingRoute && !isSavingToPhotos && !isSavingToFiles
+        !isLoadingRoute && !isSavingToPhotos
             && exportedPNG == nil && previews[layout] != nil
     }
 
@@ -555,22 +553,6 @@ struct WorkoutShareView: View {
             .sheet(item: $exportedPNG) { png in
                 WorkoutActivityView(png: png)
                     .presentationDetents([.medium, .large])
-            }
-            .fileExporter(
-                isPresented: $isSavingToFiles,
-                document: exportDocument,
-                contentType: .png,
-                defaultFilename: "Athevia-Workout.png"
-            ) { result in
-                switch result {
-                case .success:
-                    saveMessage = "PNG saved to Files."
-                case .failure(let error):
-                    if (error as NSError).code != NSUserCancelledError {
-                        exportError = "Couldn't save the PNG. Please try again."
-                    }
-                }
-                exportDocument = nil
             }
             .alert(
                 "Couldn't prepare your share",
@@ -640,16 +622,11 @@ struct WorkoutShareView: View {
     private var actions: some View {
         VStack(spacing: 8) {
             HStack(spacing: 10) {
-                Menu {
-                    Button("Save PNG to Files", systemImage: "folder", action: saveToFiles)
-                    Button("Save to Photos", systemImage: "photo", action: saveToPhotos)
-                } label: {
+                Button(action: saveToPhotos) {
                     Label(
                         isSavingToPhotos ? "Saving…" : "Save PNG",
                         systemImage: "arrow.down.circle"
                     )
-                } primaryAction: {
-                    saveToFiles()
                 }
                 .buttonStyle(SecondaryActionButtonStyle())
                 .disabled(!canShare)
@@ -663,10 +640,6 @@ struct WorkoutShareView: View {
                 .buttonStyle(PrimaryActionButtonStyle())
                 .disabled(!canShare)
             }
-
-            Button("Copy sticker", systemImage: "doc.on.doc", action: copySticker)
-                .font(.subheadline.weight(.semibold))
-                .disabled(!canShare)
 
             if let saveMessage {
                 Text(saveMessage)
@@ -752,21 +725,6 @@ struct WorkoutShareView: View {
             rendered[candidate] = png
         }
         previews = rendered
-    }
-
-    @MainActor
-    private func saveToFiles() {
-        guard canShare, let png = previews[layout] else { return }
-        saveMessage = nil
-        exportDocument = WorkoutSharePNGDocument(data: png.data)
-        isSavingToFiles = true
-    }
-
-    @MainActor
-    private func copySticker() {
-        guard canShare, let png = previews[layout] else { return }
-        png.copy(to: .general)
-        saveMessage = "Sticker copied. Paste it over your photo or video."
     }
 
     @MainActor
