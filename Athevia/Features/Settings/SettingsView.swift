@@ -564,12 +564,12 @@ struct SettingsView: View {
             }
 
             do {
-                let service = WorkoutImportService(
-                    context: modelContext,
-                    provider: health
+                let coordinator = WorkoutImportCoordinator(
+                    context: modelContext
                 )
-                let combined = try await service
-                    .syncAllRelevantWorkouts(
+                let combined = try await coordinator
+                    .syncAll(
+                        providers: [health],
                         plans: plans
                     )
 
