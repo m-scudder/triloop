@@ -34,6 +34,21 @@ struct DeterministicCoachIntentInterpreter: CoachConversationInterpreting {
             return .clarification("What would you like to understand or change about your training?")
         }
 
+        if isRPEDefinitionQuestion(text) {
+            return .intent(.explainRPE)
+        }
+
+        if isWeekPlanQuestion(text) {
+            return .intent(.describeWeek(offset: text.contains("next week") ? 1 : 0))
+        }
+
+        if isWorkoutMetricsQuestion(text) {
+            guard let date = targetDate(in: text, plan: plan, now: now) else {
+                return .clarification("Which workout date should I use?")
+            }
+            return .intent(.workoutMetrics(date: date))
+        }
+
         if text.contains("5k") || text.contains("5 km") || text.contains("5000m") {
             return .intent(.prepareFor5K(eventDate: explicitISODate(in: text)))
         }
@@ -116,6 +131,52 @@ struct DeterministicCoachIntentInterpreter: CoachConversationInterpreting {
         )
     }
 
+    private func isRPEDefinitionQuestion(_ text: String) -> Bool {
+        let asksMeaning = text.contains("what is")
+            || text.contains("what does")
+            || text.contains("meaning")
+            || text.contains("define")
+            || text.contains("explain")
+        return text.contains("rpe") && asksMeaning
+    }
+
+    private func isWeekPlanQuestion(_ text: String) -> Bool {
+        let asksPlan = text.contains("workout plan")
+            || text.contains("training plan")
+            || text.contains("week's workout")
+            || text.contains("week workout")
+            || text.contains("week plan")
+        let targetWeek = text.contains("next week")
+            || text.contains("this week")
+            || text.contains("current week")
+        let asksDetails = text.contains("detail")
+            || text.contains("show")
+            || text.contains("what")
+            || text.contains("give")
+            || text.contains("plan")
+        return asksPlan && targetWeek && asksDetails
+    }
+
+    private func isWorkoutMetricsQuestion(_ text: String) -> Bool {
+        let asksMetrics = text.contains("metric")
+            || text.contains("stats")
+            || text.contains("statistics")
+            || text.contains("pace")
+            || text.contains("speed")
+            || text.contains("heart rate")
+            || text.contains("distance")
+            || text.contains("duration")
+            || text.contains("how far")
+            || text.contains("how long")
+        let referencesWorkout = text.contains("workout")
+            || text.contains("run")
+            || text.contains("ride")
+            || text.contains("cycle")
+            || text.contains("swim")
+            || text.contains("session")
+        return asksMetrics && referencesWorkout
+    }
+
     private func isRecentTrainingQuestion(_ text: String) -> Bool {
         (text.contains("what changed") || text.contains("training change") || text.contains("recent training"))
             && (text.contains("week") || text.contains("month") || text.contains("recent"))
@@ -176,6 +237,67 @@ struct DeterministicCoachIntentInterpreter: CoachConversationInterpreting {
         return formatter.date(from: String(text[dateRange])).map {
             calendar.startOfDay(for: $0)
         }
+    }
+
+    private func explicitNaturalDate(in text: String, now: Date) -> Date? {
+        let monthMap: [String: Int] = [
+            "jan": 1, "january": 1,
+            "feb": 2, "february": 2,
+            "mar": 3, "march": 3,
+            "apr": 4, "april": 4,
+            "may": 5,
+            "jun": 6, "june": 6,
+            "jul": 7, "july": 7,
+            "aug": 8, "august": 8,
+            "sep": 9, "sept": 9, "september": 9,
+            "oct": 10, "october": 10,
+            "nov": 11, "november": 11,
+            "dec": 12, "december": 12
+        ]
+
+        let patterns = [
+            #"\b(\d{1,2})\s+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)(?:\s+(20\d{2}))?\b"#,
+            #"\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{1,2})(?:,?\s+(20\d{2}))?\b"#
+        ]
+
+        for (index, pattern) in patterns.enumerated() {
+            guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
+                continue
+            }
+            let range = NSRange(text.startIndex..<text.endIndex, in: text)
+            guard let match = regex.firstMatch(in: text, range: range) else { continue }
+
+            let dayGroup = index == 0 ? 1 : 2
+            let monthGroup = index == 0 ? 2 : 1
+            guard let dayRange = Range(match.range(at: dayGroup), in: text),
+                  let monthRange = Range(match.range(at: monthGroup), in: text),
+                  let day = Int(text[dayRange]),
+                  let month = monthMap[String(text[monthRange]).lowercased()] else {
+                continue
+            }
+
+            let year: Int
+            if match.numberOfRanges > 3,
+               match.range(at: 3).location != NSNotFound,
+               let yearRange = Range(match.range(at: 3), in: text),
+               let parsedYear = Int(text[yearRange]) {
+                year = parsedYear
+            } else {
+                year = calendar.component(.year, from: now)
+            }
+
+            var components = DateComponents()
+            components.calendar = calendar
+            components.timeZone = calendar.timeZone
+            components.year = year
+            components.month = month
+            components.day = day
+            if let date = calendar.date(from: components) {
+                return calendar.startOfDay(for: date)
+            }
+        }
+
+        return nil
     }
 
     private func mentionedDates(
@@ -250,6 +372,9 @@ struct DeterministicCoachIntentInterpreter: CoachConversationInterpreting {
         }
         if let explicit = explicitISODate(in: text) {
             return explicit
+        }
+        if let natural = explicitNaturalDate(in: text, now: now) {
+            return natural
         }
 
         for weekday in Weekday.trainingWeek where text.contains(weekday.displayName.lowercased()) {
