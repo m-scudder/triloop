@@ -51,8 +51,8 @@ struct WorkoutRouteView: View {
                 SectionEyebrow(text: "Route")
 
                 Map(initialPosition: .automatic, interactionModes: [.pan, .zoom]) {
-                    ForEach(Array(segments.enumerated()), id: \.offset) { _, segment in
-                        MapPolyline(coordinates: segment)
+                    ForEach(segments.indices, id: \.self) { index in
+                        MapPolyline(coordinates: segments[index])
                             .stroke(.tint, lineWidth: 4)
                     }
 
