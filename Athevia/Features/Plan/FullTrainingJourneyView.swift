@@ -229,13 +229,7 @@ private struct JourneyWeekRow: View {
                                         )
                                 }
 
-                                if week.isProjected {
-                                    Spacer()
-                                    Image(systemName: "sparkles")
-                                        .font(.caption2)
-                                        .foregroundStyle(AtheviaAdaptiveStyle(.tertiary, gaming: .secondaryText))
-                                        .accessibilityLabel("Projected")
-                                }
+                                Spacer()
                             }
                         }
                     }
@@ -247,6 +241,8 @@ private struct JourneyWeekRow: View {
 }
 
 private struct JourneyWeekPlanView: View {
+    @State private var showingInfo = false
+
     let week: JourneyWeekProjection
     let setup: AthleteSetup
     let plans: [WeeklyPlan]
@@ -282,14 +278,24 @@ private struct JourneyWeekPlanView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 HStack {
-                    Text(week.phase.shortName)
-                        .font(.subheadline.weight(.semibold))
-                    Spacer()
-                    if week.isProjected {
-                        Label("Projected", systemImage: "sparkles")
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(week.phase.shortName)
+                            .font(.subheadline.weight(.semibold))
+                        Text(week.focus)
                             .font(.caption)
                             .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                     }
+
+                    Spacer()
+
+                    Button {
+                        showingInfo = true
+                    } label: {
+                        Image(systemName: "info.circle")
+                            .font(.title3)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("About this training week")
                 }
 
                 if let plan = displayedPlan {
@@ -327,6 +333,51 @@ private struct JourneyWeekPlanView: View {
             .padding(.bottom, 24)
         }
         .atheviaScreen()
+        .sheet(isPresented: $showingInfo) {
+            NavigationStack {
+                VStack(alignment: .leading, spacing: 18) {
+                    HStack(spacing: 10) {
+                        Image(systemName: week.phase.symbolName)
+                            .font(.title2)
+                        Text(week.phase.shortName)
+                            .font(.title3.weight(.semibold))
+                    }
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("What this means")
+                            .font(.subheadline.weight(.semibold))
+                        Text(week.phase.beginnerExplanation)
+                            .font(.body)
+                    }
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("This week's focus")
+                            .font(.subheadline.weight(.semibold))
+                        Text(week.focus.beginnerFocusExplanation)
+                            .font(.body)
+                    }
+
+                    if week.isProjected {
+                        Text("This week can change as your training progresses.")
+                            .font(.footnote)
+                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+                    }
+
+                    Spacer()
+                }
+                .padding(20)
+                .navigationTitle("Training Guide")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Done") {
+                            showingInfo = false
+                        }
+                    }
+                }
+            }
+            .presentationDetents([.medium])
+        }
         .navigationTitle(week.title)
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -495,6 +546,56 @@ private extension TrainingPhase {
             theme.color(.accent, classic: .green)
         case .recovery:
             theme.color(.accent, classic: .mint)
+        }
+    }
+}
+
+private extension TrainingPhase {
+    var beginnerExplanation: String {
+        switch self {
+        case .foundation:
+            "Build a steady base and get your body comfortable with regular training."
+        case .build:
+            "Gradually do a little more so you can handle longer or harder sessions."
+        case .specific:
+            "Practice workouts that are closer to what you will do on race day."
+        case .taper:
+            "Reduce training load before the race so you arrive rested but still sharp."
+        case .raceWeek:
+            "Keep training light and focus on being ready for race day."
+        case .recovery:
+            "Lower the workload so your body can recover before building again."
+        }
+    }
+}
+
+private extension String {
+    var beginnerFocusExplanation: String {
+        switch self {
+        case "Endurance":
+            "Build the ability to keep going comfortably for longer."
+        case "Race pace":
+            "Practice the effort you may use during your event."
+        case "Run / walk":
+            "Alternate running and walking to build running ability safely."
+        case "Continuous run":
+            "Run continuously for a manageable amount of time."
+        case "Swim continuity":
+            "Swim for longer stretches with fewer breaks."
+        case "Swim technique":
+            "Focus on smoother, more efficient swimming."
+        case "Brick":
+            "Practice cycling and then running, similar to a triathlon transition."
+        case "Taper":
+            "Train less so your body can recover before race day."
+        case "Recovery":
+            "Use easier activity to support recovery."
+        case "Consistency":
+            "Focus on completing regular training without adding too much too quickly."
+        case "Race day":
+            "This week is about arriving fresh and ready for your event."
+        default:
+            self
         }
     }
 }
