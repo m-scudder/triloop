@@ -71,7 +71,9 @@ final class WorkoutAutoImporter {
             sortBy: [SortDescriptor(\.startDate)]
         )
         let plans = (try? context.fetch(descriptor)) ?? []
-        let boundary = plans.first?.startDate ?? Date.now
+        let boundary = WorkoutImportService.historicalBoundary(
+            for: plans
+        )
 
         let service = WorkoutImportService(
             context: context,
