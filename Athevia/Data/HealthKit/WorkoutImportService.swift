@@ -572,7 +572,7 @@ struct WorkoutImportService {
 
     private func importedWorkout(
         for activity: ImportedWorkout,
-        status: WorkoutStatus
+        status: PlannedWorkoutStatus
     ) -> PlannedWorkout {
         importedWorkout(
             discipline: activity.discipline,
@@ -586,7 +586,7 @@ struct WorkoutImportService {
         discipline: Discipline,
         sport: Sport,
         date: Date,
-        status: WorkoutStatus
+        status: PlannedWorkoutStatus
     ) -> PlannedWorkout {
         PlannedWorkout(
             date: calendar.startOfDay(for: date),
