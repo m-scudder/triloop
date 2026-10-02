@@ -42,6 +42,10 @@ private struct WorkoutShareSticker: View {
             height: WorkoutShareCanvas.exportSize.height
         )
         .clipped()
+        // Export appearance is intentionally fixed. The surrounding app may
+        // be in Light, Dark, or Gaming theme, but the transparent sticker must
+        // produce identical pixels in every case.
+        .environment(\.atheviaTheme, .classic)
         .environment(\.colorScheme, .dark)
         .environment(\.dynamicTypeSize, .large)
     }
