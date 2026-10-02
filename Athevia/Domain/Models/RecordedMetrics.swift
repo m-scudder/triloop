@@ -78,6 +78,11 @@ struct RecordedMetrics: Codable, Equatable, Sendable {
     var multisportSegments: [RecordedMultisportSegment]
     var swimEnvironment: RecordedSwimEnvironment?
 
+    /// Source aliases already observed for this physical workout. This lets a
+    /// workout first seen through Apple Health later be recognized when a
+    /// direct Strava/Runna/Garmin integration returns the same activity.
+    var importAliases: [WorkoutImportAlias]
+
     /// GPS points captured by Athevia itself. HealthKit imports normally leave
     /// this empty because their sample stream remains in HealthKit.
     var route: [RecordedRoutePoint]
@@ -98,6 +103,7 @@ struct RecordedMetrics: Codable, Equatable, Sendable {
         estimatedWorkoutEffort: Double? = nil,
         multisportSegments: [RecordedMultisportSegment] = [],
         swimEnvironment: RecordedSwimEnvironment? = nil,
+        importAliases: [WorkoutImportAlias] = [],
         route: [RecordedRoutePoint] = []
     ) {
         self.averageCadence = averageCadence
@@ -115,6 +121,7 @@ struct RecordedMetrics: Codable, Equatable, Sendable {
         self.estimatedWorkoutEffort = estimatedWorkoutEffort
         self.multisportSegments = multisportSegments
         self.swimEnvironment = swimEnvironment
+        self.importAliases = importAliases
         self.route = route
     }
 
@@ -143,6 +150,7 @@ struct RecordedMetrics: Codable, Equatable, Sendable {
         estimatedWorkoutEffort = value(.estimatedWorkoutEffort)
         multisportSegments = value(.multisportSegments) ?? []
         swimEnvironment = value(.swimEnvironment)
+        importAliases = value(.importAliases) ?? []
         route = value(.route) ?? []
     }
 
@@ -165,10 +173,16 @@ struct RecordedMetrics: Codable, Equatable, Sendable {
         return scalarMetrics.allSatisfy { $0 == nil }
             && multisportSegments.isEmpty
             && swimEnvironment == nil
+            && importAliases.isEmpty
             && route.isEmpty
     }
 
     /// The effort Apple holds, preferring what the athlete rated over what the
     /// system guessed.
     var appleEffort: Double? { workoutEffort ?? estimatedWorkoutEffort }
+
+    mutating func recordImportAlias(_ alias: WorkoutImportAlias) {
+        guard !importAliases.contains(alias) else { return }
+        importAliases.append(alias)
+    }
 }
