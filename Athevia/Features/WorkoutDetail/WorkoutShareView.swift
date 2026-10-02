@@ -526,7 +526,22 @@ struct WorkoutShareView: View {
         }
 
         guard let data = renderedPNGData() else {
-            exportError = "Couldn't create the image. Please try again."
+            exportError = "Couldn't create the PNG. Please try again."
+            return
+        }
+
+        let fileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "Athevia-Workout-\(UUID().uuidString).png"
+            )
+
+        do {
+            // Persist the exact encoded PNG first. Photos then imports this
+            // file resource directly instead of receiving image data that may
+            // be reinterpreted by an intermediate image conversion path.
+            try data.write(to: fileURL, options: .atomic)
+        } catch {
+            exportError = "Couldn't create the PNG file. Please try again."
             return
         }
 
@@ -534,6 +549,10 @@ struct WorkoutShareView: View {
         saveMessage = nil
 
         Task {
+            defer {
+                try? FileManager.default.removeItem(at: fileURL)
+            }
+
             let status = await PHPhotoLibrary
                 .requestAuthorization(for: .addOnly)
 
@@ -549,25 +568,26 @@ struct WorkoutShareView: View {
             do {
                 try await PHPhotoLibrary.shared()
                     .performChanges {
-                        let request = PHAssetCreationRequest
-                            .forAsset()
+                        let request = PHAssetCreationRequest.forAsset()
                         let options = PHAssetResourceCreationOptions()
-                        options.originalFilename = "Athevia-Workout.png"
+                        options.originalFilename = fileURL.lastPathComponent
+                        options.shouldMoveFile = false
+
                         request.addResource(
                             with: .photo,
-                            data: data,
+                            fileURL: fileURL,
                             options: options
                         )
                     }
 
                 await MainActor.run {
                     isSavingToPhotos = false
-                    saveMessage = "Saved to Photos."
+                    saveMessage = "PNG saved to Photos."
                 }
             } catch {
                 await MainActor.run {
                     isSavingToPhotos = false
-                    exportError = "Couldn't save this workout to Photos. Please try again."
+                    exportError = "Couldn't save the PNG to Photos. Please try again."
                 }
             }
         }
