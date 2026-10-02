@@ -45,10 +45,15 @@ struct AccountAccessView: View {
             }
         }
         .task {
-            // Athevia always requires an account. A cached authenticated session
-            // may resume without a network round-trip, but there is no
-            // unauthenticated/local-only path into training.
-            if let session = await authentication.resumeCachedSession() {
+            let hasLocalData =
+                (try? LocalTrainingStoreState
+                    .hasUserData(modelContext)) == true
+
+            // Athevia always requires an account. Existing authenticated local
+            // training may resume from its cached identity, but a fresh install
+            // must verify the session so its cloud backup can be restored.
+            if hasLocalData,
+               let session = await authentication.resumeCachedSession() {
                 onReady(session, false)
                 return
             }
