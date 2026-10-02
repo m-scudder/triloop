@@ -589,12 +589,6 @@ struct CoachView: View {
                             || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                     )
             }
-            .toolbar {
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button("Done") { isComposerFocused = false }
-                }
-            }
 
             if preview != nil {
                 Text("Review the plan change above before continuing.")
