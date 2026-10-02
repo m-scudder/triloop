@@ -714,6 +714,36 @@ struct CoachView: View {
         isWorking = true
         defer { isWorking = false }
 
+        let interpreter = DeterministicCoachIntentInterpreter()
+        let interpretation = interpreter.interpret(
+            request: request,
+            plan: plan,
+            now: .now
+        )
+
+        switch interpretation {
+        case .clarification(let question):
+            appendMessage(role: .coach, text: question, evidence: nil)
+            return
+
+        case .intent(let intent):
+            if let localResponse = CoachDomainEngine().respondWithoutContext(
+                to: intent,
+                currentPlan: plan,
+                plans: plans
+            ) {
+                appendMessage(
+                    role: .coach,
+                    text: localResponse.message,
+                    evidence: nil
+                )
+                return
+            }
+
+        case .unsupported:
+            break
+        }
+
         let loader = AthleteContextLoader(provider: healthProvider)
         guard let context = await loader.load(
             profile: profile,
@@ -728,16 +758,9 @@ struct CoachView: View {
             return
         }
 
-        let interpretation = await DeterministicCoachIntentInterpreter().interpret(
-            request: request,
-            context: context,
-            plan: plan,
-            now: .now
-        )
-
         switch interpretation {
-        case .clarification(let question):
-            appendMessage(role: .coach, text: question, evidence: nil)
+        case .clarification:
+            return
 
         case .intent(let intent):
             handleDeterministicIntent(
