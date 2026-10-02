@@ -15,13 +15,30 @@ private enum WorkoutShareStyle: String, CaseIterable, Identifiable {
         }
     }
 
-    static let exportSize = CGSize(width: 1080, height: 1350)
-    static let routeSize = CGSize(width: 952, height: 650)
+    static let exportSize = CGSize(width: 1080, height: 1080)
+    static let routeSize = CGSize(width: 952, height: 500)
+}
+
+private enum WorkoutShareLayout: String, CaseIterable, Identifiable {
+    case balanced
+    case stats
+    case stacked
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .balanced: "Balanced"
+        case .stats: "Stats"
+        case .stacked: "Stack"
+        }
+    }
 }
 
 private struct WorkoutShareCard: View {
     let snapshot: WorkoutShareSnapshot
     let style: WorkoutShareStyle
+    let layout: WorkoutShareLayout
     let route: WorkoutShareRoute
     let mapImage: UIImage?
 
@@ -33,27 +50,14 @@ private struct WorkoutShareCard: View {
                 Color.black
             }
 
-            VStack(alignment: .leading, spacing: 0) {
-                header
-
-                if hasRoute {
-                    routeHero
-                        .padding(.top, 38)
-                } else {
-                    Spacer(minLength: 90)
-                }
-
-                Spacer(minLength: hasRoute ? 42 : 120)
-
-                metricRow
-
-                Spacer(minLength: 38)
-
-                brand
+            switch layout {
+            case .balanced:
+                balancedLayout
+            case .stats:
+                statsLayout
+            case .stacked:
+                stackedLayout
             }
-            .padding(.horizontal, 64)
-            .padding(.top, 66)
-            .padding(.bottom, 54)
         }
         .foregroundStyle(.white)
         .frame(
@@ -65,27 +69,112 @@ private struct WorkoutShareCard: View {
         .environment(\.dynamicTypeSize, .large)
     }
 
-    private var header: some View {
-        HStack(alignment: .top, spacing: 24) {
-            VStack(alignment: .leading, spacing: 10) {
-                Text(snapshot.title)
-                    .font(.system(size: 58, weight: .bold, design: .rounded))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
+    private var balancedLayout: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            titleHeader
 
-                Text(TrainingFormatter.shortDate(snapshot.date, includeYear: true))
-                    .font(.system(size: 25, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.70))
+            if hasRoute {
+                routeHero
+                    .padding(.top, 28)
+            } else {
+                Spacer(minLength: 42)
             }
+
+            Spacer(minLength: hasRoute ? 28 : 42)
+
+            metricRow
+
+            Spacer(minLength: 24)
+
+            brand
+        }
+        .padding(.horizontal, 64)
+        .padding(.top, 58)
+        .padding(.bottom, 48)
+    }
+
+    private var statsLayout: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top, spacing: 24) {
+                titleBlock
+
+                Spacer(minLength: 20)
+
+                brand
+            }
+
+            Spacer(minLength: hasRoute ? 24 : 54)
+
+            metricRow
+
+            if hasRoute {
+                routeHero
+                    .padding(.top, 34)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 64)
+        .padding(.top, 58)
+        .padding(.bottom, 48)
+    }
+
+    private var stackedLayout: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top, spacing: 24) {
+                titleHeader
+
+                Spacer(minLength: 20)
+            }
+
+            if hasRoute {
+                routeHero
+                    .padding(.top, 28)
+            }
+
+            Spacer(minLength: hasRoute ? 26 : 48)
+
+            HStack(alignment: .bottom, spacing: 44) {
+                metricStack
+
+                Spacer(minLength: 20)
+
+                brand
+            }
+        }
+        .padding(.horizontal, 64)
+        .padding(.top, 58)
+        .padding(.bottom, 48)
+    }
+
+    private var titleHeader: some View {
+        HStack(alignment: .top, spacing: 24) {
+            titleBlock
 
             Spacer(minLength: 24)
 
             Image(systemName: snapshot.discipline.symbolName)
-                .font(.system(size: 42, weight: .semibold))
+                .font(.system(size: 40, weight: .semibold))
                 .symbolRenderingMode(.monochrome)
                 .foregroundStyle(.orange)
-                .frame(width: 66, height: 66)
-                .background(.white.opacity(style == .card ? 0.08 : 0.14), in: .circle)
+                .frame(width: 62, height: 62)
+                .background(
+                    .white.opacity(style == .card ? 0.08 : 0.14),
+                    in: .circle
+                )
+        }
+    }
+
+    private var titleBlock: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(snapshot.title)
+                .font(.system(size: 56, weight: .bold, design: .rounded))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+
+            Text(TrainingFormatter.shortDate(snapshot.date, includeYear: true))
+                .font(.system(size: 24, weight: .medium))
+                .foregroundStyle(.white.opacity(0.70))
         }
     }
 
@@ -100,7 +189,7 @@ private struct WorkoutShareCard: View {
                     height: WorkoutShareStyle.routeSize.height
                 )
                 .clipped()
-                .clipShape(.rect(cornerRadius: 30))
+                .clipShape(.rect(cornerRadius: 28))
         } else {
             WorkoutShareRouteShape(route: route, color: .orange)
                 .frame(
@@ -114,26 +203,47 @@ private struct WorkoutShareCard: View {
     private var metricRow: some View {
         if snapshot.metrics.isEmpty {
             Text("Workout completed")
-                .font(.system(size: 44, weight: .semibold, design: .rounded))
+                .font(.system(size: 42, weight: .semibold, design: .rounded))
         } else {
-            HStack(alignment: .top, spacing: 28) {
+            HStack(alignment: .top, spacing: 24) {
                 ForEach(snapshot.metrics) { metric in
-                    VStack(alignment: .leading, spacing: 7) {
-                        Text(metric.value)
-                            .font(.system(size: 58, weight: .bold, design: .rounded))
-                            .monospacedDigit()
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.55)
-
-                        Text(metric.label)
-                            .font(.system(size: 21, weight: .medium))
-                            .foregroundStyle(.white.opacity(0.68))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.72)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    metricView(metric, valueSize: 54)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private var metricStack: some View {
+        if snapshot.metrics.isEmpty {
+            Text("Workout completed")
+                .font(.system(size: 42, weight: .semibold, design: .rounded))
+        } else {
+            VStack(alignment: .leading, spacing: 22) {
+                ForEach(snapshot.metrics) { metric in
+                    metricView(metric, valueSize: 50)
+                }
+            }
+        }
+    }
+
+    private func metricView(
+        _ metric: WorkoutShareMetric,
+        valueSize: CGFloat
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(metric.value)
+                .font(.system(size: valueSize, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.55)
+
+            Text(metric.label)
+                .font(.system(size: 20, weight: .medium))
+                .foregroundStyle(.white.opacity(0.68))
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
         }
     }
 
@@ -153,6 +263,7 @@ struct WorkoutShareView: View {
     @Environment(\.healthProvider) private var health
 
     @State private var style: WorkoutShareStyle = .card
+    @State private var layout: WorkoutShareLayout = .balanced
     @State private var loadedRoute: [RecordedRoutePoint] = []
     @State private var routeRevision = 0
     @State private var routeRequest = 0
@@ -201,6 +312,13 @@ struct WorkoutShareView: View {
                     Picker("Style", selection: $style) {
                         ForEach(WorkoutShareStyle.allCases) { style in
                             Text(style.title).tag(style)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    Picker("Layout", selection: $layout) {
+                        ForEach(WorkoutShareLayout.allCases) { layout in
+                            Text(layout.title).tag(layout)
                         }
                     }
                     .pickerStyle(.segmented)
@@ -275,6 +393,7 @@ struct WorkoutShareView: View {
         WorkoutShareCard(
             snapshot: snapshot,
             style: style,
+            layout: layout,
             route: route,
             mapImage: preparedMapRequest == mapRequest ? mapImage : nil
         )
