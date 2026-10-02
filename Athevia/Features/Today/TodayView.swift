@@ -343,13 +343,39 @@ struct TodayView: View {
             VStack(alignment: .leading, spacing: 8) {
                 SectionEyebrow(text: "Also today")
                 ForEach(finished) { workout in
-                    HStack(spacing: 8) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(AtheviaAdaptiveStyle(.green, gaming: .success))
-                        Text(workout.title)
-                        Spacer(minLength: 0)
+                    NavigationLink {
+                        WorkoutDayDetail(workout: workout)
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(AtheviaAdaptiveStyle(.green, gaming: .success))
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(workout.discipline.displayName)
+                                    .font(.subheadline.weight(.medium))
+
+                                if let summary = workout.importedSummary {
+                                    Text(
+                                        [
+                                            TrainingFormatter.totalDuration(seconds: summary.duration),
+                                            summary.distanceMeters.map { TrainingFormatter.distance(meters: $0) }
+                                        ]
+                                        .compactMap { $0 }
+                                        .joined(separator: " · ")
+                                    )
+                                    .font(.caption)
+                                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+                                }
+                            }
+
+                            Spacer(minLength: 0)
+
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.tertiary)
+                        }
                     }
-                    .font(.subheadline)
+                    .buttonStyle(.plain)
                 }
             }
         }
