@@ -555,52 +555,59 @@ struct CoachView: View {
 
     private var composer: some View {
         VStack(spacing: 8) {
-            HStack(alignment: .bottom, spacing: 8) {
-                TextField("Ask about your training…", text: $draft, axis: .vertical)
+            VStack(alignment: .leading, spacing: 8) {
+                TextField("Ask Athevia Coach", text: $draft, axis: .vertical)
                     .focused($isComposerFocused)
                     .lineLimit(1...4)
-                    .padding(.horizontal, 15)
-                    .padding(.vertical, 12)
-                    .background(
-                        AtheviaAdaptiveStyle(.background.secondary, gaming: .surface),
-                        in: RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 20, style: .continuous)
-                            .strokeBorder(
-                                AtheviaAdaptiveStyle(.separator.opacity(0.35), gaming: .border),
-                                lineWidth: 0.5
-                            )
-                    )
+                    .font(.body)
                     .submitLabel(.send)
                     .onSubmit(sendDraft)
                     .disabled(isWorking || preview != nil)
 
-                Button(action: sendDraft) {
-                    Image(systemName: "arrow.up")
-                        .font(.subheadline.weight(.bold))
-                        .frame(width: 38, height: 38)
-                        .foregroundStyle(theme.color(.onAccent, classic: Color.onActionSurface))
-                        .background(
-                            theme.color(.accent, classic: Color.actionSurface),
-                            in: Circle()
-                        )
+                HStack {
+                    Spacer()
+
+                    Button(action: sendDraft) {
+                        Image(systemName: "arrow.up")
+                            .font(.subheadline.weight(.bold))
+                            .frame(width: 36, height: 36)
+                            .foregroundStyle(theme.color(.onAccent, classic: Color.onActionSurface))
+                            .background(
+                                theme.color(.accent, classic: Color.actionSurface),
+                                in: Circle()
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(
+                        isWorking
+                            || preview != nil
+                            || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    )
+                    .opacity(
+                        isWorking
+                            || preview != nil
+                            || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                            ? 0.35
+                            : 1
+                    )
+                    .accessibilityLabel("Send")
                 }
-                .buttonStyle(.plain)
-                .disabled(
-                    isWorking
-                        || preview != nil
-                        || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                )
-                .opacity(
-                    isWorking
-                        || preview != nil
-                        || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                        ? 0.4
-                        : 1
-                )
-                .accessibilityLabel("Send")
             }
+            .padding(.horizontal, 16)
+            .padding(.top, 14)
+            .padding(.bottom, 10)
+            .frame(maxWidth: .infinity, minHeight: 96, alignment: .topLeading)
+            .background(
+                AtheviaAdaptiveStyle(.background.secondary, gaming: .surface),
+                in: RoundedRectangle(cornerRadius: 24, style: .continuous)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .strokeBorder(
+                        AtheviaAdaptiveStyle(.separator.opacity(0.28), gaming: .border),
+                        lineWidth: 0.5
+                    )
+            )
 
             if preview != nil {
                 Text("Review the plan change above before continuing.")
