@@ -4,6 +4,9 @@ import Foundation
 /// training domain. A model may classify language into these values, but it
 /// never authors workout structure or writes training state directly.
 enum CoachIntent: Codable, Equatable, Sendable {
+    case explainRPE
+    case describeWeek(offset: Int)
+    case workoutMetrics(date: Date)
     case explainWorkout(date: Date)
     case summarizeRecentTraining(weeks: Int)
     case limitSession(date: Date, maxMinutes: Int)
