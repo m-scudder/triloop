@@ -33,12 +33,17 @@ struct TodayWorkoutView: View {
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(workout.discipline.themedTint(theme))
 
-                Text(workout.title)
-                    .font(.largeTitle.weight(.semibold))
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(workout.title)
+                        .font(.largeTitle.weight(.semibold))
+                        .lineLimit(2)
 
-                if let seconds = workout.prescribedDurationSeconds ?? workout.estimatedDurationSeconds {
-                    Text(TrainingFormatter.totalDuration(seconds: seconds))
-                        .font(.title3.weight(.medium))
+                    if let seconds = workout.prescribedDurationSeconds ?? workout.estimatedDurationSeconds {
+                        Text("· \(TrainingFormatter.totalDuration(seconds: seconds))")
+                            .font(.title3.weight(.medium))
+                            .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+                            .lineLimit(1)
+                    }
                 }
             }
 
