@@ -11,6 +11,7 @@ struct DateStrip: View {
 
     let workouts: [PlannedWorkout]
     @Binding var selection: Date
+    var anchorDate: Date? = nil
     var calendar: Calendar = .current
 
     private struct Week: Identifiable {
@@ -40,18 +41,34 @@ struct DateStrip: View {
         }
     }
 
-    /// A single continuous calendar across planned sessions and imported Health
-    /// history. Standalone workouts from before the current plan must remain
-    /// reachable after reset/re-onboarding, so pages can no longer be derived
-    /// only from `WeeklyPlan` relationships.
+    /// The calendar is anchored to the athlete's chosen plan-start day rather
+    /// than a hard-coded weekday. One page immediately before that anchor is
+    /// exposed so recent Apple Health history remains reachable after reset.
     private var weeks: [Week] {
-        guard let firstWorkout = workouts.min(by: { $0.date < $1.date }),
-              let lastWorkout = workouts.max(by: { $0.date < $1.date }) else {
+        guard let lastWorkout = workouts.max(by: { $0.date < $1.date }) else {
             return []
         }
 
-        let firstWeek = mondayStart(for: firstWorkout.date)
-        let lastWeek = mondayStart(for: lastWorkout.date)
+        let fallbackAnchor = workouts
+            .filter { $0.plan != nil }
+            .map(\.date)
+            .min()
+            ?? workouts.map(\.date).min()
+            ?? lastWorkout.date
+
+        let currentAnchor = calendar.startOfDay(
+            for: anchorDate ?? fallbackAnchor
+        )
+        let firstWeek = calendar.date(
+            byAdding: .day,
+            value: -7,
+            to: currentAnchor
+        ) ?? currentAnchor
+        let lastWeek = pageStart(
+            containing: lastWorkout.date,
+            anchoredAt: currentAnchor
+        )
+
         var result: [Week] = []
         var weekStart = firstWeek
 
@@ -106,16 +123,33 @@ struct DateStrip: View {
         return result
     }
 
-    /// Training weeks are Monday–Sunday regardless of the device locale.
-    private func mondayStart(for date: Date) -> Date {
+    /// Finds the 7-day page containing `date`, using the athlete's chosen
+    /// plan-start date as page zero. This works for any starting weekday.
+    private func pageStart(
+        containing date: Date,
+        anchoredAt anchor: Date
+    ) -> Date {
         let day = calendar.startOfDay(for: date)
-        let weekday = calendar.component(.weekday, from: day)
-        let daysFromMonday = (weekday + 5) % 7
+        let distance = calendar.dateComponents(
+            [.day],
+            from: anchor,
+            to: day
+        ).day ?? 0
+
+        let pageOffset: Int
+        if distance >= 0 {
+            pageOffset = distance / 7
+        } else {
+            pageOffset = Int(
+                floor(Double(distance) / 7.0)
+            )
+        }
+
         return calendar.date(
             byAdding: .day,
-            value: -daysFromMonday,
-            to: day
-        ) ?? day
+            value: pageOffset * 7,
+            to: anchor
+        ) ?? anchor
     }
 
     var body: some View {
