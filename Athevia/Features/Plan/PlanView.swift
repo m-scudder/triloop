@@ -8,6 +8,7 @@ import SwiftUI
 struct PlanView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \WeeklyPlan.startDate) private var plans: [WeeklyPlan]
+    @Query(sort: \PlannedWorkout.date) private var storedWorkouts: [PlannedWorkout]
     @Query private var profiles: [AthleteProfile]
 
     @State private var selection: Date = .now
@@ -15,16 +16,26 @@ struct PlanView: View {
     @State private var hasChosenOpeningDay = false
     @State private var focused: UUID?
 
-    /// Keep the plan and what actually happened on the same calendar. An
-    /// unmatched HealthKit activity belongs on its recorded day beside the
-    /// prescription rather than being hidden in History.
+    /// Plan is one calendar for both prescriptions and real training history.
+    /// Generated/library sessions come from WeeklyPlan; standalone imported
+    /// Run/Swim/Cycle can predate the first plan after a reset.
     private var allWorkouts: [PlannedWorkout] {
-        plans
-            .flatMap(\.orderedWorkouts)
+        storedWorkouts
+            .filter { workout in
+                workout.plan != nil
+                    || (
+                        workout.origin == .imported
+                            && workout.plan == nil
+                            && workout.discipline.sport != nil
+                    )
+            }
             .sorted { lhs, rhs in
                 if Calendar.current.isDate(lhs.date, inSameDayAs: rhs.date) {
-                    // The prescription leads; extra recorded activities follow.
-                    return lhs.origin != .imported && rhs.origin == .imported
+                    // Prescription first; completed imported activity follows.
+                    if lhs.origin != rhs.origin {
+                        return lhs.origin != .imported
+                    }
+                    return lhs.completedAt ?? lhs.date < rhs.completedAt ?? rhs.date
                 }
                 return lhs.date < rhs.date
             }
