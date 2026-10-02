@@ -30,6 +30,7 @@ struct PlanPreviewStepView: View {
                     racePlanHeader(plan)
                 }
 
+                trainingFrequencySummary(plan)
                 week(plan)
             } else {
                 ProgressView()
@@ -38,6 +39,28 @@ struct PlanPreviewStepView: View {
             }
         }
         .task { if model.preview == nil { model.buildPreview() } }
+    }
+
+    private func trainingFrequencySummary(_ plan: WeeklyPlan) -> some View {
+        let actual = plan.prescribedTrainingSessions.count
+        let target = model.setup.trainingDayTarget
+
+        return HStack(spacing: 8) {
+            Label("\(actual) workouts", systemImage: "calendar")
+                .font(.caption.weight(.semibold))
+
+            Spacer()
+
+            if actual < target {
+                Text("Builds toward \(target)")
+                    .font(.caption)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+            } else {
+                Text("Weekly target")
+                    .font(.caption)
+                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+            }
+        }
     }
 
     @ViewBuilder
