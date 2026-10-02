@@ -158,10 +158,11 @@ extension WeekShapePlanner {
 
     static func frequencies(
         for sports: [Sport],
-        schedule: AthleteSchedule
+        schedule: AthleteSchedule,
+        sessionLimit: Int? = nil
     ) -> [SportFrequency] {
         let selected = Sport.allCases.filter { sports.contains($0) }
-        let slots = schedule.availableDays.count
+        let slots = min(schedule.availableDays.count, sessionLimit ?? schedule.availableDays.count)
 
         guard slots > 0, !selected.isEmpty else { return [] }
 
@@ -207,12 +208,15 @@ extension WeekShapePlanner {
     static func frequencies(
         for sports: [Sport],
         schedule: AthleteSchedule,
-        priorities: [SportPriority]
+        priorities: [SportPriority],
+        sessionLimit: Int? = nil
     ) -> [SportFrequency] {
         let selected = Sport.allCases.filter { sports.contains($0) }
-        let slots = schedule.availableDays.count
+        let slots = min(schedule.availableDays.count, sessionLimit ?? schedule.availableDays.count)
         guard slots > 0, !selected.isEmpty else { return [] }
-        if selected == [.running] { return frequencies(for: selected, schedule: schedule) }
+        if selected == [.running] {
+            return frequencies(for: selected, schedule: schedule, sessionLimit: slots)
+        }
 
         var counts = Dictionary(uniqueKeysWithValues: selected.map { ($0, 0) })
         var remaining = slots
