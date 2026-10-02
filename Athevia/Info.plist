@@ -16,6 +16,8 @@
 	     labelled development. This does not enable TestFlight collection. -->
 	<key>PostHogDebugUsesProductionProject</key>
 	<true/>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Save your Athevia workout share image to your photo library.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIBackgroundModes</key>
