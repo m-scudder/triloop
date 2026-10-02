@@ -578,10 +578,11 @@ struct CoachView: View {
 
                 Button("Send", action: sendDraft)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(
+                    .foregroundStyle(theme.color(.accent, classic: Color.actionSurface))
+                    .opacity(
                         draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                            ? AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText)
-                            : theme.color(.accent, classic: Color.actionSurface)
+                            ? 0.4
+                            : 1
                     )
                     .padding(.horizontal, 4)
                     .padding(.vertical, 12)
@@ -609,7 +610,7 @@ struct CoachView: View {
         .padding(.horizontal, 20)
         .padding(.top, 8)
         .padding(.bottom, 10)
-        .background(AtheviaAdaptiveStyle(.background.primary, gaming: .canvas))
+        .background(Color.clear)
     }
 
     private func sendDraft() {
