@@ -135,6 +135,18 @@ struct WorkoutImportService {
             )
         }
 
+        // A connected source may contain valid training on a date for which
+        // Athevia has no generated plan (reinstall gaps, delayed generation,
+        // future provider history, etc.). Preserve those activities as
+        // standalone completed history rather than silently dropping them.
+        combined.merge(
+            try await syncUnownedTrainingHistory(
+                plans: ordered,
+                from: boundary,
+                to: Date.now
+            )
+        )
+
         return combined
     }
 
@@ -234,6 +246,41 @@ struct WorkoutImportService {
         )
     }
 
+    /// Persists relevant source workouts that are not owned by any generated
+    /// Athevia plan window. These remain history-only and therefore cannot
+    /// affect plan adherence or progression.
+    @discardableResult
+    private func syncUnownedTrainingHistory(
+        plans: [WeeklyPlan],
+        from start: Date,
+        to end: Date
+    ) async throws -> Outcome {
+        let activities = try await provider.workouts(
+            from: start,
+            to: end
+        )
+        .filter { activity in
+            guard activity.discipline.isTrainingSession else {
+                return false
+            }
+
+            return !plans.contains { plan in
+                let planEnd = calendar.date(
+                    byAdding: .day,
+                    value: 1,
+                    to: plan.endDate
+                ) ?? plan.endDate
+
+                return activity.startDate >= plan.startDate
+                    && activity.startDate < planEnd
+            }
+        }
+
+        return try persistStandaloneHistory(
+            activities
+        )
+    }
+
     /// Imports training that predates Athevia's ownership as standalone
     /// completed workouts. These remain visible history but are never attached
     /// to a newer prescription.
@@ -257,6 +304,14 @@ struct WorkoutImportService {
                 && activity.discipline.isTrainingSession
         }
 
+        return try persistStandaloneHistory(
+            activities
+        )
+    }
+
+    private func persistStandaloneHistory(
+        _ activities: [ImportedWorkout]
+    ) throws -> Outcome {
         let stored = try context.fetch(
             FetchDescriptor<ImportedWorkoutSummary>()
         )
