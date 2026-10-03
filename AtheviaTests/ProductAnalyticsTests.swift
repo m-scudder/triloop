@@ -264,7 +264,8 @@ struct ProductAnalyticsTests {
 
         f.analytics.updateAccount(
             "account-a",
-            email: "  Athlete@Example.COM "
+            email: "  Athlete@Example.COM ",
+            name: "  Mayank Agarwal  "
         )
         f.analytics.track(.screenViewed(.plan))
         await f.analytics.flush()?.value
@@ -281,6 +282,8 @@ struct ProductAnalyticsTests {
 
         #expect(identify.email == "athlete@example.com")
         #expect(screen.email == "athlete@example.com")
+        #expect(identify.userName == "Mayank Agarwal")
+        #expect(screen.userName == "Mayank Agarwal")
 
         let identifyProperties = try #require(
             identify.payload["properties"] as? [String: Any]
@@ -300,7 +303,12 @@ struct ProductAnalyticsTests {
             screenProperties["user_email"] as? String
                 == "athlete@example.com"
         )
+        #expect(
+            screenProperties["user_name"] as? String
+                == "Mayank Agarwal"
+        )
         #expect(person["email"] == "athlete@example.com")
+        #expect(person["name"] == "Mayank Agarwal")
     }
 
     @Test func guestEventsDoNotContainEmail() async throws {
@@ -328,7 +336,8 @@ struct ProductAnalyticsTests {
 
         f.analytics.updateAccount(
             "account-a",
-            email: "athlete@example.com"
+            email: "athlete@example.com",
+            name: "Mayank"
         )
         await f.analytics.flush()?.value
 
@@ -346,6 +355,8 @@ struct ProductAnalyticsTests {
             event.payload["properties"] as? [String: Any]
         )
         #expect(properties["user_email"] == nil)
+        #expect(properties["user_name"] == nil)
+        #expect(properties["$set"] == nil)
     }
 
     @Test func loginAutomaticallyIdentifiesConfiguredAnalytics() async {
