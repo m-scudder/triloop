@@ -67,7 +67,8 @@ struct RootView: View {
                     onReady: { session, seedLocalBackup in
                         ProductAnalytics.shared.updateAccount(
                             session.userID,
-                            email: session.email
+                            email: session.email,
+                            name: profiles.first?.name
                         )
                         accountReady = true
                         if seedLocalBackup {
@@ -132,7 +133,8 @@ struct RootView: View {
         case .signedIn(let session):
             ProductAnalytics.shared.updateAccount(
                 session.userID,
-                email: session.email
+                email: session.email,
+                name: profiles.first?.name
             )
         case .signedOut:
             ProductAnalytics.shared.updateAccount(nil)
