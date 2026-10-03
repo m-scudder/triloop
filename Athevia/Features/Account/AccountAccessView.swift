@@ -16,7 +16,6 @@ struct AccountAccessView: View {
     @State private var accountError: String?
     @State private var isCheckingBackup = false
     @State private var pendingProfileSession: AccountSession?
-    @State private var pendingProfileSeedsBackup = false
 
     var body: some View {
         ZStack {
@@ -317,7 +316,6 @@ struct AccountAccessView: View {
             return
         }
 
-        pendingProfileSeedsBackup = seedLocalBackup
         pendingProfileSession = session
     }
 
@@ -345,11 +343,9 @@ struct AccountAccessView: View {
             // otherwise require a migration backup.
             let seedLocalBackup = true
             pendingProfileSession = nil
-            pendingProfileSeedsBackup = false
             onReady(session, seedLocalBackup)
         } catch {
             pendingProfileSession = nil
-            pendingProfileSeedsBackup = false
             accountError = error.localizedDescription
         }
     }
