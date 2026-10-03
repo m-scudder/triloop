@@ -280,12 +280,6 @@ struct TodayCompletedView: View {
                 TodayMetricsRow(summary: summary, sport: workout.discipline.sport)
             }
 
-            if let rpe = workout.feedback?.rpe {
-                Text("Effort \(rpe)/10")
-                    .font(.subheadline)
-                    .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
-            }
-
             if let outcome {
                 Text(outcome.overall.displayName)
                     .font(.title3.weight(.semibold))
