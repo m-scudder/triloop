@@ -1,47 +1,59 @@
 import SwiftUI
 
-/// What was actually recorded, led by the headline figure.
+/// Prominent summary of the workout that was actually recorded.
 ///
-/// A finished session should read as something achieved rather than a table of
-/// readings, so the number that matters for that sport is set large and the rest
-/// supports it. Missing metrics are omitted rather than shown as zero, which
-/// would read as a real measurement.
+/// This intentionally uses Athevia's existing adaptive colours. The two-column
+/// layout is inspired by the compact information hierarchy of Apple's workout
+/// summary without copying its colour treatment.
 struct RecordedWorkoutView: View {
+    @Environment(\.atheviaTheme) private var theme
+
     let workout: PlannedWorkout
     let summary: ImportedWorkoutSummary
 
+    private let columns = [
+        GridItem(.flexible(), alignment: .leading),
+        GridItem(.flexible(), alignment: .leading)
+    ]
+
     var body: some View {
         Card {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack(spacing: 8) {
-                    Image(systemName: "checkmark.seal.fill")
-                        .foregroundStyle(AtheviaAdaptiveStyle(.green, gaming: .success))
-                    Text("Completed")
-                        .font(.subheadline.weight(.semibold))
-                }
+            VStack(alignment: .leading, spacing: 18) {
+                Label("Completed", systemImage: "checkmark.seal.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AtheviaAdaptiveStyle(.green, gaming: .success))
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(headline)
-                        .font(.largeTitle.weight(.semibold))
-                        .monospacedDigit()
-                    Text(subheadline)
-                        .font(.subheadline)
-                        .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
-                }
+                LazyVGrid(columns: columns, alignment: .leading, spacing: 0) {
+                    ForEach(Array(metrics.enumerated()), id: \.element.label) { index, metric in
+                        metricCell(metric)
+                            .padding(.vertical, 14)
 
-                completionBar
-
-                if !supportingStats.isEmpty {
-                    Divider()
-
-                    HStack(alignment: .top, spacing: 8) {
-                        ForEach(supportingStats, id: \.label) { stat in
-                            StatTile(value: stat.value, label: stat.label)
+                        if index < metrics.count - 2 {
+                            Divider()
+                                .gridCellUnsizedAxes(.horizontal)
                         }
                     }
                 }
+
+                completionBar
             }
         }
+    }
+
+    private func metricCell(_ metric: SummaryMetric) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(metric.label)
+                .font(.subheadline)
+                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
+            Text(metric.value)
+                .font(.title2.weight(.semibold))
+                .monospacedDigit()
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
     }
 
     private var completionBar: some View {
@@ -57,50 +69,93 @@ struct RecordedWorkoutView: View {
         }
     }
 
-    /// The figure that defines the session: distance for swimming, time for the
-    /// rest, since that is how each is prescribed.
-    private var headline: String {
-        if workout.discipline == .swimming, let distance = summary.distanceMeters, distance > 0 {
-            return TrainingFormatter.distance(meters: distance)
-        }
-        return TrainingFormatter.totalDuration(seconds: summary.duration)
-    }
+    private var metrics: [SummaryMetric] {
+        var result = [
+            SummaryMetric(
+                label: "Workout time",
+                value: TrainingFormatter.totalDuration(seconds: summary.duration)
+            )
+        ]
 
-    private var subheadline: String {
-        if workout.discipline == .swimming {
-            return TrainingFormatter.totalDuration(seconds: summary.duration)
-        }
         if let distance = summary.distanceMeters, distance > 0 {
-            return TrainingFormatter.distance(meters: distance)
+            result.append(
+                SummaryMetric(
+                    label: "Distance",
+                    value: TrainingFormatter.distance(meters: distance)
+                )
+            )
         }
-        return workout.title
+
+        if let calories = summary.metrics?.activeEnergyKilocalories {
+            result.append(
+                SummaryMetric(
+                    label: "Active calories",
+                    value: "\(Int(calories.rounded())) kcal"
+                )
+            )
+        }
+
+        if let average = averageSpeedOrPace {
+            result.append(average)
+        }
+
+        if let heartRate = summary.averageHeartRate {
+            result.append(
+                SummaryMetric(
+                    label: "Avg heart rate",
+                    value: "\(Int(heartRate.rounded())) bpm"
+                )
+            )
+        }
+
+        if let maximum = summary.maximumHeartRate {
+            result.append(
+                SummaryMetric(
+                    label: "Max heart rate",
+                    value: "\(Int(maximum.rounded())) bpm"
+                )
+            )
+        }
+
+        return result
     }
 
-    private var supportingStats: [(label: String, value: String)] {
-        var stats: [(String, String)] = []
-
-        if let continuous = summary.longestContinuousSwimMeters {
-            stats.append(("Non-stop", TrainingFormatter.distance(meters: continuous)))
-        }
-        if let lengths = summary.swimmingLengths {
-            stats.append(("Lengths", "\(lengths)"))
-        }
-        if let average = summary.averageHeartRate {
-            stats.append(("Avg bpm", "\(Int(average.rounded()))"))
-        }
-        if let maximum = summary.maximumHeartRate, summary.longestContinuousSwimMeters == nil {
-            stats.append(("Max bpm", "\(Int(maximum.rounded()))"))
-        }
-        if let elevation = summary.elevationAscendedMeters {
-            stats.append(("Ascent", TrainingFormatter.distance(meters: elevation)))
-        }
-        if let cadence = summary.metrics?.averageCadence {
-            stats.append(("Cadence", "\(Int(cadence.rounded()))"))
+    private var averageSpeedOrPace: SummaryMetric? {
+        guard let distance = summary.distanceMeters,
+              distance > 0,
+              summary.duration > 0 else {
+            return nil
         }
 
-        // The result card stays scannable. The complete sensor set remains in
-        // Workout analysis immediately below it.
-        return Array(stats.prefix(2))
+        switch workout.discipline.sport {
+        case .running:
+            let secondsPerKm = Int((summary.duration / (distance / 1_000)).rounded())
+            return SummaryMetric(
+                label: "Avg pace",
+                value: String(format: "%d:%02d /km", secondsPerKm / 60, secondsPerKm % 60)
+            )
+
+        case .cycling:
+            return SummaryMetric(
+                label: "Avg speed",
+                value: String(format: "%.1f km/h", distance / summary.duration * 3.6)
+            )
+
+        case .swimming:
+            return SummaryMetric(
+                label: "Avg pace",
+                value: TrainingFormatter.swimPace(
+                    secondsPer100m: summary.duration / (distance / 100)
+                )
+            )
+
+        case nil:
+            return nil
+        }
     }
 }
 
+private struct SummaryMetric {
+    let label: String
+    let value: String
+}
