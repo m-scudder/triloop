@@ -46,7 +46,6 @@ struct AboutYouStepView: View {
                 selection: binding,
                 minimumDate: range.lowerBound,
                 maximumDate: range.upperBound,
-                presentation: .wheel
             )
 
             if let birthDate = model.setup.birthDate,
