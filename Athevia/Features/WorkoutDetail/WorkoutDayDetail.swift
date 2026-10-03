@@ -108,16 +108,8 @@ struct WorkoutDayDetail: View {
     /// device evidence removes sensor-only sections rather than leaving holes.
     private var analysisSection: some View {
         VStack(alignment: .leading, spacing: 24) {
-            if !(showsManagementMenu && workout.isCompleted) {
-                HStack(alignment: .firstTextBaseline) {
-                    SectionEyebrow(text: "Workout analysis")
-                    Spacer()
-                    if let execution {
-                        Text(execution.overall.displayName)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.primary)
-                    }
-                }
+            if let summary = workout.importedSummary {
+                RecordedWorkoutView(workout: workout, summary: summary)
             }
 
             if let execution {
@@ -128,11 +120,6 @@ struct WorkoutDayDetail: View {
                     targetRPE: workout.targetRPE,
                     reportedRPE: workout.feedback?.rpe
                 )
-            }
-
-            if let feedback = workout.feedback,
-               let target = workout.targetRPE {
-                effortComparison(target: target, feedback: feedback)
             }
 
             if let samples, !samples.isEmpty {
@@ -160,6 +147,11 @@ struct WorkoutDayDetail: View {
                     summary: summary,
                     route: healthRoute
                 )
+            }
+
+            if let feedback = workout.feedback,
+               let target = workout.targetRPE {
+                effortComparison(target: target, feedback: feedback)
             }
         }
     }
