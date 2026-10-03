@@ -124,7 +124,7 @@ struct AccountProfileSetupView: View {
                         in: birthDateRange,
                         displayedComponents: .date
                     )
-                    .datePickerStyle(.graphical)
+                    .datePickerStyle(.wheel)
                     .labelsHidden()
 
                     Text(
@@ -198,11 +198,12 @@ enum AccountProfileDetailsStore {
     static func initialBirthDate(
         in context: ModelContext
     ) -> Date? {
-        (try? context.fetch(
+        guard let profile = try? context.fetch(
             FetchDescriptor<AthleteProfile>()
-        ).first)?
-        .setup?
-        .birthDate
+        ).first else {
+            return nil
+        }
+        return profile.setup?.birthDate
     }
 
     static func save(
