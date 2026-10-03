@@ -65,8 +65,10 @@ struct RootView: View {
                     authentication: authentication,
                     backup: backup,
                     onReady: { session, seedLocalBackup in
-                        ProductAnalytics.shared
-                            .updateAccount(session.userID)
+                        ProductAnalytics.shared.updateAccount(
+                            session.userID,
+                            email: session.email
+                        )
                         accountReady = true
                         if seedLocalBackup {
                             seedAutomaticBackup(for: session)
@@ -128,7 +130,10 @@ struct RootView: View {
         }
         switch state {
         case .signedIn(let session):
-            ProductAnalytics.shared.updateAccount(session.userID)
+            ProductAnalytics.shared.updateAccount(
+                session.userID,
+                email: session.email
+            )
         case .signedOut:
             ProductAnalytics.shared.updateAccount(nil)
         case .failed:
