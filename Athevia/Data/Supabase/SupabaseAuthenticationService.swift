@@ -40,7 +40,8 @@ actor SupabaseAuthenticationService: AuthenticationService {
 
         return AccountSession(
             userID: session.user.id.uuidString,
-            email: session.user.email
+            email: session.user.email,
+            suggestedName: credential.suggestedName
         )
     }
 
