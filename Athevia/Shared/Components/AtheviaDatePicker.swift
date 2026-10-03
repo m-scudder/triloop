@@ -22,6 +22,22 @@ struct AtheviaDatePicker: View {
 
     @State private var isPresentingPicker = false
 
+    init(
+        title: String,
+        selection: Binding<Date>,
+        minimumDate: Date? = nil,
+        maximumDate: Date? = nil,
+        presentation: Presentation = .compact,
+        showsTitle: Bool = true
+    ) {
+        self.title = title
+        _selection = selection
+        self.minimumDate = minimumDate
+        self.maximumDate = maximumDate
+        self.presentation = presentation
+        self.showsTitle = showsTitle
+    }
+
     var body: some View {
         switch presentation {
         case .compact:
