@@ -17,6 +17,7 @@ struct AnalyticsRecord: Codable, Equatable {
     let appBuild: String
 
     var accountID: String? = nil
+    var email: String? = nil
 
     var payload: [String: Any] {
         var values: [String: Any] = properties
@@ -26,7 +27,13 @@ struct AnalyticsRecord: Codable, Equatable {
         values["$geoip_disable"] = true
         values["$app_version"] = appVersion
         values["$app_build"] = appBuild
-        values["schema_version"] = 1
+        values["schema_version"] = 2
+        if let email {
+            values["user_email"] = email
+            if accountID != nil {
+                values["$set"] = ["email": email]
+            }
+        }
         return ["uuid": id.uuidString, "distinct_id": accountID ?? distinctID.uuidString,
                 "event": name, "timestamp": ISO8601DateFormatter().string(from: timestamp),
                 "properties": values]
@@ -34,7 +41,8 @@ struct AnalyticsRecord: Codable, Equatable {
 }
 
 /// Main-actor isolation serializes consent, queue mutation and network completion.
-/// Only an opaque account identifier enters this service; no health or training models.
+/// Account identity is limited to the authenticated account id and email; no health
+/// measurements or free-form training content enters analytics.
 @MainActor @Observable
 final class ProductAnalytics {
     static let shared = ProductAnalytics(configuration: .current, suppressed: isTestProcess, requiresAccountResolution: true)
@@ -74,6 +82,7 @@ final class ProductAnalytics {
     @ObservationIgnored private var identity: UUID?
     private(set) var accountResolved: Bool
     @ObservationIgnored private var activeAccountID: String?
+    @ObservationIgnored private var activeEmail: String?
     @ObservationIgnored private var linkedAccountID: String?
     @ObservationIgnored private var identifiedThisRun = false
     @ObservationIgnored private var sessionID: UUID?
@@ -143,22 +152,45 @@ final class ProductAnalytics {
     /// Sign-out/account replacement/local erase rotates the analytics identity.
     func resetForAccountChange() {
         activeAccountID = nil
+        activeEmail = nil
         consent = .allowed
         defaults.set(AnalyticsConsent.allowed.rawValue, forKey: Self.consentKey)
         discardPendingAndIdentity()
     }
 
-    /// Call only after auth resolves, or after an explicit Continue on this device.
-    func updateAccount(_ userID: String?) {
-        let account = userID.flatMap { Self.accountIdentifier($0, environment: configuration?.environment) }
+    /// Call only after authentication resolves.
+    ///
+    /// The account id remains the stable PostHog distinct id. Email is attached
+    /// as explicit user metadata so product events can be filtered back to the
+    /// signed-in person without using email as the primary identity key.
+    func updateAccount(_ userID: String?, email: String? = nil) {
+        let account = userID.flatMap {
+            Self.accountIdentifier(
+                $0,
+                environment: configuration?.environment
+            )
+        }
+        let normalizedEmail = Self.normalizedEmail(email)
         let wasResolved = accountResolved
-        if let previous = linkedAccountID ?? activeAccountID, previous != account {
+
+        if let previous = linkedAccountID ?? activeAccountID,
+           previous != account {
             resetForAccountChange()
         }
+
+        let emailChanged = activeEmail != normalizedEmail
         activeAccountID = account
+        activeEmail = account == nil ? nil : normalizedEmail
         accountResolved = true
+
+        if emailChanged, account != nil {
+            identifiedThisRun = false
+        }
+
         identifyIfNeeded()
-        Self.debugLog("Account resolved: \(account == nil ? "guest" : "signed in")")
+        Self.debugLog(
+            "Account resolved: \(account == nil ? "guest" : "signed in")"
+        )
         if isActive {
             if !wasResolved { track(.appOpened) }
             startTicker()
@@ -190,6 +222,18 @@ final class ProductAnalytics {
         return "account_" + hash
     }
 
+    static func normalizedEmail(_ email: String?) -> String? {
+        guard let email else { return nil }
+        let value = email
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        guard !value.isEmpty,
+              value.contains("@") else {
+            return nil
+        }
+        return value
+    }
+
     private func ensureIdentity() {
         if identity == nil {
             identity = UUID()
@@ -208,9 +252,22 @@ final class ProductAnalytics {
         if !queue.contains(where: { $0.name == "$identify" && $0.accountID == account }) {
             let linkSessionID = sessionID ?? UUID()
             sessionID = linkSessionID
-            queue.append(AnalyticsRecord(id: UUID(), distinctID: identity, sessionID: linkSessionID,
-                timestamp: now(), name: "$identify", properties: ["$anon_distinct_id": identity.uuidString],
-                appVersion: appVersion, appBuild: appBuild, accountID: account))
+            queue.append(
+                AnalyticsRecord(
+                    id: UUID(),
+                    distinctID: identity,
+                    sessionID: linkSessionID,
+                    timestamp: now(),
+                    name: "$identify",
+                    properties: [
+                        "$anon_distinct_id": identity.uuidString
+                    ],
+                    appVersion: appVersion,
+                    appBuild: appBuild,
+                    accountID: account,
+                    email: activeEmail
+                )
+            )
         }
         identifiedThisRun = true
         trimQueue()
@@ -262,9 +319,20 @@ final class ProductAnalytics {
         lastActivity = date
         guard let identity, let sessionID else { return }
         queue.removeAll { $0.name != "$identify" && date.timeIntervalSince($0.timestamp) >= Self.retention }
-        queue.append(AnalyticsRecord(id: UUID(), distinctID: identity, sessionID: sessionID,
-                                     timestamp: date, name: event.name, properties: event.properties,
-                                     appVersion: appVersion, appBuild: appBuild, accountID: activeAccountID))
+        queue.append(
+            AnalyticsRecord(
+                id: UUID(),
+                distinctID: identity,
+                sessionID: sessionID,
+                timestamp: date,
+                name: event.name,
+                properties: event.properties,
+                appVersion: appVersion,
+                appBuild: appBuild,
+                accountID: activeAccountID,
+                email: activeEmail
+            )
+        )
         trimQueue()
         persist()
         Self.debugLog("Queued \(event.name); pending=\(queue.count)")
@@ -348,6 +416,7 @@ final class ProductAnalytics {
         queue.removeAll()
         identity = nil
         linkedAccountID = nil
+        activeEmail = nil
         identifiedThisRun = false
         defaults.removeObject(forKey: Self.accountKey)
         sessionID = nil
