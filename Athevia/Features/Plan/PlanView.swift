@@ -146,7 +146,11 @@ struct PlanView: View {
 
     private var calendarSheet: some View {
         VStack(spacing: 12) {
-            AtheviaDatePicker(
+            Text(TrainingFormatter.pickerDate(selection))
+                .font(.title3.weight(.semibold))
+                .monospacedDigit()
+
+            NativeWheelDatePicker(
                 title: "Date",
                 selection: $selection,
                 minimumDate: dateRange.lowerBound,
