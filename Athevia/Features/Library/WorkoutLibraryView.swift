@@ -341,7 +341,7 @@ struct AddToPlanSheet: View {
                         title: "Day",
                         selection: $date,
                         minimumDate: plan.startDate,
-                        maximumDate: plan.endDate,
+                        maximumDate: plan.endDate
                     )
                 } header: {
                     Text("When")
