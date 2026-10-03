@@ -22,6 +22,29 @@ struct TrainingFormatterTests {
         #expect(TrainingFormatter.distance(meters: 1200) == "1.2 km")
     }
 
+    @Test func pickerDateUsesDayTextMonthAndFourDigitYear() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try #require(
+            TimeZone(secondsFromGMT: 0)
+        )
+        let date = try #require(
+            calendar.date(
+                from: DateComponents(
+                    year: 1995,
+                    month: 12,
+                    day: 13
+                )
+            )
+        )
+
+        #expect(
+            TrainingFormatter.pickerDate(
+                date,
+                calendar: calendar
+            ) == "13/Dec/1995"
+        )
+    }
+
     @Test func rpeRangeIsClampedToTheScale() {
         #expect(RPERange(0, 12) == RPERange(1, 10))
         #expect(RPERange(7, 3).upper == 7)
