@@ -24,6 +24,8 @@
 	<string>Athevia reads live workout metrics such as heart rate and distance while you train.</string>
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>Athevia saves workouts completed on Apple Watch to Apple Health.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Athevia uses your location during outdoor workouts to record your route, distance, speed, and pace.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>
