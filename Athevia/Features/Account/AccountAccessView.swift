@@ -15,6 +15,8 @@ struct AccountAccessView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var accountError: String?
     @State private var isCheckingBackup = false
+    @State private var pendingProfileSession: AccountSession?
+    @State private var pendingProfileSeedsBackup = false
 
     var body: some View {
         ZStack {
@@ -54,7 +56,10 @@ struct AccountAccessView: View {
             // must verify the session so its cloud backup can be restored.
             if hasLocalData,
                let session = await authentication.resumeCachedSession() {
-                onReady(session, false)
+                prepareAccountEntry(
+                    session,
+                    seedLocalBackup: false
+                )
                 return
             }
 
@@ -124,7 +129,23 @@ struct AccountAccessView: View {
 
     @ViewBuilder
     private func signedInContent(_ session: AccountSession) -> some View {
-        if isCheckingBackup {
+        if let pendingProfileSession {
+            AccountProfileSetupView(
+                initialName: AccountProfileDetailsStore
+                    .initialName(
+                        session: pendingProfileSession,
+                        in: modelContext
+                    ),
+                initialBirthDate: AccountProfileDetailsStore
+                    .initialBirthDate(in: modelContext)
+            ) { name, birthDate in
+                saveProfileDetails(
+                    name: name,
+                    birthDate: birthDate,
+                    session: pendingProfileSession
+                )
+            }
+        } else if isCheckingBackup {
             statusContent(
                 title: "Syncing your training",
                 detail: "Loading your latest backup…"
@@ -228,7 +249,10 @@ struct AccountAccessView: View {
             // timeline. It must survive relaunch without the persisted account
             // immediately restoring the pre-reset cloud backup.
             if TrainingResetBoundary.isFreshStartPending {
-                onReady(session, false)
+                prepareAccountEntry(
+                    session,
+                    seedLocalBackup: false
+                )
                 return
             }
 
@@ -237,7 +261,10 @@ struct AccountAccessView: View {
             // account's latest backup so data from a previous signed-out user
             // cannot leak into the new session.
             if !replaceLocalData, hasLocalData {
-                onReady(session, false)
+                prepareAccountEntry(
+                    session,
+                    seedLocalBackup: false
+                )
                 return
             }
 
@@ -256,18 +283,65 @@ struct AccountAccessView: View {
 
                 try BackupRestoreService()
                     .restore(cloud.snapshot, into: modelContext)
-                onReady(session, false)
+                prepareAccountEntry(
+                    session,
+                    seedLocalBackup: false
+                )
                 return
             }
 
             // Migration for users who previously trained without an account:
             // keep their existing local training on first required sign-in and
             // immediately seed that data into this account's cloud backup.
-            onReady(
+            prepareAccountEntry(
                 session,
-                replaceLocalData && hasLocalData
+                seedLocalBackup:
+                    replaceLocalData && hasLocalData
             )
         } catch {
+            accountError = error.localizedDescription
+        }
+    }
+
+
+    @MainActor
+    private func prepareAccountEntry(
+        _ session: AccountSession,
+        seedLocalBackup: Bool
+    ) {
+        accountError = nil
+
+        guard AccountProfileDetailsStore
+            .requiresConfirmation(in: modelContext) else {
+            onReady(session, seedLocalBackup)
+            return
+        }
+
+        pendingProfileSeedsBackup = seedLocalBackup
+        pendingProfileSession = session
+    }
+
+    @MainActor
+    private func saveProfileDetails(
+        name: String,
+        birthDate: Date,
+        session: AccountSession
+    ) {
+        do {
+            try AccountProfileDetailsStore.save(
+                name: name,
+                birthDate: birthDate,
+                in: modelContext
+            )
+
+            let seedLocalBackup =
+                pendingProfileSeedsBackup
+            pendingProfileSession = nil
+            pendingProfileSeedsBackup = false
+            onReady(session, seedLocalBackup)
+        } catch {
+            pendingProfileSession = nil
+            pendingProfileSeedsBackup = false
             accountError = error.localizedDescription
         }
     }
