@@ -14,6 +14,7 @@ struct RootView: View {
     var authentication: AuthenticationCoordinator?
     var backup: BackupCoordinator?
     var automaticBackup: AutomaticBackupController?
+    var accountProfiles: (any AccountProfileRepository)?
 
     @Query private var profiles: [AthleteProfile]
     @Query(sort: \WeeklyPlan.startDate) private var plans: [WeeklyPlan]
@@ -60,10 +61,15 @@ struct RootView: View {
         Group {
             if isErasingLocalData {
                 ProgressView("Resetting Athevia…")
-            } else if let authentication, let backup, !accountReady, !bypassesAccountAccessForUITests {
+            } else if let authentication,
+                      let backup,
+                      let accountProfiles,
+                      !accountReady,
+                      !bypassesAccountAccessForUITests {
                 AccountAccessView(
                     authentication: authentication,
                     backup: backup,
+                    accountProfiles: accountProfiles,
                     onReady: { session, seedLocalBackup in
                         ProductAnalytics.shared.updateAccount(
                             session.userID,
