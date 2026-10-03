@@ -334,6 +334,12 @@ struct AccountAccessView: View {
                 in: modelContext
             )
 
+            ProductAnalytics.shared.updateAccount(
+                session.userID,
+                email: session.email,
+                name: name
+            )
+
             let seedLocalBackup =
                 pendingProfileSeedsBackup
             pendingProfileSession = nil
