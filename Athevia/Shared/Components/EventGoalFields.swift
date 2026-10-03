@@ -96,7 +96,7 @@ struct EventGoalFields: View {
                     AtheviaDatePicker(
                         title: "Event date",
                         selection: eventDate,
-                        minimumDate: minimumDate,
+                        minimumDate: minimumDate
                     )
                     .accessibilityIdentifier("event.date.picker")
                 }
