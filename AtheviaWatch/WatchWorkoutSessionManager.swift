@@ -1,4 +1,5 @@
 import Combine
+import CoreLocation
 import Foundation
 import HealthKit
 import WatchKit
@@ -29,8 +30,15 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
 
     private let healthStore = HKHealthStore()
     private let voiceCoach = WatchWorkoutVoiceCoach()
+    private let locationManager = CLLocationManager()
     private var session: HKWorkoutSession?
     private var builder: HKLiveWorkoutBuilder?
+    private var routeBuilder: HKWorkoutRouteBuilder?
+    private var routeInsertionTask: Task<Void, Never>?
+    private var locationAuthorizationContinuation: CheckedContinuation<Bool, Never>?
+    private var isRecordingRoute = false
+    private var routeRecordingFailed = false
+    private var lastAcceptedRouteLocation: CLLocation?
     private var ticker: Task<Void, Never>?
     private var lastTickDate: Date?
     private var lastEngineDistanceMeters: Double = 0
@@ -43,6 +51,14 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
     private var lastPersistedAt: Date?
 
     private static let activeStateKey = "athevia.active-watch-workout.v1"
+
+    override init() {
+        super.init()
+        locationManager.delegate = self
+        locationManager.activityType = .fitness
+        locationManager.desiredAccuracy = kCLLocationAccuracyBest
+        locationManager.distanceFilter = 3
+    }
 
     var isActive: Bool {
         switch state {
@@ -109,9 +125,21 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
         voiceEnabled = coaching.enabled
         voiceCoach.configure(coaching)
         countdownAnnouncedStepID = nil
+        routeRecordingFailed = false
+        lastAcceptedRouteLocation = nil
+        let routeEligible = shouldRecordRoute(
+            workout: workout,
+            configuration: configuration
+        )
+        let recordsRoute = routeEligible
+            ? await requestLocationAuthorization()
+            : false
 
         do {
-            try await requestAuthorization()
+            let routeAuthorized = try await requestAuthorization(
+                includeWorkoutRoute: recordsRoute
+            )
+            let shouldBuildRoute = recordsRoute && routeAuthorized
 
             let workoutConfiguration = healthKitConfiguration(
                 for: workout,
@@ -139,6 +167,14 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
 
             try await beginCollection(newBuilder, at: startDate)
 
+            if shouldBuildRoute {
+                routeBuilder = newBuilder.seriesBuilder(
+                    for: HKSeriesType.workoutRoute()
+                ) as? HKWorkoutRouteBuilder
+            } else {
+                routeBuilder = nil
+            }
+
             var workoutMetadata: [String: Any] = [
                 AtheviaWorkoutMetadata.plannedWorkoutIDKey: workout.id.uuidString,
                 AtheviaWorkoutMetadata.sourceKey: AtheviaWorkoutMetadata.sourceWatchValue
@@ -165,6 +201,9 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
             lastTickDate = startDate
             lastEngineDistanceMeters = 0
             observedPoolLapCount = 0
+            if routeBuilder != nil {
+                startRouteLocationUpdates()
+            }
             startTicker()
             persistActiveState(force: true)
 
@@ -188,6 +227,10 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
             engine = nil
             session = nil
             builder = nil
+            stopRouteLocationUpdates()
+            routeBuilder = nil
+            routeInsertionTask = nil
+            isRecordingRoute = false
             voiceCoach.stop()
             return false
         }
@@ -197,6 +240,8 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
         guard state == .running else { return }
         session?.pause()
         engine?.pause()
+        stopRouteLocationUpdates()
+        lastAcceptedRouteLocation = nil
         state = .paused
         lastTickDate = nil
         voiceCoach.stop()
@@ -212,6 +257,10 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
         lastTickDate = .now
         lastEngineDistanceMeters = distanceMeters
         countdownAnnouncedStepID = nil
+        lastAcceptedRouteLocation = nil
+        if routeBuilder != nil {
+            startRouteLocationUpdates()
+        }
 
         if voiceEnabled {
             voiceCoach.announceResume(engine?.currentStep)
@@ -249,6 +298,7 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
         ticker?.cancel()
         ticker = nil
         voiceCoach.stop()
+        stopRouteLocationUpdates()
         session?.end()
     }
 
@@ -257,6 +307,12 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
         ticker?.cancel()
         ticker = nil
         voiceCoach.stop()
+        stopRouteLocationUpdates()
+        routeBuilder = nil
+        routeInsertionTask = nil
+        isRecordingRoute = false
+        routeRecordingFailed = false
+        lastAcceptedRouteLocation = nil
         session = nil
         builder = nil
         activeWorkout = nil
@@ -359,6 +415,22 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
             lastTickDate = state == .running ? .now : nil
             lastEngineDistanceMeters = distanceMeters
 
+            if shouldRecordRoute(
+                workout: persisted.workout,
+                configuration: persisted.configuration
+            ) {
+                routeBuilder = recoveredBuilder.seriesBuilder(
+                    for: HKSeriesType.workoutRoute()
+                ) as? HKWorkoutRouteBuilder
+                isRecordingRoute = routeBuilder != nil
+                if state == .running {
+                    startRouteLocationUpdates()
+                }
+            } else {
+                routeBuilder = nil
+                isRecordingRoute = false
+            }
+
             if state == .running {
                 startTicker()
                 if voiceEnabled {
@@ -458,10 +530,172 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
         lastPersistedAt = nil
     }
 
-    private func requestAuthorization() async throws {
+    private func shouldRecordRoute(
+        workout: WatchWorkoutPayload,
+        configuration: WatchWorkoutStartConfiguration
+    ) -> Bool {
+        guard configuration.environment == .outdoor else { return false }
+        switch workout.discipline {
+        case .running, .cycling, .multisport:
+            return true
+        case .swimming:
+            return false
+        }
+    }
+
+    private func requestLocationAuthorization() async -> Bool {
+        switch locationManager.authorizationStatus {
+        case .authorizedAlways, .authorizedWhenInUse:
+            return true
+
+        case .notDetermined:
+            return await withCheckedContinuation { continuation in
+                locationAuthorizationContinuation = continuation
+                locationManager.requestWhenInUseAuthorization()
+            }
+
+        case .denied, .restricted:
+            return false
+
+        @unknown default:
+            return false
+        }
+    }
+
+    private func handleLocationAuthorizationChange(
+        _ status: CLAuthorizationStatus
+    ) {
+        let allowed = status == .authorizedAlways
+            || status == .authorizedWhenInUse
+
+        if status != .notDetermined,
+           let continuation = locationAuthorizationContinuation {
+            locationAuthorizationContinuation = nil
+            continuation.resume(returning: allowed)
+        }
+
+        if allowed,
+           isRecordingRoute,
+           state == .running {
+            startRouteLocationUpdates()
+        } else if !allowed {
+            stopRouteLocationUpdates()
+        }
+    }
+
+    private func startRouteLocationUpdates() {
+        guard routeBuilder != nil else { return }
+        guard locationManager.authorizationStatus == .authorizedAlways
+                || locationManager.authorizationStatus == .authorizedWhenInUse else {
+            return
+        }
+
+        isRecordingRoute = true
+        locationManager.startUpdatingLocation()
+    }
+
+    private func stopRouteLocationUpdates() {
+        locationManager.stopUpdatingLocation()
+    }
+
+    private func enqueueRouteLocations(_ locations: [CLLocation]) {
+        guard isRecordingRoute,
+              state == .running,
+              let routeBuilder else {
+            return
+        }
+
+        let now = Date()
+        var filtered: [CLLocation] = []
+
+        for location in locations.sorted(by: { $0.timestamp < $1.timestamp }) {
+            guard location.horizontalAccuracy >= 0,
+                  location.horizontalAccuracy <= 35,
+                  abs(location.timestamp.timeIntervalSince(now)) <= 15 else {
+                continue
+            }
+
+            if let previous = lastAcceptedRouteLocation {
+                let elapsed = location.timestamp.timeIntervalSince(previous.timestamp)
+                guard elapsed > 0 else { continue }
+
+                let speed = location.distance(from: previous) / elapsed
+                guard speed <= maximumPlausibleRouteSpeed else { continue }
+            }
+
+            lastAcceptedRouteLocation = location
+            filtered.append(location)
+        }
+
+        guard !filtered.isEmpty else { return }
+
+        let previous = routeInsertionTask
+        routeInsertionTask = Task { @MainActor [weak self] in
+            await previous?.value
+            do {
+                try await routeBuilder.insertRouteData(filtered)
+            } catch {
+                self?.routeRecordingFailed = true
+            }
+        }
+    }
+
+    private func finishRouteIfNeeded(
+        for workout: HKWorkout?
+    ) async -> Error? {
+        stopRouteLocationUpdates()
+        lastAcceptedRouteLocation = nil
+
+        let pendingInsert = routeInsertionTask
+        await pendingInsert?.value
+        routeInsertionTask = nil
+
+        guard let routeBuilder else {
+            isRecordingRoute = false
+            return nil
+        }
+
+        self.routeBuilder = nil
+        isRecordingRoute = false
+
+        guard let workout else {
+            return nil
+        }
+
+        do {
+            try await withCheckedThrowingContinuation {
+                (continuation: CheckedContinuation<Void, Error>) in
+                routeBuilder.finishRoute(
+                    with: workout,
+                    metadata: nil
+                ) { route, error in
+                    if let error {
+                        continuation.resume(throwing: error)
+                    } else if route != nil {
+                        continuation.resume()
+                    } else {
+                        continuation.resume(
+                            throwing: WatchWorkoutSessionError.routeCouldNotFinish
+                        )
+                    }
+                }
+            }
+
+            return routeRecordingFailed
+                ? WatchWorkoutSessionError.routeDataCouldNotBeRecorded
+                : nil
+        } catch {
+            return error
+        }
+    }
+
+    private func requestAuthorization(
+        includeWorkoutRoute: Bool
+    ) async throws -> Bool {
         let workoutType = HKObjectType.workoutType()
-        let shareTypes: Set<HKSampleType> = [workoutType]
-        let readTypes: Set<HKObjectType> = [
+        let routeType = HKSeriesType.workoutRoute()
+        var shareTypes: Set<HKSampleType> = [workoutType]
+        var readTypes: Set<HKObjectType> = [
             workoutType,
             HKQuantityType(.heartRate),
             HKQuantityType(.activeEnergyBurned),
@@ -479,10 +713,31 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
             HKQuantityType(.cyclingPower)
         ]
 
+        if includeWorkoutRoute {
+            shareTypes.insert(routeType)
+            readTypes.insert(routeType)
+        }
+
         try await healthStore.requestAuthorization(toShare: shareTypes, read: readTypes)
 
         guard healthStore.authorizationStatus(for: workoutType) == .sharingAuthorized else {
             throw WatchWorkoutSessionError.healthWriteNotAuthorized
+        }
+
+        return includeWorkoutRoute
+            && healthStore.authorizationStatus(for: routeType) == .sharingAuthorized
+    }
+
+    private var maximumPlausibleRouteSpeed: CLLocationSpeed {
+        switch metricDiscipline {
+        case .running:
+            15
+        case .cycling:
+            45
+        case .swimming:
+            6
+        case .multisport, nil:
+            45
         }
     }
 
@@ -838,6 +1093,10 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
                         guard let self else { return }
                         self.isFinalizing = false
                         self.state = .finished
+                        self.stopRouteLocationUpdates()
+                        self.routeBuilder = nil
+                        self.routeInsertionTask = nil
+                        self.isRecordingRoute = false
                         self.clearPersistedActiveState()
                         self.errorMessage = "The workout ended, but HealthKit could not finalize its samples."
                     }
@@ -847,6 +1106,11 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
                 builder.finishWorkout { workout, finishError in
                     Task { @MainActor in
                         guard let self else { return }
+
+                        let routeError = await self.finishRouteIfNeeded(
+                            for: workout
+                        )
+
                         self.isFinalizing = false
                         self.savedWorkoutUUID = workout?.uuid
                         self.engine?.finish()
@@ -857,6 +1121,10 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
 
                         if let finishError {
                             self.errorMessage = finishError.localizedDescription
+                        } else if let routeError {
+                            self.errorMessage =
+                                "The workout was saved, but its GPS route could not be saved. " +
+                                routeError.localizedDescription
                         }
 
                         WKInterfaceDevice.current().play(.success)
@@ -889,9 +1157,48 @@ extension WatchWorkoutSessionManager: HKWorkoutSessionDelegate {
             self.ticker?.cancel()
             self.ticker = nil
             self.voiceCoach.stop()
+            self.stopRouteLocationUpdates()
+            self.routeBuilder = nil
+            self.routeInsertionTask = nil
+            self.isRecordingRoute = false
             self.clearPersistedActiveState()
             self.errorMessage = error.localizedDescription
             self.state = .finished
+        }
+    }
+}
+
+extension WatchWorkoutSessionManager: CLLocationManagerDelegate {
+    nonisolated func locationManagerDidChangeAuthorization(
+        _ manager: CLLocationManager
+    ) {
+        let status = manager.authorizationStatus
+        Task { @MainActor in
+            self.handleLocationAuthorizationChange(status)
+        }
+    }
+
+    nonisolated func locationManager(
+        _ manager: CLLocationManager,
+        didUpdateLocations locations: [CLLocation]
+    ) {
+        Task { @MainActor in
+            self.enqueueRouteLocations(locations)
+        }
+    }
+
+    nonisolated func locationManager(
+        _ manager: CLLocationManager,
+        didFailWithError error: Error
+    ) {
+        guard let locationError = error as? CLError,
+              locationError.code != .locationUnknown else {
+            return
+        }
+
+        Task { @MainActor in
+            guard self.isRecordingRoute else { return }
+            self.routeRecordingFailed = true
         }
     }
 }
@@ -955,14 +1262,20 @@ private struct PersistedWatchWorkoutState: Codable {
 
 private enum WatchWorkoutSessionError: LocalizedError {
     case healthWriteNotAuthorized
+    case routeDataCouldNotBeRecorded
+    case routeCouldNotFinish
     case collectionCouldNotStart
 
     var errorDescription: String? {
         switch self {
         case .healthWriteNotAuthorized:
             "Allow Athevia to write workouts to Apple Health before starting."
+        case .routeDataCouldNotBeRecorded:
+            "Some GPS points could not be recorded."
+        case .routeCouldNotFinish:
+            "HealthKit could not finalize the workout route."
         case .collectionCouldNotStart:
-            "Apple Watch could not start collecting workout data. Try starting the pool workout again."
+            "Apple Watch could not start collecting workout data. Try starting the workout again."
         }
     }
 }

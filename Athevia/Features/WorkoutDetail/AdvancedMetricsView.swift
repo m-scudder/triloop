@@ -16,14 +16,12 @@ struct AdvancedMetricsView: View {
         switch sport {
         case .running:
             append(&result, "Cadence", metrics.averageCadence) { "\(Int($0.rounded())) spm" }
-            append(&result, "Speed", metrics.averageRunningSpeed) { pace(fromMetersPerSecond: $0) }
             append(&result, "Power", metrics.averageRunningPower) { "\(Int($0.rounded())) W" }
             append(&result, "Stride length", metrics.averageStrideLength) { String(format: "%.2f m", $0) }
             append(&result, "Ground contact", metrics.averageGroundContactTime) { "\(Int($0.rounded())) ms" }
             append(&result, "Vertical oscillation", metrics.averageVerticalOscillation) { String(format: "%.1f cm", $0) }
 
         case .cycling:
-            append(&result, "Speed", metrics.averageCyclingSpeed) { String(format: "%.1f km/h", $0 * 3.6) }
             append(&result, "Cadence", metrics.averageCyclingCadence) { "\(Int($0.rounded())) rpm" }
             append(&result, "Power", metrics.averageCyclingPower) { "\(Int($0.rounded())) W" }
             append(&result, "FTP", metrics.functionalThresholdPower) { "\(Int($0.rounded())) W" }
@@ -37,15 +35,6 @@ struct AdvancedMetricsView: View {
             }
 
             if let summary {
-                if let distance = summary.distanceMeters,
-                   distance > 0,
-                   summary.duration > 0 {
-                    result.append((
-                        "Average pace",
-                        "\(TrainingFormatter.swimPace(secondsPer100m: summary.duration / (distance / 100))) /100 m"
-                    ))
-                }
-
                 if let lengths = summary.swimmingLengths, lengths > 0 {
                     result.append(("Lengths", "\(lengths)"))
                 }
@@ -59,10 +48,6 @@ struct AdvancedMetricsView: View {
                         "Longest continuous",
                         TrainingFormatter.distance(meters: continuous)
                     ))
-                }
-
-                if let averageHeartRate = summary.averageHeartRate, averageHeartRate > 0 {
-                    result.append(("Average heart rate", "\(Int(averageHeartRate.rounded())) bpm"))
                 }
 
                 if let maximumHeartRate = summary.maximumHeartRate, maximumHeartRate > 0 {
@@ -99,10 +84,6 @@ struct AdvancedMetricsView: View {
         }
 
         if let summary, sport != .swimming {
-            if let averageHeartRate = summary.averageHeartRate, averageHeartRate > 0 {
-                result.append(("Average heart rate", "\(Int(averageHeartRate.rounded())) bpm"))
-            }
-
             if let maximumHeartRate = summary.maximumHeartRate, maximumHeartRate > 0 {
                 result.append(("Maximum heart rate", "\(Int(maximumHeartRate.rounded())) bpm"))
             }
@@ -112,9 +93,6 @@ struct AdvancedMetricsView: View {
             result.append(("Elevation gain", "\(Int(elevation.rounded())) m"))
         }
 
-        append(&result, "Active calories", metrics.activeEnergyKilocalories) {
-            "\(Int($0.rounded())) kcal"
-        }
         append(&result, "Apple effort", metrics.workoutEffort) { "\(Int($0.rounded()))/10" }
         if metrics.workoutEffort == nil {
             append(&result, "Estimated effort", metrics.estimatedWorkoutEffort) { "\(Int($0.rounded()))/10" }

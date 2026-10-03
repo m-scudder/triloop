@@ -200,8 +200,11 @@ final class TrainingNotificationManager {
 
         // Remove reminders whose workout moved, was skipped/completed, or no longer exists.
         let staleWorkoutIDs = pending.compactMap { request -> String? in
-            guard request.identifier.hasPrefix("athevia.workout.") else { return nil }
-            return validWorkoutIDs.contains(request.identifier) ? request.identifier : request.identifier
+            guard request.identifier.hasPrefix("athevia.workout."),
+                  !validWorkoutIDs.contains(request.identifier) else {
+                return nil
+            }
+            return request.identifier
         }
         if !staleWorkoutIDs.isEmpty {
             center.removePendingNotificationRequests(withIdentifiers: staleWorkoutIDs)
