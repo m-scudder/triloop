@@ -87,11 +87,13 @@ struct SupabaseAccountProfileRow: Codable, Sendable {
     let userID: UUID
     let displayName: String
     let birthDate: String
+    let updatedAt: Date
 
     enum CodingKeys: String, CodingKey {
         case userID = "user_id"
         case displayName = "display_name"
         case birthDate = "birth_date"
+        case updatedAt = "updated_at"
     }
 
     init(
@@ -118,6 +120,7 @@ struct SupabaseAccountProfileRow: Codable, Sendable {
 
         self.userID = userID
         displayName = details.name
+        updatedAt = .now
         birthDate = String(
             format: "%04d-%02d-%02d",
             year,
