@@ -258,6 +258,96 @@ struct ProductAnalyticsTests {
         #expect(properties["$is_identified"] as? Bool == true)
     }
 
+    @Test func signedInEventsIncludeNormalizedEmailAndPersonProperty() async throws {
+        let f = Fixture()
+        defer { f.cleanUp() }
+
+        f.analytics.updateAccount(
+            "account-a",
+            email: "  Athlete@Example.COM "
+        )
+        f.analytics.track(.screenViewed(.plan))
+        await f.analytics.flush()?.value
+
+        let records = try #require(
+            f.transport.deliveries.first
+        )
+        let identify = try #require(
+            records.first { $0.name == "$identify" }
+        )
+        let screen = try #require(
+            records.first { $0.name == "$screen" }
+        )
+
+        #expect(identify.email == "athlete@example.com")
+        #expect(screen.email == "athlete@example.com")
+
+        let identifyProperties = try #require(
+            identify.payload["properties"] as? [String: Any]
+        )
+        let screenProperties = try #require(
+            screen.payload["properties"] as? [String: Any]
+        )
+        let person = try #require(
+            identifyProperties["$set"] as? [String: String]
+        )
+
+        #expect(
+            identifyProperties["user_email"] as? String
+                == "athlete@example.com"
+        )
+        #expect(
+            screenProperties["user_email"] as? String
+                == "athlete@example.com"
+        )
+        #expect(person["email"] == "athlete@example.com")
+    }
+
+    @Test func guestEventsDoNotContainEmail() async throws {
+        let f = Fixture()
+        defer { f.cleanUp() }
+
+        f.analytics.track(.screenViewed(.home))
+        await f.analytics.flush()?.value
+
+        let record = try #require(
+            f.transport.deliveries.first?.first
+        )
+        let properties = try #require(
+            record.payload["properties"] as? [String: Any]
+        )
+
+        #expect(record.email == nil)
+        #expect(properties["user_email"] == nil)
+        #expect(properties["$set"] == nil)
+    }
+
+    @Test func signingOutStopsEmailFromLeakingIntoLaterEvents() async throws {
+        let f = Fixture()
+        defer { f.cleanUp() }
+
+        f.analytics.updateAccount(
+            "account-a",
+            email: "athlete@example.com"
+        )
+        await f.analytics.flush()?.value
+
+        f.analytics.updateAccount(nil)
+        f.analytics.track(.infoTapped)
+        await f.analytics.flush()?.value
+
+        let event = try #require(
+            f.transport.deliveries.last?.first {
+                $0.name == "info_tapped"
+            }
+        )
+        #expect(event.email == nil)
+        let properties = try #require(
+            event.payload["properties"] as? [String: Any]
+        )
+        #expect(properties["user_email"] == nil)
+    }
+
     @Test func loginAutomaticallyIdentifiesConfiguredAnalytics() async {
         let f = Fixture()
         defer { f.cleanUp() }
