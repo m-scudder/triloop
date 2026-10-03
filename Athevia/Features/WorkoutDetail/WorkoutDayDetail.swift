@@ -351,13 +351,16 @@ struct WorkoutDayDetail: View {
                 Form {
                     Group {
                     if max(plan.startDate, Calendar.current.startOfDay(for: .now)) <= plan.endDate {
-                        DatePicker(
-                            "Move to",
+                        AtheviaDatePicker(
+                            title: "Move to",
                             selection: $moveDate,
-                            in: max(plan.startDate, Calendar.current.startOfDay(for: .now))...plan.endDate,
-                            displayedComponents: .date
+                            minimumDate: max(
+                                plan.startDate,
+                                Calendar.current.startOfDay(for: .now)
+                            ),
+                            maximumDate: plan.endDate,
+                            presentation: .graphical
                         )
-                        .datePickerStyle(.graphical)
                     }
 
                     if let moveFailure {
