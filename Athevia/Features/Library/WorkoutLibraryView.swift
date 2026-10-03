@@ -337,13 +337,13 @@ struct AddToPlanSheet: View {
             List {
                 Group {
                 Section {
-                    DatePicker(
-                        "Day",
+                    AtheviaDatePicker(
+                        title: "Day",
                         selection: $date,
-                        in: plan.startDate...plan.endDate,
-                        displayedComponents: .date
+                        minimumDate: plan.startDate,
+                        maximumDate: plan.endDate,
+                        presentation: .graphical
                     )
-                    .datePickerStyle(.graphical)
                 } header: {
                     Text("When")
                 }
