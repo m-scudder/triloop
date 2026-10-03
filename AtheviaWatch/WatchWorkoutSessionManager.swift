@@ -153,6 +153,16 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
                 workoutConfiguration: workoutConfiguration
             )
 
+            newSession.delegate = self
+            newBuilder.delegate = self
+            session = newSession
+            builder = newBuilder
+
+            let startDate = Date()
+            newSession.startActivity(with: startDate)
+
+            try await beginCollection(newBuilder, at: startDate)
+
             if recordsRoute {
                 guard let newRouteBuilder = newBuilder.seriesBuilder(
                     for: HKSeriesType.workoutRoute()
@@ -163,16 +173,6 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
             } else {
                 routeBuilder = nil
             }
-
-            newSession.delegate = self
-            newBuilder.delegate = self
-            session = newSession
-            builder = newBuilder
-
-            let startDate = Date()
-            newSession.startActivity(with: startDate)
-
-            try await beginCollection(newBuilder, at: startDate)
 
             var workoutMetadata: [String: Any] = [
                 AtheviaWorkoutMetadata.plannedWorkoutIDKey: workout.id.uuidString,
@@ -1064,6 +1064,10 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
                         guard let self else { return }
                         self.isFinalizing = false
                         self.state = .finished
+                        self.stopRouteLocationUpdates()
+                        self.routeBuilder = nil
+                        self.routeInsertionTask = nil
+                        self.isRecordingRoute = false
                         self.clearPersistedActiveState()
                         self.errorMessage = "The workout ended, but HealthKit could not finalize its samples."
                     }
