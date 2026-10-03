@@ -322,20 +322,22 @@ struct AccountAccessView: View {
         // it after auth/backup resolution so reinstalling without a training
         // backup still recovers confirmed identity details.
         do {
-            if let remote = try await accountProfiles.profile(
+            if let local = AccountProfileDetailsStore.details(
+                accountID: session.userID,
+                in: modelContext
+            ) {
+                // The local working copy (including a restored training backup)
+                // may contain edits newer than the account-profile row.
+                try await accountProfiles.upsert(local)
+            } else if let remote = try await accountProfiles.profile(
                 for: session.userID
             ) {
+                // Fresh installs without a complete local profile recover these
+                // account-level details without depending on a training backup.
                 try AccountProfileDetailsStore.apply(
                     remote,
                     in: modelContext
                 )
-            } else if let local =
-                AccountProfileDetailsStore.details(
-                    accountID: session.userID,
-                    in: modelContext
-                ) {
-                // One-time backfill for users whose details predate the table.
-                try await accountProfiles.upsert(local)
             }
         } catch {
             // Existing local data remains usable offline. If confirmation is
