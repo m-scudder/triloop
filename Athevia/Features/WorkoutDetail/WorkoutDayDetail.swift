@@ -358,7 +358,7 @@ struct WorkoutDayDetail: View {
                                 plan.startDate,
                                 Calendar.current.startOfDay(for: .now)
                             ),
-                            maximumDate: plan.endDate,
+                            maximumDate: plan.endDate
                         )
                     }
 
