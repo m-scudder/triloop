@@ -102,7 +102,7 @@ struct TrainingDaysStepView: View {
                             get: { model.selectedStartDate },
                             set: { model.choose(startDate: $0) }
                         ),
-                        minimumDate: model.minimumStartDate,
+                        minimumDate: model.minimumStartDate
                     )
                 }
             }
