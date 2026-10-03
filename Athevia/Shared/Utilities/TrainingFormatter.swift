@@ -41,6 +41,21 @@ enum TrainingFormatter {
         return "\(start.formatted(startFormat)) – \(end.formatted(.dateTime.day().month(.abbreviated)))"
     }
 
+    /// Stable, locale-independent presentation used by every date input.
+    ///
+    /// Example: 13 December 1995 -> "13/Dec/1995".
+    static func pickerDate(
+        _ date: Date,
+        calendar: Calendar = .current
+    ) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.dateFormat = "dd/MMM/yyyy"
+        return formatter.string(from: date)
+    }
+
     static func shortDate(_ date: Date, includeYear: Bool = false) -> String {
         if includeYear {
             return date.formatted(
