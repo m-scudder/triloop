@@ -7,6 +7,8 @@ import SwiftUI
 struct AccountProfileSetupView: View {
     let initialName: String
     let initialBirthDate: Date?
+    let isSaving: Bool
+    let errorMessage: String?
     let confirm: (String, Date) -> Void
 
     @State private var name: String
@@ -15,10 +17,14 @@ struct AccountProfileSetupView: View {
     init(
         initialName: String,
         initialBirthDate: Date?,
+        isSaving: Bool = false,
+        errorMessage: String? = nil,
         confirm: @escaping (String, Date) -> Void
     ) {
         self.initialName = initialName
         self.initialBirthDate = initialBirthDate
+        self.isSaving = isSaving
+        self.errorMessage = errorMessage
         self.confirm = confirm
 
         _name = State(initialValue: initialName)
@@ -139,11 +145,30 @@ struct AccountProfileSetupView: View {
                     )
                 }
 
-                Button("Continue") {
+                if let errorMessage {
+                    Text(errorMessage)
+                        .font(.footnote)
+                        .foregroundStyle(
+                            AtheviaAdaptiveStyle(
+                                .red,
+                                gaming: .danger
+                            )
+                        )
+                }
+
+                Button {
                     confirm(validName, birthDate)
+                } label: {
+                    if isSaving {
+                        ProgressView()
+                            .frame(maxWidth: .infinity)
+                    } else {
+                        Text("Continue")
+                            .frame(maxWidth: .infinity)
+                    }
                 }
                 .buttonStyle(PrimaryActionButtonStyle())
-                .disabled(validName.isEmpty)
+                .disabled(validName.isEmpty || isSaving)
             }
             .frame(maxWidth: 520)
             .padding(.horizontal, 24)
@@ -206,11 +231,11 @@ enum AccountProfileDetailsStore {
         return profile.setup?.birthDate
     }
 
-    static func save(
+    static func makeDetails(
+        accountID: String,
         name: String,
-        birthDate: Date,
-        in context: ModelContext
-    ) throws {
+        birthDate: Date
+    ) throws -> AccountProfileDetails {
         let normalizedName = name
             .trimmingCharacters(
                 in: .whitespacesAndNewlines
@@ -220,20 +245,56 @@ enum AccountProfileDetailsStore {
             throw AccountProfileDetailsError.missingName
         }
 
+        return AccountProfileDetails(
+            accountID: accountID,
+            name: normalizedName,
+            birthDate: birthDate
+        )
+    }
+
+    static func details(
+        accountID: String,
+        in context: ModelContext
+    ) -> AccountProfileDetails? {
+        guard let profile = try? context.fetch(
+            FetchDescriptor<AthleteProfile>()
+        ).first,
+        let birthDate = profile.setup?.birthDate else {
+            return nil
+        }
+
+        let name = profile.name.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+        guard !name.isEmpty else {
+            return nil
+        }
+
+        return AccountProfileDetails(
+            accountID: accountID,
+            name: name,
+            birthDate: birthDate
+        )
+    }
+
+    static func apply(
+        _ details: AccountProfileDetails,
+        in context: ModelContext
+    ) throws {
         if let profile = try context.fetch(
             FetchDescriptor<AthleteProfile>()
         ).first {
-            profile.name = normalizedName
+            profile.name = details.name
             var setup = profile.setup ?? AthleteSetup()
-            setup.birthDate = birthDate
+            setup.birthDate = details.birthDate
             profile.setup = setup
         } else {
             var setup = AthleteSetup()
-            setup.birthDate = birthDate
+            setup.birthDate = details.birthDate
 
             context.insert(
                 AthleteProfile(
-                    name: normalizedName,
+                    name: details.name,
                     trainingStartDate: .now,
                     setup: setup
                 )
@@ -241,6 +302,20 @@ enum AccountProfileDetailsStore {
         }
 
         try context.save()
+    }
+
+    static func save(
+        name: String,
+        birthDate: Date,
+        in context: ModelContext
+    ) throws {
+        let temporaryAccountID = UUID().uuidString
+        let details = try makeDetails(
+            accountID: temporaryAccountID,
+            name: name,
+            birthDate: birthDate
+        )
+        try apply(details, in: context)
     }
 }
 
