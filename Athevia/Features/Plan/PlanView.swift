@@ -150,7 +150,6 @@ struct PlanView: View {
             selection: $selection,
             minimumDate: dateRange.lowerBound,
             maximumDate: dateRange.upperBound,
-            presentation: .graphical
         )
         .padding(.horizontal, 12)
         .onChange(of: selection) { isPresentingCalendar = false }
