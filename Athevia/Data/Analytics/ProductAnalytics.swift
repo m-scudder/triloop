@@ -18,6 +18,7 @@ struct AnalyticsRecord: Codable, Equatable {
 
     var accountID: String? = nil
     var email: String? = nil
+    var userName: String? = nil
 
     var payload: [String: Any] {
         var values: [String: Any] = properties
@@ -28,11 +29,17 @@ struct AnalyticsRecord: Codable, Equatable {
         values["$app_version"] = appVersion
         values["$app_build"] = appBuild
         values["schema_version"] = 2
+        var personProperties: [String: String] = [:]
         if let email {
             values["user_email"] = email
-            if accountID != nil {
-                values["$set"] = ["email": email]
-            }
+            personProperties["email"] = email
+        }
+        if let userName {
+            values["user_name"] = userName
+            personProperties["name"] = userName
+        }
+        if accountID != nil, !personProperties.isEmpty {
+            values["$set"] = personProperties
         }
         return ["uuid": id.uuidString, "distinct_id": accountID ?? distinctID.uuidString,
                 "event": name, "timestamp": ISO8601DateFormatter().string(from: timestamp),
@@ -83,6 +90,7 @@ final class ProductAnalytics {
     private(set) var accountResolved: Bool
     @ObservationIgnored private var activeAccountID: String?
     @ObservationIgnored private var activeEmail: String?
+    @ObservationIgnored private var activeUserName: String?
     @ObservationIgnored private var linkedAccountID: String?
     @ObservationIgnored private var identifiedThisRun = false
     @ObservationIgnored private var sessionID: UUID?
@@ -153,6 +161,7 @@ final class ProductAnalytics {
     func resetForAccountChange() {
         activeAccountID = nil
         activeEmail = nil
+        activeUserName = nil
         consent = .allowed
         defaults.set(AnalyticsConsent.allowed.rawValue, forKey: Self.consentKey)
         discardPendingAndIdentity()
@@ -163,7 +172,11 @@ final class ProductAnalytics {
     /// The account id remains the stable PostHog distinct id. Email is attached
     /// as explicit user metadata so product events can be filtered back to the
     /// signed-in person without using email as the primary identity key.
-    func updateAccount(_ userID: String?, email: String? = nil) {
+    func updateAccount(
+        _ userID: String?,
+        email: String? = nil,
+        name: String? = nil
+    ) {
         let account = userID.flatMap {
             Self.accountIdentifier(
                 $0,
@@ -171,6 +184,7 @@ final class ProductAnalytics {
             )
         }
         let normalizedEmail = Self.normalizedEmail(email)
+        let normalizedName = Self.normalizedName(name)
         let wasResolved = accountResolved
 
         if let previous = linkedAccountID ?? activeAccountID,
@@ -178,12 +192,15 @@ final class ProductAnalytics {
             resetForAccountChange()
         }
 
-        let emailChanged = activeEmail != normalizedEmail
+        let identityMetadataChanged =
+            activeEmail != normalizedEmail
+                || activeUserName != normalizedName
         activeAccountID = account
         activeEmail = account == nil ? nil : normalizedEmail
+        activeUserName = account == nil ? nil : normalizedName
         accountResolved = true
 
-        if emailChanged, account != nil {
+        if identityMetadataChanged, account != nil {
             identifiedThisRun = false
         }
 
@@ -234,6 +251,14 @@ final class ProductAnalytics {
         return value
     }
 
+    static func normalizedName(_ name: String?) -> String? {
+        guard let name else { return nil }
+        let value = name.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+        return value.isEmpty ? nil : value
+    }
+
     private func ensureIdentity() {
         if identity == nil {
             identity = UUID()
@@ -257,6 +282,7 @@ final class ProductAnalytics {
             }
         ) {
             queue[index].email = activeEmail
+            queue[index].userName = activeUserName
         } else {
             let linkSessionID = sessionID ?? UUID()
             sessionID = linkSessionID
@@ -273,7 +299,8 @@ final class ProductAnalytics {
                     appVersion: appVersion,
                     appBuild: appBuild,
                     accountID: account,
-                    email: activeEmail
+                    email: activeEmail,
+                    userName: activeUserName
                 )
             )
         }
@@ -286,6 +313,10 @@ final class ProductAnalytics {
     private func isAllowedRecord(_ record: AnalyticsRecord) -> Bool {
         if let email = record.email,
            Self.normalizedEmail(email) != email {
+            return false
+        }
+        if let userName = record.userName,
+           Self.normalizedName(userName) != userName {
             return false
         }
 
@@ -343,7 +374,8 @@ final class ProductAnalytics {
                 appVersion: appVersion,
                 appBuild: appBuild,
                 accountID: activeAccountID,
-                email: activeEmail
+                email: activeEmail,
+                userName: activeUserName
             )
         )
         trimQueue()
@@ -430,6 +462,7 @@ final class ProductAnalytics {
         identity = nil
         linkedAccountID = nil
         activeEmail = nil
+        activeUserName = nil
         identifiedThisRun = false
         defaults.removeObject(forKey: Self.accountKey)
         sessionID = nil
