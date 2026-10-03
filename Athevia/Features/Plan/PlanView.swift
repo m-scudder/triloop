@@ -145,14 +145,21 @@ struct PlanView: View {
     }
 
     private var calendarSheet: some View {
-        AtheviaDatePicker(
-            title: "Date",
-            selection: $selection,
-            minimumDate: dateRange.lowerBound,
-            maximumDate: dateRange.upperBound,
-        )
-        .padding(.horizontal, 12)
-        .onChange(of: selection) { isPresentingCalendar = false }
+        VStack(spacing: 12) {
+            AtheviaDatePicker(
+                title: "Date",
+                selection: $selection,
+                minimumDate: dateRange.lowerBound,
+                maximumDate: dateRange.upperBound
+            )
+
+            Button("Done") {
+                isPresentingCalendar = false
+            }
+            .buttonStyle(PrimaryActionButtonStyle())
+            .padding(.horizontal, 12)
+        }
+        .padding(.top, 8)
         .presentationDetents([.medium])
     }
 
