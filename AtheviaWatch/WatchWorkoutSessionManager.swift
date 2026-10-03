@@ -126,15 +126,15 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
         voiceCoach.configure(coaching)
         countdownAnnouncedStepID = nil
         routeRecordingFailed = false
-        let recordsRoute = shouldRecordRoute(
+        let routeEligible = shouldRecordRoute(
             workout: workout,
             configuration: configuration
         )
+        let recordsRoute = routeEligible
+            ? await requestLocationAuthorization()
+            : false
 
         do {
-            if recordsRoute {
-                try await requestLocationAuthorization()
-            }
             try await requestAuthorization(includeWorkoutRoute: recordsRoute)
 
             let workoutConfiguration = healthKitConfiguration(
@@ -539,25 +539,22 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
         }
     }
 
-    private func requestLocationAuthorization() async throws {
-        let allowed: Bool
-
+    private func requestLocationAuthorization() async -> Bool {
         switch locationManager.authorizationStatus {
         case .authorizedAlways, .authorizedWhenInUse:
-            allowed = true
+            return true
+
         case .notDetermined:
-            allowed = await withCheckedContinuation { continuation in
+            return await withCheckedContinuation { continuation in
                 locationAuthorizationContinuation = continuation
                 locationManager.requestWhenInUseAuthorization()
             }
-        case .denied, .restricted:
-            allowed = false
-        @unknown default:
-            allowed = false
-        }
 
-        guard allowed else {
-            throw WatchWorkoutSessionError.locationNotAuthorized
+        case .denied, .restricted:
+            return false
+
+        @unknown default:
+            return false
         }
     }
 
@@ -1234,7 +1231,6 @@ private struct PersistedWatchWorkoutState: Codable {
 private enum WatchWorkoutSessionError: LocalizedError {
     case healthWriteNotAuthorized
     case routeWriteNotAuthorized
-    case locationNotAuthorized
     case routeBuilderUnavailable
     case routeDataCouldNotBeRecorded
     case routeCouldNotFinish
@@ -1246,8 +1242,6 @@ private enum WatchWorkoutSessionError: LocalizedError {
             "Allow Athevia to write workouts to Apple Health before starting."
         case .routeWriteNotAuthorized:
             "Allow Athevia to save workout routes to Apple Health before starting an outdoor workout."
-        case .locationNotAuthorized:
-            "Allow Athevia to use your location while training so outdoor routes can be recorded."
         case .routeBuilderUnavailable:
             "Apple Watch could not prepare GPS route recording for this workout."
         case .routeDataCouldNotBeRecorded:
