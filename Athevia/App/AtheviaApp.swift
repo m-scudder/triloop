@@ -10,6 +10,7 @@ struct AtheviaApp: App {
     private let authentication: AuthenticationCoordinator
     private let backup: BackupCoordinator
     private let automaticBackup: AutomaticBackupController
+    private let accountProfiles: any AccountProfileRepository
 
     init() {
         #if DEBUG
@@ -27,6 +28,7 @@ struct AtheviaApp: App {
         let backupCoordinator = BackupCoordinator(repository: SupabaseBackupRepository())
         backup = backupCoordinator
         automaticBackup = AutomaticBackupController(coordinator: backupCoordinator)
+        accountProfiles = SupabaseAccountProfileRepository()
 
         // Install the local-notification delegate before a scene appears so a
         // notification that launches Athevia can route to Home or Plan.
@@ -52,7 +54,8 @@ struct AtheviaApp: App {
                 autoImporter: autoImporter,
                 authentication: authentication,
                 backup: backup,
-                automaticBackup: automaticBackup
+                automaticBackup: automaticBackup,
+                accountProfiles: accountProfiles
             )
                 .environment(\.healthProvider, healthProvider)
         }
