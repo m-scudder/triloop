@@ -247,9 +247,17 @@ final class ProductAnalytics {
         guard let identity else { return }
         linkedAccountID = account
         defaults.set(account, forKey: Self.accountKey)
-        // Retry an existing merge with its original UUID. Reassert once per launch
-        // if cache eviction or an interrupted write lost the previous merge.
-        if !queue.contains(where: { $0.name == "$identify" && $0.accountID == account }) {
+        // Retry an existing merge with its original UUID. If auth refreshes
+        // the email while that identify event is still queued, update the
+        // metadata in place rather than sending a stale address.
+        if let index = queue.firstIndex(
+            where: {
+                $0.name == "$identify"
+                    && $0.accountID == account
+            }
+        ) {
+            queue[index].email = activeEmail
+        } else {
             let linkSessionID = sessionID ?? UUID()
             sessionID = linkSessionID
             queue.append(
@@ -276,6 +284,11 @@ final class ProductAnalytics {
     }
 
     private func isAllowedRecord(_ record: AnalyticsRecord) -> Bool {
+        if let email = record.email,
+           Self.normalizedEmail(email) != email {
+            return false
+        }
+
         if record.name == "$identify" {
             return record.accountID != nil && record.accountID == linkedAccountID
                 && record.properties == ["$anon_distinct_id": record.distinctID.uuidString]
