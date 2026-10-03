@@ -117,9 +117,10 @@ struct AtheviaDatePicker: View {
                 .frame(maxWidth: .infinity, alignment: .trailing)
             }
 
-            if style == .wheel {
+            switch style {
+            case .wheel:
                 wheelPicker
-            } else {
+            case .graphical, .compact:
                 graphicalPicker
             }
         }
