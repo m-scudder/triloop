@@ -97,7 +97,6 @@ struct EventGoalFields: View {
                         title: "Event date",
                         selection: eventDate,
                         minimumDate: minimumDate,
-                        presentation: .compact
                     )
                     .accessibilityIdentifier("event.date.picker")
                 }
