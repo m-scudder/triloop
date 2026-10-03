@@ -128,8 +128,7 @@ struct AccountProfileSetupView: View {
                         title: "Date of birth",
                         selection: $birthDate,
                         minimumDate: birthDateRange.lowerBound,
-                        maximumDate: birthDateRange.upperBound,
-                        presentation: .wheel,
+                        maximumDate: birthDateRange.upperBound,,
                         showsTitle: false
                     )
 
