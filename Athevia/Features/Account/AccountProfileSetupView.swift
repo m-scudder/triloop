@@ -124,14 +124,14 @@ struct AccountProfileSetupView: View {
                             )
                     }
 
-                    DatePicker(
-                        "Date of birth",
+                    AtheviaDatePicker(
+                        title: "Date of birth",
                         selection: $birthDate,
-                        in: birthDateRange,
-                        displayedComponents: .date
+                        minimumDate: birthDateRange.lowerBound,
+                        maximumDate: birthDateRange.upperBound,
+                        presentation: .wheel,
+                        showsTitle: false
                     )
-                    .datePickerStyle(.wheel)
-                    .labelsHidden()
 
                     Text(
                         "We use your age for age-based training guidance such as heart-rate zones."
