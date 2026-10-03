@@ -609,7 +609,7 @@ struct TrainingProfileView: View {
                         title: "Date of birth",
                         selection: birthDateBinding,
                         minimumDate: birthDateRange.lowerBound,
-                        maximumDate: birthDateRange.upperBound,
+                        maximumDate: birthDateRange.upperBound
                     )
                 }
             } header: {
