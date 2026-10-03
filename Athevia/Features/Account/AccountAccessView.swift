@@ -340,8 +340,10 @@ struct AccountAccessView: View {
                 name: name
             )
 
-            let seedLocalBackup =
-                pendingProfileSeedsBackup
+            // Profile confirmation creates/changes user-owned data. Seed an
+            // immediate cloud backup even when the sign-in itself did not
+            // otherwise require a migration backup.
+            let seedLocalBackup = true
             pendingProfileSession = nil
             pendingProfileSeedsBackup = false
             onReady(session, seedLocalBackup)
