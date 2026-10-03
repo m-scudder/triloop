@@ -7,10 +7,18 @@ import Foundation
 struct AccountSession: Codable, Equatable, Sendable {
     let userID: String
     let email: String?
+    /// Available when Apple supplies the person's name during the initial
+    /// authorization. Later sign-ins may legitimately leave this nil.
+    let suggestedName: String?
 
-    init(userID: String, email: String? = nil) {
+    init(
+        userID: String,
+        email: String? = nil,
+        suggestedName: String? = nil
+    ) {
         self.userID = userID
         self.email = email
+        self.suggestedName = suggestedName
     }
 }
 
@@ -20,11 +28,18 @@ struct AppleAuthenticationCredential: Equatable, Sendable {
     let identityToken: String
     let authorizationCode: String?
     let nonce: String?
+    let suggestedName: String?
 
-    init(identityToken: String, authorizationCode: String? = nil, nonce: String? = nil) {
+    init(
+        identityToken: String,
+        authorizationCode: String? = nil,
+        nonce: String? = nil,
+        suggestedName: String? = nil
+    ) {
         self.identityToken = identityToken
         self.authorizationCode = authorizationCode
         self.nonce = nonce
+        self.suggestedName = suggestedName
     }
 }
 

@@ -41,14 +41,12 @@ struct AboutYouStepView: View {
                 subtitle: "This sets your heart-rate zones, so Athevia can tell an easy session from a hard one."
             )
 
-            DatePicker(
-                "Date of birth",
+            AtheviaDatePicker(
+                title: "Date of birth",
                 selection: binding,
-                in: range,
-                displayedComponents: .date
+                minimumDate: range.lowerBound,
+                maximumDate: range.upperBound
             )
-            .datePickerStyle(.wheel)
-            .labelsHidden()
 
             if let birthDate = model.setup.birthDate,
                let maximum = HeartRateCeiling.ageBased(birthDate: birthDate, asOf: .now) {

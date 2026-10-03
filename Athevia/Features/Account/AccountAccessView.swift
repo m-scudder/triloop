@@ -10,11 +10,15 @@ import UIKit
 struct AccountAccessView: View {
     let authentication: AuthenticationCoordinator
     let backup: BackupCoordinator
+    let accountProfiles: any AccountProfileRepository
     let onReady: (AccountSession, Bool) -> Void
 
     @Environment(\.modelContext) private var modelContext
     @State private var accountError: String?
     @State private var isCheckingBackup = false
+    @State private var pendingProfileSession: AccountSession?
+    @State private var profileError: String?
+    @State private var isSavingProfile = false
 
     var body: some View {
         ZStack {
@@ -54,7 +58,10 @@ struct AccountAccessView: View {
             // must verify the session so its cloud backup can be restored.
             if hasLocalData,
                let session = await authentication.resumeCachedSession() {
-                onReady(session, false)
+                await prepareAccountEntry(
+                    session,
+                    seedLocalBackup: false
+                )
                 return
             }
 
@@ -124,7 +131,27 @@ struct AccountAccessView: View {
 
     @ViewBuilder
     private func signedInContent(_ session: AccountSession) -> some View {
-        if isCheckingBackup {
+        if let pendingProfileSession {
+            AccountProfileSetupView(
+                initialName: AccountProfileDetailsStore
+                    .initialName(
+                        session: pendingProfileSession,
+                        in: modelContext
+                    ),
+                initialBirthDate: AccountProfileDetailsStore
+                    .initialBirthDate(in: modelContext),
+                isSaving: isSavingProfile,
+                errorMessage: profileError
+            ) { name, birthDate in
+                Task {
+                    await saveProfileDetails(
+                        name: name,
+                        birthDate: birthDate,
+                        session: pendingProfileSession
+                    )
+                }
+            }
+        } else if isCheckingBackup {
             statusContent(
                 title: "Syncing your training",
                 detail: "Loading your latest backup…"
@@ -228,7 +255,10 @@ struct AccountAccessView: View {
             // timeline. It must survive relaunch without the persisted account
             // immediately restoring the pre-reset cloud backup.
             if TrainingResetBoundary.isFreshStartPending {
-                onReady(session, false)
+                await prepareAccountEntry(
+                    session,
+                    seedLocalBackup: false
+                )
                 return
             }
 
@@ -237,7 +267,10 @@ struct AccountAccessView: View {
             // account's latest backup so data from a previous signed-out user
             // cannot leak into the new session.
             if !replaceLocalData, hasLocalData {
-                onReady(session, false)
+                await prepareAccountEntry(
+                    session,
+                    seedLocalBackup: false
+                )
                 return
             }
 
@@ -256,19 +289,110 @@ struct AccountAccessView: View {
 
                 try BackupRestoreService()
                     .restore(cloud.snapshot, into: modelContext)
-                onReady(session, false)
+                await prepareAccountEntry(
+                    session,
+                    seedLocalBackup: false
+                )
                 return
             }
 
             // Migration for users who previously trained without an account:
             // keep their existing local training on first required sign-in and
             // immediately seed that data into this account's cloud backup.
-            onReady(
+            await prepareAccountEntry(
                 session,
-                replaceLocalData && hasLocalData
+                seedLocalBackup:
+                    replaceLocalData && hasLocalData
             )
         } catch {
             accountError = error.localizedDescription
+        }
+    }
+
+
+    @MainActor
+    private func prepareAccountEntry(
+        _ session: AccountSession,
+        seedLocalBackup: Bool
+    ) async {
+        accountError = nil
+        profileError = nil
+
+        // The account-level profile is independent of training backups. Restore
+        // it after auth/backup resolution so reinstalling without a training
+        // backup still recovers confirmed identity details.
+        do {
+            if let local = AccountProfileDetailsStore.details(
+                accountID: session.userID,
+                in: modelContext
+            ) {
+                // The local working copy (including a restored training backup)
+                // may contain edits newer than the account-profile row.
+                try await accountProfiles.upsert(local)
+            } else if let remote = try await accountProfiles.profile(
+                for: session.userID
+            ) {
+                // Fresh installs without a complete local profile recover these
+                // account-level details without depending on a training backup.
+                try AccountProfileDetailsStore.apply(
+                    remote,
+                    in: modelContext
+                )
+            }
+        } catch {
+            // Existing local data remains usable offline. If confirmation is
+            // required, the subsequent save will retry the cloud write.
+            ProductAnalytics.debugLog(
+                "Account profile sync failed; code=\((error as NSError).code)"
+            )
+        }
+
+        guard AccountProfileDetailsStore
+            .requiresConfirmation(in: modelContext) else {
+            onReady(session, seedLocalBackup)
+            return
+        }
+
+        pendingProfileSession = session
+    }
+
+    @MainActor
+    private func saveProfileDetails(
+        name: String,
+        birthDate: Date,
+        session: AccountSession
+    ) async {
+        profileError = nil
+        isSavingProfile = true
+        defer { isSavingProfile = false }
+
+        do {
+            let details = try AccountProfileDetailsStore
+                .makeDetails(
+                    accountID: session.userID,
+                    name: name,
+                    birthDate: birthDate
+                )
+
+            // Persist the account record first. If the local write later fails,
+            // the durable account profile can restore it on the next launch.
+            try await accountProfiles.upsert(details)
+
+            try AccountProfileDetailsStore.apply(
+                details,
+                in: modelContext
+            )
+
+            ProductAnalytics.shared.updateAccount(
+                session.userID,
+                email: session.email,
+                name: details.name
+            )
+
+            pendingProfileSession = nil
+            onReady(session, true)
+        } catch {
+            profileError = error.localizedDescription
         }
     }
 }

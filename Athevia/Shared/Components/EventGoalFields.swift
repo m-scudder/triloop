@@ -93,14 +93,11 @@ struct EventGoalFields: View {
                 .frame(minHeight: 44)
 
                 if event.eventDate != nil {
-                    DatePicker(
-                        "Event date",
+                    AtheviaDatePicker(
+                        title: "Event date",
                         selection: eventDate,
-                        in: minimumDate...,
-                        displayedComponents: .date
+                        minimumDate: minimumDate
                     )
-                    .datePickerStyle(.compact)
-                    .environment(\.locale, Locale(identifier: "en_GB"))
                     .accessibilityIdentifier("event.date.picker")
                 }
             }

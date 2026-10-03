@@ -145,16 +145,25 @@ struct PlanView: View {
     }
 
     private var calendarSheet: some View {
-        DatePicker(
-            "Date",
-            selection: $selection,
-            in: dateRange,
-            displayedComponents: .date
-        )
-        .datePickerStyle(.graphical)
-        .labelsHidden()
-        .padding(.horizontal, 12)
-        .onChange(of: selection) { isPresentingCalendar = false }
+        VStack(spacing: 12) {
+            Text(TrainingFormatter.pickerDate(selection))
+                .font(.title3.weight(.semibold))
+                .monospacedDigit()
+
+            NativeWheelDatePicker(
+                title: "Date",
+                selection: $selection,
+                minimumDate: dateRange.lowerBound,
+                maximumDate: dateRange.upperBound
+            )
+
+            Button("Done") {
+                isPresentingCalendar = false
+            }
+            .buttonStyle(PrimaryActionButtonStyle())
+            .padding(.horizontal, 12)
+        }
+        .padding(.top, 8)
         .presentationDetents([.medium])
     }
 

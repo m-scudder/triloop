@@ -38,7 +38,8 @@ struct AuthenticationCoordinatorTests {
         let credential = AppleAuthenticationCredential(
             identityToken: "identity-token",
             authorizationCode: "authorization-code",
-            nonce: "nonce"
+            nonce: "nonce",
+            suggestedName: "Mayank Agarwal"
         )
 
         let session = try await coordinator.signInWithApple(credential)

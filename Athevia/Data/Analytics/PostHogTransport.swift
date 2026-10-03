@@ -10,7 +10,8 @@ protocol AnalyticsTransport {
 }
 
 /// Uses PostHog's documented public batch endpoint. No SDK autocapture,
-/// identifiers, push integration, remote flags or session replay is installed.
+/// push integration, remote flags or session replay is installed. Signed-in
+/// identity is supplied explicitly by ProductAnalytics.
 @MainActor
 final class PostHogTransport: AnalyticsTransport {
     private let session: URLSession

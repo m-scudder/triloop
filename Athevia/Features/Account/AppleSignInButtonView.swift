@@ -1,3 +1,4 @@
+import Foundation
 import AuthenticationServices
 import SwiftUI
 
@@ -47,7 +48,7 @@ struct AppleSignInButtonView: View {
             let nonce = try AppleSignInNonce.make()
             activeNonce = nonce.rawValue
             request.nonce = nonce.sha256
-            request.requestedScopes = [.email]
+            request.requestedScopes = [.fullName, .email]
         } catch {
             activeNonce = nil
             errorMessage = error.localizedDescription
@@ -75,11 +76,23 @@ struct AppleSignInButtonView: View {
                 return
             }
 
-            let authorizationCode = apple.authorizationCode.flatMap { String(data: $0, encoding: .utf8) }
+            let authorizationCode = apple.authorizationCode
+                .flatMap {
+                    String(data: $0, encoding: .utf8)
+                }
+            let suggestedName = apple.fullName.flatMap {
+                let value = PersonNameComponentsFormatter()
+                    .string(from: $0)
+                    .trimmingCharacters(
+                        in: .whitespacesAndNewlines
+                    )
+                return value.isEmpty ? nil : value
+            }
             let credential = AppleAuthenticationCredential(
                 identityToken: identityToken,
                 authorizationCode: authorizationCode,
-                nonce: activeNonce
+                nonce: activeNonce,
+                suggestedName: suggestedName
             )
 
             isWorking = true

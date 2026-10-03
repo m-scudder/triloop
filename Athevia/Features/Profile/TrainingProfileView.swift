@@ -605,11 +605,11 @@ struct TrainingProfileView: View {
                     .toggleStyle(AtheviaToggleStyle())
 
                 if setup.birthDate != nil {
-                    DatePicker(
-                        "Date of birth",
+                    AtheviaDatePicker(
+                        title: "Date of birth",
                         selection: birthDateBinding,
-                        in: birthDateRange,
-                        displayedComponents: .date
+                        minimumDate: birthDateRange.lowerBound,
+                        maximumDate: birthDateRange.upperBound
                     )
                 }
             } header: {

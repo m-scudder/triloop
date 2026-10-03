@@ -96,16 +96,14 @@ struct TrainingDaysStepView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     SectionEyebrow(text: "Start training")
 
-                    DatePicker(
-                        "Start date",
+                    AtheviaDatePicker(
+                        title: "Start date",
                         selection: Binding(
                             get: { model.selectedStartDate },
                             set: { model.choose(startDate: $0) }
                         ),
-                        in: model.minimumStartDate...,
-                        displayedComponents: .date
+                        minimumDate: model.minimumStartDate
                     )
-                    .datePickerStyle(.compact)
                 }
             }
 
