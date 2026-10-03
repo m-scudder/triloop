@@ -128,7 +128,6 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
         countdownAnnouncedStepID = nil
         routeRecordingFailed = false
         lastAcceptedRouteLocation = nil
-        lastAcceptedRouteLocation = nil
         let routeEligible = shouldRecordRoute(
             workout: workout,
             configuration: configuration
@@ -243,6 +242,7 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
         session?.pause()
         engine?.pause()
         stopRouteLocationUpdates()
+        lastAcceptedRouteLocation = nil
         state = .paused
         lastTickDate = nil
         voiceCoach.stop()
@@ -258,6 +258,7 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
         lastTickDate = .now
         lastEngineDistanceMeters = distanceMeters
         countdownAnnouncedStepID = nil
+        lastAcceptedRouteLocation = nil
         if routeBuilder != nil {
             startRouteLocationUpdates()
         }
@@ -644,6 +645,7 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
         for workout: HKWorkout?
     ) async -> Error? {
         stopRouteLocationUpdates()
+        lastAcceptedRouteLocation = nil
 
         let pendingInsert = routeInsertionTask
         await pendingInsert?.value
