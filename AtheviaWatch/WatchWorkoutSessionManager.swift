@@ -58,7 +58,6 @@ final class WatchWorkoutSessionManager: NSObject, ObservableObject {
         locationManager.activityType = .fitness
         locationManager.desiredAccuracy = kCLLocationAccuracyBest
         locationManager.distanceFilter = 3
-        locationManager.pausesLocationUpdatesAutomatically = false
     }
 
     var isActive: Bool {
