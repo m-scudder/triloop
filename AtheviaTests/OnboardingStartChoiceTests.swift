@@ -23,7 +23,7 @@ struct OnboardingStartChoiceTests {
         )
     }
 
-    @Test("Selected date is kept when a training day remains in that week")
+    @Test("Selected date is always the training-week anchor")
     func requestedDateIsUsed() {
         let friday = date(day: 9)
         let result = OnboardingModel.effectiveStartDate(
@@ -35,10 +35,9 @@ struct OnboardingStartChoiceTests {
         #expect(result == friday)
     }
 
-    @Test("Late-week start rolls to Monday when no training day remains")
-    func lateWeekStartMovesToNextMonday() {
+    @Test("Late-week start stays on the selected date")
+    func lateWeekStartDoesNotMoveToMonday() {
         let saturday = date(day: 10)
-        let monday = date(day: 12)
 
         let result = OnboardingModel.effectiveStartDate(
             requested: saturday,
@@ -46,7 +45,7 @@ struct OnboardingStartChoiceTests {
             calendar: calendar
         )
 
-        #expect(result == monday)
+        #expect(result == saturday)
     }
 
     @Test("Sunday remains valid when Sunday is available")

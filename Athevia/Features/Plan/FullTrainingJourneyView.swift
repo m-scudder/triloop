@@ -441,8 +441,17 @@ private struct JourneyWeekProjection: Identifiable {
             return []
         }
 
-        let currentWeekStart = startOfTrainingWeek(containing: today, calendar: calendar)
-        let raceWeekStart = startOfTrainingWeek(containing: eventDate, calendar: calendar)
+        let currentWeekStart = plans.first(
+            where: { $0.contains(today, calendar: calendar) }
+        )?.startDate
+            ?? calendar.startOfDay(
+                for: setup.planStartDate ?? today
+            )
+        let raceWeekStart = startOfTrainingWeek(
+            containing: eventDate,
+            anchoredAt: currentWeekStart,
+            calendar: calendar
+        )
         let preferredSessions = max(
             1,
             min(
@@ -507,13 +516,21 @@ private struct JourneyWeekProjection: Identifiable {
 
     private static func startOfTrainingWeek(
         containing date: Date,
+        anchoredAt anchor: Date,
         calendar: Calendar
     ) -> Date {
-        let start = calendar.startOfDay(for: date)
-        let weekday = Weekday(date: start, calendar: calendar) ?? .monday
+        let target = calendar.startOfDay(for: date)
+        let start = calendar.startOfDay(for: anchor)
+        let days = calendar.dateComponents(
+            [.day],
+            from: start,
+            to: target
+        ).day ?? 0
+        let weekOffset = max(days, 0) / 7
+
         return calendar.date(
             byAdding: .day,
-            value: -weekday.offsetFromMonday,
+            value: weekOffset * 7,
             to: start
         ) ?? start
     }

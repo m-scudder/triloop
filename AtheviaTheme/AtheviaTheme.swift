@@ -220,11 +220,13 @@ private struct AtheviaScreenSurface: ViewModifier {
                 .accessibilityHidden(true)
             }
             #if os(iOS)
-            // Navigation chrome is intentionally fixed to black across the app.
-            // Using the system .bar material made the same toolbar appear grey
-            // in some light/dark-mode combinations.
+            // Classic navigation chrome follows the system surface so the
+            // toolbar visually continues the screen in both light and dark
+            // mode. Gaming keeps its own intentionally dark canvas.
             .toolbarBackground(
-                Color.black,
+                theme.isGaming
+                    ? theme.palette.color(.canvas)
+                    : Color(uiColor: .systemBackground),
                 for: .navigationBar
             )
             .toolbarBackground(
@@ -232,7 +234,7 @@ private struct AtheviaScreenSurface: ViewModifier {
                 for: .navigationBar
             )
             .toolbarColorScheme(
-                .dark,
+                theme.isGaming ? .dark : colorScheme,
                 for: .navigationBar
             )
             .toolbarBackground(
