@@ -2,15 +2,17 @@ import SwiftUI
 
 /// Shared date-only control for Athevia.
 ///
-/// Every date input uses the native iOS wheel picker so the interaction is
-/// consistent across onboarding, profile, plans, events and workout editing.
-/// The selected value is also rendered explicitly as dd/MMM/yyyy.
+/// Screens show only the selected date by default. Tapping the date opens the
+/// native iOS wheel picker, keeping the roller hidden until the athlete asks
+/// to edit the value. The selected value is rendered as dd/MMM/yyyy.
 struct AtheviaDatePicker: View {
     let title: String
     @Binding var selection: Date
     var minimumDate: Date? = nil
     var maximumDate: Date? = nil
     var showsTitle = true
+
+    @State private var isPresentingWheel = false
 
     init(
         title: String,
@@ -27,41 +29,86 @@ struct AtheviaDatePicker: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            if showsTitle {
-                HStack {
+        Button {
+            isPresentingWheel = true
+        } label: {
+            HStack(spacing: 12) {
+                if showsTitle {
                     Text(title)
-                        .font(.subheadline.weight(.semibold))
-
-                    Spacer(minLength: 12)
-
-                    selectedDate
+                        .foregroundStyle(.primary)
                 }
-            } else {
-                selectedDate
-                    .frame(
-                        maxWidth: .infinity,
-                        alignment: .trailing
-                    )
+
+                Spacer(minLength: showsTitle ? 12 : 0)
+
+                Text(TrainingFormatter.pickerDate(selection))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+
+                Image(systemName: "calendar")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
-
-            wheelPicker
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .contentShape(Rectangle())
         }
-        .accessibilityElement(children: .contain)
-    }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+        .accessibilityValue(
+            TrainingFormatter.pickerDate(selection)
+        )
+        .sheet(isPresented: $isPresentingWheel) {
+            NavigationStack {
+                VStack(spacing: 12) {
+                    Text(
+                        TrainingFormatter.pickerDate(selection)
+                    )
+                    .font(.title3.weight(.semibold))
+                    .monospacedDigit()
 
-    private var selectedDate: some View {
-        Text(TrainingFormatter.pickerDate(selection))
-            .font(.subheadline.weight(.semibold))
-            .foregroundStyle(.secondary)
-            .monospacedDigit()
-            .accessibilityLabel(
-                "\(title), \(TrainingFormatter.pickerDate(selection))"
-            )
+                    NativeWheelDatePicker(
+                        title: title,
+                        selection: $selection,
+                        minimumDate: minimumDate,
+                        maximumDate: maximumDate
+                    )
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+                .navigationTitle(title)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(
+                        placement: .confirmationAction
+                    ) {
+                        Button("Done") {
+                            isPresentingWheel = false
+                        }
+                    }
+                }
+            }
+            .presentationDetents([.medium])
+            .presentationDragIndicator(.visible)
+        }
+    }
+}
+
+/// Internal native roller used by the shared picker and screens that already
+/// present a dedicated date sheet (for example Plan's calendar button).
+struct NativeWheelDatePicker: View {
+    let title: String
+    @Binding var selection: Date
+    var minimumDate: Date? = nil
+    var maximumDate: Date? = nil
+
+    var body: some View {
+        picker
+            .datePickerStyle(.wheel)
+            .labelsHidden()
     }
 
     @ViewBuilder
-    private var wheelPicker: some View {
+    private var picker: some View {
         if let minimumDate, let maximumDate {
             DatePicker(
                 title,
@@ -69,8 +116,6 @@ struct AtheviaDatePicker: View {
                 in: minimumDate...maximumDate,
                 displayedComponents: .date
             )
-            .datePickerStyle(.wheel)
-            .labelsHidden()
         } else if let minimumDate {
             DatePicker(
                 title,
@@ -78,8 +123,6 @@ struct AtheviaDatePicker: View {
                 in: minimumDate...,
                 displayedComponents: .date
             )
-            .datePickerStyle(.wheel)
-            .labelsHidden()
         } else if let maximumDate {
             DatePicker(
                 title,
@@ -87,16 +130,12 @@ struct AtheviaDatePicker: View {
                 in: ...maximumDate,
                 displayedComponents: .date
             )
-            .datePickerStyle(.wheel)
-            .labelsHidden()
         } else {
             DatePicker(
                 title,
                 selection: $selection,
                 displayedComponents: .date
             )
-            .datePickerStyle(.wheel)
-            .labelsHidden()
         }
     }
 }
