@@ -132,7 +132,7 @@ struct StartingParameterResolver: StartingParameterResolving {
         by caution: Double,
         minimum: TimeInterval
     ) -> TimeInterval {
-        TrainingParameters.roundedDownTrainingTime(
+        TrainingParameters.normalizedTrainingTime(
             seconds * caution,
             minimum: minimum
         )
