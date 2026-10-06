@@ -247,7 +247,7 @@ extension TrainingParameters {
         guard seconds > 0 else { return 0 }
         let increment = Limits.trainingTimeIncrementSeconds
         let floored = (seconds / increment).rounded(.down) * increment
-        return min(seconds, max(floored, minimum))
+        return max(floored, minimum)
     }
 
     /// Swim volume only means something in whole lengths of the pool.
