@@ -609,6 +609,12 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
         let total = max(parameters.swimTotalMeters, normalizedRepeat)
         let count = max(Int((total / normalizedRepeat).rounded(.down)), 1)
         let rest = max(parameters.swimRestSeconds, TrainingParameters.Limits.restFloor(forRepeat: normalizedRepeat))
+        let strokeTitle = parameters.swimStroke == .freestyle
+            ? "Relaxed freestyle"
+            : "Relaxed mixed strokes"
+        let strokeInstruction = parameters.swimStroke == .freestyle
+            ? "Keep freestyle long and relaxed."
+            : "Use comfortable strokes and switch before technique fades."
 
         let block = WorkoutStep.repeating(
             order: 0,
@@ -619,7 +625,8 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
                 WorkoutStep(
                     order: 0,
                     kind: .work,
-                    title: "Relaxed swim",
+                    title: strokeTitle,
+                    instructions: strokeInstruction,
                     distanceMeters: normalizedRepeat,
                     targetIntensity: .easy
                 ),
