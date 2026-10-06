@@ -31,7 +31,6 @@ struct StartingParameterResolver: StartingParameterResolving {
         applyRunning(baseline.running, caution: caution, to: &parameters)
         applySwimming(
             baseline.swimming,
-            stroke: baseline.stroke,
             poolLengthMeters: poolLengthMeters,
             caution: caution,
             to: &parameters
@@ -83,13 +82,11 @@ struct StartingParameterResolver: StartingParameterResolving {
 
     private func applySwimming(
         _ baseline: SwimmingBaseline,
-        stroke: SwimStroke,
         poolLengthMeters: Double,
         caution: Double,
         to parameters: inout TrainingParameters
     ) {
         let pool = PoolLength(meters: poolLengthMeters)
-        parameters.swimStroke = stroke
         parameters.swimPoolLengthMeters = pool.meters
         parameters.swimRepeatDistanceMeters = pool.repeatDistance(for: baseline)
 
