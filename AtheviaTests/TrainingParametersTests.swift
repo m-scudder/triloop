@@ -103,7 +103,7 @@ struct TrainingParametersTests {
         let taperedRun = parameters.applying(.reduceVolume(fraction: 0.2), to: .running)
         let taperedRide = parameters.applying(.reduceVolume(fraction: 0.2), to: .cycling)
 
-        #expect(taperedRun.runContinuousSeconds == 20 * 60)
+        #expect(taperedRun.runContinuousSeconds == 25 * 60)
         #expect(taperedRide.rideWorkSeconds == 15 * 60)
         #expect(taperedRun.runContinuousSeconds.truncatingRemainder(dividingBy: 5 * 60) == 0)
         #expect(taperedRide.rideWorkSeconds.truncatingRemainder(dividingBy: 5 * 60) == 0)
@@ -459,8 +459,8 @@ struct OnboardingPrescriptionMatrixTests {
         let cooldown = try #require(run.orderedSteps.first { $0.kind == .cooldown })
 
         #expect(warmup.durationSeconds == 5 * 60)
-        #expect(work.durationSeconds == 20 * 60)
+        #expect(work.durationSeconds == 25 * 60)
         #expect(cooldown.durationSeconds == 5 * 60)
-        #expect(run.estimatedDurationSeconds == 30 * 60)
+        #expect(run.estimatedDurationSeconds == 35 * 60)
     }
 }
