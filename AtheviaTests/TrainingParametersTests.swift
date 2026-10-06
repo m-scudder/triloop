@@ -181,9 +181,9 @@ struct OnboardingPrescriptionMatrixTests {
         return [
             step.kind.rawValue,
             step.title,
-            step.durationSeconds.map(String.init) ?? "-",
-            step.distanceMeters.map(String.init) ?? "-",
-            step.repeatCount.map(String.init) ?? "-",
+            step.durationSeconds.map { String($0) } ?? "-",
+            step.distanceMeters.map { String($0) } ?? "-",
+            step.repeatCount.map { String($0) } ?? "-",
             step.targetIntensity?.rawValue ?? "-",
             children
         ].joined(separator: ":")
@@ -193,8 +193,8 @@ struct OnboardingPrescriptionMatrixTests {
         [
             workout.title,
             workout.goal,
-            workout.estimatedDurationSeconds.map(String.init) ?? "-",
-            workout.estimatedDistanceMeters.map(String.init) ?? "-",
+            workout.estimatedDurationSeconds.map { String($0) } ?? "-",
+            workout.estimatedDistanceMeters.map { String($0) } ?? "-",
             workout.orderedSteps.map(stepSignature).joined(separator: "/")
         ].joined(separator: "#")
     }
