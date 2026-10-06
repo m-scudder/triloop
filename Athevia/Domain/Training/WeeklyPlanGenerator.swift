@@ -402,6 +402,6 @@ struct WeeklyPlanGenerator: Sendable {
             .max() ?? availableMinutes
 
         guard longestPlannedMinutes < availableMinutes else { return analysisReason }
-        return analysisReason + " You selected \(availableMinutes) minutes per training day. Normal sessions use most of that window; any shorter session is intentional for its workout type, recovery need or training phase."
+        return analysisReason + " You selected \(availableMinutes) minutes per training day. That time is an upper limit, not a target; capability, recovery needs and training phase may make sessions shorter."
     }
 }
