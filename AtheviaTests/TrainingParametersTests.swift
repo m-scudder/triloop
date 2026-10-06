@@ -635,4 +635,52 @@ struct OnboardingPrescriptionMatrixTests {
         }
     }
 
+
+    @Test("Every valid sport-selection combination is represented without adding unselected sports")
+    func selectedSportCombinationMatrix() throws {
+        let combinations: [[Sport]] = [
+            [.running],
+            [.swimming],
+            [.cycling],
+            [.running, .swimming],
+            [.running, .cycling],
+            [.swimming, .cycling],
+            [.running, .swimming, .cycling]
+        ]
+
+        for sports in combinations {
+            let minimumTarget = max(2, sports.count)
+            for targetDays in minimumTarget...4 {
+                for minutes in timeOptions {
+                    let baseline = AthleteBaseline(
+                        running: .continuous20To30Minutes,
+                        swimming: .continuous100,
+                        cycling: .thirtyToFortyFive
+                    )
+                    let setup = AthleteSetup(
+                        objective: TrainingObjective(kind: .improveEndurance),
+                        trainingDayTarget: targetDays,
+                        baseline: baseline,
+                        schedule: schedule(minutes: minutes),
+                        preferences: sports.map {
+                            SportPreference(sport: $0, sessionsPerWeek: 1)
+                        },
+                        stage: .complete,
+                        completedAt: startDate
+                    )
+                    let plan = try FirstWeekBuilder(calendar: calendar).build(
+                        setup: setup,
+                        poolLengthMeters: 25,
+                        startDate: startDate
+                    )
+
+                    let generatedSports = Set(plan.trainingSessions.compactMap { $0.discipline.sport })
+                    #expect(generatedSports.isSubset(of: Set(sports)))
+                    #expect(Set(sports).isSubset(of: generatedSports))
+                    #expect(plan.trainingSessions.count <= min(targetDays, 3))
+                }
+            }
+        }
+    }
+
 }
