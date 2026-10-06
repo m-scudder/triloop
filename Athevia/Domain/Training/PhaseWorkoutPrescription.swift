@@ -379,6 +379,7 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
         }
 
         let swimCapability = capability?.swimming
+        let preferredStroke = swimCapability?.preferredStroke ?? .freestyle
         let state = swimCapability?.foundationState
             ?? SwimFoundationState(continuousMeters: parameters.swimRepeatDistanceMeters)
 
@@ -429,12 +430,13 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
 
         switch kind {
         case .swimFundamentals:
-            return swimFundamentals(on: date, parameters: workingParameters, state: state)
+            return swimFundamentals(on: date, parameters: workingParameters, state: state, stroke: preferredStroke)
         case .swimTechnique:
             return repeatSwim(
                 on: date,
                 parameters: workingParameters,
                 repeatMeters: 50,
+                stroke: preferredStroke,
                 title: "Practice Comfortable Swimming",
                 goal: "Repeat relaxed 50 m efforts with enough rest to keep technique consistent."
             )
@@ -443,6 +445,7 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
                 on: date,
                 parameters: workingParameters,
                 repeatMeters: 100,
+                stroke: preferredStroke,
                 title: "Swim Longer With Short Rests",
                 goal: "Develop longer continuous blocks without turning total volume into one uninterrupted effort."
             )
@@ -451,6 +454,7 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
                 on: date,
                 parameters: workingParameters,
                 repeatMeters: max(100, min(swimCapability?.currentContinuousMeters ?? 200, 200)),
+                stroke: preferredStroke,
                 title: "Longer Comfortable Swim",
                 goal: "Build controlled swimming endurance through repeatable blocks."
             )
@@ -461,6 +465,7 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
                 on: date,
                 parameters: parameters,
                 repeatMeters: block,
+                stroke: preferredStroke,
                 title: "Practice for Your Event Swim",
                 goal: "Practise event-relevant swim blocks without repeatedly swimming the full event distance."
             )
@@ -471,6 +476,7 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
                 on: date,
                 parameters: reduced(parameters, sport: .swimming, by: phase == .raceWeek ? 0.40 : 0.20),
                 repeatMeters: min(max(parameters.swimRepeatDistanceMeters, 25), 100),
+                stroke: preferredStroke,
                 title: phase == .raceWeek ? "Short Easy Swim Before Your Event" : "Easy Practice Comfortable Swimming",
                 goal: "Keep familiar swim rhythm while volume comes down."
             )
@@ -538,7 +544,8 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
     private func swimFundamentals(
         on date: Date,
         parameters: TrainingParameters,
-        state: SwimFoundationState
+        state: SwimFoundationState,
+        stroke: SwimStroke
     ) -> PlannedWorkout {
         if state == .waterComfort {
             return PlannedWorkout(
@@ -565,6 +572,7 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
             on: date,
             parameters: parameters,
             repeatMeters: 25,
+            stroke: stroke,
             title: "Learn the Basics of Swimming",
             goal: "Practise breathing and relaxation over short lengths with full recovery."
         )
@@ -598,6 +606,7 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
         on date: Date,
         parameters: TrainingParameters,
         repeatMeters: Double,
+        stroke: SwimStroke,
         title: String,
         goal: String
     ) -> PlannedWorkout {
@@ -609,10 +618,10 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
         let total = max(parameters.swimTotalMeters, normalizedRepeat)
         let count = max(Int((total / normalizedRepeat).rounded(.down)), 1)
         let rest = max(parameters.swimRestSeconds, TrainingParameters.Limits.restFloor(forRepeat: normalizedRepeat))
-        let strokeTitle = parameters.swimStroke == .freestyle
+        let strokeTitle = stroke == .freestyle
             ? "Relaxed freestyle"
             : "Relaxed mixed strokes"
-        let strokeInstruction = parameters.swimStroke == .freestyle
+        let strokeInstruction = stroke == .freestyle
             ? "Keep freestyle long and relaxed."
             : "Use comfortable strokes and switch before technique fades."
 
