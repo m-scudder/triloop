@@ -124,14 +124,8 @@ enum PrescribedSessions {
         )
         let mainMeters = max(parameters.swimTotalMeters - warmUpMeters, repeatDistance)
         let breathingMeters = rounded(mainMeters / 2, to: repeatDistance)
-        let strokeMeters = mainMeters - breathingMeters
+        let freestyleMeters = mainMeters - breathingMeters
         let rest = Int(parameters.swimRestSeconds)
-        let strokeTitle = parameters.swimStroke == .freestyle
-            ? "relaxed freestyle"
-            : "relaxed mixed strokes"
-        let strokeInstructions = parameters.swimStroke == .freestyle
-            ? "Long, unhurried freestyle strokes. Technique over speed. Rest \(rest) sec."
-            : "Use comfortable strokes and switch before form breaks down. Technique over speed. Rest \(rest) sec."
 
         let steps: [WorkoutStep] = [
             .warmUp(
@@ -151,9 +145,9 @@ enum PrescribedSessions {
             WorkoutStep(
                 order: 2,
                 kind: .work,
-                title: "\(lengths(strokeMeters, of: repeatDistance)) \(strokeTitle)",
-                instructions: strokeInstructions,
-                distanceMeters: strokeMeters,
+                title: "\(lengths(freestyleMeters, of: repeatDistance)) relaxed freestyle",
+                instructions: "Long, unhurried strokes. Technique over speed. Rest \(rest) sec.",
+                distanceMeters: freestyleMeters,
                 targetIntensity: .easy
             )
         ]
@@ -164,7 +158,7 @@ enum PrescribedSessions {
             title: "Swimming",
             goal: goal ?? "Get comfortable breathing and moving efficiently in the water.",
             targetRPE: RPERange(3, 5),
-            targetDistanceMeters: warmUpMeters + breathingMeters + strokeMeters,
+            targetDistanceMeters: warmUpMeters + breathingMeters + freestyleMeters,
             steps: steps
         )
     }
