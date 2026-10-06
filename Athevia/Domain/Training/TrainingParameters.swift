@@ -11,7 +11,7 @@ struct TrainingParameters: Codable, Equatable, Sendable {
     var runWarmUpSeconds: TimeInterval = 5 * 60
     var runIntervalSeconds: TimeInterval = 60
     var runWalkSeconds: TimeInterval = 120
-    var runRepeatCount: Int = 5
+    var runRepeatCount: Int = 6
     var runCooldownSeconds: TimeInterval = 5 * 60
     /// Once the walk breaks are no longer needed, running becomes one block.
     var runIsContinuous: Bool = false
