@@ -474,6 +474,32 @@ struct OnboardingPrescriptionMatrixTests {
         #expect(run.estimatedDurationSeconds == 35 * 60)
     }
 
+    @Test("Capability assessment keeps the selected swim stroke")
+    func capabilityCarriesSwimStroke() {
+        let baseline = AthleteBaseline(swimming: .continuous100, stroke: .mixed)
+        let setup = AthleteSetup(
+            objective: TrainingObjective(kind: .improveEndurance),
+            baseline: baseline,
+            schedule: .everyDay(maxDurationMinutes: 45),
+            preferences: [SportPreference(sport: .swimming, sessionsPerWeek: 1)],
+            stage: .complete,
+            completedAt: startDate
+        )
+        let parameters = StartingParameterResolver().resolve(
+            baseline: baseline,
+            goal: .improveEndurance,
+            poolLengthMeters: 25
+        )
+        let capability = AthleteCapabilityAssessmentBuilder(calendar: calendar).build(
+            setup: setup,
+            plans: [],
+            asOf: startDate,
+            startingParameters: parameters
+        )
+
+        #expect(capability.swimming.preferredStroke == .mixed)
+    }
+
     @Test("Swim stroke changes the generated prescription")
     func swimStrokeIsConsumed() throws {
         let freestyle = try build(
@@ -494,8 +520,6 @@ struct OnboardingPrescriptionMatrixTests {
         let freestyleWorkout = try #require(freestyle.trainingSessions.first)
         let mixedWorkout = try #require(mixed.trainingSessions.first)
 
-        #expect(freestyle.parameters.swimStroke == .freestyle)
-        #expect(mixed.parameters.swimStroke == .mixed)
         #expect(signature(freestyleWorkout) != signature(mixedWorkout))
     }
 
