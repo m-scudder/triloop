@@ -20,7 +20,6 @@ struct TrainingParameters: Codable, Equatable, Sendable {
     var swimRepeatDistanceMeters: Double = 25
     var swimTotalMeters: Double = 300
     var swimRestSeconds: TimeInterval = 45
-    var swimStroke: SwimStroke = .freestyle
     /// The pool the week was built for. A dial rather than a profile lookup, so
     /// a plan stays reproducible even if the athlete later changes pools.
     var swimPoolLengthMeters: Double = 25
@@ -52,7 +51,6 @@ struct TrainingParameters: Codable, Equatable, Sendable {
         swimRepeatDistanceMeters = value(.swimRepeatDistanceMeters, defaults.swimRepeatDistanceMeters)
         swimTotalMeters = value(.swimTotalMeters, defaults.swimTotalMeters)
         swimRestSeconds = value(.swimRestSeconds, defaults.swimRestSeconds)
-        swimStroke = value(.swimStroke, defaults.swimStroke)
         swimPoolLengthMeters = value(.swimPoolLengthMeters, defaults.swimPoolLengthMeters)
         rideWarmUpSeconds = value(.rideWarmUpSeconds, defaults.rideWarmUpSeconds)
         rideWorkSeconds = value(.rideWorkSeconds, defaults.rideWorkSeconds)
