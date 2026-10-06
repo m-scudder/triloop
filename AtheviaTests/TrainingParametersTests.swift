@@ -48,7 +48,7 @@ struct TrainingParametersTests {
         #expect(run.runRepeatCount == 5)
         #expect(run.runIntervalSeconds == base.runIntervalSeconds)
         #expect(swim.swimTotalMeters == 250)
-        #expect(ride.rideWorkSeconds == TimeInterval(16 * 60))
+        #expect(ride.rideWorkSeconds == TimeInterval(15 * 60))
     }
 
     @Test("Swim volume stays in whole lengths")
@@ -72,25 +72,41 @@ struct TrainingParametersTests {
         #expect(parameters.rideWorkSeconds == TrainingParameters.Limits.minimumRideWorkSeconds)
     }
 
-    @Test("A sixty minute window produces a near-full cycling session")
-    func fillsSixtyMinuteCyclingWindow() {
+    @Test("A larger availability window never manufactures extra cycling load")
+    func largerWindowDoesNotInflateCycling() {
         let parameters = TrainingParameters().fillingTrainingWindow(minutes: 60)
-        #expect(parameters.rideWorkSeconds == 45 * 60)
+        #expect(parameters.rideWorkSeconds == 20 * 60)
         #expect(
             parameters.rideWarmUpSeconds
                 + parameters.rideWorkSeconds
-                + parameters.rideCooldownSeconds == 55 * 60
+                + parameters.rideCooldownSeconds == 30 * 60
         )
     }
 
-    @Test("Training window filler never exceeds selected time")
-    func filledWindowStaysInsideAvailability() {
+    @Test("Training window cap never exceeds selected time")
+    func cappedWindowStaysInsideAvailability() {
         let parameters = TrainingParameters().fillingTrainingWindow(minutes: 30)
         #expect(
             parameters.rideWarmUpSeconds
                 + parameters.rideWorkSeconds
                 + parameters.rideCooldownSeconds <= 30 * 60
         )
+    }
+
+
+    @Test("Continuous endurance durations normalize to five minute blocks")
+    func enduranceDurationsUseFiveMinuteBlocks() {
+        var parameters = TrainingParameters()
+        parameters.runIsContinuous = true
+        parameters.runContinuousSeconds = 30 * 60
+
+        let taperedRun = parameters.applying(.reduceVolume(fraction: 0.2), to: .running)
+        let taperedRide = parameters.applying(.reduceVolume(fraction: 0.2), to: .cycling)
+
+        #expect(taperedRun.runContinuousSeconds == 20 * 60)
+        #expect(taperedRide.rideWorkSeconds == 15 * 60)
+        #expect(taperedRun.runContinuousSeconds.truncatingRemainder(dividingBy: 5 * 60) == 0)
+        #expect(taperedRide.rideWorkSeconds.truncatingRemainder(dividingBy: 5 * 60) == 0)
     }
 
 }
