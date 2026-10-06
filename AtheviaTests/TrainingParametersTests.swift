@@ -331,10 +331,19 @@ struct OnboardingPrescriptionMatrixTests {
                         let swims = plan.trainingSessions.filter { $0.discipline == .swimming }
                         #expect(swims.count == expectedOpeningDays(targetDays))
 
+                        let resolved = StartingParameterResolver()
+                            .resolve(
+                                baseline: baseline,
+                                goal: TrainingObjective(kind: goal).legacyGoal,
+                                poolLengthMeters: 25
+                            )
+                            .capped(toTrainingMinutes: minutes)
+
                         for swim in swims {
                             swim.steps.forEach(assertWholeSeconds)
                             if let distance = swim.estimatedDistanceMeters {
                                 #expect(distance > 0)
+                                #expect(distance <= resolved.swimTotalMeters)
                                 #expect(distance.truncatingRemainder(dividingBy: 25) == 0)
                             }
                         }
