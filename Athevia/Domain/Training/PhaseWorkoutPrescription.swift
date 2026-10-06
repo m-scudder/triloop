@@ -80,11 +80,18 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
         objective: TrainingObjective?,
         ordinal: Int
     ) -> String {
-        guard objective?.kind == .event else {
-            return sport.displayName
-        }
-
         let sportName = sport.displayName
+
+        guard objective?.kind == .event else {
+            switch objective?.kind {
+            case .improveEndurance:
+                return "Endurance \(sportName)"
+            case .returnToTraining:
+                return "Easy \(sportName)"
+            default:
+                return sportName
+            }
+        }
 
         switch phase {
         case .foundation:
@@ -127,21 +134,56 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
     ) -> PlannedWorkout {
         guard parameters.runIsContinuous,
               capability?.running.hasContinuousCapability != false else {
-            let workout = PrescribedSessions.runWalk(on: date, parameters: parameters)
-            workout.title = "Run / Walk"
-            workout.goal = "Build consistency, impact tolerance and relaxed running continuity."
+            let startingParameters: TrainingParameters
+            if objective?.kind == .generalFitness {
+                startingParameters = reduced(parameters, sport: .running, by: 0.20)
+            } else {
+                startingParameters = parameters
+            }
+            let workout = PrescribedSessions.runWalk(on: date, parameters: startingParameters)
+            workout.title = objective?.kind == .improveEndurance ? "Run / Walk Endurance" : "Run / Walk"
+            workout.goal = objective?.kind == .returnToTraining
+                ? "Rebuild comfortable run / walk consistency without chasing previous fitness."
+                : "Build consistency, impact tolerance and relaxed running continuity."
             return workout
         }
 
         switch phase {
         case .foundation:
-            return namedRun(
-                on: date,
-                parameters: reduced(parameters, sport: .running, by: 0.10),
-                title: "Comfortable Run",
-                goal: "Build relaxed continuous running without adding intensity.",
-                intensity: .easy
-            )
+            switch objective?.kind {
+            case .improveEndurance:
+                return namedRun(
+                    on: date,
+                    parameters: parameters,
+                    title: "Endurance Run",
+                    goal: "Build continuous aerobic time while staying conversational.",
+                    intensity: .easy
+                )
+            case .returnToTraining:
+                return namedRun(
+                    on: date,
+                    parameters: parameters,
+                    title: "Return Run",
+                    goal: "Rebuild continuous running comfortably without chasing previous fitness.",
+                    intensity: .easy
+                )
+            case .event:
+                return namedRun(
+                    on: date,
+                    parameters: reduced(parameters, sport: .running, by: 0.10),
+                    title: "Comfortable Run",
+                    goal: "Build relaxed continuous running before event-specific work.",
+                    intensity: .easy
+                )
+            default:
+                return namedRun(
+                    on: date,
+                    parameters: reduced(parameters, sport: .running, by: 0.15),
+                    title: "Comfortable Run",
+                    goal: "Build sustainable running as part of general fitness.",
+                    intensity: .easy
+                )
+            }
 
         case .build:
             if ordinal.isMultiple(of: 2) {
@@ -228,16 +270,35 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
     ) -> PlannedWorkout {
         switch phase {
         case .foundation:
-            if ordinal.isMultiple(of: 2) {
+            switch objective?.kind {
+            case .improveEndurance:
                 let ride = PrescribedSessions.easyRide(
                     on: date,
-                    parameters: reduced(parameters, sport: .cycling, by: 0.15),
-                    goal: "Build bike comfort at an easy conversational effort."
+                    parameters: parameters,
+                    goal: "Build steady cycling endurance at an easy conversational effort."
                 )
-                ride.title = "Comfortable Bike Ride"
+                ride.title = "Endurance Bike Ride"
                 return ride
+            case .returnToTraining:
+                let ride = PrescribedSessions.easyRide(
+                    on: date,
+                    parameters: parameters,
+                    goal: "Rebuild comfortable riding without chasing previous volume."
+                )
+                ride.title = "Return Bike Ride"
+                return ride
+            default:
+                if ordinal.isMultiple(of: 2) {
+                    let ride = PrescribedSessions.easyRide(
+                        on: date,
+                        parameters: reduced(parameters, sport: .cycling, by: 0.15),
+                        goal: "Build bike comfort at an easy conversational effort."
+                    )
+                    ride.title = "Comfortable Bike Ride"
+                    return ride
+                }
+                return cadenceRide(on: date, parameters: parameters)
             }
-            return cadenceRide(on: date, parameters: parameters)
 
         case .build:
             let ride = PrescribedSessions.easyRide(
@@ -344,19 +405,35 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
             )
         }
 
-        let kind = multisportPolicy.swimKind(
+        var kind = multisportPolicy.swimKind(
             foundationState: state,
             phase: phase,
             openWaterPermitted: openWaterPermitted
         )
+        var workingParameters = parameters
+
+        if phase == .foundation {
+            switch objective?.kind {
+            case .generalFitness:
+                if kind == .swimContinuous || kind == .swimEndurance {
+                    kind = .swimTechnique
+                }
+            case .returnToTraining:
+                workingParameters = reduced(parameters, sport: .swimming, by: 0.20)
+                if kind == .swimEndurance { kind = .swimContinuous }
+                else if kind == .swimContinuous { kind = .swimTechnique }
+            default:
+                break
+            }
+        }
 
         switch kind {
         case .swimFundamentals:
-            return swimFundamentals(on: date, parameters: parameters, state: state)
+            return swimFundamentals(on: date, parameters: workingParameters, state: state)
         case .swimTechnique:
             return repeatSwim(
                 on: date,
-                parameters: parameters,
+                parameters: workingParameters,
                 repeatMeters: 50,
                 title: "Practice Comfortable Swimming",
                 goal: "Repeat relaxed 50 m efforts with enough rest to keep technique consistent."
@@ -364,7 +441,7 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
         case .swimContinuous:
             return repeatSwim(
                 on: date,
-                parameters: parameters,
+                parameters: workingParameters,
                 repeatMeters: 100,
                 title: "Swim Longer With Short Rests",
                 goal: "Develop longer continuous blocks without turning total volume into one uninterrupted effort."
@@ -372,7 +449,7 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
         case .swimEndurance:
             return repeatSwim(
                 on: date,
-                parameters: parameters,
+                parameters: workingParameters,
                 repeatMeters: max(100, min(swimCapability?.currentContinuousMeters ?? 200, 200)),
                 title: "Longer Comfortable Swim",
                 goal: "Build controlled swimming endurance through repeatable blocks."
