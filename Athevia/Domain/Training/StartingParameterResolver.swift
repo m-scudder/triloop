@@ -132,8 +132,14 @@ struct StartingParameterResolver: StartingParameterResolving {
         by caution: Double,
         minimum: TimeInterval
     ) -> TimeInterval {
-        TrainingParameters.normalizedTrainingTime(
-            seconds * caution,
+        let scaled = seconds * caution
+        if caution < 1 {
+            let increment = TrainingParameters.Limits.trainingTimeIncrementSeconds
+            let floored = (scaled / increment).rounded(.down) * increment
+            return max(floored, minimum)
+        }
+        return TrainingParameters.normalizedTrainingTime(
+            scaled,
             minimum: minimum
         )
     }
