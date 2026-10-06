@@ -102,8 +102,9 @@ extension TrainingParameters {
 
         if next.runIsContinuous {
             let capped = min(next.runContinuousSeconds, runWorkBudget)
-            next.runContinuousSeconds = Self.normalizedTrainingTime(
+            next.runContinuousSeconds = Self.cappedTrainingTime(
                 capped,
+                maximum: runWorkBudget,
                 minimum: min(Limits.minimumContinuousRunSeconds, runWorkBudget)
             )
         } else {
@@ -114,13 +115,27 @@ extension TrainingParameters {
             }
         }
 
+        // Distance-based swim sessions do not have a trustworthy pace estimate
+        // yet. Use the existing 45-minute opening swim as a reference only when
+        // the athlete selected a smaller window; a larger window never inflates
+        // capability-derived volume.
+        let referenceSwimMinutes = 45.0
+        if Double(minutes) < referenceSwimMinutes {
+            let fraction = Double(minutes) / referenceSwimMinutes
+            next.swimTotalMeters = Self.roundedToRepeat(
+                max(next.swimTotalMeters * fraction, Limits.minimumSwimMeters),
+                repeatDistance: next.swimRepeatDistanceMeters
+            )
+        }
+
         let rideWorkBudget = max(
             cap - next.rideWarmUpSeconds - next.rideCooldownSeconds,
             0
         )
         let cappedRide = min(next.rideWorkSeconds, rideWorkBudget)
-        next.rideWorkSeconds = Self.normalizedTrainingTime(
+        next.rideWorkSeconds = Self.cappedTrainingTime(
             cappedRide,
+            maximum: rideWorkBudget,
             minimum: min(Limits.minimumRideWorkSeconds, rideWorkBudget)
         )
 
@@ -236,6 +251,21 @@ extension TrainingParameters {
                 minimum: Limits.minimumRideWorkSeconds
             )
         }
+    }
+
+    /// Caps a duration without ever rounding above the athlete's available
+    /// time. This is separate from phase normalization, where nearest-five is
+    /// appropriate.
+    private static func cappedTrainingTime(
+        _ seconds: TimeInterval,
+        maximum: TimeInterval,
+        minimum: TimeInterval
+    ) -> TimeInterval {
+        guard seconds > 0, maximum > 0 else { return 0 }
+        let increment = Limits.trainingTimeIncrementSeconds
+        let capped = min(seconds, maximum)
+        let floored = (capped / increment).rounded(.down) * increment
+        return min(maximum, max(floored, minimum))
     }
 
     /// User-facing endurance work is prescribed in five-minute blocks.
