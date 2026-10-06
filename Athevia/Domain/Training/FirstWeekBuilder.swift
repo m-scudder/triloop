@@ -176,7 +176,10 @@ struct FirstWeekBuilder: Sendable {
         if multiplier < 1 {
             workouts
                 .filter { workout in
-                    guard workout.discipline.isTrainingSession else { return false }
+                    // Single-sport prescriptions already apply taper/race-week
+                    // volume in PhaseWorkoutPrescriptionBuilder. Only bricks
+                    // need this whole-workout scaling pass.
+                    guard workout.discipline == .multisport else { return false }
                     guard let eventDate = setup.objective.event?.eventDate else { return true }
                     return !calendar.isDate(workout.date, inSameDayAs: eventDate)
                 }
