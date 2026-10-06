@@ -136,7 +136,7 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
               capability?.running.hasContinuousCapability != false else {
             let startingParameters: TrainingParameters
             if objective?.kind == .generalFitness {
-                startingParameters = reduced(parameters, sport: .running, by: 0.20)
+                startingParameters = reduced(parameters, sport: .running, by: 0.40)
             } else {
                 startingParameters = parameters
             }
@@ -178,7 +178,7 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
             default:
                 return namedRun(
                     on: date,
-                    parameters: reduced(parameters, sport: .running, by: 0.15),
+                    parameters: reduced(parameters, sport: .running, by: 0.30),
                     title: "Comfortable Run",
                     goal: "Build sustainable running as part of general fitness.",
                     intensity: .easy
