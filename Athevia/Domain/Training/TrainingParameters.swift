@@ -102,7 +102,7 @@ extension TrainingParameters {
 
         if next.runIsContinuous {
             let capped = min(next.runContinuousSeconds, runWorkBudget)
-            next.runContinuousSeconds = Self.roundedDownTrainingTime(
+            next.runContinuousSeconds = Self.normalizedTrainingTime(
                 capped,
                 minimum: min(Limits.minimumContinuousRunSeconds, runWorkBudget)
             )
@@ -119,7 +119,7 @@ extension TrainingParameters {
             0
         )
         let cappedRide = min(next.rideWorkSeconds, rideWorkBudget)
-        next.rideWorkSeconds = Self.roundedDownTrainingTime(
+        next.rideWorkSeconds = Self.normalizedTrainingTime(
             cappedRide,
             minimum: min(Limits.minimumRideWorkSeconds, rideWorkBudget)
         )
@@ -160,19 +160,19 @@ extension TrainingParameters {
             next.runIsContinuous = true
             // Half the interval work, not all of it: running without breaks is
             // harder than the same minutes broken up.
-            next.runContinuousSeconds = Self.roundedDownTrainingTime(
+            next.runContinuousSeconds = Self.normalizedTrainingTime(
                 runIntervalSeconds * Double(runRepeatCount) / 2,
                 minimum: Limits.minimumContinuousRunSeconds
             )
 
         case .runContinuousDuration(let delta):
-            next.runContinuousSeconds = Self.roundedDownTrainingTime(
+            next.runContinuousSeconds = Self.normalizedTrainingTime(
                 runContinuousSeconds + delta,
                 minimum: Limits.minimumContinuousRunSeconds
             )
 
         case .rideDuration(let delta):
-            next.rideWorkSeconds = Self.roundedDownTrainingTime(
+            next.rideWorkSeconds = Self.normalizedTrainingTime(
                 rideWorkSeconds + delta,
                 minimum: Limits.minimumRideWorkSeconds
             )
@@ -215,7 +215,7 @@ extension TrainingParameters {
         switch sport {
         case .running:
             if runIsContinuous {
-                runContinuousSeconds = Self.roundedDownTrainingTime(
+                runContinuousSeconds = Self.normalizedTrainingTime(
                     runContinuousSeconds * remaining,
                     minimum: Limits.minimumContinuousRunSeconds
                 )
@@ -231,7 +231,7 @@ extension TrainingParameters {
                 repeatDistance: swimRepeatDistanceMeters
             )
         case .cycling:
-            rideWorkSeconds = Self.roundedDownTrainingTime(
+            rideWorkSeconds = Self.normalizedTrainingTime(
                 rideWorkSeconds * remaining,
                 minimum: Limits.minimumRideWorkSeconds
             )
@@ -239,15 +239,15 @@ extension TrainingParameters {
     }
 
     /// User-facing endurance work is prescribed in five-minute blocks.
-    /// Floor rather than round up so normalization can never create extra load.
-    static func roundedDownTrainingTime(
+    /// Round to the nearest block so percentage-based phases stay coach-readable.
+    static func normalizedTrainingTime(
         _ seconds: TimeInterval,
         minimum: TimeInterval
     ) -> TimeInterval {
         guard seconds > 0 else { return 0 }
         let increment = Limits.trainingTimeIncrementSeconds
-        let floored = (seconds / increment).rounded(.down) * increment
-        return max(floored, minimum)
+        let normalized = (seconds / increment).rounded() * increment
+        return max(normalized, minimum)
     }
 
     /// Swim volume only means something in whole lengths of the pool.
