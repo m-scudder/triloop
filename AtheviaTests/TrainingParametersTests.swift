@@ -157,7 +157,8 @@ struct OnboardingPrescriptionMatrixTests {
         baseline: AthleteBaseline,
         objective: TrainingObjective,
         targetDays: Int,
-        minutes: Int
+        minutes: Int,
+        poolLengthMeters: Double = 25
     ) throws -> WeeklyPlan {
         try FirstWeekBuilder(calendar: calendar).build(
             setup: setup(
@@ -167,7 +168,7 @@ struct OnboardingPrescriptionMatrixTests {
                 targetDays: targetDays,
                 minutes: minutes
             ),
-            poolLengthMeters: 25,
+            poolLengthMeters: poolLengthMeters,
             startDate: startDate
         )
     }
@@ -472,4 +473,142 @@ struct OnboardingPrescriptionMatrixTests {
         #expect(cooldown.durationSeconds == 5 * 60)
         #expect(run.estimatedDurationSeconds == 35 * 60)
     }
+
+    @Test("Swim stroke changes the generated prescription")
+    func swimStrokeIsConsumed() throws {
+        let freestyle = try build(
+            sport: .swimming,
+            baseline: AthleteBaseline(swimming: .continuous100, stroke: .freestyle),
+            objective: TrainingObjective(kind: .improveEndurance),
+            targetDays: 2,
+            minutes: 45
+        )
+        let mixed = try build(
+            sport: .swimming,
+            baseline: AthleteBaseline(swimming: .continuous100, stroke: .mixed),
+            objective: TrainingObjective(kind: .improveEndurance),
+            targetDays: 2,
+            minutes: 45
+        )
+
+        let freestyleWorkout = try #require(freestyle.trainingSessions.first)
+        let mixedWorkout = try #require(mixed.trainingSessions.first)
+
+        #expect(freestyle.parameters.swimStroke == .freestyle)
+        #expect(mixed.parameters.swimStroke == .mixed)
+        #expect(signature(freestyleWorkout) != signature(mixedWorkout))
+    }
+
+    @Test("Pool length changes valid swim geometry")
+    func poolLengthIsConsumed() throws {
+        let pools = [25.0, 33.3, 50.0]
+        let signatures = try pools.map { pool in
+            let plan = try build(
+                sport: .swimming,
+                baseline: AthleteBaseline(swimming: .continuous200Plus),
+                objective: TrainingObjective(kind: .improveEndurance),
+                targetDays: 2,
+                minutes: 60,
+                poolLengthMeters: pool
+            )
+            return signature(try #require(plan.trainingSessions.first))
+        }
+
+        #expect(Set(signatures).count == pools.count)
+    }
+
+    @Test("Every running event distance and intent builds a bounded prescription")
+    func runningEventMatrix() throws {
+        for kind in EventDistanceKind.choices(for: .running) {
+            for intent in EventTargetIntent.allCases {
+                for minutes in timeOptions {
+                    let objective = TrainingObjective.event(
+                        sport: .running,
+                        distance: EventDistance(kind: kind),
+                        eventDate: calendar.date(byAdding: .day, value: 28, to: startDate),
+                        targetIntent: intent
+                    )
+                    let plan = try build(
+                        sport: .running,
+                        baseline: AthleteBaseline(running: .regular5K),
+                        objective: objective,
+                        targetDays: 3,
+                        minutes: minutes
+                    )
+
+                    #expect(plan.trainingSessions.contains { $0.discipline == .running })
+                    for workout in plan.trainingSessions where workout.discipline == .running {
+                        if let duration = workout.estimatedDurationSeconds {
+                            #expect(duration <= TimeInterval(minutes * 60))
+                        }
+                        workout.steps.forEach(assertWholeSeconds)
+                    }
+                }
+            }
+        }
+    }
+
+    @Test("Every cycling event distance and intent builds a bounded prescription")
+    func cyclingEventMatrix() throws {
+        for kind in EventDistanceKind.choices(for: .cycling) {
+            for intent in EventTargetIntent.allCases {
+                for minutes in timeOptions {
+                    let objective = TrainingObjective.event(
+                        sport: .cycling,
+                        distance: EventDistance(kind: kind),
+                        eventDate: calendar.date(byAdding: .day, value: 28, to: startDate),
+                        targetIntent: intent
+                    )
+                    let plan = try build(
+                        sport: .cycling,
+                        baseline: AthleteBaseline(cycling: .sixtyPlus),
+                        objective: objective,
+                        targetDays: 3,
+                        minutes: minutes
+                    )
+
+                    #expect(plan.trainingSessions.contains { $0.discipline == .cycling })
+                    for workout in plan.trainingSessions where workout.discipline == .cycling {
+                        if let duration = workout.estimatedDurationSeconds {
+                            #expect(duration <= TimeInterval(minutes * 60))
+                        }
+                        workout.steps.forEach(assertWholeSeconds)
+                    }
+                }
+            }
+        }
+    }
+
+    @Test("Every swimming event distance and intent preserves pool geometry")
+    func swimmingEventMatrix() throws {
+        for kind in EventDistanceKind.choices(for: .swimming) {
+            for intent in EventTargetIntent.allCases {
+                for minutes in timeOptions {
+                    let objective = TrainingObjective.event(
+                        sport: .swimming,
+                        distance: EventDistance(kind: kind),
+                        eventDate: calendar.date(byAdding: .day, value: 28, to: startDate),
+                        targetIntent: intent
+                    )
+                    let plan = try build(
+                        sport: .swimming,
+                        baseline: AthleteBaseline(swimming: .continuous200Plus),
+                        objective: objective,
+                        targetDays: 3,
+                        minutes: minutes
+                    )
+
+                    #expect(plan.trainingSessions.contains { $0.discipline == .swimming })
+                    for workout in plan.trainingSessions where workout.discipline == .swimming {
+                        workout.steps.forEach(assertWholeSeconds)
+                        if let distance = workout.estimatedDistanceMeters {
+                            #expect(distance > 0)
+                            #expect(distance.truncatingRemainder(dividingBy: 25) == 0)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
 }
