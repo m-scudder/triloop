@@ -483,6 +483,23 @@ struct TrainingProfileView: View {
             } footer: {
                 Text("Adding a new sport asks for your current starting point before Athevia rebuilds upcoming training. Existing sport progress and completed workouts are preserved.")
             }
+
+            Section {
+                ForEach(preferences.filter(\.isTrained), id: \.sport) { preference in
+                    Picker(
+                        preference.sport.displayName,
+                        selection: prescriptionBasisBinding(preference.sport)
+                    ) {
+                        ForEach(WorkoutPrescriptionBasis.allCases, id: \.self) { basis in
+                            Text(basis.displayName).tag(basis)
+                        }
+                    }
+                }
+            } header: {
+                Text("Workout target")
+            } footer: {
+                Text("Distance is the default. Switch any sport to Time when you want its workouts prescribed by duration.")
+            }
             }
             .atheviaListRow()
         }
