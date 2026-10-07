@@ -1022,7 +1022,11 @@ private struct WeeklyHistoryRow: View {
 
     private var trainingTime: TimeInterval {
         completed.reduce(0) { total, workout in
-            total + (workout.importedSummary?.duration ?? workout.estimatedDurationSeconds ?? 0)
+            total + (
+                workout.importedSummary?.duration
+                    ?? (workout.targetDistanceMeters == nil ? workout.estimatedDurationSeconds : nil)
+                    ?? 0
+            )
         }
     }
 
