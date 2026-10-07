@@ -785,6 +785,8 @@ enum WorkoutPrescriptionBasisAdapter {
             )
         case (.swimming, .time):
             convertSwimToTime(workout, capability: capability?.swimming)
+        case (.swimming, .distance):
+            convertOpenWaterSwimToDistanceIfNeeded(workout)
         default:
             break
         }
@@ -864,6 +866,30 @@ enum WorkoutPrescriptionBasisAdapter {
         }
 
         _ = sport
+    }
+
+    private static func convertOpenWaterSwimToDistanceIfNeeded(
+        _ workout: PlannedWorkout
+    ) {
+        // Supervised beginner water-confidence sessions intentionally stay
+        // time-based even when Distance is selected. There is no safe distance
+        // target until the athlete can actually swim a length.
+        guard workout.targetDistanceMeters == nil,
+              workout.title.localizedCaseInsensitiveContains("open water"),
+              let work = workout.orderedSteps.first(where: { $0.kind == .work }),
+              let seconds = work.durationSeconds,
+              seconds > 0 else {
+            return
+        }
+
+        // Open-water duration is generated from swim volume at 2.2 sec/m.
+        // Reverse that deterministic policy so switching target basis does not
+        // invent a different training load.
+        let meters = roundedDistance(seconds / 2.2, increment: 50)
+        work.durationSeconds = nil
+        work.distanceMeters = meters
+        workout.prescribedDurationSeconds = nil
+        workout.targetDistanceMeters = meters
     }
 
     private static func convertSwimToTime(
