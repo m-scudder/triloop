@@ -797,8 +797,6 @@ enum WorkoutPrescriptionBasisAdapter {
         bases: [Sport: WorkoutPrescriptionBasis],
         capability: AthleteCapabilityAssessment?
     ) {
-        var totalDistance = 0.0
-
         for step in workout.steps {
             guard let sport = step.kind.segmentSport,
                   bases[sport, default: .distance] == .distance,
@@ -826,13 +824,13 @@ enum WorkoutPrescriptionBasisAdapter {
             )
             step.durationSeconds = nil
             step.distanceMeters = meters
-            totalDistance += meters
         }
 
-        if totalDistance > 0 {
-            workout.prescribedDurationSeconds = nil
-            workout.targetDistanceMeters = totalDistance
-        }
+        // Bricks may mix target bases (for example Bike = Time, Run =
+        // Distance). Keep the authoritative target on each segment rather than
+        // inventing one workout-level metric that hides the other segment.
+        workout.prescribedDurationSeconds = nil
+        workout.targetDistanceMeters = nil
     }
 
     private static func convertWorkToDistance(
