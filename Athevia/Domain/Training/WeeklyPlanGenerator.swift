@@ -13,6 +13,8 @@ struct WeeklyPlanGenerator: Sendable {
     /// ceiling. Current capability and sport-specific safety decide how many
     /// days carry training; unused availability is rest, never fake recovery.
     var preferences: [SportPreference] = []
+    /// Per-sport primary workout goal. Missing legacy values default to distance.
+    var prescriptionBases: [Sport: WorkoutPrescriptionBasis] = [:]
     /// Desired weekly training frequency. Availability remains only the pool of
     /// days the planner may place those sessions on.
     var targetTrainingDays: Int = 3
@@ -240,23 +242,26 @@ struct WeeklyPlanGenerator: Sendable {
                brickEligible,
                brickAllowedByCurrentRecovery,
                !brickPlaced {
+                let brick: PlannedWorkout
                 if simulationEligible {
-                    workouts.append(
-                        MultisportPrescribedSessions.raceSimulation(
-                            on: date,
-                            parameters: parameters,
-                            prescription: multisport.raceSimulation(parameters: parameters)
-                        )
+                    brick = MultisportPrescribedSessions.raceSimulation(
+                        on: date,
+                        parameters: parameters,
+                        prescription: multisport.raceSimulation(parameters: parameters)
                     )
                 } else {
-                    workouts.append(
-                        MultisportPrescribedSessions.brick(
-                            on: date,
-                            parameters: parameters,
-                            prescription: multisport.brick(parameters: parameters)
-                        )
+                    brick = MultisportPrescribedSessions.brick(
+                        on: date,
+                        parameters: parameters,
+                        prescription: multisport.brick(parameters: parameters)
                     )
                 }
+                WorkoutPrescriptionBasisAdapter.applyMultisport(
+                    brick,
+                    bases: prescriptionBases,
+                    capability: capability
+                )
+                workouts.append(brick)
                 brickPlaced = true
             } else {
                 workouts.append(
@@ -268,7 +273,8 @@ struct WeeklyPlanGenerator: Sendable {
                         objective: objective,
                         capability: capability,
                         openWaterConsent: openWaterConsent,
-                        sportOrdinal: ordinal
+                        sportOrdinal: ordinal,
+                        prescriptionBasis: prescriptionBases[sport, default: .distance]
                     )
                 )
             }
@@ -279,7 +285,10 @@ struct WeeklyPlanGenerator: Sendable {
             if multiplier < 1 {
                 workouts
                     .filter { workout in
-                        guard workout.discipline.isTrainingSession else { return false }
+                        // Single-sport prescriptions already apply phase volume
+                        // before basis conversion. Only bricks need this second
+                        // whole-workout phase scaling pass.
+                        guard workout.discipline == .multisport else { return false }
                         guard let eventDate = objective?.event?.eventDate else { return true }
                         return !calendar.isDate(workout.date, inSameDayAs: eventDate)
                     }
