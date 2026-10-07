@@ -277,11 +277,11 @@ struct StartingPointStepView: View {
         let basis = model.prescriptionBasis(for: sport).displayName.lowercased()
         switch sport {
         case .running:
-            return "(shortLabel(model.setup.baseline.running)) · (basis)"
+            return "\(shortLabel(model.setup.baseline.running)) · \(basis)"
         case .swimming:
-            return "(model.setup.baseline.swimming.displayName) · (basis)"
+            return "\(model.setup.baseline.swimming.displayName) · \(basis)"
         case .cycling:
-            return "(shortLabel(model.setup.baseline.cycling)) · (basis)"
+            return "\(shortLabel(model.setup.baseline.cycling)) · \(basis)"
         }
     }
 }
