@@ -153,6 +153,24 @@ struct TodayPresentationTests {
         #expect(calendar.dateComponents([.day], from: monday, to: next.date).day == 2)
     }
 
+    @Test("Next session carries distance instead of partial warmup time")
+    func nextDistanceSessionUsesDistanceTarget() throws {
+        let context = ModelContext(try container())
+        let week = plan([.rest, .running], in: context)
+        let run = try #require(week.orderedWorkouts.first { $0.discipline == .running })
+        run.prescribedDurationSeconds = nil
+        run.targetDistanceMeters = 3_000
+        run.steps = [
+            WorkoutStep(order: 0, kind: .warmUp, title: "Warm up", durationSeconds: 5 * 60),
+            WorkoutStep(order: 1, kind: .work, title: "Run", distanceMeters: 3_000),
+            WorkoutStep(order: 2, kind: .cooldown, title: "Cool down", durationSeconds: 5 * 60)
+        ]
+
+        let next = try #require(build(week).next)
+        #expect(next.distanceMeters == 3_000)
+        #expect(next.durationSeconds == nil)
+    }
+
     @Test("The last day of the week has nothing next")
     func noNextSession() throws {
         let context = ModelContext(try container())
