@@ -130,7 +130,10 @@ enum TodayGlanceBuilder {
 
     private static func trainingSeconds(of reported: [PlannedWorkout]) -> TimeInterval {
         reported
-            .compactMap { $0.importedSummary?.duration ?? $0.estimatedDurationSeconds }
+            .compactMap {
+                $0.importedSummary?.duration
+                    ?? ($0.targetDistanceMeters == nil ? $0.estimatedDurationSeconds : nil)
+            }
             .reduce(0, +)
     }
 
