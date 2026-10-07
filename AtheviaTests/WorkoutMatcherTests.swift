@@ -372,6 +372,127 @@ struct CompletionRatioTests {
     }
 }
 
+
+    @Test("Distance-bound running completion is judged on distance")
+    func distanceBoundRunningUsesDistance() {
+        let run = PlannedWorkout(
+            date: .now,
+            discipline: .running,
+            title: "Distance Run",
+            targetDistanceMeters: 3_000,
+            steps: [
+                WorkoutStep(
+                    order: 0,
+                    kind: .warmUp,
+                    title: "Warm up",
+                    durationSeconds: 5 * 60,
+                    targetIntensity: .veryEasy
+                ),
+                WorkoutStep(
+                    order: 1,
+                    kind: .work,
+                    title: "Easy run",
+                    distanceMeters: 3_000,
+                    targetIntensity: .easy
+                ),
+                WorkoutStep(
+                    order: 2,
+                    kind: .cooldown,
+                    title: "Cool down",
+                    durationSeconds: 5 * 60,
+                    targetIntensity: .veryEasy
+                )
+            ]
+        )
+
+        #expect(
+            run.completionRatio(
+                for: activity(.running, duration: 1_800, distance: 1_500)
+            ) == 0.5
+        )
+        #expect(
+            run.completionRatio(
+                for: activity(.running, duration: 600, distance: 3_000)
+            ) == 1.0
+        )
+    }
+
+    @Test("Time-bound swimming completion is judged on duration")
+    func timeBoundSwimmingUsesDuration() {
+        let swim = PlannedWorkout(
+            date: .now,
+            discipline: .swimming,
+            title: "Timed Swim",
+            prescribedDurationSeconds: 30 * 60,
+            steps: [
+                WorkoutStep(
+                    order: 0,
+                    kind: .work,
+                    title: "Timed swim",
+                    durationSeconds: 30 * 60,
+                    targetIntensity: .easy
+                )
+            ]
+        )
+
+        #expect(
+            swim.completionRatio(
+                for: activity(.swimming, duration: 15 * 60, distance: 2_000)
+            ) == 0.5
+        )
+        #expect(
+            swim.completionRatio(
+                for: activity(.swimming, duration: 30 * 60, distance: 100)
+            ) == 1.0
+        )
+    }
+
+    @Test("Distance-bound run matching ignores partial warmup duration")
+    func distanceBoundRunMatchingUsesDistanceTarget() {
+        let planned = PlannedWorkout(
+            date: day(0),
+            discipline: .running,
+            title: "Distance Run",
+            targetDistanceMeters: 5_000,
+            steps: [
+                WorkoutStep(
+                    order: 0,
+                    kind: .warmUp,
+                    title: "Warm up",
+                    durationSeconds: 5 * 60
+                ),
+                WorkoutStep(
+                    order: 1,
+                    kind: .work,
+                    title: "Run",
+                    distanceMeters: 5_000
+                ),
+                WorkoutStep(
+                    order: 2,
+                    kind: .cooldown,
+                    title: "Cool down",
+                    durationSeconds: 5 * 60
+                )
+            ]
+        )
+
+        let imported = activity(
+            .running,
+            at: day(0),
+            duration: 35 * 60,
+            distance: 5_000
+        )
+
+        let result = matcher().match(
+            planned: [planned],
+            with: [imported],
+            asOf: day(1)
+        )
+
+        #expect(result.matches.count == 1)
+        #expect(result.matches.first?.planned.id == planned.id)
+    }
+
 @Suite("Health data provider contract")
 struct HealthDataProvidingTests {
 
