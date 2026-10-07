@@ -1,5 +1,17 @@
 import Foundation
 
+enum WorkoutPrescriptionBasis: String, Codable, CaseIterable, Equatable, Sendable {
+    case distance
+    case time
+
+    var displayName: String {
+        switch self {
+        case .distance: "Distance"
+        case .time: "Time"
+        }
+    }
+}
+
 /// Everything onboarding collects, stored as one value.
 ///
 /// A single `Codable` property on `AthleteProfile` rather than a column per
@@ -72,6 +84,9 @@ struct AthleteSetup: Codable, Equatable, Sendable {
     private var openWaterConsentData: Data?
     private var eventStateData: Data?
     private var trainingDayTargetData: Data?
+    /// Per-sport workout target preference. Missing legacy data defaults every
+    /// sport to distance, which is the product default.
+    private var prescriptionBasisData: Data?
 
     /// Structured source of truth used by the app. It is computed so SwiftData
     /// never attempts to materialize EventSport/EventDistance from a missing
@@ -145,6 +160,24 @@ struct AthleteSetup: Codable, Equatable, Sendable {
         }
     }
 
+    func prescriptionBasis(for sport: Sport) -> WorkoutPrescriptionBasis {
+        guard let prescriptionBasisData,
+              let stored = try? JSONDecoder().decode([String: WorkoutPrescriptionBasis].self, from: prescriptionBasisData)
+        else { return .distance }
+        return stored[sport.rawValue] ?? .distance
+    }
+
+    mutating func setPrescriptionBasis(
+        _ basis: WorkoutPrescriptionBasis,
+        for sport: Sport
+    ) {
+        var stored = (try? prescriptionBasisData.flatMap {
+            try JSONDecoder().decode([String: WorkoutPrescriptionBasis].self, from: $0)
+        }) ?? [:]
+        stored[sport.rawValue] = basis
+        prescriptionBasisData = try? JSONEncoder().encode(stored)
+    }
+
     var baseline: AthleteBaseline
     /// Anchors heart-rate zones. Optional because zones report Unavailable
     /// rather than guessing when the athlete would rather not say.
@@ -178,6 +211,7 @@ struct AthleteSetup: Codable, Equatable, Sendable {
         self.openWaterConsentData = try? JSONEncoder().encode(openWaterTrainingConsent)
         self.eventStateData = try? JSONEncoder().encode(eventState)
         self.trainingDayTargetData = try? JSONEncoder().encode(min(max(trainingDayTarget, 2), 5))
+        self.prescriptionBasisData = nil
         self.baseline = baseline
         self.birthDate = birthDate
         self.schedule = schedule
@@ -210,6 +244,7 @@ struct AthleteSetup: Codable, Equatable, Sendable {
         case openWaterConsentData
         case eventStateData
         case trainingDayTargetData
+        case prescriptionBasisData
         case goal
         case baseline
         case birthDate
@@ -246,6 +281,7 @@ struct AthleteSetup: Codable, Equatable, Sendable {
         openWaterConsentData = (try? container.decodeIfPresent(Data.self, forKey: .openWaterConsentData)) ?? nil
         eventStateData = (try? container.decodeIfPresent(Data.self, forKey: .eventStateData)) ?? nil
         trainingDayTargetData = (try? container.decodeIfPresent(Data.self, forKey: .trainingDayTargetData)) ?? nil
+        prescriptionBasisData = (try? container.decodeIfPresent(Data.self, forKey: .prescriptionBasisData)) ?? nil
         baseline = value(.baseline, defaults.baseline)
         birthDate = (try? container.decodeIfPresent(Date.self, forKey: .birthDate)) ?? nil
         schedule = value(.schedule, defaults.schedule)
@@ -264,6 +300,7 @@ struct AthleteSetup: Codable, Equatable, Sendable {
         try container.encodeIfPresent(openWaterConsentData, forKey: .openWaterConsentData)
         try container.encodeIfPresent(eventStateData, forKey: .eventStateData)
         try container.encodeIfPresent(trainingDayTargetData, forKey: .trainingDayTargetData)
+        try container.encodeIfPresent(prescriptionBasisData, forKey: .prescriptionBasisData)
         try container.encode(goal, forKey: .goal)
         try container.encode(baseline, forKey: .baseline)
         try container.encodeIfPresent(birthDate, forKey: .birthDate)
