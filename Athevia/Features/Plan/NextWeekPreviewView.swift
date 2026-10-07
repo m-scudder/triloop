@@ -15,10 +15,12 @@ struct NextWeekPreviewView: View {
     @State private var failure: String?
 
     private var preview: WeeklyPlan {
-        WeeklyPlanGenerator().generate(
-            after: previousWeek,
-            analysis: WeeklyAnalyser().analyse(previousWeek)
-        )
+        PlanStore(context: modelContext)
+            .configuredGenerator()
+            .generate(
+                after: previousWeek,
+                analysis: WeeklyAnalyser().analyse(previousWeek)
+            )
     }
 
     var body: some View {
