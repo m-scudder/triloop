@@ -795,6 +795,15 @@ struct TrainingProfileView: View {
         )
     }
 
+    private func prescriptionBasisBinding(_ sport: Sport) -> Binding<WorkoutPrescriptionBasis> {
+        Binding(
+            get: { setup.prescriptionBasis(for: sport) },
+            set: { basis in
+                update { $0.setPrescriptionBasis(basis, for: sport) }
+            }
+        )
+    }
+
     private func sessionsBinding(_ sport: Sport) -> Binding<Int> {
         Binding(
             get: { preferences.first { $0.sport == sport }?.sessionsPerWeek ?? 0 },
