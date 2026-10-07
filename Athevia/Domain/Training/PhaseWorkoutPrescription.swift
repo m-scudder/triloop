@@ -24,6 +24,12 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
                 parameters: parameters
             )
             workout.title = sport.displayName
+            WorkoutPrescriptionBasisAdapter.apply(
+                workout,
+                basis: prescriptionBasis,
+                sport: sport,
+                capability: capability
+            )
             return workout
         }
 
