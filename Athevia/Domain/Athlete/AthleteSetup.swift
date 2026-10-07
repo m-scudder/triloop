@@ -171,9 +171,14 @@ struct AthleteSetup: Codable, Equatable, Sendable {
         _ basis: WorkoutPrescriptionBasis,
         for sport: Sport
     ) {
-        var stored = (try? prescriptionBasisData.flatMap {
-            try JSONDecoder().decode([String: WorkoutPrescriptionBasis].self, from: $0)
-        }) ?? [:]
+        var stored: [String: WorkoutPrescriptionBasis] = [:]
+        if let prescriptionBasisData,
+           let decoded = try? JSONDecoder().decode(
+                [String: WorkoutPrescriptionBasis].self,
+                from: prescriptionBasisData
+           ) {
+            stored = decoded
+        }
         stored[sport.rawValue] = basis
         prescriptionBasisData = try? JSONEncoder().encode(stored)
     }
