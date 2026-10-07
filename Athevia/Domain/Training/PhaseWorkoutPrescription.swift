@@ -14,7 +14,8 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
         objective: TrainingObjective?,
         capability: AthleteCapabilityAssessment?,
         openWaterConsent: OpenWaterTrainingConsent = .unavailable,
-        sportOrdinal: Int = 0
+        sportOrdinal: Int = 0,
+        prescriptionBasis: WorkoutPrescriptionBasis = .distance
     ) -> PlannedWorkout {
         guard let journey else {
             let workout = PrescribedSessions.session(
@@ -67,6 +68,12 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
             phase: journey.phase,
             objective: objective,
             ordinal: sportOrdinal
+        )
+        WorkoutPrescriptionBasisAdapter.apply(
+            workout,
+            basis: prescriptionBasis,
+            sport: sport,
+            capability: capability
         )
         return workout
     }
@@ -744,5 +751,255 @@ extension MultisportTrainingPolicy {
         case .endurance:
             return phase == .specific ? .swimRaceDistance : .swimEndurance
         }
+    }
+}
+
+
+enum WorkoutPrescriptionBasisAdapter {
+    static func apply(
+        _ workout: PlannedWorkout,
+        basis: WorkoutPrescriptionBasis,
+        sport: Sport,
+        capability: AthleteCapabilityAssessment?
+    ) {
+        switch (sport, basis) {
+        case (.running, .distance):
+            convertWorkToDistance(
+                workout,
+                sport: .running,
+                metersPerSecond: runningMetersPerSecond(capability?.running),
+                incrementMeters: 250
+            )
+        case (.cycling, .distance):
+            convertWorkToDistance(
+                workout,
+                sport: .cycling,
+                metersPerSecond: cyclingMetersPerSecond(capability?.cycling),
+                incrementMeters: 500
+            )
+        case (.swimming, .time):
+            convertSwimToTime(workout, capability: capability?.swimming)
+        default:
+            break
+        }
+    }
+
+    static func applyMultisport(
+        _ workout: PlannedWorkout,
+        bases: [Sport: WorkoutPrescriptionBasis],
+        capability: AthleteCapabilityAssessment?
+    ) {
+        var totalDistance = 0.0
+
+        for step in workout.steps {
+            guard let sport = step.kind.segmentSport,
+                  bases[sport, default: .distance] == .distance,
+                  let seconds = step.durationSeconds,
+                  seconds > 0 else {
+                continue
+            }
+
+            let rate: Double
+            let increment: Double
+            switch sport {
+            case .running:
+                rate = runningMetersPerSecond(capability?.running)
+                increment = 250
+            case .cycling:
+                rate = cyclingMetersPerSecond(capability?.cycling)
+                increment = 500
+            case .swimming:
+                continue
+            }
+
+            let meters = roundedDistance(
+                seconds * rate,
+                increment: increment
+            )
+            step.durationSeconds = nil
+            step.distanceMeters = meters
+            totalDistance += meters
+        }
+
+        if totalDistance > 0 {
+            workout.prescribedDurationSeconds = nil
+            workout.targetDistanceMeters = totalDistance
+        }
+    }
+
+    private static func convertWorkToDistance(
+        _ workout: PlannedWorkout,
+        sport: Sport,
+        metersPerSecond: Double,
+        incrementMeters: Double
+    ) {
+        func convert(_ step: WorkoutStep) {
+            if step.kind == .work,
+               let seconds = step.durationSeconds,
+               seconds > 0 {
+                step.durationSeconds = nil
+                step.distanceMeters = roundedDistance(
+                    seconds * metersPerSecond,
+                    increment: incrementMeters
+                )
+            }
+            step.children.forEach(convert)
+        }
+
+        workout.steps.forEach(convert)
+
+        let distance = workout.steps
+            .compactMap(\.totalDistanceMeters)
+            .reduce(0, +)
+
+        if distance > 0 {
+            workout.prescribedDurationSeconds = nil
+            workout.targetDistanceMeters = distance
+        }
+
+        _ = sport
+    }
+
+    private static func convertSwimToTime(
+        _ workout: PlannedWorkout,
+        capability: SwimmingCapability?
+    ) {
+        // Beginner water-confidence and open-water prescriptions that are
+        // already time-based should stay exactly as prescribed.
+        guard workout.estimatedDistanceMeters != nil else { return }
+
+        let state = capability?.foundationState ?? .continuous
+        let referenceMeters: Double
+        let openingMinutes: Double
+
+        switch state {
+        case .waterComfort:
+            referenceMeters = 200
+            openingMinutes = 20
+        case .breathing:
+            referenceMeters = 300
+            openingMinutes = 20
+        case .shortContinuity:
+            referenceMeters = 400
+            openingMinutes = 25
+        case .continuous:
+            referenceMeters = 600
+            openingMinutes = 30
+        case .endurance:
+            referenceMeters = 800
+            openingMinutes = 35
+        }
+
+        let prescribedMeters = workout.estimatedDistanceMeters ?? referenceMeters
+        let ratio = min(max(prescribedMeters / referenceMeters, 0.5), 1.5)
+        let rawSeconds = openingMinutes * 60 * ratio
+        let targetSeconds = normalizedFiveMinutes(
+            rawSeconds,
+            minimum: 15 * 60
+        )
+
+        let warmup = min(5 * 60, targetSeconds / 3)
+        let cooldown = warmup
+        let work = max(targetSeconds - warmup - cooldown, 5 * 60)
+        let strokeTitle = capability?.preferredStroke == .mixed
+            ? "Relaxed mixed-stroke swimming"
+            : "Relaxed freestyle"
+        let intensity = firstWorkIntensity(in: workout) ?? .easy
+
+        workout.prescribedDurationSeconds = targetSeconds
+        workout.targetDistanceMeters = nil
+        workout.steps = [
+            WorkoutStep(
+                order: 0,
+                kind: .warmUp,
+                title: "Easy swim",
+                instructions: "Start relaxed and use the first few minutes to settle your breathing and technique.",
+                durationSeconds: warmup,
+                targetIntensity: .veryEasy
+            ),
+            WorkoutStep(
+                order: 1,
+                kind: .work,
+                title: strokeTitle,
+                instructions: "This is a time-based block. Keep the prescribed effort and take short rests if technique starts to fade; the clock, not distance, ends the block.",
+                durationSeconds: work,
+                targetIntensity: intensity
+            ),
+            WorkoutStep(
+                order: 2,
+                kind: .cooldown,
+                title: "Easy swim",
+                instructions: "Finish with relaxed swimming and let your breathing settle.",
+                durationSeconds: cooldown,
+                targetIntensity: .veryEasy
+            )
+        ]
+    }
+
+    private static func runningMetersPerSecond(
+        _ capability: RunningCapability?
+    ) -> Double {
+        if let capability,
+           let seconds = capability.reportedContinuousSeconds,
+           seconds > 0,
+           let meters = capability.reportedDistanceMeters,
+           meters > 0 {
+            return meters / seconds
+        }
+
+        if let meters = capability?.reportedDistanceMeters,
+           meters > 0 {
+            // Run/walk onboarding has a distance reference but no continuous
+            // time. Use the stated 15–20 minute ability conservatively.
+            return meters / (20 * 60)
+        }
+
+        // New runner: a conservative run/walk movement rate. This is a workload
+        // conversion only, never shown as a target pace.
+        return 1_500 / (20 * 60)
+    }
+
+    private static func cyclingMetersPerSecond(
+        _ capability: CyclingCapability?
+    ) -> Double {
+        guard let capability,
+              capability.reportedComfortableSeconds > 0,
+              capability.reportedDistanceMeters > 0 else {
+            return 5_000 / (30 * 60)
+        }
+        return capability.reportedDistanceMeters / capability.reportedComfortableSeconds
+    }
+
+    private static func roundedDistance(
+        _ meters: Double,
+        increment: Double
+    ) -> Double {
+        guard meters > 0, increment > 0 else { return 0 }
+        return max((meters / increment).rounded() * increment, increment)
+    }
+
+    private static func normalizedFiveMinutes(
+        _ seconds: TimeInterval,
+        minimum: TimeInterval
+    ) -> TimeInterval {
+        let increment: TimeInterval = 5 * 60
+        return max((seconds / increment).rounded() * increment, minimum)
+    }
+
+    private static func firstWorkIntensity(
+        in workout: PlannedWorkout
+    ) -> TargetIntensity? {
+        func find(_ step: WorkoutStep) -> TargetIntensity? {
+            if step.kind == .work { return step.targetIntensity }
+            for child in step.orderedChildren {
+                if let value = find(child) { return value }
+            }
+            return nil
+        }
+
+        for step in workout.orderedSteps {
+            if let value = find(step) { return value }
+        }
+        return nil
     }
 }
