@@ -105,7 +105,7 @@ struct StartingPointStepView: View {
 
                     SectionEyebrow(text: "Plan workouts by")
                     HStack(spacing: 8) {
-                        ForEach(WorkoutPrescriptionBasis.allCases, id: .self) { basis in
+                        ForEach(WorkoutPrescriptionBasis.allCases, id: \.self) { basis in
                             AtheviaChoiceChip(
                                 title: basis.displayName,
                                 isSelected: model.prescriptionBasis(for: sport) == basis,
