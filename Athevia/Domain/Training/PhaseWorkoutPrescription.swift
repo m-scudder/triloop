@@ -874,8 +874,14 @@ enum WorkoutPrescriptionBasisAdapter {
         // Supervised beginner water-confidence sessions intentionally stay
         // time-based even when Distance is selected. There is no safe distance
         // target until the athlete can actually swim a length.
+        let isOpenWater = workout.goal.localizedCaseInsensitiveContains("open-water")
+            || workout.orderedSteps.contains {
+                $0.title.localizedCaseInsensitiveContains("open-water")
+                    || $0.instructions?.localizedCaseInsensitiveContains("open-water") == true
+            }
+
         guard workout.targetDistanceMeters == nil,
-              workout.title.localizedCaseInsensitiveContains("open water"),
+              isOpenWater,
               let work = workout.orderedSteps.first(where: { $0.kind == .work }),
               let seconds = work.durationSeconds,
               seconds > 0 else {
