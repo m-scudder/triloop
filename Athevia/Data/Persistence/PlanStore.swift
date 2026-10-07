@@ -142,7 +142,7 @@ struct PlanStore {
     /// The generator carries no athlete state of its own, so the stored setup is
     /// applied here. Without this the next week is built against every-day
     /// availability rather than the days the athlete chose.
-    private func configuredGenerator() -> WeeklyPlanGenerator {
+    func configuredGenerator() -> WeeklyPlanGenerator {
         var configured = generator
         guard let setup = (try? context.fetch(FetchDescriptor<AthleteProfile>()))?.first?.setup else {
             return configured
