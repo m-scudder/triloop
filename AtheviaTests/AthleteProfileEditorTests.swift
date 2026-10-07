@@ -205,4 +205,14 @@ struct AthleteProfileEditorTests {
     }
 
 
+
+    @Test("Changing workout target basis rebuilds future training")
+    func prescriptionBasisImpactsTraining() {
+        let result = impact { current in
+            current.setPrescriptionBasis(.time, for: .running)
+        }
+
+        #expect(result.reasons == [.prescriptionBasis])
+    }
+
 }
