@@ -149,6 +149,11 @@ struct PlanStore {
         }
         configured.schedule = setup.schedule
         configured.preferences = setup.preferences
+        configured.prescriptionBases = Dictionary(
+            uniqueKeysWithValues: Sport.allCases.map {
+                ($0, setup.prescriptionBasis(for: $0))
+            }
+        )
         configured.targetTrainingDays = setup.trainingDayTarget
         let history = (try? context.fetch(
             FetchDescriptor<WeeklyPlan>(sortBy: [SortDescriptor(\.startDate)])
