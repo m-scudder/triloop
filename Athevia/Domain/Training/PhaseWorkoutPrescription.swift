@@ -977,35 +977,23 @@ enum WorkoutPrescriptionBasisAdapter {
     private static func runningMetersPerSecond(
         _ capability: RunningCapability?
     ) -> Double {
-        if let capability,
-           let seconds = capability.reportedContinuousSeconds,
-           seconds > 0,
-           let meters = capability.reportedDistanceMeters,
-           meters > 0 {
-            return meters / seconds
-        }
-
-        if let meters = capability?.reportedDistanceMeters,
-           meters > 0 {
-            // Run/walk onboarding has a distance reference but no continuous
-            // time. Use the stated 15–20 minute ability conservatively.
-            return meters / (20 * 60)
-        }
-
-        // New runner: a conservative run/walk movement rate. This is a workload
-        // conversion only, never shown as a target pace.
-        return 1_500 / (20 * 60)
+        _ = capability
+        // Distance mode must not turn the onboarding comparison-only distance
+        // estimates into pass/fail targets. Translate the internal easy-work
+        // duration at a deliberately conservative 100 m/min instead. Training
+        // history can progress the internal load; this conversion only changes
+        // how that same load is expressed to the athlete.
+        return 100.0 / 60.0
     }
 
     private static func cyclingMetersPerSecond(
         _ capability: CyclingCapability?
     ) -> Double {
-        guard let capability,
-              capability.reportedComfortableSeconds > 0,
-              capability.reportedDistanceMeters > 0 else {
-            return 5_000 / (30 * 60)
-        }
-        return capability.reportedDistanceMeters / capability.reportedComfortableSeconds
+        _ = capability
+        // Terrain and equipment make inferred cycling pace especially noisy.
+        // Use a conservative 15 km/h workload conversion rather than treating
+        // onboarding distance estimates as demonstrated speed.
+        return 250.0 / 60.0
     }
 
     private static func roundedDistance(
