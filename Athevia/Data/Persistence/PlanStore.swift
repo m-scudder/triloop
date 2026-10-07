@@ -282,8 +282,36 @@ struct PlanStore {
 
         guard !rebuildable.isEmpty else { return 0 }
 
+        let currentSetup = athleteSetup()
+        let history = (try? context.fetch(
+            FetchDescriptor<WeeklyPlan>(sortBy: [SortDescriptor(\.startDate)])
+        )) ?? []
+        let currentCapability = currentSetup.map {
+            AthleteCapabilityAssessmentBuilder(calendar: calendar)
+                .build(setup: $0, plans: history, startingParameters: parameters)
+        }
+        let bases = Dictionary(
+            uniqueKeysWithValues: Sport.allCases.map { sport in
+                (sport, currentSetup?.prescriptionBasis(for: sport) ?? .distance)
+            }
+        )
+
         for workout in rebuildable {
             let replacement = PrescribedSessions.session(workout.discipline, on: workout.date, parameters: parameters)
+            if let sport = workout.discipline.sport {
+                WorkoutPrescriptionBasisAdapter.apply(
+                    replacement,
+                    basis: bases[sport, default: .distance],
+                    sport: sport,
+                    capability: currentCapability
+                )
+            } else if workout.discipline == .multisport {
+                WorkoutPrescriptionBasisAdapter.applyMultisport(
+                    replacement,
+                    bases: bases,
+                    capability: currentCapability
+                )
+            }
             let oldSteps = workout.steps
             workout.title = replacement.title
             workout.goal = replacement.goal
