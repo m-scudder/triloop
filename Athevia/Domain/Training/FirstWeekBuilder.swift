@@ -78,6 +78,11 @@ struct FirstWeekBuilder: Sendable {
 
         var workouts: [PlannedWorkout] = []
         var sportOrdinals: [Sport: Int] = [:]
+        let prescriptionBases = Dictionary(
+            uniqueKeysWithValues: Sport.allCases.map {
+                ($0, setup.prescriptionBasis(for: $0))
+            }
+        )
         let multisport = MultisportTrainingPolicy()
         let brickEligible = multisport.canScheduleBrick(
             journey: journey,
@@ -138,23 +143,26 @@ struct FirstWeekBuilder: Sendable {
                brickEligible,
                brickAllowedByCurrentRecovery,
                !brickPlaced {
+                let brick: PlannedWorkout
                 if simulationEligible {
-                    workouts.append(
-                        MultisportPrescribedSessions.raceSimulation(
-                            on: date,
-                            parameters: parameters,
-                            prescription: multisport.raceSimulation(parameters: parameters)
-                        )
+                    brick = MultisportPrescribedSessions.raceSimulation(
+                        on: date,
+                        parameters: parameters,
+                        prescription: multisport.raceSimulation(parameters: parameters)
                     )
                 } else {
-                    workouts.append(
-                        MultisportPrescribedSessions.brick(
-                            on: date,
-                            parameters: parameters,
-                            prescription: multisport.brick(parameters: parameters)
-                        )
+                    brick = MultisportPrescribedSessions.brick(
+                        on: date,
+                        parameters: parameters,
+                        prescription: multisport.brick(parameters: parameters)
                     )
                 }
+                WorkoutPrescriptionBasisAdapter.applyMultisport(
+                    brick,
+                    bases: prescriptionBases,
+                    capability: capability
+                )
+                workouts.append(brick)
                 brickPlaced = true
             } else {
                 workouts.append(
@@ -166,7 +174,8 @@ struct FirstWeekBuilder: Sendable {
                         objective: setup.objective,
                         capability: capability,
                         openWaterConsent: setup.openWaterTrainingConsent,
-                        sportOrdinal: ordinal
+                        sportOrdinal: ordinal,
+                        prescriptionBasis: setup.prescriptionBasis(for: sport)
                     )
                 )
             }
