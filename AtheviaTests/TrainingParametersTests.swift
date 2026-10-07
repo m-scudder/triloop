@@ -468,7 +468,8 @@ struct OnboardingPrescriptionMatrixTests {
                 baseline: AthleteBaseline(running: .continuous10Minutes),
                 objective: TrainingObjective(kind: .improveEndurance),
                 targetDays: 2,
-                minutes: minutes
+                minutes: minutes,
+                prescriptionBasis: .time
             )
             for run in plan.trainingSessions where run.discipline == .running {
                 let work = try #require(run.orderedSteps.first { $0.kind == .work })
@@ -491,7 +492,8 @@ struct OnboardingPrescriptionMatrixTests {
             baseline: AthleteBaseline(running: .regular5K),
             objective: objective,
             targetDays: 3,
-            minutes: 60
+            minutes: 60,
+            prescriptionBasis: .time
         )
 
         let run = try #require(plan.trainingSessions.first { $0.discipline == .running })
@@ -712,6 +714,125 @@ struct OnboardingPrescriptionMatrixTests {
                 }
             }
         }
+    }
+
+
+    @Test("Distance is the default workout target and time can be selected per sport")
+    func workoutTargetDefaultsAndOverrides() throws {
+        let legacy = AthleteSetup()
+        #expect(legacy.prescriptionBasis(for: .running) == .distance)
+        #expect(legacy.prescriptionBasis(for: .cycling) == .distance)
+        #expect(legacy.prescriptionBasis(for: .swimming) == .distance)
+
+        var configured = legacy
+        configured.setPrescriptionBasis(.time, for: .running)
+        #expect(configured.prescriptionBasis(for: .running) == .time)
+        #expect(configured.prescriptionBasis(for: .cycling) == .distance)
+
+        let encoded = try JSONEncoder().encode(configured)
+        let decoded = try JSONDecoder().decode(AthleteSetup.self, from: encoded)
+        #expect(decoded.prescriptionBasis(for: .running) == .time)
+        #expect(decoded.prescriptionBasis(for: .cycling) == .distance)
+    }
+
+    @Test("Running distance and time modes change the actual WorkoutKit goal data")
+    func runningTargetBasisChangesPrescription() throws {
+        let baseline = AthleteBaseline(running: .continuous20To30Minutes)
+        let distancePlan = try build(
+            sport: .running,
+            baseline: baseline,
+            objective: TrainingObjective(kind: .improveEndurance),
+            targetDays: 2,
+            minutes: 45,
+            prescriptionBasis: .distance
+        )
+        let timePlan = try build(
+            sport: .running,
+            baseline: baseline,
+            objective: TrainingObjective(kind: .improveEndurance),
+            targetDays: 2,
+            minutes: 45,
+            prescriptionBasis: .time
+        )
+
+        let distanceWork = try #require(
+            distancePlan.trainingSessions.first?.orderedSteps.first { $0.kind == .work }
+        )
+        let timeWork = try #require(
+            timePlan.trainingSessions.first?.orderedSteps.first { $0.kind == .work }
+        )
+
+        #expect(distanceWork.distanceMeters != nil)
+        #expect(distanceWork.durationSeconds == nil)
+        #expect(timeWork.durationSeconds != nil)
+        #expect(timeWork.distanceMeters == nil)
+    }
+
+    @Test("Cycling distance and time modes change the actual WorkoutKit goal data")
+    func cyclingTargetBasisChangesPrescription() throws {
+        let baseline = AthleteBaseline(cycling: .thirtyToFortyFive)
+        let distancePlan = try build(
+            sport: .cycling,
+            baseline: baseline,
+            objective: TrainingObjective(kind: .improveEndurance),
+            targetDays: 2,
+            minutes: 60,
+            prescriptionBasis: .distance
+        )
+        let timePlan = try build(
+            sport: .cycling,
+            baseline: baseline,
+            objective: TrainingObjective(kind: .improveEndurance),
+            targetDays: 2,
+            minutes: 60,
+            prescriptionBasis: .time
+        )
+
+        let distanceWork = try #require(
+            distancePlan.trainingSessions.first?.orderedSteps.first { $0.kind == .work }
+        )
+        let timeWork = try #require(
+            timePlan.trainingSessions.first?.orderedSteps.first { $0.kind == .work }
+        )
+
+        #expect(distanceWork.distanceMeters != nil)
+        #expect(distanceWork.durationSeconds == nil)
+        #expect(timeWork.durationSeconds != nil)
+        #expect(timeWork.distanceMeters == nil)
+    }
+
+    @Test("Swimming distance and time modes change the actual WorkoutKit goal data")
+    func swimmingTargetBasisChangesPrescription() throws {
+        let baseline = AthleteBaseline(swimming: .continuous100)
+        let distancePlan = try build(
+            sport: .swimming,
+            baseline: baseline,
+            objective: TrainingObjective(kind: .improveEndurance),
+            targetDays: 2,
+            minutes: 45,
+            prescriptionBasis: .distance
+        )
+        let timePlan = try build(
+            sport: .swimming,
+            baseline: baseline,
+            objective: TrainingObjective(kind: .improveEndurance),
+            targetDays: 2,
+            minutes: 45,
+            prescriptionBasis: .time
+        )
+
+        let distanceWorkout = try #require(distancePlan.trainingSessions.first)
+        let timeWorkout = try #require(timePlan.trainingSessions.first)
+
+        #expect((distanceWorkout.targetDistanceMeters ?? 0) > 0)
+        #expect(distanceWorkout.orderedSteps.contains {
+            $0.totalDistanceMeters != nil
+        })
+        #expect(timeWorkout.targetDistanceMeters == nil)
+        #expect(timeWorkout.prescribedDurationSeconds != nil)
+        #expect(timeWorkout.orderedSteps.allSatisfy {
+            $0.durationSeconds != nil && $0.distanceMeters == nil
+        })
     }
 
 }
