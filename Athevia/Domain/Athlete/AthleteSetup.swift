@@ -1,6 +1,6 @@
 import Foundation
 
-enum WorkoutPrescriptionBasis: String, Codable, CaseIterable, Equatable, Sendable {
+enum WorkoutPrescriptionBasis: String, Codable, CaseIterable, Equatable, Hashable, Sendable {
     case distance
     case time
 
