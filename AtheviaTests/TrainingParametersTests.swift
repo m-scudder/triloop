@@ -139,9 +139,10 @@ struct OnboardingPrescriptionMatrixTests {
         baseline: AthleteBaseline,
         objective: TrainingObjective,
         targetDays: Int,
-        minutes: Int
+        minutes: Int,
+        prescriptionBasis: WorkoutPrescriptionBasis = .distance
     ) -> AthleteSetup {
-        AthleteSetup(
+        var value = AthleteSetup(
             objective: objective,
             trainingDayTarget: targetDays,
             baseline: baseline,
@@ -150,6 +151,8 @@ struct OnboardingPrescriptionMatrixTests {
             stage: .complete,
             completedAt: startDate
         )
+        value.setPrescriptionBasis(prescriptionBasis, for: sport)
+        return value
     }
 
     private func build(
@@ -158,7 +161,8 @@ struct OnboardingPrescriptionMatrixTests {
         objective: TrainingObjective,
         targetDays: Int,
         minutes: Int,
-        poolLengthMeters: Double = 25
+        poolLengthMeters: Double = 25,
+        prescriptionBasis: WorkoutPrescriptionBasis = .distance
     ) throws -> WeeklyPlan {
         try FirstWeekBuilder(calendar: calendar).build(
             setup: setup(
@@ -166,7 +170,8 @@ struct OnboardingPrescriptionMatrixTests {
                 baseline: baseline,
                 objective: objective,
                 targetDays: targetDays,
-                minutes: minutes
+                minutes: minutes,
+                prescriptionBasis: prescriptionBasis
             ),
             poolLengthMeters: poolLengthMeters,
             startDate: startDate
