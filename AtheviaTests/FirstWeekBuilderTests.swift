@@ -790,4 +790,129 @@ struct FirstWeekBuilderTests {
         #expect(plan.trainingSessions.count == 2)
     }
 
+
+    @Test("Distance is the default workout target for every sport")
+    func distanceIsDefaultPrescriptionBasis() throws {
+        let plan = try builder.build(
+            setup: setup(
+                running: .continuous20To30Minutes,
+                swimming: .continuous100,
+                cycling: .thirtyToFortyFive,
+                schedule: .everyDay(maxDurationMinutes: 60),
+                trainingDayTarget: 3,
+                preferences: [
+                    SportPreference(sport: .running, sessionsPerWeek: 1),
+                    SportPreference(sport: .swimming, sessionsPerWeek: 1),
+                    SportPreference(sport: .cycling, sessionsPerWeek: 1)
+                ]
+            ),
+            poolLengthMeters: 25,
+            startDate: monday()
+        )
+
+        let run = try #require(plan.trainingSessions.first { $0.discipline == .running })
+        let swim = try #require(plan.trainingSessions.first { $0.discipline == .swimming })
+        let ride = try #require(plan.trainingSessions.first { $0.discipline == .cycling })
+
+        #expect(run.targetDistanceMeters != nil)
+        #expect(run.orderedSteps.contains {
+            $0.kind == .work && $0.distanceMeters != nil && $0.durationSeconds == nil
+        })
+
+        #expect(swim.targetDistanceMeters != nil)
+        #expect(swim.estimatedDistanceMeters != nil)
+
+        #expect(ride.targetDistanceMeters != nil)
+        #expect(ride.orderedSteps.contains {
+            $0.kind == .work && $0.distanceMeters != nil && $0.durationSeconds == nil
+        })
+    }
+
+    @Test("Each sport can independently switch to time based workouts")
+    func eachSportCanUseTimePrescription() throws {
+        var athlete = setup(
+            running: .continuous20To30Minutes,
+            swimming: .continuous100,
+            cycling: .thirtyToFortyFive,
+            schedule: .everyDay(maxDurationMinutes: 60),
+            trainingDayTarget: 3,
+            preferences: [
+                SportPreference(sport: .running, sessionsPerWeek: 1),
+                SportPreference(sport: .swimming, sessionsPerWeek: 1),
+                SportPreference(sport: .cycling, sessionsPerWeek: 1)
+            ]
+        )
+        athlete.setPrescriptionBasis(.time, for: .running)
+        athlete.setPrescriptionBasis(.time, for: .swimming)
+        athlete.setPrescriptionBasis(.time, for: .cycling)
+
+        let plan = try builder.build(
+            setup: athlete,
+            poolLengthMeters: 25,
+            startDate: monday()
+        )
+
+        let run = try #require(plan.trainingSessions.first { $0.discipline == .running })
+        let swim = try #require(plan.trainingSessions.first { $0.discipline == .swimming })
+        let ride = try #require(plan.trainingSessions.first { $0.discipline == .cycling })
+
+        #expect(run.targetDistanceMeters == nil)
+        #expect(run.orderedSteps.contains {
+            $0.kind == .work && $0.durationSeconds != nil && $0.distanceMeters == nil
+        })
+
+        #expect(swim.targetDistanceMeters == nil)
+        #expect(swim.estimatedDurationSeconds != nil)
+        #expect(swim.orderedSteps.contains {
+            $0.kind == .work && $0.durationSeconds != nil && $0.distanceMeters == nil
+        })
+
+        #expect(ride.targetDistanceMeters == nil)
+        #expect(ride.orderedSteps.contains {
+            $0.kind == .work && $0.durationSeconds != nil && $0.distanceMeters == nil
+        })
+    }
+
+    @Test("Workout target is per sport rather than one global switch")
+    func mixedPrescriptionBasesRemainIndependent() throws {
+        var athlete = setup(
+            running: .continuous20To30Minutes,
+            swimming: .continuous100,
+            cycling: .thirtyToFortyFive,
+            schedule: .everyDay(maxDurationMinutes: 60),
+            trainingDayTarget: 3,
+            preferences: [
+                SportPreference(sport: .running, sessionsPerWeek: 1),
+                SportPreference(sport: .swimming, sessionsPerWeek: 1),
+                SportPreference(sport: .cycling, sessionsPerWeek: 1)
+            ]
+        )
+        athlete.setPrescriptionBasis(.distance, for: .running)
+        athlete.setPrescriptionBasis(.time, for: .swimming)
+        athlete.setPrescriptionBasis(.distance, for: .cycling)
+
+        let plan = try builder.build(
+            setup: athlete,
+            poolLengthMeters: 25,
+            startDate: monday()
+        )
+
+        let run = try #require(plan.trainingSessions.first { $0.discipline == .running })
+        let swim = try #require(plan.trainingSessions.first { $0.discipline == .swimming })
+        let ride = try #require(plan.trainingSessions.first { $0.discipline == .cycling })
+
+        #expect(run.targetDistanceMeters != nil)
+        #expect(swim.targetDistanceMeters == nil)
+        #expect(swim.estimatedDurationSeconds != nil)
+        #expect(ride.targetDistanceMeters != nil)
+    }
+
+    @Test("Legacy setup without a saved workout target defaults to distance")
+    func legacyPrescriptionBasisDefaultsToDistance() {
+        let athlete = AthleteSetup()
+        for sport in Sport.allCases {
+            #expect(athlete.prescriptionBasis(for: sport) == .distance)
+        }
+    }
+
 }
