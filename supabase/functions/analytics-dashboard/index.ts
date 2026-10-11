@@ -1,0 +1,482 @@
+import { createClient } from "npm:@supabase/supabase-js@2.95.0";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Content-Type": "application/json",
+};
+
+function json(status: number, body: unknown) {
+  return new Response(JSON.stringify(body), { status, headers: corsHeaders });
+}
+
+function rangeStart(range: string) {
+  const ms: Record<string, number> = {
+    "24h": 24 * 60 * 60 * 1000,
+    "7d": 7 * 24 * 60 * 60 * 1000,
+    "30d": 30 * 24 * 60 * 60 * 1000,
+    "90d": 90 * 24 * 60 * 60 * 1000,
+  };
+  return new Date(Date.now() - (ms[range] ?? ms["7d"]));
+}
+
+function isUUID(value: unknown): value is string {
+  return typeof value === "string"
+    && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function isTrainingWorkout(workout: any) {
+  return ["running", "cycling", "swimming", "multisport"].includes(String(workout?.discipline));
+}
+
+function dateInRange(value: unknown, start: Date, end = new Date()) {
+  if (typeof value !== "string") return false;
+  const date = new Date(value);
+  return !Number.isNaN(date.getTime()) && date >= start && date <= end;
+}
+
+function latestSnapshots(rows: any[]) {
+  const map = new Map<string, any>();
+  for (const row of rows ?? []) {
+    if (!map.has(row.user_id)) map.set(row.user_id, row);
+  }
+  return map;
+}
+
+function unique<T>(values: T[]) {
+  return [...new Set(values)];
+}
+
+function compactContext(properties: Record<string, unknown> | null | undefined) {
+  if (!properties) return "";
+  return Object.entries(properties)
+    .filter(([, value]) => typeof value === "string" && value.length)
+    .slice(0, 4)
+    .map(([key, value]) => `${key}: ${value}`)
+    .join(" · ");
+}
+
+function eventOutcome(name: string) {
+  if (name.endsWith("_failed")) return "fail";
+  if (name.endsWith("_succeeded") || ["workout_completed", "onboarding_completed", "workout_matched"].includes(name)) return "success";
+  return "info";
+}
+
+function sanitizeStep(step: any): any {
+  return {
+    order: step?.order ?? 0,
+    kind: step?.kind ?? null,
+    title: step?.title ?? "",
+    instructions: step?.instructions ?? null,
+    durationSeconds: step?.durationSeconds ?? null,
+    distanceMeters: step?.distanceMeters ?? null,
+    targetIntensity: step?.targetIntensity ?? null,
+    repeatCount: step?.repeatCount ?? null,
+    children: Array.isArray(step?.children) ? step.children.map(sanitizeStep) : [],
+  };
+}
+
+function sanitizeWorkout(workout: any) {
+  const imported = workout?.importedSummary;
+  return {
+    id: workout?.id,
+    date: workout?.date,
+    discipline: workout?.discipline,
+    title: workout?.title,
+    goal: workout?.goal,
+    targetRPE: workout?.targetRPE ?? null,
+    prescribedDurationSeconds: workout?.prescribedDurationSeconds ?? null,
+    targetDistanceMeters: workout?.targetDistanceMeters ?? null,
+    status: workout?.status,
+    completedAt: workout?.completedAt ?? null,
+    origin: workout?.origin,
+    steps: Array.isArray(workout?.steps) ? workout.steps.map(sanitizeStep) : [],
+    hasFeedback: Boolean(workout?.feedback),
+    recorded: imported ? {
+      sport: imported.sport ?? null,
+      startDate: imported.startDate ?? null,
+      endDate: imported.endDate ?? null,
+      durationSeconds: imported.duration ?? null,
+      distanceMeters: imported.distanceMeters ?? null,
+      source: imported.source ?? null,
+    } : null,
+  };
+}
+
+function sanitizePlan(plan: any) {
+  const workouts = Array.isArray(plan?.workouts) ? plan.workouts.map(sanitizeWorkout) : [];
+  const training = workouts.filter(isTrainingWorkout);
+  const completed = training.filter((w: any) => w.status === "completed").length;
+  const skipped = training.filter((w: any) => w.status === "skipped").length;
+  return {
+    id: plan?.id,
+    weekNumber: plan?.weekNumber,
+    startDate: plan?.startDate,
+    endDate: plan?.endDate,
+    status: plan?.status,
+    generatedAt: plan?.generatedAt,
+    generationReason: plan?.generationReason,
+    generationReasonCode: plan?.generationReasonCode ?? null,
+    completion: {
+      planned: training.length,
+      completed,
+      skipped,
+      percentage: training.length ? Math.round((completed / training.length) * 100) : 0,
+    },
+    workouts,
+  };
+}
+
+Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method !== "POST") return json(405, { error: "method_not_allowed" });
+
+  const authHeader = req.headers.get("Authorization");
+  const token = authHeader?.replace(/^Bearer\s+/i, "");
+  if (!token) return json(401, { error: "unauthorized" });
+
+  const url = Deno.env.get("SUPABASE_URL") ?? "";
+  const publishable = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+  const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  if (!url || !publishable || !serviceRole) return json(500, { error: "server_not_configured" });
+
+  const authClient = createClient(url, publishable, {
+    global: { headers: { Authorization: authHeader! } },
+    auth: { persistSession: false },
+  });
+  const { data: authData, error: authError } = await authClient.auth.getUser(token);
+  const caller = authData.user;
+  if (authError || !caller) return json(401, { error: "unauthorized" });
+
+  const admin = createClient(url, serviceRole, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  const { data: adminRow, error: adminError } = await admin
+    .from("analytics_admins")
+    .select("user_id")
+    .eq("user_id", caller.id)
+    .maybeSingle();
+
+  if (adminError) return json(500, { error: "admin_check_failed" });
+  if (!adminRow) return json(403, { error: "analytics_admin_required" });
+
+  let body: any = {};
+  try {
+    body = await req.json();
+  } catch {
+    return json(400, { error: "invalid_json" });
+  }
+
+  const action = body?.action === "user_detail" ? "user_detail" : "overview";
+  const environment = ["development", "testflight", "production"].includes(body?.environment)
+    ? body.environment : "production";
+  const range = ["24h", "7d", "30d", "90d"].includes(body?.range) ? body.range : "7d";
+  const start = rangeStart(range);
+  const now = new Date();
+
+  if (action === "user_detail") {
+    if (!isUUID(body?.user_id)) return json(400, { error: "invalid_user_id" });
+
+    const [{ data: revisions, error: revisionsError }, { data: profile, error: profileError }, authResult] = await Promise.all([
+      admin
+        .from("backup_revisions")
+        .select("created_at,snapshot")
+        .eq("user_id", body.user_id)
+        .order("created_at", { ascending: false })
+        .limit(10),
+      admin
+        .from("account_profiles")
+        .select("display_name,updated_at")
+        .eq("user_id", body.user_id)
+        .maybeSingle(),
+      admin.auth.admin.getUserById(body.user_id),
+    ]);
+
+    if (revisionsError || profileError || authResult.error) {
+      return json(500, { error: "user_detail_failed" });
+    }
+
+    const latest = revisions?.[0];
+    if (!latest) return json(404, { error: "backup_not_found" });
+
+    const snapshot: any = latest.snapshot ?? {};
+    const plans = Array.isArray(snapshot.plans)
+      ? snapshot.plans.map(sanitizePlan).sort((a: any, b: any) => (a.startDate ?? "").localeCompare(b.startDate ?? ""))
+      : [];
+
+    const athlete = snapshot.profile ?? {};
+    return json(200, {
+      user: {
+        id: body.user_id,
+        name: profile?.display_name ?? athlete.name ?? "Athlete",
+        email: authResult.data.user?.email ?? null,
+        lastBackupAt: latest.created_at,
+        revisionCount: revisions?.length ?? 0,
+      },
+      profile: {
+        experienceLevel: athlete.experienceLevel ?? null,
+        trainingStartDate: athlete.trainingStartDate ?? null,
+        poolLengthMeters: athlete.poolLengthMeters ?? null,
+        usesMetricUnits: athlete.usesMetricUnits ?? true,
+      },
+      plans,
+    });
+  }
+
+  const [
+    revisionsResult,
+    profilesResult,
+    eventsResult,
+    authUsersResult,
+  ] = await Promise.all([
+    admin
+      .from("backup_revisions")
+      .select("user_id,created_at,snapshot")
+      .order("created_at", { ascending: false })
+      .limit(1000),
+    admin
+      .from("account_profiles")
+      .select("user_id,display_name,updated_at"),
+    admin
+      .from("analytics_events")
+      .select("id,user_id,session_id,occurred_at,name,properties,app_version,app_build,environment")
+      .eq("environment", environment)
+      .gte("occurred_at", start.toISOString())
+      .order("occurred_at", { ascending: false })
+      .limit(5000),
+    admin.auth.admin.listUsers({ page: 1, perPage: 1000 }),
+  ]);
+
+  if (revisionsResult.error || profilesResult.error || eventsResult.error || authUsersResult.error) {
+    console.error("analytics-dashboard overview failed");
+    return json(500, { error: "overview_failed" });
+  }
+
+  const revisions = revisionsResult.data ?? [];
+  const latest = latestSnapshots(revisions);
+  const profiles = new Map((profilesResult.data ?? []).map((row: any) => [row.user_id, row]));
+  const authUsers = authUsersResult.data.users ?? [];
+  const authById = new Map(authUsers.map((user: any) => [user.id, user]));
+  const events = eventsResult.data ?? [];
+
+  const allUserIds = unique([
+    ...authUsers.map((user: any) => user.id),
+    ...[...latest.keys()],
+  ]);
+
+  const eventsByUser = new Map<string, any[]>();
+  for (const event of events) {
+    const list = eventsByUser.get(event.user_id) ?? [];
+    list.push(event);
+    eventsByUser.set(event.user_id, list);
+  }
+
+  const allCurrentWorkouts: Array<any & { user_id: string }> = [];
+  for (const [userId, revision] of latest.entries()) {
+    const plans = Array.isArray(revision.snapshot?.plans) ? revision.snapshot.plans : [];
+    for (const plan of plans) {
+      for (const workout of Array.isArray(plan?.workouts) ? plan.workouts : []) {
+        if (isTrainingWorkout(workout)) allCurrentWorkouts.push({ ...workout, user_id: userId });
+      }
+    }
+  }
+
+  const dueWorkouts = allCurrentWorkouts.filter((workout) => dateInRange(workout.date, start, now));
+  const completedInRange = allCurrentWorkouts.filter((workout) =>
+    workout.status === "completed" && dateInRange(workout.completedAt ?? workout.date, start, now)
+  );
+
+  const activeUsers = unique([
+    ...events.map((event: any) => event.user_id),
+    ...revisions.filter((row: any) => new Date(row.created_at) >= start).map((row: any) => row.user_id),
+  ]).length;
+
+  const sessions = unique(events.map((event: any) => event.session_id)).length;
+  const completionRate = dueWorkouts.length
+    ? Math.round((dueWorkouts.filter((w) => w.status === "completed").length / dueWorkouts.length) * 100)
+    : 0;
+
+  const dayCount = range === "24h" ? 1 : range === "7d" ? 7 : range === "30d" ? 30 : 90;
+  const activitySeries = [];
+  for (let offset = Math.min(dayCount, 30) - 1; offset >= 0; offset--) {
+    const dayStart = new Date(now);
+    dayStart.setUTCHours(0, 0, 0, 0);
+    dayStart.setUTCDate(dayStart.getUTCDate() - offset);
+    const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+    const ids = unique([
+      ...events.filter((e: any) => {
+        const d = new Date(e.occurred_at);
+        return d >= dayStart && d < dayEnd;
+      }).map((e: any) => e.user_id),
+      ...revisions.filter((r: any) => {
+        const d = new Date(r.created_at);
+        return d >= dayStart && d < dayEnd;
+      }).map((r: any) => r.user_id),
+    ]);
+    activitySeries.push(ids.length);
+  }
+
+  const users = allUserIds.map((userId) => {
+    const revision = latest.get(userId);
+    const snapshot = revision?.snapshot ?? {};
+    const userEvents = eventsByUser.get(userId) ?? [];
+    const currentWorkouts: any[] = [];
+    for (const plan of Array.isArray(snapshot.plans) ? snapshot.plans : []) {
+      for (const workout of Array.isArray(plan?.workouts) ? plan.workouts : []) {
+        if (isTrainingWorkout(workout)) currentWorkouts.push(workout);
+      }
+    }
+    const completed = currentWorkouts.filter((w) =>
+      w.status === "completed" && dateInRange(w.completedAt ?? w.date, start, now)
+    ).length;
+    const lastEvent = userEvents[0]?.occurred_at;
+    const lastBackup = revision?.created_at;
+    const lastSeen = [lastEvent, lastBackup].filter(Boolean).sort().reverse()[0] ?? null;
+    const profile = profiles.get(userId);
+    const authUser: any = authById.get(userId);
+    return {
+      id: userId,
+      user: profile?.display_name ?? snapshot.profile?.name ?? "Athlete",
+      email: authUser?.email ?? null,
+      lastSeen,
+      sessions: unique(userEvents.map((e: any) => e.session_id)).length,
+      workouts: completed,
+      planWeeks: Array.isArray(snapshot.plans) ? snapshot.plans.length : 0,
+      completionRate: currentWorkouts.length
+        ? Math.round((currentWorkouts.filter((w) => w.status === "completed").length / currentWorkouts.length) * 100)
+        : 0,
+      status: lastSeen && (now.getTime() - new Date(lastSeen).getTime()) < 7 * 24 * 60 * 60 * 1000 ? "Active" : "At risk",
+    };
+  }).sort((a, b) => String(b.lastSeen ?? "").localeCompare(String(a.lastSeen ?? "")));
+
+  const sportCounts = new Map<string, number>();
+  for (const workout of completedInRange) {
+    const label = workout.discipline === "running" ? "Running"
+      : workout.discipline === "cycling" ? "Cycling"
+      : workout.discipline === "swimming" ? "Swimming" : "Multisport";
+    sportCounts.set(label, (sportCounts.get(label) ?? 0) + 1);
+  }
+  const totalSports = [...sportCounts.values()].reduce((a, b) => a + b, 0);
+  const sportColors: Record<string, string> = {
+    Running: "#4195ef",
+    Cycling: "#54d76a",
+    Swimming: "#a78bfa",
+    Multisport: "#f2763d",
+  };
+  const sports = [...sportCounts.entries()].map(([label, count]) => ({
+    label,
+    value: totalSports ? Math.round((count / totalSports) * 100) : 0,
+    color: sportColors[label] ?? "#8e8e93",
+  }));
+
+  const usersWithProfile = users.filter((u) => latest.get(u.id)?.snapshot?.profile).length;
+  const usersWithPlan = users.filter((u) => (latest.get(u.id)?.snapshot?.plans?.length ?? 0) > 0).length;
+  const usersWithCompletion = users.filter((u) => {
+    const plans = latest.get(u.id)?.snapshot?.plans ?? [];
+    return plans.some((p: any) => (p.workouts ?? []).some((w: any) => isTrainingWorkout(w) && w.status === "completed"));
+  }).length;
+  const usersWithCompletedWeek = users.filter((u) => {
+    const plans = latest.get(u.id)?.snapshot?.plans ?? [];
+    return plans.some((p: any) => p.status === "completed");
+  }).length;
+  const base = Math.max(users.length, 1);
+  const onboarding = [
+    ["Account", Math.round((users.length / base) * 100)],
+    ["Profile", Math.round((usersWithProfile / base) * 100)],
+    ["Plan generated", Math.round((usersWithPlan / base) * 100)],
+    ["First workout", Math.round((usersWithCompletion / base) * 100)],
+    ["Week completed", Math.round((usersWithCompletedWeek / base) * 100)],
+  ];
+
+  const uniqueUsersFor = (names: string[]) =>
+    unique(events.filter((e: any) => names.includes(e.name)).map((e: any) => e.user_id)).length;
+
+  const journey = [
+    { stage: "Plan generated", users: usersWithPlan, conversion: Math.round((usersWithPlan / base) * 100) },
+    { stage: "Workout viewed", users: uniqueUsersFor(["workout_viewed", "$screen"]), conversion: Math.round((uniqueUsersFor(["workout_viewed", "$screen"]) / base) * 100) },
+    { stage: "Workout started", users: uniqueUsersFor(["workout_started", "start_workout_succeeded"]), conversion: Math.round((uniqueUsersFor(["workout_started", "start_workout_succeeded"]) / base) * 100) },
+    { stage: "Workout completed", users: usersWithCompletion, conversion: Math.round((usersWithCompletion / base) * 100) },
+    { stage: "Feedback submitted", users: users.filter((u) => {
+      const plans = latest.get(u.id)?.snapshot?.plans ?? [];
+      return plans.some((p: any) => (p.workouts ?? []).some((w: any) => Boolean(w.feedback)));
+    }).length, conversion: 0 },
+    { stage: "Next week generated", users: users.filter((u) => (latest.get(u.id)?.snapshot?.plans?.length ?? 0) > 1).length, conversion: 0 },
+  ];
+  journey.forEach((item) => item.conversion = Math.round((item.users / base) * 100));
+
+  const planReasons = new Map<string, number>();
+  for (const event of events.filter((e: any) => e.name === "plan_regenerated")) {
+    const reason = String(event.properties?.reason ?? "profile_changed");
+    planReasons.set(reason, (planReasons.get(reason) ?? 0) + 1);
+  }
+  const planChanges = [...planReasons.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([reason, count]) => ({ reason, count, before: "Previous prescription", after: "Updated prescription" }));
+
+  const watchNames = [
+    ["Requested", "send_to_watch_requested"],
+    ["Scheduled", "send_to_watch_succeeded"],
+    ["Started", "start_workout_succeeded"],
+    ["Completed", "workout_completed"],
+    ["Synced", "healthkit_import_completed"],
+    ["Matched", "workout_matched"],
+  ];
+  const watchBase = Math.max(uniqueUsersFor([watchNames[0][1]]), 1);
+  const watch = watchNames.map(([stage, name]) => ({
+    stage,
+    value: Math.round((uniqueUsersFor([name]) / watchBase) * 100),
+  }));
+
+  const importNames = [
+    ["Import started", "healthkit_import_started"],
+    ["Workouts found", "import_workouts_succeeded"],
+    ["Imported", "healthkit_import_completed"],
+    ["Matched to plan", "workout_matched"],
+  ];
+  const importBase = Math.max(uniqueUsersFor([importNames[0][1]]), 1);
+  const imports = importNames.map(([stage, name]) => ({
+    stage,
+    value: Math.round((uniqueUsersFor([name]) / importBase) * 100),
+  }));
+
+  const eventRows = events.slice(0, 200).map((event: any) => ({
+    time: event.occurred_at,
+    event: event.name,
+    user: profiles.get(event.user_id)?.display_name ?? authById.get(event.user_id)?.email ?? "Athlete",
+    email: authById.get(event.user_id)?.email ?? null,
+    context: compactContext(event.properties),
+    outcome: eventOutcome(event.name),
+  }));
+
+  const recentActivity = eventRows.slice(0, 10).map((event: any) => ({
+    icon: event.outcome === "success" ? "✓" : event.outcome === "fail" ? "!" : "·",
+    title: event.event.replaceAll("_", " "),
+    detail: [event.user, event.context].filter(Boolean).join(" · "),
+    time: event.time,
+  }));
+
+  return json(200, {
+    summary: {
+      activeUsers,
+      sessions,
+      workoutsCompleted: completedInRange.length,
+      completionRate,
+      activeUsersTrend: "Current period",
+      sessionsTrend: "Current period",
+      workoutsTrend: "Current period",
+      completionTrend: "Scheduled workouts due in period",
+    },
+    activitySeries,
+    onboarding,
+    sports,
+    recentActivity,
+    users,
+    journey,
+    planChanges,
+    watch,
+    imports,
+    events: eventRows,
+  });
+});
