@@ -72,6 +72,100 @@ function eventOutcome(name: string) {
   return "info";
 }
 
+function decodeBase64JSON(value: unknown): any {
+  if (typeof value !== "string" || !value.length) return null;
+  try {
+    const decoded = Uint8Array.from(atob(value), (char) => char.charCodeAt(0));
+    return JSON.parse(new TextDecoder().decode(decoded));
+  } catch {
+    return null;
+  }
+}
+
+function setupDetail(athlete: any) {
+  const setup = athlete?.setup;
+  if (!setup) return null;
+  const objective = decodeBase64JSON(setup.objectiveData)
+    ?? (setup.goal ? { kind: setup.goal } : null);
+  const openWater = decodeBase64JSON(setup.openWaterConsentData);
+  const eventState = decodeBase64JSON(setup.eventStateData);
+  const trainingDayTarget = decodeBase64JSON(setup.trainingDayTargetData) ?? 3;
+
+  return {
+    stage: setup.stage ?? null,
+    completedAt: setup.completedAt ?? null,
+    objective,
+    legacyGoal: setup.goal ?? null,
+    baseline: setup.baseline ?? null,
+    birthDate: setup.birthDate ?? null,
+    planStartDate: setup.planStartDate ?? null,
+    schedule: setup.schedule ?? null,
+    sportPreferences: Array.isArray(setup.preferences) ? setup.preferences : [],
+    trainingDayTarget,
+    openWaterTrainingConsent: openWater,
+    eventState,
+  };
+}
+
+function progressDetail(plans: any[]) {
+  const ordered = [...plans].sort((a: any, b: any) => String(a.startDate ?? "").localeCompare(String(b.startDate ?? "")));
+  const recent = ordered.slice(-4);
+  const training = recent.flatMap((plan: any) => (plan.workouts ?? []).filter(isTrainingWorkout));
+  const completed = training.filter((workout: any) => workout.status === "completed");
+  const now = new Date();
+  const due = training.filter((workout: any) => {
+    const date = new Date(workout.date);
+    return !Number.isNaN(date.getTime()) && date <= now;
+  });
+  const trainingSeconds = completed.reduce((total: number, workout: any) =>
+    total + Number(workout.recorded?.durationSeconds ?? workout.prescribedDurationSeconds ?? 0), 0);
+
+  const bySport: Record<string, any> = {};
+  for (const workout of completed) {
+    const sport = String(workout.discipline ?? "other");
+    const current = bySport[sport] ?? {
+      sport,
+      completedWorkouts: 0,
+      recordedDurationSeconds: 0,
+      recordedDistanceMeters: 0,
+      bestDistanceMeters: null,
+      latestCompletedAt: null,
+    };
+    current.completedWorkouts += 1;
+    current.recordedDurationSeconds += Number(workout.recorded?.durationSeconds ?? workout.prescribedDurationSeconds ?? 0);
+    if (workout.recorded?.distanceMeters != null) {
+      const distance = Number(workout.recorded.distanceMeters);
+      current.recordedDistanceMeters += distance;
+      current.bestDistanceMeters = current.bestDistanceMeters == null
+        ? distance : Math.max(current.bestDistanceMeters, distance);
+    }
+    const completedAt = workout.completedAt ?? workout.recorded?.endDate ?? workout.date ?? null;
+    if (completedAt && (!current.latestCompletedAt || String(completedAt) > String(current.latestCompletedAt))) {
+      current.latestCompletedAt = completedAt;
+    }
+    bySport[sport] = current;
+  }
+
+  const allTraining = ordered.flatMap((plan: any) => (plan.workouts ?? []).filter(isTrainingWorkout));
+  const allCompleted = allTraining.filter((workout: any) => workout.status === "completed");
+  return {
+    lastFourWeeks: {
+      trainingSeconds,
+      completedWorkouts: completed.length,
+      dueWorkouts: due.length,
+      adherencePercentage: due.length ? Math.round((due.filter((workout: any) => workout.status === "completed").length / due.length) * 100) : null,
+    },
+    lifetime: {
+      planWeeks: ordered.length,
+      completedPlanWeeks: ordered.filter((plan: any) => plan.status === "completed").length,
+      completedWorkouts: allCompleted.length,
+      totalRecordedDistanceMeters: allCompleted.reduce((total: number, workout: any) => total + Number(workout.recorded?.distanceMeters ?? 0), 0),
+      totalRecordedDurationSeconds: allCompleted.reduce((total: number, workout: any) => total + Number(workout.recorded?.durationSeconds ?? workout.prescribedDurationSeconds ?? 0), 0),
+    },
+    sports: Object.values(bySport),
+  };
+}
+
 function sanitizeStep(step: any): any {
   return {
     order: step?.order ?? 0,
@@ -258,6 +352,7 @@ Deno.serve(async (req: Request) => {
       : [];
 
     const athlete = snapshot.profile ?? {};
+    const onboarding = setupDetail(athlete);
     return json(200, {
       user: {
         id: body.user_id,
@@ -272,6 +367,16 @@ Deno.serve(async (req: Request) => {
         poolLengthMeters: athlete.poolLengthMeters ?? null,
         usesMetricUnits: athlete.usesMetricUnits ?? true,
       },
+      onboarding,
+      preferences: onboarding ? {
+        trainingDayTarget: onboarding.trainingDayTarget,
+        schedule: onboarding.schedule,
+        sportPreferences: onboarding.sportPreferences,
+        openWaterTrainingConsent: onboarding.openWaterTrainingConsent,
+        usesMetricUnits: athlete.usesMetricUnits ?? true,
+        poolLengthMeters: athlete.poolLengthMeters ?? null,
+      } : null,
+      progress: progressDetail(plans),
       snapshotCreatedAt: snapshot.createdAt ?? latest.created_at,
       plans,
     });
