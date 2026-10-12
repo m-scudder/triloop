@@ -412,10 +412,10 @@ Deno.serve(async (req: Request) => {
   }
   const totalSports = [...sportCounts.values()].reduce((a, b) => a + b, 0);
   const sportColors: Record<string, string> = {
-    Running: "#4195ef",
-    Cycling: "#54d76a",
-    Swimming: "#a78bfa",
-    Multisport: "#f2763d",
+    Running: "#F7B538",
+    Cycling: "#29C76B",
+    Swimming: "#218CFF",
+    Multisport: "#9E6BF2",
   };
   const sports = [...sportCounts.entries()].map(([label, count]) => ({
     label,
