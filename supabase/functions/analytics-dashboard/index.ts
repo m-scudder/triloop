@@ -1,14 +1,23 @@
 import { createClient } from "npm:@supabase/supabase-js@2.95.0";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, apikey, content-type",
+  "Access-Control-Allow-Origin": "https://m-scudder.github.io",
+  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-athevia-admin-token",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Content-Type": "application/json",
 };
 
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), { status, headers: corsHeaders });
+}
+
+function bytesToHex(bytes: Uint8Array) {
+  return [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function sha256Hex(value: string) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return bytesToHex(new Uint8Array(digest));
 }
 
 function rangeStart(range: string) {
@@ -132,35 +141,48 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json(405, { error: "method_not_allowed" });
 
-  const authHeader = req.headers.get("Authorization");
-  const token = authHeader?.replace(/^Bearer\s+/i, "");
-  if (!token) return json(401, { error: "unauthorized" });
+  const token = req.headers.get("x-athevia-admin-token")?.trim();
+  if (!token || token.length < 32 || token.length > 256) {
+    return json(401, { error: "admin_session_required" });
+  }
 
   const url = Deno.env.get("SUPABASE_URL") ?? "";
-  const publishable = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
   const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-  if (!url || !publishable || !serviceRole) return json(500, { error: "server_not_configured" });
-
-  const authClient = createClient(url, publishable, {
-    global: { headers: { Authorization: authHeader! } },
-    auth: { persistSession: false },
-  });
-  const { data: authData, error: authError } = await authClient.auth.getUser(token);
-  const caller = authData.user;
-  if (authError || !caller) return json(401, { error: "unauthorized" });
+  if (!url || !serviceRole) return json(500, { error: "server_not_configured" });
 
   const admin = createClient(url, serviceRole, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
+  const tokenHash = await sha256Hex(token);
+  const nowForSession = new Date();
+  const { data: session, error: sessionError } = await admin
+    .from("analytics_admin_sessions")
+    .select("user_id,expires_at")
+    .eq("token_hash", tokenHash)
+    .maybeSingle();
+
+  if (sessionError) return json(500, { error: "admin_session_check_failed" });
+  if (!session || new Date(session.expires_at) <= nowForSession) {
+    if (session) {
+      await admin.from("analytics_admin_sessions").delete().eq("token_hash", tokenHash);
+    }
+    return json(401, { error: "admin_session_expired" });
+  }
+
   const { data: adminRow, error: adminError } = await admin
     .from("analytics_admins")
     .select("user_id")
-    .eq("user_id", caller.id)
+    .eq("user_id", session.user_id)
     .maybeSingle();
 
   if (adminError) return json(500, { error: "admin_check_failed" });
   if (!adminRow) return json(403, { error: "analytics_admin_required" });
+
+  await admin
+    .from("analytics_admin_sessions")
+    .update({ last_used_at: nowForSession.toISOString() })
+    .eq("token_hash", tokenHash);
 
   let body: any = {};
   try {
