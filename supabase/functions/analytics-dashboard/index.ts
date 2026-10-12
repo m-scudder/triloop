@@ -88,6 +88,9 @@ function sanitizeStep(step: any): any {
 
 function sanitizeWorkout(workout: any) {
   const imported = workout?.importedSummary;
+  const feedback = workout?.feedback;
+  const recovery = workout?.recoveryCheckIn;
+
   return {
     id: workout?.id,
     date: workout?.date,
@@ -101,14 +104,39 @@ function sanitizeWorkout(workout: any) {
     completedAt: workout?.completedAt ?? null,
     origin: workout?.origin,
     steps: Array.isArray(workout?.steps) ? workout.steps.map(sanitizeStep) : [],
-    hasFeedback: Boolean(workout?.feedback),
+    feedback: feedback ? {
+      rpe: feedback.rpe ?? null,
+      painScore: feedback.painScore ?? null,
+      painLocations: Array.isArray(feedback.painLocations) ? feedback.painLocations : [],
+      recoveryFeeling: feedback.recoveryFeeling ?? null,
+      symptoms: Array.isArray(feedback.symptoms) ? feedback.symptoms : [],
+      createdAt: feedback.createdAt ?? null,
+      // Free-form notes are intentionally absent from BackupSnapshot today.
+      notesAvailable: false,
+    } : null,
+    recoveryCheckIn: recovery ? {
+      date: recovery.date ?? null,
+      painScore: recovery.painScore ?? null,
+      soreness: recovery.soreness ?? null,
+      energy: recovery.energy ?? null,
+      symptoms: Array.isArray(recovery.symptoms) ? recovery.symptoms : [],
+      createdAt: recovery.createdAt ?? null,
+    } : null,
     recorded: imported ? {
       sport: imported.sport ?? null,
       startDate: imported.startDate ?? null,
       endDate: imported.endDate ?? null,
       durationSeconds: imported.duration ?? null,
       distanceMeters: imported.distanceMeters ?? null,
+      averageHeartRate: imported.averageHeartRate ?? null,
+      maximumHeartRate: imported.maximumHeartRate ?? null,
+      elevationAscendedMeters: imported.elevationAscendedMeters ?? null,
+      swimmingLengths: imported.swimmingLengths ?? null,
+      swimmingStrokeCount: imported.swimmingStrokeCount ?? null,
+      longestContinuousSwimMeters: imported.longestContinuousSwimMeters ?? null,
+      metrics: imported.metrics ?? null,
       source: imported.source ?? null,
+      importedAt: imported.importedAt ?? null,
     } : null,
   };
 }
@@ -127,6 +155,7 @@ function sanitizePlan(plan: any) {
     generatedAt: plan?.generatedAt,
     generationReason: plan?.generationReason,
     generationReasonCode: plan?.generationReasonCode ?? null,
+    parameters: plan?.parameters ?? null,
     completion: {
       planned: training.length,
       completed,
@@ -243,6 +272,7 @@ Deno.serve(async (req: Request) => {
         poolLengthMeters: athlete.poolLengthMeters ?? null,
         usesMetricUnits: athlete.usesMetricUnits ?? true,
       },
+      snapshotCreatedAt: snapshot.createdAt ?? latest.created_at,
       plans,
     });
   }
