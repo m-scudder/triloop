@@ -24,7 +24,7 @@ struct RunningGraduationTests {
             result: result(interval: 60, walk: 120), feedback: easy
         )
 
-        #expect(adjustment == .runIntervalDuration(deltaSeconds: 15))
+        #expect(adjustment == .runIntervalDistance(deltaMeters: 50))
     }
 
     @Test("Once the interval is long enough the walk shrinks instead")
@@ -33,7 +33,7 @@ struct RunningGraduationTests {
             result: result(interval: 300, walk: 120), feedback: easy
         )
 
-        #expect(adjustment == .runWalkDuration(deltaSeconds: -30))
+        #expect(adjustment == .runWalkDistance(deltaMeters: -25))
     }
 
     @Test("With the walk at its floor, running becomes continuous")
@@ -45,13 +45,13 @@ struct RunningGraduationTests {
         #expect(adjustment == .graduateToContinuousRun)
     }
 
-    @Test("A continuous run grows by duration")
-    func continuousRunsAddMinutes() {
+    @Test("A continuous run grows by distance")
+    func continuousRunsAddDistance() {
         let adjustment = engine.progressionAdjustment(
             result: result(interval: nil, walk: nil), feedback: easy
         )
 
-        #expect(adjustment == .runContinuousDuration(deltaSeconds: 120))
+        #expect(adjustment == .runContinuousDistance(deltaMeters: 250))
     }
 
     @Test("The interval never grows without limit")
@@ -78,24 +78,25 @@ struct RunningGraduationTests {
     func graduationHalvesTheIntervalWork() {
         var parameters = TrainingParameters()
         parameters.runIntervalSeconds = 300
+        parameters.runIntervalDistanceMeters = 500
         parameters.runRepeatCount = 6
 
         let graduated = parameters.applying(.graduateToContinuousRun, to: .running)
 
-        // 6 × 5:00 broken up becomes 15 minutes unbroken, not 30.
+        // Broken intervals become a conservative continuous-distance target.
         #expect(graduated.runIsContinuous)
-        #expect(graduated.runContinuousSeconds == 900)
+        #expect(graduated.runContinuousDistanceMeters == 2_250)
     }
 
-    @Test("A continuous run reduces by duration, not by repeats")
-    func reductionUsesDurationOnceContinuous() {
+    @Test("A continuous run reduces by distance, not by repeats")
+    func reductionUsesDistanceOnceContinuous() {
         var parameters = TrainingParameters()
         parameters.runIsContinuous = true
-        parameters.runContinuousSeconds = 20 * 60
+        parameters.runContinuousDistanceMeters = 5_000
 
         let reduced = parameters.applying(.reduceVolume(fraction: 0.2), to: .running)
 
-        #expect(reduced.runContinuousSeconds == TimeInterval(16 * 60))
+        #expect(reduced.runContinuousDistanceMeters == 4_000)
         #expect(reduced.runRepeatCount == parameters.runRepeatCount)
     }
 
@@ -103,12 +104,13 @@ struct RunningGraduationTests {
     func continuousTemplateHasNoIntervals() {
         var parameters = TrainingParameters()
         parameters.runIsContinuous = true
-        parameters.runContinuousSeconds = 900
+        parameters.runContinuousDistanceMeters = 2_000
 
         let workout = PrescribedSessions.runWalk(on: .now, parameters: parameters)
 
         #expect(workout.orderedSteps.contains { $0.kind == .repeatBlock } == false)
-        #expect(workout.estimatedDurationSeconds == TimeInterval(900 + 600))
+        #expect(workout.targetDistanceMeters == 2_500)
+        #expect(workout.orderedSteps.allSatisfy { $0.distanceMeters != nil })
     }
 
     @Test("Parameters stored before continuous running still decode")
@@ -137,7 +139,9 @@ struct RunningGraduationTests {
         #expect(decoded.runIntervalSeconds == 75)
         #expect(decoded.runIsContinuous == false)
         #expect(decoded.runContinuousSeconds == 0)
-        // Added after this payload was written; the default keeps it usable.
+        #expect(decoded.runIntervalDistanceMeters == 150)
+        #expect(decoded.rideWorkDistanceMeters == 3_000)
+        // Added after this payload was written; defaults keep it usable.
         #expect(decoded.swimPoolLengthMeters == 25)
     }
 }
