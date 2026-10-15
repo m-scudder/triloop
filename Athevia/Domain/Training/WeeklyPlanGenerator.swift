@@ -354,12 +354,6 @@ struct WeeklyPlanGenerator: Sendable {
         return next
     }
 
-    private func previousRideWorkDistance(parameters: TrainingParameters) -> Double {
-        // Used only for the explanatory sentence; the generated prescription
-        // itself is already distance-first.
-        max(parameters.rideWorkDistanceMeters - 2_000, TrainingParameters.Limits.minimumRideWorkDistanceMeters)
-    }
-
     private func recoveryGoal(for recovering: Set<Sport>) -> String? {
         guard let sport = recovering.sorted(by: { $0.rawValue < $1.rawValue }).first else { return nil }
         return "Replacing \(sport.displayName.lowercased()) while last week's symptoms settle."
@@ -392,8 +386,7 @@ struct WeeklyPlanGenerator: Sendable {
            let cycling = analysis.analysis(for: .cycling),
            cycling.status == .progress,
            capability.recentCompletedSessions >= 6,
-           capability.cycling.recentBestDistanceMeters > 0,
-           parameters.rideWorkDistanceMeters >= previousRideWorkDistance(parameters: parameters) + 2_000 {
+           capability.cycling.recentBestDistanceMeters > parameters.rideTargetDistanceMeters {
             analysisReason += " Cycling also advanced from your recent completed-ride evidence, not only the last ride."
         }
 
