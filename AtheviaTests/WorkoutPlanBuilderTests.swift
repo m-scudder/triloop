@@ -36,15 +36,15 @@ struct WorkoutPlanBuilderTests {
 
         #expect(workout.activity == .running)
         #expect(workout.displayName == "Athevia - Running")
-        #expect(workout.warmup?.goal == .time(300, .seconds))
-        #expect(workout.cooldown?.goal == .time(300, .seconds))
+        #expect(workout.warmup?.goal == .distance(250, .meters))
+        #expect(workout.cooldown?.goal == .distance(250, .meters))
 
         #expect(workout.blocks.count == 1)
         let block = try #require(workout.blocks.first)
         #expect(block.iterations == 6)
         #expect(block.steps.map(\.purpose) == [.work, .recovery])
-        #expect(block.steps.first?.step.goal == .time(60, .seconds))
-        #expect(block.steps.last?.step.goal == .time(120, .seconds))
+        #expect(block.steps.first?.step.goal == .distance(150, .meters))
+        #expect(block.steps.last?.step.goal == .distance(100, .meters))
     }
 
     @Test(
@@ -82,7 +82,7 @@ struct WorkoutPlanBuilderTests {
         #expect(workout.activity == .cycling)
         #expect(workout.location == .outdoor)
         #expect(workout.blocks.count == 1)
-        #expect(workout.blocks.first?.steps.first?.step.goal == .time(1200, .seconds))
+        #expect(workout.blocks.first?.steps.first?.step.goal == .distance(3_000, .meters))
     }
 
     @Test("Rest and recovery days are not sent to the Watch")
