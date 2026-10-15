@@ -19,17 +19,17 @@ struct TrainingEngineTests {
         )
 
         #expect(assessment.status == .progress)
-        #expect(assessment.adjustment == .runIntervalDuration(deltaSeconds: 15))
+        #expect(assessment.adjustment == .runIntervalDistance(deltaMeters: 50))
     }
 
-    @Test("A session with no interval is already continuous and grows in duration")
+    @Test("A session with no interval is already continuous and grows in distance")
     func continuousRunningGrowsInDuration() {
         let assessment = engine.evaluate(
             result: WorkoutResult(sport: .running, completion: 1.0),
             feedback: FeedbackSummary(rpe: 3, painScore: 0, recoveryFeeling: .good)
         )
 
-        #expect(assessment.adjustment == .runContinuousDuration(deltaSeconds: 120))
+        #expect(assessment.adjustment == .runContinuousDistance(deltaMeters: 250))
     }
 
     @Test("Hard but complete running session holds the workload")
@@ -107,15 +107,15 @@ struct TrainingEngineTests {
 
     // MARK: Cycling
 
-    @Test("Easy thirty minute ride earns five more minutes")
-    func cyclingProgressesByDuration() {
+    @Test("Easy completed ride earns one more kilometre")
+    func cyclingProgressesByDistance() {
         let assessment = engine.evaluate(
             result: WorkoutResult(sport: .cycling, completion: 1.0, durationSeconds: 1800),
             feedback: FeedbackSummary(rpe: 3, painScore: 0, recoveryFeeling: .good)
         )
 
         #expect(assessment.status == .progress)
-        #expect(assessment.adjustment == .rideDuration(deltaSeconds: 300))
+        #expect(assessment.adjustment == .rideDistance(deltaMeters: 1_000))
     }
 
     @Test("Cycling ignores speed when deciding")
