@@ -45,16 +45,16 @@ enum PrescribedSessions {
         goal: String?
     ) -> PlannedWorkout {
         let steps: [WorkoutStep] = [
-            WorkoutStep(order: 0, kind: .warmUp, title: "Warm up: brisk walk", instructions: "Start easy, then gradually walk more briskly. Keep your shoulders relaxed and let your arms swing naturally.", durationSeconds: parameters.runWarmUpSeconds, targetIntensity: .veryEasy),
+            WorkoutStep(order: 0, kind: .warmUp, title: "Warm up: brisk walk", instructions: "Start easy, then gradually walk more briskly. Keep your shoulders relaxed and let your arms swing naturally.", distanceMeters: parameters.runWarmUpDistanceMeters, targetIntensity: .veryEasy),
             WorkoutStep(
                 order: 1,
                 kind: .work,
                 title: "Easy run",
                 instructions: "No walk breaks. Slow down rather than stopping.",
-                durationSeconds: parameters.runContinuousSeconds,
+                distanceMeters: parameters.runContinuousDistanceMeters,
                 targetIntensity: .easy
             ),
-            WorkoutStep(order: 2, kind: .cooldown, title: "Cool down: easy walk", instructions: "Slow to a relaxed walk. Let your breathing return toward normal; do not stop suddenly.", durationSeconds: parameters.runCooldownSeconds, targetIntensity: .veryEasy)
+            WorkoutStep(order: 2, kind: .cooldown, title: "Cool down: easy walk", instructions: "Slow to a relaxed walk. Let your breathing return toward normal; do not stop suddenly.", distanceMeters: parameters.runCooldownDistanceMeters, targetIntensity: .veryEasy)
         ]
 
         return PlannedWorkout(
@@ -63,6 +63,8 @@ enum PrescribedSessions {
             title: "Running",
             goal: goal ?? "Run continuously at a comfortable pace. You should be able to speak in short sentences.",
             targetRPE: RPERange(3, 4),
+            prescribedDurationSeconds: parameters.estimatedRunDurationSeconds,
+            targetDistanceMeters: parameters.runTargetDistanceMeters,
             steps: steps
         )
     }
@@ -73,7 +75,7 @@ enum PrescribedSessions {
         goal: String?
     ) -> PlannedWorkout {
         let steps: [WorkoutStep] = [
-            .warmUp(order: 0, title: "Brisk walk", durationSeconds: parameters.runWarmUpSeconds),
+            .warmUp(order: 0, title: "Brisk walk", distanceMeters: parameters.runWarmUpDistanceMeters),
             .repeating(
                 order: 1,
                 title: "Run / walk intervals",
@@ -84,19 +86,19 @@ enum PrescribedSessions {
                         kind: .work,
                         title: "Easy run",
                         instructions: "Conversational. If you cannot speak, slow down.",
-                        durationSeconds: parameters.runIntervalSeconds,
+                        distanceMeters: parameters.runIntervalDistanceMeters,
                         targetIntensity: .easy
                     ),
                     WorkoutStep(
                         order: 1,
                         kind: .recovery,
                         title: "Walk",
-                        durationSeconds: parameters.runWalkSeconds,
+                        distanceMeters: parameters.runWalkDistanceMeters,
                         targetIntensity: .veryEasy
                     )
                 ]
             ),
-            .cooldown(order: 2, title: "Easy walk", durationSeconds: parameters.runCooldownSeconds)
+            .cooldown(order: 2, title: "Easy walk", distanceMeters: parameters.runCooldownDistanceMeters)
         ]
 
         return PlannedWorkout(
@@ -105,6 +107,8 @@ enum PrescribedSessions {
             title: "Running",
             goal: goal ?? "Alternate easy running and walking so your body can get used to running safely.",
             targetRPE: RPERange(3, 4),
+            prescribedDurationSeconds: parameters.estimatedRunDurationSeconds,
+            targetDistanceMeters: parameters.runTargetDistanceMeters,
             steps: steps
         )
     }
@@ -169,16 +173,16 @@ enum PrescribedSessions {
         goal: String? = nil
     ) -> PlannedWorkout {
         let steps: [WorkoutStep] = [
-            WorkoutStep(order: 0, kind: .warmUp, title: "Warm up: easy spinning", instructions: "Use a light gear and pedal smoothly. Start very easy and gradually settle into a comfortable rhythm.", durationSeconds: parameters.rideWarmUpSeconds, targetIntensity: .veryEasy),
+            WorkoutStep(order: 0, kind: .warmUp, title: "Warm up: easy spinning", instructions: "Use a light gear and pedal smoothly. Start very easy and gradually settle into a comfortable rhythm.", distanceMeters: parameters.rideWarmUpDistanceMeters, targetIntensity: .veryEasy),
             WorkoutStep(
                 order: 1,
                 kind: .work,
                 title: "Comfortable riding",
                 instructions: "Flat or gently rolling. Keep the effort easy enough to hold a conversation.",
-                durationSeconds: parameters.rideWorkSeconds,
+                distanceMeters: parameters.rideWorkDistanceMeters,
                 targetIntensity: .easy
             ),
-            WorkoutStep(order: 2, kind: .cooldown, title: "Cool down: easy spinning", instructions: "Shift to a light gear and gradually reduce your effort. Finish with easy, smooth pedaling.", durationSeconds: parameters.rideCooldownSeconds, targetIntensity: .veryEasy)
+            WorkoutStep(order: 2, kind: .cooldown, title: "Cool down: easy spinning", instructions: "Shift to a light gear and gradually reduce your effort. Finish with easy, smooth pedaling.", distanceMeters: parameters.rideCooldownDistanceMeters, targetIntensity: .veryEasy)
         ]
 
         return PlannedWorkout(
@@ -187,6 +191,8 @@ enum PrescribedSessions {
             title: "Cycling",
             goal: goal ?? "Build stamina with a comfortable ride. You should be able to hold a conversation.",
             targetRPE: RPERange(3, 4),
+            prescribedDurationSeconds: parameters.estimatedRideDurationSeconds,
+            targetDistanceMeters: parameters.rideTargetDistanceMeters,
             steps: steps
         )
     }
