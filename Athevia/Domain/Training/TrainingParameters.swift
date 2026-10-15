@@ -2,37 +2,47 @@ import Foundation
 
 /// The dials a week's workouts are built from.
 ///
-/// Progression works by changing these and rebuilding the week, rather than
-/// mutating an existing step tree. That keeps generation deterministic and makes
-/// "what changed since last week" a diff of two small value types.
-///
-/// The defaults are week one exactly as seeded.
+/// New run/cycle prescriptions are distance-first. Legacy time fields remain
+/// encoded so plans written by older builds still decode and so capability
+/// history can retain its previous reference values.
 struct TrainingParameters: Codable, Equatable, Sendable {
+    // MARK: Running
+
+    var runWarmUpDistanceMeters: Double = 250
+    var runIntervalDistanceMeters: Double = 150
+    var runWalkDistanceMeters: Double = 100
+    var runRepeatCount: Int = 6
+    var runCooldownDistanceMeters: Double = 250
+    var runIsContinuous: Bool = false
+    var runContinuousDistanceMeters: Double = 1_500
+
+    // Backward-compatible/internal progression proxies.
     var runWarmUpSeconds: TimeInterval = 5 * 60
     var runIntervalSeconds: TimeInterval = 60
     var runWalkSeconds: TimeInterval = 120
-    var runRepeatCount: Int = 6
     var runCooldownSeconds: TimeInterval = 5 * 60
-    /// Once the walk breaks are no longer needed, running becomes one block.
-    var runIsContinuous: Bool = false
     var runContinuousSeconds: TimeInterval = 0
+
+    // MARK: Swimming
 
     var swimRepeatDistanceMeters: Double = 25
     var swimTotalMeters: Double = 300
     var swimRestSeconds: TimeInterval = 45
-    /// The pool the week was built for. A dial rather than a profile lookup, so
-    /// a plan stays reproducible even if the athlete later changes pools.
     var swimPoolLengthMeters: Double = 25
 
+    // MARK: Cycling
+
+    var rideWarmUpDistanceMeters: Double = 500
+    var rideWorkDistanceMeters: Double = 3_000
+    var rideCooldownDistanceMeters: Double = 500
+
+    // Backward-compatible/internal progression proxies.
     var rideWarmUpSeconds: TimeInterval = 5 * 60
     var rideWorkSeconds: TimeInterval = 20 * 60
     var rideCooldownSeconds: TimeInterval = 5 * 60
 
     init() {}
 
-    /// Decoded key by key so parameters stored by an older build, which had
-    /// fewer fields, still load. The synthesized decoder would throw on the
-    /// missing keys and take the whole plan with it.
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let defaults = TrainingParameters()
@@ -41,17 +51,29 @@ struct TrainingParameters: Codable, Equatable, Sendable {
             (try? container.decodeIfPresent(T.self, forKey: key)) as? T ?? fallback
         }
 
+        runWarmUpDistanceMeters = value(.runWarmUpDistanceMeters, defaults.runWarmUpDistanceMeters)
+        runIntervalDistanceMeters = value(.runIntervalDistanceMeters, defaults.runIntervalDistanceMeters)
+        runWalkDistanceMeters = value(.runWalkDistanceMeters, defaults.runWalkDistanceMeters)
+        runRepeatCount = value(.runRepeatCount, defaults.runRepeatCount)
+        runCooldownDistanceMeters = value(.runCooldownDistanceMeters, defaults.runCooldownDistanceMeters)
+        runIsContinuous = value(.runIsContinuous, defaults.runIsContinuous)
+        runContinuousDistanceMeters = value(.runContinuousDistanceMeters, defaults.runContinuousDistanceMeters)
+
         runWarmUpSeconds = value(.runWarmUpSeconds, defaults.runWarmUpSeconds)
         runIntervalSeconds = value(.runIntervalSeconds, defaults.runIntervalSeconds)
         runWalkSeconds = value(.runWalkSeconds, defaults.runWalkSeconds)
-        runRepeatCount = value(.runRepeatCount, defaults.runRepeatCount)
         runCooldownSeconds = value(.runCooldownSeconds, defaults.runCooldownSeconds)
-        runIsContinuous = value(.runIsContinuous, defaults.runIsContinuous)
         runContinuousSeconds = value(.runContinuousSeconds, defaults.runContinuousSeconds)
+
         swimRepeatDistanceMeters = value(.swimRepeatDistanceMeters, defaults.swimRepeatDistanceMeters)
         swimTotalMeters = value(.swimTotalMeters, defaults.swimTotalMeters)
         swimRestSeconds = value(.swimRestSeconds, defaults.swimRestSeconds)
         swimPoolLengthMeters = value(.swimPoolLengthMeters, defaults.swimPoolLengthMeters)
+
+        rideWarmUpDistanceMeters = value(.rideWarmUpDistanceMeters, defaults.rideWarmUpDistanceMeters)
+        rideWorkDistanceMeters = value(.rideWorkDistanceMeters, defaults.rideWorkDistanceMeters)
+        rideCooldownDistanceMeters = value(.rideCooldownDistanceMeters, defaults.rideCooldownDistanceMeters)
+
         rideWarmUpSeconds = value(.rideWarmUpSeconds, defaults.rideWarmUpSeconds)
         rideWorkSeconds = value(.rideWorkSeconds, defaults.rideWorkSeconds)
         rideCooldownSeconds = value(.rideCooldownSeconds, defaults.rideCooldownSeconds)
@@ -59,100 +81,121 @@ struct TrainingParameters: Codable, Equatable, Sendable {
 }
 
 extension TrainingParameters {
-    /// Floors that stop repeated reductions from producing a workout too small
-    /// to be worth doing.
     enum Limits {
-        static let minimumRunIntervalSeconds: TimeInterval = 30
+        static let minimumRunIntervalDistanceMeters: Double = 100
+        static let minimumRunWalkDistanceMeters: Double = 50
+        static let minimumContinuousRunDistanceMeters: Double = 1_000
         static let minimumRunRepeatCount = 3
-        static let minimumSwimRestSeconds: TimeInterval = 20
-        static let minimumSwimMeters: Double = 100
-        static let minimumRideWorkSeconds: TimeInterval = 10 * 60
+        static let minimumRideWorkDistanceMeters: Double = 2_000
+
+        // Legacy proxy floors retained for old plans/capability calculations.
+        static let minimumRunIntervalSeconds: TimeInterval = 30
         static let minimumRunWalkSeconds: TimeInterval = 30
         static let minimumContinuousRunSeconds: TimeInterval = 8 * 60
+        static let minimumRideWorkSeconds: TimeInterval = 10 * 60
 
-        /// Rest cannot be tightened indefinitely, and a longer repeat needs more
-        /// of it: 30 seconds after 25 m is brisk, after 100 m it is nothing.
+        static let minimumSwimRestSeconds: TimeInterval = 20
+        static let minimumSwimMeters: Double = 100
+
         static func restFloor(forRepeat meters: Double) -> TimeInterval {
             let scaled = (30 * (meters / 25)).rounded()
             return max(min(scaled, 90), minimumSwimRestSeconds)
         }
 
-        /// Rest allowed above the floor when a repeat lengthens, so tightening
-        /// it is available as the next week's lever.
         static let restHeadroomSeconds: TimeInterval = 15
     }
 
+    var runTargetDistanceMeters: Double {
+        runWarmUpDistanceMeters
+            + runCooldownDistanceMeters
+            + (runIsContinuous
+                ? runContinuousDistanceMeters
+                : Double(runRepeatCount) * (runIntervalDistanceMeters + runWalkDistanceMeters))
+    }
 
-    /// Caps time-based sessions to the athlete's stated daily training window.
-    ///
-    /// Ability decides the starting prescription; availability decides how much
-    /// of that prescription can actually be scheduled on a day. Warm-up and
-    /// cooldown are preserved, and the main work is shortened to fit.
+    var rideTargetDistanceMeters: Double {
+        rideWarmUpDistanceMeters + rideWorkDistanceMeters + rideCooldownDistanceMeters
+    }
+
+    /// Secondary time estimate only; prescription/execution remains distance-based.
+    var estimatedRunDurationSeconds: TimeInterval {
+        // Conservative mixed easy-run / walk estimate.
+        (runTargetDistanceMeters / 1_000) * 9 * 60
+    }
+
+    /// Secondary time estimate only; prescription/execution remains distance-based.
+    var estimatedRideDurationSeconds: TimeInterval {
+        // Conservative recreational cycling estimate (~15 km/h).
+        (rideTargetDistanceMeters / 1_000) * 4 * 60
+    }
+
+    /// Availability is still a ceiling. It may cap a distance prescription,
+    /// but never turns it back into a time prescription.
     func capped(toTrainingMinutes minutes: Int?) -> TrainingParameters {
         guard let minutes, minutes > 0 else { return self }
-
-        let cap = TimeInterval(minutes * 60)
         var next = self
 
-        let runWorkBudget = max(
-            cap - next.runWarmUpSeconds - next.runCooldownSeconds,
-            0
-        )
+        let runCap = Double(minutes) / 60.0 * 6_500
+        let fixedRun = next.runWarmUpDistanceMeters + next.runCooldownDistanceMeters
+        let runWorkCap = max(runCap - fixedRun, Limits.minimumContinuousRunDistanceMeters)
 
         if next.runIsContinuous {
-            next.runContinuousSeconds = min(next.runContinuousSeconds, runWorkBudget)
+            next.runContinuousDistanceMeters = min(next.runContinuousDistanceMeters, runWorkCap)
         } else {
-            let repeatSeconds = next.runIntervalSeconds + next.runWalkSeconds
-            if repeatSeconds > 0 {
-                let maxRepeats = Int((runWorkBudget / repeatSeconds).rounded(.down))
-                next.runRepeatCount = min(next.runRepeatCount, max(maxRepeats, 1))
+            let currentRepeat = next.runIntervalDistanceMeters + next.runWalkDistanceMeters
+            let maxPerRepeat = max(runWorkCap / Double(max(next.runRepeatCount, 1)), 1)
+            if currentRepeat > maxPerRepeat {
+                let ratio = maxPerRepeat / currentRepeat
+                next.runIntervalDistanceMeters = max(
+                    Self.rounded(next.runIntervalDistanceMeters * ratio, to: 25),
+                    Limits.minimumRunIntervalDistanceMeters
+                )
+                next.runWalkDistanceMeters = max(
+                    Self.rounded(next.runWalkDistanceMeters * ratio, to: 25),
+                    Limits.minimumRunWalkDistanceMeters
+                )
             }
         }
 
-        let rideWorkBudget = max(
-            cap - next.rideWarmUpSeconds - next.rideCooldownSeconds,
-            0
+        let rideCap = Double(minutes) / 60.0 * 15_000
+        let fixedRide = next.rideWarmUpDistanceMeters + next.rideCooldownDistanceMeters
+        next.rideWorkDistanceMeters = min(
+            next.rideWorkDistanceMeters,
+            max(rideCap - fixedRide, Limits.minimumRideWorkDistanceMeters)
         )
-        next.rideWorkSeconds = min(next.rideWorkSeconds, rideWorkBudget)
 
         return next
     }
 
-    /// Sizes ordinary training to use the athlete's stated daily window.
-    ///
-    /// Availability is a real session budget, not just a ceiling. We keep a
-    /// small buffer so setup/transitions do not make a "60 min" choice feel
-    /// misleading. Safety reductions, recovery and taper are applied elsewhere
-    /// and are deliberately allowed to be shorter.
+    /// Preserve the previous product behavior where a selected training window
+    /// is a useful session budget, but convert that budget into conservative
+    /// distance rather than prescribing minutes.
     func fillingTrainingWindow(minutes: Int?, bufferMinutes: Int = 5) -> TrainingParameters {
         guard let minutes, minutes > 0 else { return self }
-
-        let target = TimeInterval(max(minutes - bufferMinutes, 1) * 60)
         var next = self
+        let targetMinutes = Double(max(minutes - bufferMinutes, 1))
 
-        let rideWorkBudget = max(
-            target - next.rideWarmUpSeconds - next.rideCooldownSeconds,
-            Limits.minimumRideWorkSeconds
-        )
-        next.rideWorkSeconds = max(next.rideWorkSeconds, rideWorkBudget)
-
+        let runTarget = targetMinutes / 60.0 * 6_500
+        let fixedRun = next.runWarmUpDistanceMeters + next.runCooldownDistanceMeters
+        let runWorkTarget = max(runTarget - fixedRun, Limits.minimumContinuousRunDistanceMeters)
         if next.runIsContinuous {
-            let runWorkBudget = max(
-                target - next.runWarmUpSeconds - next.runCooldownSeconds,
-                Limits.minimumContinuousRunSeconds
-            )
-            next.runContinuousSeconds = max(next.runContinuousSeconds, runWorkBudget)
+            next.runContinuousDistanceMeters = max(next.runContinuousDistanceMeters, Self.rounded(runWorkTarget, to: 250))
         } else {
-            let runWorkBudget = max(
-                target - next.runWarmUpSeconds - next.runCooldownSeconds,
-                0
-            )
-            let repeatSeconds = next.runIntervalSeconds + next.runWalkSeconds
-            if repeatSeconds > 0 {
-                let targetRepeats = Int((runWorkBudget / repeatSeconds).rounded(.down))
-                next.runRepeatCount = max(next.runRepeatCount, max(targetRepeats, 1))
+            let current = next.runIntervalDistanceMeters + next.runWalkDistanceMeters
+            let desiredPerRepeat = runWorkTarget / Double(max(next.runRepeatCount, 1))
+            if desiredPerRepeat > current {
+                let ratio = desiredPerRepeat / current
+                next.runIntervalDistanceMeters = Self.rounded(next.runIntervalDistanceMeters * ratio, to: 25)
+                next.runWalkDistanceMeters = Self.rounded(next.runWalkDistanceMeters * ratio, to: 25)
             }
         }
+
+        let rideTarget = targetMinutes / 60.0 * 15_000
+        let fixedRide = next.rideWarmUpDistanceMeters + next.rideCooldownDistanceMeters
+        next.rideWorkDistanceMeters = max(
+            next.rideWorkDistanceMeters,
+            Self.rounded(max(rideTarget - fixedRide, Limits.minimumRideWorkDistanceMeters), to: 500)
+        )
 
         return next.capped(toTrainingMinutes: minutes)
     }
@@ -164,38 +207,57 @@ extension TrainingParameters {
         case .hold, .substituteRecovery:
             break
 
-        case .runIntervalDuration(let delta):
-            next.runIntervalSeconds = max(
-                runIntervalSeconds + delta,
-                Limits.minimumRunIntervalSeconds
+        case .runIntervalDistance(let delta):
+            next.runIntervalDistanceMeters = max(
+                runIntervalDistanceMeters + delta,
+                Limits.minimumRunIntervalDistanceMeters
             )
+            // Advance the hidden legacy proxy so run/walk can still graduate.
+            next.runIntervalSeconds = max(runIntervalSeconds + 15, Limits.minimumRunIntervalSeconds)
 
-        case .runWalkDuration(let delta):
-            next.runWalkSeconds = max(
-                runWalkSeconds + delta,
-                Limits.minimumRunWalkSeconds
+        case .runWalkDistance(let delta):
+            next.runWalkDistanceMeters = max(
+                runWalkDistanceMeters + delta,
+                Limits.minimumRunWalkDistanceMeters
             )
+            next.runWalkSeconds = max(runWalkSeconds - 30, Limits.minimumRunWalkSeconds)
 
         case .graduateToContinuousRun:
             next.runIsContinuous = true
-            // Half the interval work, not all of it: running without breaks is
-            // harder than the same minutes broken up.
+            let intervalWork = runIntervalDistanceMeters * Double(runRepeatCount)
+            next.runContinuousDistanceMeters = max(
+                Self.rounded(intervalWork * 0.75, to: 250),
+                Limits.minimumContinuousRunDistanceMeters
+            )
             next.runContinuousSeconds = max(
                 (runIntervalSeconds * Double(runRepeatCount) / 2).rounded(),
                 Limits.minimumContinuousRunSeconds
             )
 
-        case .runContinuousDuration(let delta):
-            next.runContinuousSeconds = max(
-                runContinuousSeconds + delta,
-                Limits.minimumContinuousRunSeconds
+        case .runContinuousDistance(let delta):
+            next.runContinuousDistanceMeters = max(
+                runContinuousDistanceMeters + delta,
+                Limits.minimumContinuousRunDistanceMeters
             )
+            next.runContinuousSeconds = max(runContinuousSeconds + 2 * 60, Limits.minimumContinuousRunSeconds)
 
-        case .rideDuration(let delta):
-            next.rideWorkSeconds = max(
-                rideWorkSeconds + delta,
-                Limits.minimumRideWorkSeconds
+        case .rideDistance(let delta):
+            next.rideWorkDistanceMeters = max(
+                rideWorkDistanceMeters + delta,
+                Limits.minimumRideWorkDistanceMeters
             )
+            next.rideWorkSeconds = max(rideWorkSeconds + 5 * 60, Limits.minimumRideWorkSeconds)
+
+        // Legacy adjustment cases are still understood so old tests/debug
+        // fixtures can be replayed safely, but new engines do not emit them.
+        case .runIntervalDuration(let delta):
+            next.runIntervalSeconds = max(runIntervalSeconds + delta, Limits.minimumRunIntervalSeconds)
+        case .runWalkDuration(let delta):
+            next.runWalkSeconds = max(runWalkSeconds + delta, Limits.minimumRunWalkSeconds)
+        case .runContinuousDuration(let delta):
+            next.runContinuousSeconds = max(runContinuousSeconds + delta, Limits.minimumContinuousRunSeconds)
+        case .rideDuration(let delta):
+            next.rideWorkSeconds = max(rideWorkSeconds + delta, Limits.minimumRideWorkSeconds)
 
         case .swimRestDuration(let delta):
             next.swimRestSeconds = max(
@@ -205,14 +267,8 @@ extension TrainingParameters {
 
         case .swimRepeatDistance(let meters):
             next.swimRepeatDistanceMeters = meters
-            // Landing exactly on the new floor would leave the rest lever with
-            // no room, so distance would step again the very next week. One
-            // decrement of headroom makes the two levers alternate.
             next.swimRestSeconds = Limits.restFloor(forRepeat: meters) + Limits.restHeadroomSeconds
-            next.swimTotalMeters = Self.roundedToRepeat(
-                swimTotalMeters,
-                repeatDistance: meters
-            )
+            next.swimTotalMeters = Self.roundedToRepeat(swimTotalMeters, repeatDistance: meters)
 
         case .swimVolume(let delta):
             next.swimTotalMeters = Self.roundedToRepeat(
@@ -227,17 +283,15 @@ extension TrainingParameters {
         return next
     }
 
-    /// Volume is reduced with each sport's own primary variable: repeats for
-    /// running, distance for swimming, duration for cycling.
     private mutating func reduceVolume(by fraction: Double, for sport: Sport) {
         let remaining = 1 - min(max(fraction, 0), 1)
 
         switch sport {
         case .running:
             if runIsContinuous {
-                runContinuousSeconds = max(
-                    (runContinuousSeconds * remaining).rounded(),
-                    Limits.minimumContinuousRunSeconds
+                runContinuousDistanceMeters = max(
+                    Self.rounded(runContinuousDistanceMeters * remaining, to: 250),
+                    Limits.minimumContinuousRunDistanceMeters
                 )
             } else {
                 runRepeatCount = max(
@@ -251,14 +305,18 @@ extension TrainingParameters {
                 repeatDistance: swimRepeatDistanceMeters
             )
         case .cycling:
-            rideWorkSeconds = max(
-                (rideWorkSeconds * remaining).rounded(),
-                Limits.minimumRideWorkSeconds
+            rideWorkDistanceMeters = max(
+                Self.rounded(rideWorkDistanceMeters * remaining, to: 500),
+                Limits.minimumRideWorkDistanceMeters
             )
         }
     }
 
-    /// Swim volume only means something in whole lengths of the pool.
+    private static func rounded(_ meters: Double, to increment: Double) -> Double {
+        guard increment > 0 else { return meters }
+        return (meters / increment).rounded() * increment
+    }
+
     private static func roundedToRepeat(_ meters: Double, repeatDistance: Double) -> Double {
         guard repeatDistance > 0 else { return meters }
         return (meters / repeatDistance).rounded() * repeatDistance
