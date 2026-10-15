@@ -38,8 +38,8 @@ struct TodayWorkoutView: View {
                         .font(.largeTitle.weight(.semibold))
                         .lineLimit(2)
 
-                    if let seconds = workout.prescribedDurationSeconds ?? workout.estimatedDurationSeconds {
-                        Text("· \(TrainingFormatter.totalDuration(seconds: seconds))")
+                    if let summary = WorkoutSummaryText.make(for: workout) {
+                        Text("· \(summary)")
                             .font(.title3.weight(.medium))
                             .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                             .lineLimit(1)
@@ -398,7 +398,9 @@ struct TodayNextView: View {
 
     private var text: String {
         var parts = [relativeDay, next.discipline.displayName]
-        if let seconds = next.durationSeconds {
+        if let meters = next.distanceMeters {
+            parts.append(TrainingFormatter.distance(meters: meters))
+        } else if let seconds = next.durationSeconds {
             parts.append(TrainingFormatter.totalDuration(seconds: seconds))
         }
         let line = parts.joined(separator: " · ")
