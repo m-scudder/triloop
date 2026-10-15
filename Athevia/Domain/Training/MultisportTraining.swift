@@ -56,9 +56,9 @@ struct OpenWaterTrainingConsent: Codable, Equatable, Sendable {
 }
 
 struct BrickPrescription: Equatable, Sendable {
-    var bikeSeconds: TimeInterval
+    var bikeMeters: Double
     var transitionSeconds: TimeInterval
-    var runSeconds: TimeInterval
+    var runMeters: Double
     var targetIntensity: TargetIntensity
 }
 
@@ -101,13 +101,13 @@ struct MultisportTrainingPolicy: Sendable {
 
     func brick(parameters: TrainingParameters) -> BrickPrescription {
         BrickPrescription(
-            bikeSeconds: min(parameters.rideWorkSeconds, 45 * 60),
+            bikeMeters: min(parameters.rideWorkDistanceMeters, 10_000),
             transitionSeconds: 5 * 60,
-            runSeconds: min(
+            runMeters: min(
                 parameters.runIsContinuous
-                    ? parameters.runContinuousSeconds
-                    : parameters.runIntervalSeconds * Double(max(parameters.runRepeatCount, 1)),
-                15 * 60
+                    ? parameters.runContinuousDistanceMeters
+                    : parameters.runIntervalDistanceMeters * Double(max(parameters.runRepeatCount, 1)),
+                2_000
             ),
             targetIntensity: .easy
         )
@@ -115,13 +115,13 @@ struct MultisportTrainingPolicy: Sendable {
 
     func raceSimulation(parameters: TrainingParameters) -> BrickPrescription {
         BrickPrescription(
-            bikeSeconds: min(parameters.rideWorkSeconds, 60 * 60),
+            bikeMeters: min(parameters.rideWorkDistanceMeters, 15_000),
             transitionSeconds: 5 * 60,
-            runSeconds: min(
+            runMeters: min(
                 parameters.runIsContinuous
-                    ? parameters.runContinuousSeconds
-                    : parameters.runIntervalSeconds * Double(max(parameters.runRepeatCount, 1)),
-                20 * 60
+                    ? parameters.runContinuousDistanceMeters
+                    : parameters.runIntervalDistanceMeters * Double(max(parameters.runRepeatCount, 1)),
+                3_000
             ),
             targetIntensity: .steady
         )
@@ -172,7 +172,7 @@ enum MultisportPrescribedSessions {
                 kind: .cyclingSegment,
                 title: "Easy bike",
                 instructions: "Pedal gently and get comfortable on the bike.",
-                durationSeconds: parameters.rideWarmUpSeconds,
+                distanceMeters: parameters.rideWarmUpDistanceMeters,
                 targetIntensity: .veryEasy
             ),
             WorkoutStep(
@@ -180,7 +180,7 @@ enum MultisportPrescribedSessions {
                 kind: .cyclingSegment,
                 title: "Bike before your run",
                 instructions: "Comfortable, controlled riding. Save the legs for the run.",
-                durationSeconds: prescription.bikeSeconds,
+                distanceMeters: prescription.bikeMeters,
                 targetIntensity: prescription.targetIntensity
             ),
             WorkoutStep(
@@ -196,14 +196,14 @@ enum MultisportPrescribedSessions {
                 kind: .runningSegment,
                 title: "Easy run after cycling",
                 instructions: "Run easy. The purpose is adapting to the bike-to-run change, not speed.",
-                durationSeconds: prescription.runSeconds,
+                distanceMeters: prescription.runMeters,
                 targetIntensity: prescription.targetIntensity
             ),
             WorkoutStep(
                 order: 4,
                 kind: .runningSegment,
                 title: "Easy walk",
-                durationSeconds: parameters.runCooldownSeconds,
+                distanceMeters: parameters.runCooldownDistanceMeters,
                 targetIntensity: .veryEasy
             )
         ]
@@ -214,6 +214,7 @@ enum MultisportPrescribedSessions {
             title: "Brick",
             goal: "Practise how it feels to finish cycling, change shoes, and begin running without rushing.",
             targetRPE: RPERange(3, 5),
+            targetDistanceMeters: steps.compactMap(\.totalDistanceMeters).reduce(0, +),
             steps: steps
         )
     }
