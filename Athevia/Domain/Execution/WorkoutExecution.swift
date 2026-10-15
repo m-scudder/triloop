@@ -16,8 +16,8 @@ struct ExecutableWorkoutStep: Equatable, Identifiable, Sendable {
     let repetition: Int?
     let repetitionCount: Int?
 
-    /// Time prescriptions count down. Distance/manual prescriptions use a
-    /// stopwatch and advance only when the athlete confirms the step is done.
+    /// Time prescriptions count down. Distance prescriptions progress from
+    /// recorded distance. A step with neither remains manually completed.
     var usesCountdown: Bool { durationSeconds != nil }
 
     var repetitionLabel: String? {
@@ -191,6 +191,7 @@ struct WorkoutExecutionEngine: Equatable, Sendable {
     private(set) var currentIndex = 0
     private(set) var elapsedSeconds: TimeInterval = 0
     private(set) var stepElapsedSeconds: TimeInterval = 0
+    private(set) var stepDistanceMeters: Double = 0
     private(set) var startedAt: Date?
     private(set) var endedAt: Date?
 
@@ -208,6 +209,12 @@ struct WorkoutExecutionEngine: Equatable, Sendable {
     var remainingSeconds: TimeInterval? {
         guard let duration = currentStep?.durationSeconds else { return nil }
         return max(duration - stepElapsedSeconds, 0)
+    }
+
+    var remainingDistanceMeters: Double? {
+        guard currentStep?.durationSeconds == nil,
+              let distance = currentStep?.distanceMeters else { return nil }
+        return max(distance - stepDistanceMeters, 0)
     }
 
     var result: WorkoutExecutionResult? {
@@ -246,13 +253,12 @@ struct WorkoutExecutionEngine: Equatable, Sendable {
         phase = .running
     }
 
-    /// Advance active time. Countdown steps transition automatically. A
-    /// stopwatch/distance step keeps accumulating until `completeCurrentStep`.
+    /// Advance active time. Countdown steps transition automatically. Distance
+    /// and manual steps keep accumulating elapsed time while distance itself is
+    /// supplied separately by `updateCurrentStepDistance`.
     ///
     /// A normal pulse can carry elapsed time across timed steps. This is also
-    /// used when the app returns from the background: time-based prescriptions
-    /// keep progressing while the phone is locked. Manual/distance steps still
-    /// require the athlete to complete them explicitly.
+    /// used when the app returns from the background.
     mutating func advance(
         by seconds: TimeInterval,
         now: Date = .now,
@@ -283,8 +289,25 @@ struct WorkoutExecutionEngine: Equatable, Sendable {
         }
     }
 
-    /// Used for distance-based/manual steps. It is also exposed as Skip in the
-    /// player for a timed step when the athlete intentionally moves on early.
+    /// Update distance covered inside the currently active distance step.
+    /// The caller supplies distance relative to the beginning of this step so
+    /// warm-up/cool-down GPS does not count toward the work target.
+    mutating func updateCurrentStepDistance(
+        _ meters: Double,
+        now: Date = .now
+    ) {
+        guard phase == .running,
+              let target = currentStep?.distanceMeters,
+              currentStep?.durationSeconds == nil,
+              target > 0 else { return }
+
+        stepDistanceMeters = min(max(meters, 0), target)
+        if stepDistanceMeters >= target {
+            moveToNextStep(now: now)
+        }
+    }
+
+    /// Used for manual steps and as Skip when the athlete intentionally moves on.
     mutating func completeCurrentStep(now: Date = .now) {
         guard phase == .running || phase == .paused, currentStep != nil else { return }
         let shouldStartNextStep = phase == .paused
@@ -303,6 +326,7 @@ struct WorkoutExecutionEngine: Equatable, Sendable {
         endedAt = now
         currentIndex = plan.steps.count
         stepElapsedSeconds = 0
+        stepDistanceMeters = 0
         phase = .finished
     }
 
@@ -313,6 +337,7 @@ struct WorkoutExecutionEngine: Equatable, Sendable {
     private mutating func moveToNextStep(now: Date) {
         currentIndex += 1
         stepElapsedSeconds = 0
+        stepDistanceMeters = 0
         if currentIndex >= plan.steps.count {
             finish(now: now)
         }
