@@ -135,6 +135,22 @@ extension TrainingParameters {
         guard let minutes, minutes > 0 else { return self }
         var next = self
 
+        let cap = TimeInterval(minutes * 60)
+
+        // Keep legacy time proxies capped for capability/history compatibility.
+        let runTimeBudget = max(cap - next.runWarmUpSeconds - next.runCooldownSeconds, 0)
+        if next.runIsContinuous {
+            next.runContinuousSeconds = min(next.runContinuousSeconds, runTimeBudget)
+        } else {
+            let repeatSeconds = next.runIntervalSeconds + next.runWalkSeconds
+            if repeatSeconds > 0 {
+                let maxRepeats = Int((runTimeBudget / repeatSeconds).rounded(.down))
+                next.runRepeatCount = min(next.runRepeatCount, max(maxRepeats, 1))
+            }
+        }
+        let rideTimeBudget = max(cap - next.rideWarmUpSeconds - next.rideCooldownSeconds, 0)
+        next.rideWorkSeconds = min(next.rideWorkSeconds, rideTimeBudget)
+
         let runCap = Double(minutes) / 60.0 * 6_500
         let fixedRun = next.runWarmUpDistanceMeters + next.runCooldownDistanceMeters
         let runWorkCap = max(runCap - fixedRun, Limits.minimumContinuousRunDistanceMeters)
@@ -174,6 +190,33 @@ extension TrainingParameters {
         guard let minutes, minutes > 0 else { return self }
         var next = self
         let targetMinutes = Double(max(minutes - bufferMinutes, 1))
+        let targetSeconds = TimeInterval(targetMinutes * 60)
+
+        // Preserve legacy proxy behavior while the emitted prescription remains
+        // distance-based.
+        let rideWorkBudgetSeconds = max(
+            targetSeconds - next.rideWarmUpSeconds - next.rideCooldownSeconds,
+            Limits.minimumRideWorkSeconds
+        )
+        next.rideWorkSeconds = max(next.rideWorkSeconds, rideWorkBudgetSeconds)
+
+        if next.runIsContinuous {
+            let runWorkBudgetSeconds = max(
+                targetSeconds - next.runWarmUpSeconds - next.runCooldownSeconds,
+                Limits.minimumContinuousRunSeconds
+            )
+            next.runContinuousSeconds = max(next.runContinuousSeconds, runWorkBudgetSeconds)
+        } else {
+            let runWorkBudgetSeconds = max(
+                targetSeconds - next.runWarmUpSeconds - next.runCooldownSeconds,
+                0
+            )
+            let repeatSeconds = next.runIntervalSeconds + next.runWalkSeconds
+            if repeatSeconds > 0 {
+                let targetRepeats = Int((runWorkBudgetSeconds / repeatSeconds).rounded(.down))
+                next.runRepeatCount = max(next.runRepeatCount, max(targetRepeats, 1))
+            }
+        }
 
         let runTarget = targetMinutes / 60.0 * 6_500
         let fixedRun = next.runWarmUpDistanceMeters + next.runCooldownDistanceMeters
