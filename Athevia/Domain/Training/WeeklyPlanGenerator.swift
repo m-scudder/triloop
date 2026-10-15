@@ -351,6 +351,20 @@ struct WeeklyPlanGenerator: Sendable {
             previous.rideWorkDistanceMeters + 2_000
         )
         next.rideWorkDistanceMeters = max(next.rideWorkDistanceMeters, evidenceTarget)
+
+        // Keep the legacy duration proxy aligned for capability/history logic.
+        let demonstratedSeconds = capability.cycling.bestRecentDurationSeconds
+        if demonstratedSeconds > 0 {
+            let demonstratedWorkSeconds = max(
+                demonstratedSeconds - previous.rideWarmUpSeconds - previous.rideCooldownSeconds,
+                TrainingParameters.Limits.minimumRideWorkSeconds
+            )
+            let evidenceSeconds = min(
+                demonstratedWorkSeconds,
+                previous.rideWorkSeconds + 10 * 60
+            )
+            next.rideWorkSeconds = max(next.rideWorkSeconds, evidenceSeconds)
+        }
         return next
     }
 
