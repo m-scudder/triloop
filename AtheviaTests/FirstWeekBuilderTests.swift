@@ -790,4 +790,35 @@ struct FirstWeekBuilderTests {
         #expect(plan.trainingSessions.count == 2)
     }
 
+    @Test("Freshly generated run and cycle sessions are distance-first")
+    func freshRunCyclePlanUsesDistancePrescriptions() throws {
+        let plan = try builder.build(
+            setup: setup(
+                running: .continuous20To30Minutes,
+                cycling: .thirtyToFortyFive,
+                preferences: [
+                    SportPreference(sport: .running, sessionsPerWeek: 2),
+                    SportPreference(sport: .cycling, sessionsPerWeek: 2)
+                ]
+            ),
+            poolLengthMeters: 25,
+            startDate: monday()
+        )
+
+        let runs = plan.trainingSessions.filter { $0.discipline == .running }
+        let rides = plan.trainingSessions.filter { $0.discipline == .cycling }
+
+        func hasTimedStep(_ step: WorkoutStep) -> Bool {
+            step.durationSeconds != nil || step.children.contains(where: hasTimedStep)
+        }
+
+        #expect(!runs.isEmpty)
+        #expect(!rides.isEmpty)
+        #expect(runs.allSatisfy { ($0.targetDistanceMeters ?? 0) > 0 })
+        #expect(rides.allSatisfy { ($0.targetDistanceMeters ?? 0) > 0 })
+        #expect(runs.allSatisfy { !$0.steps.contains(where: hasTimedStep) })
+        #expect(rides.allSatisfy { !$0.steps.contains(where: hasTimedStep) })
+    }
+
+
 }
