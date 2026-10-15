@@ -32,6 +32,7 @@ struct NextSession: Equatable {
     let workoutID: UUID
     let discipline: Discipline
     let date: Date
+    let distanceMeters: Double?
     let durationSeconds: TimeInterval?
 }
 
@@ -165,6 +166,7 @@ enum TodayPresentationBuilder {
             workoutID: workout.id,
             discipline: workout.discipline,
             date: workout.date,
+            distanceMeters: workout.discipline.isTrainingSession ? workout.estimatedDistanceMeters : nil,
             durationSeconds: workout.prescribedDurationSeconds ?? workout.estimatedDurationSeconds
         )
     }
