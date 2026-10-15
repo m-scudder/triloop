@@ -51,23 +51,35 @@ struct StartingParameterResolver: StartingParameterResolving {
 
         switch baseline {
         case .none:
+            parameters.runIntervalDistanceMeters = 150
+            parameters.runWalkDistanceMeters = 100
+            parameters.runRepeatCount = 6
             parameters.runIntervalSeconds = 60
             parameters.runWalkSeconds = 120
-            parameters.runRepeatCount = 6
 
         case .runWalk:
+            parameters.runIntervalDistanceMeters = 250
+            parameters.runWalkDistanceMeters = 100
+            parameters.runRepeatCount = 6
             parameters.runIntervalSeconds = 120
             parameters.runWalkSeconds = 60
-            parameters.runRepeatCount = 6
 
-        case .continuous10Minutes:
-            parameters.runContinuousSeconds = scaled(8 * 60, by: caution)
+        case .continuous10Minutes, .continuous20To30Minutes, .regular5K:
+            let baselineMeters = baseline.baselineDistanceMeters ?? 2_000
+            let totalTarget = rounded(max(baselineMeters * caution, 1_500), to: 250)
+            parameters.runContinuousDistanceMeters = max(
+                totalTarget - parameters.runWarmUpDistanceMeters - parameters.runCooldownDistanceMeters,
+                TrainingParameters.Limits.minimumContinuousRunDistanceMeters
+            )
 
-        case .continuous20To30Minutes:
-            parameters.runContinuousSeconds = scaled(20 * 60, by: caution)
-
-        case .regular5K:
-            parameters.runContinuousSeconds = scaled(30 * 60, by: caution)
+            // Keep the legacy time proxy aligned for capability/history logic.
+            let proxySeconds: TimeInterval = switch baseline {
+            case .continuous10Minutes: 8 * 60
+            case .continuous20To30Minutes: 20 * 60
+            case .regular5K: 30 * 60
+            default: 0
+            }
+            parameters.runContinuousSeconds = scaled(proxySeconds, by: caution)
         }
 
         if !baseline.runsContinuously {
@@ -120,6 +132,16 @@ struct StartingParameterResolver: StartingParameterResolving {
         caution: Double,
         to parameters: inout TrainingParameters
     ) {
+        let totalTarget = rounded(
+            max(baseline.baselineDistanceMeters * caution, 3_000),
+            to: 500
+        )
+        parameters.rideWorkDistanceMeters = max(
+            totalTarget - parameters.rideWarmUpDistanceMeters - parameters.rideCooldownDistanceMeters,
+            TrainingParameters.Limits.minimumRideWorkDistanceMeters
+        )
+
+        // Keep the legacy time proxy aligned for capability/history logic.
         parameters.rideWorkSeconds = max(
             scaled(TimeInterval(baseline.comfortableMinutes * 60), by: caution),
             TrainingParameters.Limits.minimumRideWorkSeconds
@@ -128,5 +150,10 @@ struct StartingParameterResolver: StartingParameterResolving {
 
     private func scaled(_ seconds: TimeInterval, by caution: Double) -> TimeInterval {
         (seconds * caution).rounded()
+    }
+
+    private func rounded(_ meters: Double, to increment: Double) -> Double {
+        guard increment > 0 else { return meters }
+        return (meters / increment).rounded() * increment
     }
 }
