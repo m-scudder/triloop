@@ -420,10 +420,21 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
         on date: Date,
         parameters: TrainingParameters
     ) -> PlannedWorkout {
-        let work = max(parameters.rideWorkSeconds, 10 * 60)
-        let cadenceBlock = max(min(work / 5, 5 * 60), 2 * 60)
+        let work = max(
+            parameters.rideWorkDistanceMeters,
+            TrainingParameters.Limits.minimumRideWorkDistanceMeters
+        )
+        let recoveryMeters = min(250.0, work / 6)
+        let cadenceBlockMeters = max(
+            (work - recoveryMeters * 3) / 3,
+            500
+        )
         let steps: [WorkoutStep] = [
-            .warmUp(order: 0, title: "Easy spinning", durationSeconds: parameters.rideWarmUpSeconds),
+            .warmUp(
+                order: 0,
+                title: "Easy spinning",
+                distanceMeters: parameters.rideWarmUpDistanceMeters
+            ),
             .repeating(
                 order: 1,
                 title: "Practice smooth pedaling",
@@ -434,26 +445,33 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
                         order: 0,
                         kind: .work,
                         title: "Smooth, quick pedaling",
-                        durationSeconds: cadenceBlock,
+                        distanceMeters: cadenceBlockMeters,
                         targetIntensity: .easy
                     ),
                     WorkoutStep(
                         order: 1,
                         kind: .recovery,
                         title: "Easy spin",
-                        durationSeconds: 60,
+                        distanceMeters: recoveryMeters,
                         targetIntensity: .veryEasy
                     )
                 ]
             ),
-            .cooldown(order: 2, title: "Easy spinning", durationSeconds: parameters.rideCooldownSeconds)
+            .cooldown(
+                order: 2,
+                title: "Easy spinning",
+                distanceMeters: parameters.rideCooldownDistanceMeters
+            )
         ]
+        let targetDistance = steps.compactMap(\.totalDistanceMeters).reduce(0, +)
         return PlannedWorkout(
             date: date,
             discipline: .cycling,
             title: "Practice Smooth Pedaling",
             goal: "Build bike comfort and smooth cadence without adding intensity.",
             targetRPE: RPERange(3, 4),
+            prescribedDurationSeconds: parameters.estimatedRideDurationSeconds,
+            targetDistanceMeters: targetDistance,
             steps: steps
         )
     }
