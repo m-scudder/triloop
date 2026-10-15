@@ -1,36 +1,30 @@
 import Foundation
 
-/// Running progresses through three phases, changing one variable at a time.
-///
-/// 1. Lengthen the running interval, leaving the count and walk alone (§13).
-/// 2. Once the interval is long enough, shorten the walk instead.
-/// 3. When the walk is minimal, drop it and run continuously.
-///
-/// Without the last two phases the interval would grow without limit, and a
-/// beginner plan would still be prescribing walk breaks after an hour of running.
+/// Running progresses through distance-based run/walk work before graduating
+/// to continuous distance. Time fields are no longer prescribed to the athlete.
 struct RunningTrainingEngine: SportTrainingEngine {
     let sport: Sport = .running
     var policy: TriagePolicy = .running
-    var intervalIncrementSeconds: TimeInterval = 15
-    /// Interval length at which walk breaks start being reduced instead.
+    var intervalIncrementMeters: Double = 50
+    /// Hidden legacy interval proxy used only to preserve the existing
+    /// graduation cadence for older capability/history logic.
     var graduationIntervalSeconds: TimeInterval = 5 * 60
-    var walkDecrementSeconds: TimeInterval = 30
-    var walkFloorSeconds: TimeInterval = 30
-    var continuousIncrementSeconds: TimeInterval = 2 * 60
+    var walkDecrementMeters: Double = 25
+    var walkFloorMeters: Double = 50
+    var continuousIncrementMeters: Double = 250
 
     func progressionAdjustment(result: WorkoutResult, feedback: FeedbackSummary) -> TrainingAdjustment {
-        // No interval means the session is already one continuous run.
         guard let interval = result.prescribedIntervalSeconds else {
-            return .runContinuousDuration(deltaSeconds: continuousIncrementSeconds)
+            return .runContinuousDistance(deltaMeters: continuousIncrementMeters)
         }
 
         if interval < graduationIntervalSeconds {
-            return .runIntervalDuration(deltaSeconds: intervalIncrementSeconds)
+            return .runIntervalDistance(deltaMeters: intervalIncrementMeters)
         }
 
-        let walk = result.prescribedRestSeconds ?? 0
-        if walk - walkDecrementSeconds >= walkFloorSeconds {
-            return .runWalkDuration(deltaSeconds: -walkDecrementSeconds)
+        let walkSeconds = result.prescribedRestSeconds ?? 0
+        if walkSeconds > 30 {
+            return .runWalkDistance(deltaMeters: -walkDecrementMeters)
         }
 
         return .graduateToContinuousRun
