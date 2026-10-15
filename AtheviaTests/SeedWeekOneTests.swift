@@ -60,15 +60,13 @@ struct SeedWeekOneTests {
         #expect(august.orderedWorkouts.map(\.discipline) == later.orderedWorkouts.map(\.discipline))
     }
 
-    @Test func runWalkExpandsToTwentyEightMinutes() throws {
+    @Test func runWalkIsDistanceBased() throws {
         let plan = SeedWeekOne.makePlan(startDate: monday(), calendar: calendar)
         let run = try #require(plan.orderedWorkouts.first { $0.discipline == .running })
 
-        // 5 min warm-up + 6 × (1:00 run + 2:00 walk) + 5 min cooldown.
-        // Expected value is explicitly typed: #expect captures each operand
-        // separately, so a bare literal would default to Int and never compare
-        // equal to the TimeInterval on the left.
-        #expect(run.estimatedDurationSeconds == TimeInterval(28 * 60))
+        #expect(run.targetDistanceMeters == 2_000)
+        #expect(run.estimatedDistanceMeters == 2_000)
+        #expect(run.steps.allSatisfy { $0.totalDistanceMeters != nil })
         #expect(run.targetRPE == RPERange(3, 4))
     }
 
@@ -81,11 +79,13 @@ struct SeedWeekOneTests {
         #expect(derived == 300)
     }
 
-    @Test func rideTotalsThirtyMinutes() throws {
+    @Test func rideIsDistanceBased() throws {
         let plan = SeedWeekOne.makePlan(startDate: monday(), calendar: calendar)
         let ride = try #require(plan.orderedWorkouts.first { $0.discipline == .cycling })
 
-        #expect(ride.estimatedDurationSeconds == TimeInterval(30 * 60))
+        #expect(ride.targetDistanceMeters == 4_000)
+        #expect(ride.estimatedDistanceMeters == 4_000)
+        #expect(ride.steps.allSatisfy { $0.totalDistanceMeters != nil })
     }
 
     @Test func restDayHasNoPrescribedWork() throws {
