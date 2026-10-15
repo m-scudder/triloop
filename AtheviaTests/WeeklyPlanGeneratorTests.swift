@@ -121,16 +121,16 @@ struct WeeklyPlanGeneratorTests {
 
         let week2 = nextWeek(after: week1)
 
-        #expect(week2.parameters.runIntervalSeconds == 75)
+        #expect(week2.parameters.runIntervalDistanceMeters == 200)
         #expect(week2.parameters.runRepeatCount == 6)
-        #expect(week2.parameters.runWalkSeconds == 120)
+        #expect(week2.parameters.runWalkDistanceMeters == 100)
 
         let run = week2.orderedWorkouts.first { $0.discipline == .running }
-        // 5 min warm-up + 6 × (1:15 run + 2:00 walk) + 5 min cooldown.
-        #expect(run?.estimatedDurationSeconds == TimeInterval(1770))
+        #expect(run?.targetDistanceMeters == 2_300)
+        #expect(run?.orderedSteps.allSatisfy { $0.totalDistanceMeters != nil } == true)
     }
 
-    @Test("A good week adds five minutes to the ride")
+    @Test("A good week adds one kilometre to the ride")
     func goodWeekProgressesCycling() {
         let week1 = seededWeek()
         completeEverything(week1, with: FeedbackDraft(rpe: 3, painScore: 0))
@@ -138,8 +138,9 @@ struct WeeklyPlanGeneratorTests {
         let week2 = nextWeek(after: week1)
         let ride = week2.orderedWorkouts.first { $0.discipline == .cycling }
 
-        #expect(week2.parameters.rideWorkSeconds == TimeInterval(25 * 60))
-        #expect(ride?.estimatedDurationSeconds == TimeInterval(35 * 60))
+        #expect(week2.parameters.rideWorkDistanceMeters == 4_000)
+        #expect(ride?.targetDistanceMeters == 5_000)
+        #expect(ride?.orderedSteps.allSatisfy { $0.totalDistanceMeters != nil } == true)
     }
 
     @Test("Sustained demonstrated cycling can advance by ten work minutes")
@@ -163,6 +164,7 @@ struct WeeklyPlanGeneratorTests {
                 prescribedWorkSeconds: 20 * 60,
                 bestRecentDurationSeconds: 40 * 60,
                 longestRecordedDistanceMeters: 10_000,
+                recentBestDistanceMeters: 10_000,
                 recentDirection: .building
             ),
             swimming: SwimmingCapability(
@@ -185,9 +187,9 @@ struct WeeklyPlanGeneratorTests {
 
         let week2 = generator.generate(after: week1, analysis: WeeklyAnalyser().analyse(week1))
 
-        // 40 min demonstrated total - 10 min warm-up/cooldown = 30 min work.
-        // That is a meaningful 10-minute step from the 20-minute work block,
-        // rather than forcing the athlete through 21, 22, 23... minute weeks.
+        // Sustained recorded distance can advance at most 2 km beyond the
+        // previous work target in one generated week.
+        #expect(week2.parameters.rideWorkDistanceMeters == 5_000)
         #expect(week2.parameters.rideWorkSeconds == TimeInterval(30 * 60))
     }
 
@@ -215,6 +217,7 @@ struct WeeklyPlanGeneratorTests {
                 prescribedWorkSeconds: 20 * 60,
                 bestRecentDurationSeconds: 60 * 60,
                 longestRecordedDistanceMeters: 20_000,
+                recentBestDistanceMeters: 20_000,
                 recentDirection: .building
             ),
             swimming: SwimmingCapability(
@@ -236,6 +239,7 @@ struct WeeklyPlanGeneratorTests {
         )
 
         let week2 = generator.generate(after: week1, analysis: WeeklyAnalyser().analyse(week1))
+        #expect(week2.parameters.rideWorkDistanceMeters == week1.parameters.rideWorkDistanceMeters)
         #expect(week2.parameters.rideWorkSeconds == week1.parameters.rideWorkSeconds)
     }
 
