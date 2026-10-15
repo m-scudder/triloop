@@ -14,7 +14,7 @@ struct TrainingParametersTests {
         #expect(parameters.runRepeatCount == 6)
         #expect(parameters.swimTotalMeters == 300)
         #expect(parameters.swimRestSeconds == 45)
-        #expect(parameters.rideWorkSeconds == TimeInterval(20 * 60))
+        #expect(parameters.rideWorkDistanceMeters == TimeInterval(20 * 60))
     }
 
     @Test("Progression moves only its own variable")
@@ -25,7 +25,7 @@ struct TrainingParametersTests {
         #expect(next.runIntervalSeconds == 75)
         #expect(next.runRepeatCount == base.runRepeatCount)
         #expect(next.runWalkSeconds == base.runWalkSeconds)
-        #expect(next.rideWorkSeconds == base.rideWorkSeconds)
+        #expect(next.rideWorkDistanceMeters == base.rideWorkDistanceMeters)
         #expect(next.swimTotalMeters == base.swimTotalMeters)
     }
 
@@ -48,7 +48,7 @@ struct TrainingParametersTests {
         #expect(run.runRepeatCount == 5)
         #expect(run.runIntervalSeconds == base.runIntervalSeconds)
         #expect(swim.swimTotalMeters == 250)
-        #expect(ride.rideWorkSeconds == TimeInterval(16 * 60))
+        #expect(ride.rideWorkDistanceMeters == TimeInterval(16 * 60))
     }
 
     @Test("Swim volume stays in whole lengths")
@@ -69,28 +69,21 @@ struct TrainingParametersTests {
 
         #expect(parameters.runRepeatCount == TrainingParameters.Limits.minimumRunRepeatCount)
         #expect(parameters.swimTotalMeters == TrainingParameters.Limits.minimumSwimMeters)
-        #expect(parameters.rideWorkSeconds == TrainingParameters.Limits.minimumRideWorkSeconds)
+        #expect(parameters.rideWorkDistanceMeters == TrainingParameters.Limits.minimumRideWorkDistanceMeters)
     }
 
-    @Test("A sixty minute window produces a near-full cycling session")
+    @Test("A sixty minute window produces a distance-based cycling session")
     func fillsSixtyMinuteCyclingWindow() {
         let parameters = TrainingParameters().fillingTrainingWindow(minutes: 60)
-        #expect(parameters.rideWorkSeconds == 45 * 60)
-        #expect(
-            parameters.rideWarmUpSeconds
-                + parameters.rideWorkSeconds
-                + parameters.rideCooldownSeconds == 55 * 60
-        )
+        #expect(parameters.rideTargetDistanceMeters > 10_000)
+        #expect(parameters.estimatedRideDurationSeconds <= 60 * 60)
     }
 
-    @Test("Training window filler never exceeds selected time")
+    @Test("Training window filler caps distance inside selected time")
     func filledWindowStaysInsideAvailability() {
         let parameters = TrainingParameters().fillingTrainingWindow(minutes: 30)
-        #expect(
-            parameters.rideWarmUpSeconds
-                + parameters.rideWorkSeconds
-                + parameters.rideCooldownSeconds <= 30 * 60
-        )
+        #expect(parameters.estimatedRideDurationSeconds <= 30 * 60)
+        #expect(parameters.estimatedRunDurationSeconds <= 30 * 60)
     }
 
 }
