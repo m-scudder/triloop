@@ -66,17 +66,15 @@ enum WorkoutStructureSummary {
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
-    /// Distance for swimmers, time for everyone else.
+    /// Distance is the primary measure for sport prescriptions. Time remains a
+    /// fallback for legacy/custom/recovery steps that do not carry distance.
     private static func measure(_ step: WorkoutStep, sport: Sport?) -> String? {
-        if sport == .swimming, let metres = step.distanceMeters, metres > 0 {
-            return "\(Int(metres))m"
+        if let metres = step.distanceMeters, metres > 0 {
+            return sport == .swimming
+                ? "\(Int(metres))m"
+                : TrainingFormatter.distance(meters: metres)
         }
-        guard let seconds = step.durationSeconds, seconds > 0 else {
-            if let metres = step.distanceMeters, metres > 0 {
-                return TrainingFormatter.distance(meters: metres)
-            }
-            return nil
-        }
+        guard let seconds = step.durationSeconds, seconds > 0 else { return nil }
         return TrainingFormatter.intervalDuration(seconds: seconds)
     }
 }
