@@ -62,8 +62,7 @@ extension CurrentTraining {
             return "\(TrainingFormatter.distance(meters: parameters.swimTotalMeters)) · \(rest)s rest"
 
         case .cycling:
-            let total = parameters.rideWarmUpSeconds + parameters.rideWorkSeconds + parameters.rideCooldownSeconds
-            return TrainingFormatter.totalDuration(seconds: total)
+            return TrainingFormatter.distance(meters: parameters.rideTargetDistanceMeters)
         }
     }
 }
