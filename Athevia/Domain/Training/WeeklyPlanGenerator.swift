@@ -333,26 +333,31 @@ struct WeeklyPlanGenerator: Sendable {
             return parameters
         }
 
-        let demonstrated = capability.cycling.bestRecentDurationSeconds
+        let demonstrated = capability.cycling.recentBestDistanceMeters
         guard demonstrated > 0 else { return parameters }
 
         var next = parameters
-        // HealthKit duration is total ride time, while rideWorkSeconds excludes
-        // warm-up/cooldown. Translate like-for-like before using it as evidence.
+        // HealthKit distance is total ride distance. Remove the prescribed
+        // warm-up/cooldown portions before comparing it with the work target.
         let demonstratedWork = max(
-            demonstrated - previous.rideWarmUpSeconds - previous.rideCooldownSeconds,
-            TrainingParameters.Limits.minimumRideWorkSeconds
+            demonstrated - previous.rideWarmUpDistanceMeters - previous.rideCooldownDistanceMeters,
+            TrainingParameters.Limits.minimumRideWorkDistanceMeters
         )
 
-        // Meaningful but bounded adaptation: sustained evidence may advance at
-        // most ten work minutes in one generated week. The normal engine has
-        // already supplied a five-minute increase.
+        // Sustained evidence may advance at most 2 km of ride work beyond the
+        // previous week. The normal engine has already supplied a 1 km increase.
         let evidenceTarget = min(
             demonstratedWork,
-            previous.rideWorkSeconds + 10 * 60
+            previous.rideWorkDistanceMeters + 2_000
         )
-        next.rideWorkSeconds = max(next.rideWorkSeconds, evidenceTarget)
+        next.rideWorkDistanceMeters = max(next.rideWorkDistanceMeters, evidenceTarget)
         return next
+    }
+
+    private func previousRideWorkDistance(parameters: TrainingParameters) -> Double {
+        // Used only for the explanatory sentence; the generated prescription
+        // itself is already distance-first.
+        max(parameters.rideWorkDistanceMeters - 2_000, TrainingParameters.Limits.minimumRideWorkDistanceMeters)
     }
 
     private func recoveryGoal(for recovering: Set<Sport>) -> String? {
@@ -387,8 +392,8 @@ struct WeeklyPlanGenerator: Sendable {
            let cycling = analysis.analysis(for: .cycling),
            cycling.status == .progress,
            capability.recentCompletedSessions >= 6,
-           capability.cycling.bestRecentDurationSeconds > 0,
-           parameters.rideWorkSeconds >= capability.cycling.prescribedWorkSeconds + 10 * 60 {
+           capability.cycling.recentBestDistanceMeters > 0,
+           parameters.rideWorkDistanceMeters >= previousRideWorkDistance(parameters: parameters) + 2_000 {
             analysisReason += " Cycling also advanced from your recent completed-ride evidence, not only the last ride."
         }
 
