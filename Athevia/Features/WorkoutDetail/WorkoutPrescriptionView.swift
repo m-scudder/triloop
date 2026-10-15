@@ -73,12 +73,12 @@ private struct StepView: View {
 
                     ForEach(step.orderedChildren, id: \.id) { child in
                         HStack(alignment: .firstTextBaseline) {
-                            if let seconds = child.durationSeconds {
-                                Text(TrainingFormatter.intervalDuration(seconds: seconds))
+                            if let meters = child.distanceMeters {
+                                Text(TrainingFormatter.distance(meters: meters))
                                     .font(.body.weight(.medium))
                                     .monospacedDigit()
-                            } else if let meters = child.distanceMeters {
-                                Text(TrainingFormatter.distance(meters: meters))
+                            } else if let seconds = child.durationSeconds {
+                                Text(TrainingFormatter.intervalDuration(seconds: seconds))
                                     .font(.body.weight(.medium))
                                     .monospacedDigit()
                             }
@@ -119,7 +119,7 @@ private struct StepView: View {
         case .moderate:
             return "Moderate: breathing is stronger, but the effort should stay controlled."
         case .hard:
-            return "Hard: challenging effort. Follow the planned time and do not sprint."
+            return "Hard: challenging effort. Follow the planned target and do not sprint."
         }
     }
 
@@ -138,11 +138,11 @@ private struct StepView: View {
     }
 
     private var measureText: String? {
-        if let seconds = step.durationSeconds {
-            return TrainingFormatter.totalDuration(seconds: seconds)
-        }
         if let meters = step.distanceMeters {
             return TrainingFormatter.distance(meters: meters)
+        }
+        if let seconds = step.durationSeconds {
+            return TrainingFormatter.totalDuration(seconds: seconds)
         }
         return nil
     }
