@@ -140,14 +140,14 @@ enum WorkoutPlanBuilder {
         return WorkoutKit.WorkoutStep(goal: goal(for: step))
     }
 
-    /// Duration wins over distance: every Athevia step that has both is
-    /// prescribed by time, and a step with neither is athlete-paced.
+    /// Distance wins for sport training. Time remains the fallback for
+    /// recovery/time-only steps and legacy/custom workouts.
     private static func goal(for step: WorkoutStep) -> WorkoutGoal {
-        if let seconds = step.durationSeconds {
-            return .time(seconds, .seconds)
-        }
         if let meters = step.distanceMeters {
             return .distance(meters, .meters)
+        }
+        if let seconds = step.durationSeconds {
+            return .time(seconds, .seconds)
         }
         return .open
     }
