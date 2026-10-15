@@ -200,8 +200,8 @@ struct WeeklyAnalysisTests {
         #expect(analysis.analysis(for: .running)?.status == .progress)
         #expect(analysis.analysis(for: .swimming)?.status == .progress)
         #expect(analysis.analysis(for: .cycling)?.status == .progress)
-        #expect(analysis.analysis(for: .running)?.adjustment == .runIntervalDuration(deltaSeconds: 15))
-        #expect(analysis.analysis(for: .cycling)?.adjustment == .rideDuration(deltaSeconds: 300))
+        #expect(analysis.analysis(for: .running)?.adjustment == .runIntervalDistance(deltaMeters: 50))
+        #expect(analysis.analysis(for: .cycling)?.adjustment == .rideDistance(deltaMeters: 1_000))
     }
 
     @Test("The most cautious session governs the sport")
