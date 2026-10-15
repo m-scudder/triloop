@@ -28,8 +28,8 @@ struct StartingParameterResolverTests {
         let parameters = resolve(running: .none)
 
         #expect(parameters.runIsContinuous == false)
-        #expect(parameters.runIntervalSeconds == 60)
-        #expect(parameters.runWalkSeconds > parameters.runIntervalSeconds)
+        #expect(parameters.runIntervalDistanceMeters == 150)
+        #expect(parameters.runWalkDistanceMeters < parameters.runIntervalDistanceMeters)
     }
 
     @Test("A run/walk athlete starts ahead of an absolute beginner")
@@ -38,8 +38,8 @@ struct StartingParameterResolverTests {
         let runWalker = resolve(running: .runWalk)
 
         #expect(runWalker.runIsContinuous == false)
-        #expect(runWalker.runIntervalSeconds > beginner.runIntervalSeconds)
-        #expect(runWalker.runWalkSeconds < beginner.runWalkSeconds)
+        #expect(runWalker.runIntervalDistanceMeters > beginner.runIntervalDistanceMeters)
+        #expect(runWalker.runWalkDistanceMeters <= beginner.runWalkDistanceMeters)
     }
 
     @Test("A continuous runner is never given beginner intervals")
@@ -48,7 +48,7 @@ struct StartingParameterResolverTests {
             let parameters = resolve(running: baseline)
 
             #expect(parameters.runIsContinuous)
-            #expect(parameters.runContinuousSeconds >= TrainingParameters.Limits.minimumContinuousRunSeconds)
+            #expect(parameters.runContinuousDistanceMeters >= TrainingParameters.Limits.minimumContinuousRunDistanceMeters)
         }
     }
 
@@ -58,17 +58,17 @@ struct StartingParameterResolverTests {
         let thirty = resolve(running: .continuous20To30Minutes)
         let fiveK = resolve(running: .regular5K)
 
-        #expect(ten.runContinuousSeconds < thirty.runContinuousSeconds)
-        #expect(thirty.runContinuousSeconds < fiveK.runContinuousSeconds)
-        #expect(thirty.runContinuousSeconds >= TimeInterval(15 * 60))
+        #expect(ten.runContinuousDistanceMeters < thirty.runContinuousDistanceMeters)
+        #expect(thirty.runContinuousDistanceMeters < fiveK.runContinuousDistanceMeters)
+        #expect(thirty.runContinuousDistanceMeters >= 2_000)
     }
 
     @Test("Starting work sits below stated ability rather than at it")
     func startsBelowStatedCeiling() {
         let parameters = resolve(running: .continuous20To30Minutes)
 
-        // Stated 20–30 minutes; week one should not open at the top of it.
-        #expect(parameters.runContinuousSeconds <= TimeInterval(25 * 60))
+        // Stated capability is ~3.5 km; week one should stay below it.
+        #expect(parameters.runTargetDistanceMeters <= 3_500)
     }
 
     // MARK: - Swimming
@@ -112,8 +112,8 @@ struct StartingParameterResolverTests {
     func shortCyclistStartsLow() {
         let parameters = resolve(cycling: .under20)
 
-        #expect(parameters.rideWorkSeconds <= TimeInterval(20 * 60))
-        #expect(parameters.rideWorkSeconds >= TrainingParameters.Limits.minimumRideWorkSeconds)
+        #expect(parameters.rideTargetDistanceMeters <= 4_000)
+        #expect(parameters.rideWorkDistanceMeters >= TrainingParameters.Limits.minimumRideWorkDistanceMeters)
     }
 
     @Test("An hour-long cyclist does not start at beginner duration")
@@ -121,8 +121,8 @@ struct StartingParameterResolverTests {
         let short = resolve(cycling: .under20)
         let long = resolve(cycling: .sixtyPlus)
 
-        #expect(long.rideWorkSeconds > short.rideWorkSeconds)
-        #expect(long.rideWorkSeconds >= TimeInterval(45 * 60))
+        #expect(long.rideWorkDistanceMeters > short.rideWorkDistanceMeters)
+        #expect(long.rideTargetDistanceMeters >= 15_000)
     }
 
     // MARK: - Goal
@@ -132,8 +132,8 @@ struct StartingParameterResolverTests {
         let fitness = resolve(running: .regular5K, cycling: .sixtyPlus, goal: .generalFitness)
         let returning = resolve(running: .regular5K, cycling: .sixtyPlus, goal: .returnToTraining)
 
-        #expect(returning.runContinuousSeconds < fitness.runContinuousSeconds)
-        #expect(returning.rideWorkSeconds < fitness.rideWorkSeconds)
+        #expect(returning.runContinuousDistanceMeters < fitness.runContinuousDistanceMeters)
+        #expect(returning.rideWorkDistanceMeters < fitness.rideWorkDistanceMeters)
     }
 
     @Test("An ambitious goal never produces more work than a neutral one")
@@ -148,7 +148,7 @@ struct StartingParameterResolverTests {
                 goal: goal
             )
 
-            #expect(parameters.rideWorkSeconds <= neutral.rideWorkSeconds)
+            #expect(parameters.rideWorkDistanceMeters <= neutral.rideWorkDistanceMeters)
             #expect(parameters.swimTotalMeters <= neutral.swimTotalMeters)
         }
     }
