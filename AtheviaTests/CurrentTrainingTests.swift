@@ -51,19 +51,19 @@ struct CurrentTrainingTests {
         let summary = try #require(CurrentTraining(plans: [plan()]))
         let running = try #require(summary.states.first { $0.sport == .running })
 
-        #expect(running.prescription == "6 × 1:00 run / 2:00 walk")
+        #expect(running.prescription == "6 × 150 m run / 100 m walk")
     }
 
     @Test("Continuous running is described as continuous")
     func continuousRunningIsDescribed() throws {
         let plan = plan()
         plan.parameters.runIsContinuous = true
-        plan.parameters.runContinuousSeconds = 900
+        plan.parameters.runContinuousDistanceMeters = 2_000
 
         let summary = try #require(CurrentTraining(plans: [plan]))
         let running = try #require(summary.states.first { $0.sport == .running })
 
-        #expect(running.prescription == "15 min continuous")
+        #expect(running.prescription == "2.0 km continuous")
     }
 
     @Test("Swimming shows volume and rest together")
