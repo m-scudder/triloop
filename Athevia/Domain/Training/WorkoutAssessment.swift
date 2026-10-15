@@ -102,12 +102,15 @@ enum TrainingAdjustment: Equatable, Sendable {
     /// Repeat the same workload. Named `hold` rather than `none` so it never
     /// collides with `Optional.none` at a use site.
     case hold
-    /// Lengthen or shorten the running interval, leaving the count and walk recovery alone.
-    case runIntervalDuration(deltaSeconds: TimeInterval)
-    /// Shorten the walk between running intervals, leaving the running alone.
-    case runWalkDuration(deltaSeconds: TimeInterval)
-    /// Drop the walk breaks entirely and run the session as one block.
+    /// Run/cycle progression is distance-first. The older duration cases remain
+    /// understood only for backward-compatible debug/history replay.
+    case runIntervalDistance(deltaMeters: Double)
+    case runWalkDistance(deltaMeters: Double)
     case graduateToContinuousRun
+    case runContinuousDistance(deltaMeters: Double)
+    case rideDistance(deltaMeters: Double)
+    case runIntervalDuration(deltaSeconds: TimeInterval)
+    case runWalkDuration(deltaSeconds: TimeInterval)
     case runContinuousDuration(deltaSeconds: TimeInterval)
     case rideDuration(deltaSeconds: TimeInterval)
     /// Tighten rest between swim repeats before touching distance.
