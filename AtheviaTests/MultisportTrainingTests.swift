@@ -105,9 +105,9 @@ struct MultisportTrainingTests {
             on: .now,
             parameters: TrainingParameters(),
             prescription: BrickPrescription(
-                bikeSeconds: 1_800,
+                bikeMeters: 8_000,
                 transitionSeconds: 300,
-                runSeconds: 600,
+                runMeters: 1_500,
                 targetIntensity: .easy
             )
         )
