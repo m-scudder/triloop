@@ -45,10 +45,10 @@ struct WorkoutExecutionPlan: Equatable, Sendable {
         // Legacy/simple sessions can carry only a workout-level prescription.
         // They still need one executable step; an empty plan would otherwise
         // transition from ready -> finished the instant Start is tapped.
+        let distance = Self.validPositive(workout.estimatedDistanceMeters)
         let rawDuration = workout.prescribedDurationSeconds
             ?? workout.estimatedDurationSeconds
-        let duration = Self.validPositive(rawDuration)
-        let distance = Self.validPositive(workout.estimatedDistanceMeters)
+        let duration = distance == nil ? Self.validPositive(rawDuration) : nil
 
         // A training session with no structured blocks is still executable as
         // one manual/whole-workout step. This guarantees Start can never mean
@@ -61,7 +61,7 @@ struct WorkoutExecutionPlan: Equatable, Sendable {
                 title: workout.title,
                 instructions: workout.goal.isEmpty ? nil : workout.goal,
                 durationSeconds: duration,
-                distanceMeters: duration == nil ? distance : nil,
+                distanceMeters: distance,
                 targetIntensity: nil,
                 repetition: nil,
                 repetitionCount: nil
