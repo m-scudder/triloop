@@ -10,21 +10,22 @@ struct TrainingParametersTests {
     func defaultsMatchWeekOne() {
         let parameters = TrainingParameters()
 
-        #expect(parameters.runIntervalSeconds == 60)
+        #expect(parameters.runIntervalDistanceMeters == 150)
+        #expect(parameters.runWalkDistanceMeters == 100)
         #expect(parameters.runRepeatCount == 6)
         #expect(parameters.swimTotalMeters == 300)
         #expect(parameters.swimRestSeconds == 45)
-        #expect(parameters.rideWorkDistanceMeters == TimeInterval(20 * 60))
+        #expect(parameters.rideWorkDistanceMeters == 3_000)
     }
 
     @Test("Progression moves only its own variable")
     func progressionIsSingleVariable() {
         let base = TrainingParameters()
-        let next = base.applying(.runIntervalDuration(deltaSeconds: 15), to: .running)
+        let next = base.applying(.runIntervalDistance(deltaMeters: 50), to: .running)
 
-        #expect(next.runIntervalSeconds == 75)
+        #expect(next.runIntervalDistanceMeters == 200)
         #expect(next.runRepeatCount == base.runRepeatCount)
-        #expect(next.runWalkSeconds == base.runWalkSeconds)
+        #expect(next.runWalkDistanceMeters == base.runWalkDistanceMeters)
         #expect(next.rideWorkDistanceMeters == base.rideWorkDistanceMeters)
         #expect(next.swimTotalMeters == base.swimTotalMeters)
     }
@@ -46,9 +47,9 @@ struct TrainingParametersTests {
         let ride = base.applying(.reduceVolume(fraction: 0.2), to: .cycling)
 
         #expect(run.runRepeatCount == 5)
-        #expect(run.runIntervalSeconds == base.runIntervalSeconds)
+        #expect(run.runIntervalDistanceMeters == base.runIntervalDistanceMeters)
         #expect(swim.swimTotalMeters == 250)
-        #expect(ride.rideWorkDistanceMeters == TimeInterval(16 * 60))
+        #expect(ride.rideWorkDistanceMeters == 2_500)
     }
 
     @Test("Swim volume stays in whole lengths")
