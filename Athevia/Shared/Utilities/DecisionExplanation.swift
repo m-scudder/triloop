@@ -37,7 +37,16 @@ struct DecisionExplanation {
         guard let before = parameters else { return sport.adjustment.summary }
         let after = before.applying(sport.adjustment, to: sport.sport)
         switch sport.adjustment {
-        case .hold: return "No change"
+        case .hold:
+            return "No change"
+        case .runIntervalDistance:
+            return distanceChange("Run interval", before.runIntervalDistanceMeters, after.runIntervalDistanceMeters)
+        case .runWalkDistance:
+            return distanceChange("Walk", before.runWalkDistanceMeters, after.runWalkDistanceMeters)
+        case .runContinuousDistance:
+            return distanceChange("Continuous run", before.runContinuousDistanceMeters, after.runContinuousDistanceMeters)
+        case .rideDistance:
+            return distanceChange("Ride", before.rideWorkDistanceMeters, after.rideWorkDistanceMeters)
         case .runIntervalDuration:
             return "Run interval: \(Int(before.runIntervalSeconds))s → \(Int(after.runIntervalSeconds))s"
         case .runWalkDuration:
@@ -55,6 +64,10 @@ struct DecisionExplanation {
         case .reduceVolume, .graduateToContinuousRun, .substituteRecovery:
             return sport.adjustment.summary
         }
+    }
+
+    private static func distanceChange(_ label: String, _ before: Double, _ after: Double) -> String {
+        "\(label): \(TrainingFormatter.distance(meters: before)) → \(TrainingFormatter.distance(meters: after))"
     }
 
     private static func durationChange(_ label: String, _ before: TimeInterval, _ after: TimeInterval) -> String {
