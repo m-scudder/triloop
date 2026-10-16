@@ -126,6 +126,14 @@ enum TrainingAdjustment: Equatable, Sendable {
         switch self {
         case .hold:
             "Repeat a similar workload"
+        case .runIntervalDistance(let delta):
+            "(Self.signed(Int(delta))) m per running interval"
+        case .runWalkDistance(let delta):
+            "(Self.signed(Int(delta))) m of walking between intervals"
+        case .runContinuousDistance(let delta):
+            "(Self.signed(Int(delta))) m of continuous running"
+        case .rideDistance(let delta):
+            "(Self.signed(Int(delta))) m of riding"
         case .runIntervalDuration(let delta):
             "\(Self.signed(Int(delta)))s per running interval"
         case .runWalkDuration(let delta):
