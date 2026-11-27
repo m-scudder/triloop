@@ -119,8 +119,11 @@ private extension WatchWorkoutPayload {
             discipline: WatchWorkoutDiscipline(rawValue: workout.discipline.rawValue) ?? .running,
             title: workout.title,
             goal: workout.goal,
-            estimatedDurationSeconds: workout.estimatedDurationSeconds,
-            estimatedDistanceMeters: workout.estimatedDistanceMeters,
+            estimatedDurationSeconds: workout.targetDistanceMeters == nil
+                ? workout.estimatedDurationSeconds
+                : nil,
+            estimatedDistanceMeters: workout.targetDistanceMeters
+                ?? workout.estimatedDistanceMeters,
             status: WatchWorkoutStatus(rawValue: workout.status.rawValue) ?? .planned,
             steps: workout.orderedSteps.map(WatchWorkoutStepPayload.init(step:))
         )

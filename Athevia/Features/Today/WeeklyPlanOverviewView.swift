@@ -77,7 +77,14 @@ struct WeeklyPlanOverviewView: View {
 
     private func sportSummary(_ sport: Sport) -> some View {
         let sportSessions = sessions.filter { $0.discipline.sport == sport }
-        let duration = sportSessions.compactMap(\.estimatedDurationSeconds).reduce(0, +)
+        let distance = sportSessions.compactMap(\.targetDistanceMeters).reduce(0, +)
+        let duration = sportSessions
+            .filter { $0.targetDistanceMeters == nil }
+            .compactMap(\.estimatedDurationSeconds)
+            .reduce(0, +)
+        let volumeText = distance > 0
+            ? TrainingFormatter.distance(meters: distance)
+            : TrainingFormatter.totalDuration(seconds: duration)
 
         return HStack(spacing: 6) {
             Image(systemName: sport.discipline.symbolName)
@@ -88,7 +95,7 @@ struct WeeklyPlanOverviewView: View {
                     Text(sport.discipline.displayName)
                         .font(.caption.weight(.medium))
 
-                    Text("· \(TrainingFormatter.totalDuration(seconds: duration))")
+                    Text("· \(volumeText)")
                         .font(.caption2)
                         .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
                         .lineLimit(1)

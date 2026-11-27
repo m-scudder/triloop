@@ -103,6 +103,19 @@ struct StartingPointStepView: View {
                     SectionEyebrow(text: abilityTitle(for: sport))
                     baselineChoices(sport)
 
+                    SectionEyebrow(text: "Plan workouts by")
+                    HStack(spacing: 8) {
+                        ForEach(WorkoutPrescriptionBasis.allCases, id: \.self) { basis in
+                            AtheviaChoiceChip(
+                                title: basis.displayName,
+                                isSelected: model.prescriptionBasis(for: sport) == basis,
+                                tint: sport.discipline.themedTint(theme)
+                            ) {
+                                model.choose(prescriptionBasis: basis, for: sport)
+                            }
+                        }
+                    }
+
                     if sport == .swimming {
                         swimmingDetails
                     }
@@ -261,13 +274,14 @@ struct StartingPointStepView: View {
     }
 
     private func summary(_ sport: Sport) -> String {
+        let basis = model.prescriptionBasis(for: sport).displayName.lowercased()
         switch sport {
         case .running:
-            shortLabel(model.setup.baseline.running)
+            return "\(shortLabel(model.setup.baseline.running)) · \(basis)"
         case .swimming:
-            model.setup.baseline.swimming.displayName
+            return "\(model.setup.baseline.swimming.displayName) · \(basis)"
         case .cycling:
-            shortLabel(model.setup.baseline.cycling)
+            return "\(shortLabel(model.setup.baseline.cycling)) · \(basis)"
         }
     }
 }

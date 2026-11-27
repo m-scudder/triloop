@@ -68,7 +68,8 @@ extension TrainingParameters {
         static let minimumSwimMeters: Double = 100
         static let minimumRideWorkSeconds: TimeInterval = 10 * 60
         static let minimumRunWalkSeconds: TimeInterval = 30
-        static let minimumContinuousRunSeconds: TimeInterval = 8 * 60
+        static let minimumContinuousRunSeconds: TimeInterval = 5 * 60
+        static let trainingTimeIncrementSeconds: TimeInterval = 5 * 60
 
         /// Rest cannot be tightened indefinitely, and a longer repeat needs more
         /// of it: 30 seconds after 25 m is brisk, after 100 m it is nothing.
@@ -100,7 +101,12 @@ extension TrainingParameters {
         )
 
         if next.runIsContinuous {
-            next.runContinuousSeconds = min(next.runContinuousSeconds, runWorkBudget)
+            let capped = min(next.runContinuousSeconds, runWorkBudget)
+            next.runContinuousSeconds = Self.cappedTrainingTime(
+                capped,
+                maximum: runWorkBudget,
+                minimum: min(Limits.minimumContinuousRunSeconds, runWorkBudget)
+            )
         } else {
             let repeatSeconds = next.runIntervalSeconds + next.runWalkSeconds
             if repeatSeconds > 0 {
@@ -109,52 +115,41 @@ extension TrainingParameters {
             }
         }
 
+        // Distance-based swim sessions do not have a trustworthy pace estimate
+        // yet. Use the existing 45-minute opening swim as a reference only when
+        // the athlete selected a smaller window; a larger window never inflates
+        // capability-derived volume.
+        let referenceSwimMinutes = 45.0
+        if Double(minutes) < referenceSwimMinutes {
+            let fraction = Double(minutes) / referenceSwimMinutes
+            next.swimTotalMeters = Self.roundedToRepeat(
+                max(next.swimTotalMeters * fraction, Limits.minimumSwimMeters),
+                repeatDistance: next.swimRepeatDistanceMeters
+            )
+        }
+
         let rideWorkBudget = max(
             cap - next.rideWarmUpSeconds - next.rideCooldownSeconds,
             0
         )
-        next.rideWorkSeconds = min(next.rideWorkSeconds, rideWorkBudget)
+        let cappedRide = min(next.rideWorkSeconds, rideWorkBudget)
+        next.rideWorkSeconds = Self.cappedTrainingTime(
+            cappedRide,
+            maximum: rideWorkBudget,
+            minimum: min(Limits.minimumRideWorkSeconds, rideWorkBudget)
+        )
 
         return next
     }
 
-    /// Sizes ordinary training to use the athlete's stated daily window.
+    /// Applies the athlete's stated daily time as a ceiling only.
     ///
-    /// Availability is a real session budget, not just a ceiling. We keep a
-    /// small buffer so setup/transitions do not make a "60 min" choice feel
-    /// misleading. Safety reductions, recovery and taper are applied elsewhere
-    /// and are deliberately allowed to be shorter.
+    /// Capability decides how much training is appropriate. Having more free
+    /// time must never manufacture extra workload beyond that capability.
+    /// Keep the legacy name because persisted callers/tests may still use it.
     func fillingTrainingWindow(minutes: Int?, bufferMinutes: Int = 5) -> TrainingParameters {
-        guard let minutes, minutes > 0 else { return self }
-
-        let target = TimeInterval(max(minutes - bufferMinutes, 1) * 60)
-        var next = self
-
-        let rideWorkBudget = max(
-            target - next.rideWarmUpSeconds - next.rideCooldownSeconds,
-            Limits.minimumRideWorkSeconds
-        )
-        next.rideWorkSeconds = max(next.rideWorkSeconds, rideWorkBudget)
-
-        if next.runIsContinuous {
-            let runWorkBudget = max(
-                target - next.runWarmUpSeconds - next.runCooldownSeconds,
-                Limits.minimumContinuousRunSeconds
-            )
-            next.runContinuousSeconds = max(next.runContinuousSeconds, runWorkBudget)
-        } else {
-            let runWorkBudget = max(
-                target - next.runWarmUpSeconds - next.runCooldownSeconds,
-                0
-            )
-            let repeatSeconds = next.runIntervalSeconds + next.runWalkSeconds
-            if repeatSeconds > 0 {
-                let targetRepeats = Int((runWorkBudget / repeatSeconds).rounded(.down))
-                next.runRepeatCount = max(next.runRepeatCount, max(targetRepeats, 1))
-            }
-        }
-
-        return next.capped(toTrainingMinutes: minutes)
+        _ = bufferMinutes
+        return capped(toTrainingMinutes: minutes)
     }
 
     func applying(_ adjustment: TrainingAdjustment, to sport: Sport) -> TrainingParameters {
@@ -180,21 +175,21 @@ extension TrainingParameters {
             next.runIsContinuous = true
             // Half the interval work, not all of it: running without breaks is
             // harder than the same minutes broken up.
-            next.runContinuousSeconds = max(
-                (runIntervalSeconds * Double(runRepeatCount) / 2).rounded(),
-                Limits.minimumContinuousRunSeconds
+            next.runContinuousSeconds = Self.normalizedTrainingTime(
+                runIntervalSeconds * Double(runRepeatCount) / 2,
+                minimum: Limits.minimumContinuousRunSeconds
             )
 
         case .runContinuousDuration(let delta):
-            next.runContinuousSeconds = max(
+            next.runContinuousSeconds = Self.normalizedTrainingTime(
                 runContinuousSeconds + delta,
-                Limits.minimumContinuousRunSeconds
+                minimum: Limits.minimumContinuousRunSeconds
             )
 
         case .rideDuration(let delta):
-            next.rideWorkSeconds = max(
+            next.rideWorkSeconds = Self.normalizedTrainingTime(
                 rideWorkSeconds + delta,
-                Limits.minimumRideWorkSeconds
+                minimum: Limits.minimumRideWorkSeconds
             )
 
         case .swimRestDuration(let delta):
@@ -235,9 +230,9 @@ extension TrainingParameters {
         switch sport {
         case .running:
             if runIsContinuous {
-                runContinuousSeconds = max(
-                    (runContinuousSeconds * remaining).rounded(),
-                    Limits.minimumContinuousRunSeconds
+                runContinuousSeconds = Self.normalizedTrainingTime(
+                    runContinuousSeconds * remaining,
+                    minimum: Limits.minimumContinuousRunSeconds
                 )
             } else {
                 runRepeatCount = max(
@@ -251,11 +246,38 @@ extension TrainingParameters {
                 repeatDistance: swimRepeatDistanceMeters
             )
         case .cycling:
-            rideWorkSeconds = max(
-                (rideWorkSeconds * remaining).rounded(),
-                Limits.minimumRideWorkSeconds
+            rideWorkSeconds = Self.normalizedTrainingTime(
+                rideWorkSeconds * remaining,
+                minimum: Limits.minimumRideWorkSeconds
             )
         }
+    }
+
+    /// Caps a duration without ever rounding above the athlete's available
+    /// time. This is separate from phase normalization, where nearest-five is
+    /// appropriate.
+    private static func cappedTrainingTime(
+        _ seconds: TimeInterval,
+        maximum: TimeInterval,
+        minimum: TimeInterval
+    ) -> TimeInterval {
+        guard seconds > 0, maximum > 0 else { return 0 }
+        let increment = Limits.trainingTimeIncrementSeconds
+        let capped = min(seconds, maximum)
+        let floored = (capped / increment).rounded(.down) * increment
+        return min(maximum, max(floored, minimum))
+    }
+
+    /// User-facing endurance work is prescribed in five-minute blocks.
+    /// Round to the nearest block so percentage-based phases stay coach-readable.
+    static func normalizedTrainingTime(
+        _ seconds: TimeInterval,
+        minimum: TimeInterval
+    ) -> TimeInterval {
+        guard seconds > 0 else { return 0 }
+        let increment = Limits.trainingTimeIncrementSeconds
+        let normalized = (seconds / increment).rounded() * increment
+        return max(normalized, minimum)
     }
 
     /// Swim volume only means something in whole lengths of the pool.

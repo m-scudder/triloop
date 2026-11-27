@@ -13,6 +13,7 @@ enum ProfileEditReason: String, Equatable, CaseIterable, Sendable {
     case availability
     case weeklyCommitment
     case openWaterTraining
+    case prescriptionBasis
 
     var displayName: String {
         switch self {
@@ -27,6 +28,7 @@ enum ProfileEditReason: String, Equatable, CaseIterable, Sendable {
         case .availability: "Training days"
         case .weeklyCommitment: "How often you train"
         case .openWaterTraining: "Open-water training"
+        case .prescriptionBasis: "Workout target"
         }
     }
 }
@@ -90,6 +92,11 @@ enum AthleteProfileEditor {
         if commitment(old) != commitment(new) { reasons.append(.weeklyCommitment) }
         if old.openWaterTrainingConsent != new.openWaterTrainingConsent {
             reasons.append(.openWaterTraining)
+        }
+        if Sport.allCases.contains(where: {
+            old.prescriptionBasis(for: $0) != new.prescriptionBasis(for: $0)
+        }) {
+            reasons.append(.prescriptionBasis)
         }
 
         // Date of birth only anchors heart-rate zones, and the stage the athlete

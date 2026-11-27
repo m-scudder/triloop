@@ -33,6 +33,7 @@ struct NextSession: Equatable {
     let discipline: Discipline
     let date: Date
     let durationSeconds: TimeInterval?
+    let distanceMeters: Double?
 }
 
 /// Everything Today needs, resolved once.
@@ -165,7 +166,10 @@ enum TodayPresentationBuilder {
             workoutID: workout.id,
             discipline: workout.discipline,
             date: workout.date,
-            durationSeconds: workout.prescribedDurationSeconds ?? workout.estimatedDurationSeconds
+            durationSeconds: workout.targetDistanceMeters == nil
+                ? (workout.prescribedDurationSeconds ?? workout.estimatedDurationSeconds)
+                : nil,
+            distanceMeters: workout.targetDistanceMeters
         )
     }
 }

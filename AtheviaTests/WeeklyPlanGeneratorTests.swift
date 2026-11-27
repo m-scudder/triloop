@@ -27,7 +27,15 @@ struct WeeklyPlanGeneratorTests {
     }
 
     private func generator() -> WeeklyPlanGenerator {
-        WeeklyPlanGenerator(schedule: .everyDay(), calendar: calendar)
+        var value = WeeklyPlanGenerator(schedule: .everyDay(), calendar: calendar)
+        // Progression tests below predate selectable workout targets and are
+        // intentionally about duration progression, not distance conversion.
+        value.prescriptionBases = [
+            .running: .time,
+            .swimming: .distance,
+            .cycling: .time
+        ]
+        return value
     }
 
     private func nextWeek(after plan: WeeklyPlan) -> WeeklyPlan {

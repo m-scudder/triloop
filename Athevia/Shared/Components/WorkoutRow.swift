@@ -3,13 +3,18 @@ import SwiftUI
 /// One-line summary of a workout's prescribed volume, e.g. "28 min" or "300 m".
 struct WorkoutSummaryText {
     static func make(for workout: PlannedWorkout) -> String? {
-        if workout.discipline == .swimming, let distance = workout.estimatedDistanceMeters {
+        // An explicit distance target is authoritative even when warm-up or
+        // cooldown steps still have time goals.
+        if let distance = workout.targetDistanceMeters, distance > 0 {
             return TrainingFormatter.distance(meters: distance)
         }
-        if let duration = workout.estimatedDurationSeconds {
+        if let duration = workout.prescribedDurationSeconds, duration > 0 {
             return TrainingFormatter.totalDuration(seconds: duration)
         }
-        if let distance = workout.estimatedDistanceMeters {
+        if let duration = workout.estimatedDurationSeconds, duration > 0 {
+            return TrainingFormatter.totalDuration(seconds: duration)
+        }
+        if let distance = workout.estimatedDistanceMeters, distance > 0 {
             return TrainingFormatter.distance(meters: distance)
         }
         return nil

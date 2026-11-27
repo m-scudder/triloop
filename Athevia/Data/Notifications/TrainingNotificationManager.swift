@@ -89,6 +89,7 @@ struct TrainingNotificationWorkout: Sendable, Equatable {
     let title: String
     let discipline: Discipline
     let durationSeconds: TimeInterval?
+    let distanceMeters: Double?
     let status: PlannedWorkoutStatus
     let hasFeedback: Bool
     let completedAt: Date?
@@ -99,7 +100,10 @@ struct TrainingNotificationWorkout: Sendable, Equatable {
         date = workout.date
         title = workout.title
         discipline = workout.discipline
-        durationSeconds = workout.prescribedDurationSeconds ?? workout.estimatedDurationSeconds
+        distanceMeters = workout.targetDistanceMeters
+        durationSeconds = distanceMeters == nil
+            ? (workout.prescribedDurationSeconds ?? workout.estimatedDurationSeconds)
+            : nil
         status = workout.status
         hasFeedback = workout.feedback != nil
         completedAt = workout.completedAt ?? workout.importedSummary?.endDate
@@ -283,7 +287,9 @@ final class TrainingNotificationManager {
         let content = UNMutableNotificationContent()
         content.title = workout.title
         var parts: [String] = [workout.discipline.displayName]
-        if let duration = workout.durationSeconds {
+        if let distance = workout.distanceMeters {
+            parts.append(TrainingFormatter.distance(meters: distance))
+        } else if let duration = workout.durationSeconds {
             parts.append(TrainingFormatter.totalDuration(seconds: duration))
         }
         content.body = parts.joined(separator: " · ") + ". Open Athevia when you're ready."

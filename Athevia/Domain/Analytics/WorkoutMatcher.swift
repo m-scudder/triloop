@@ -102,13 +102,19 @@ struct WorkoutMatcher: Sendable {
                       activity.duration.isFinite, activity.duration > 0 else { continue }
 
                 var similarities: [Double] = []
-                if let target = session.estimatedDurationSeconds, target > 0 {
+                if let target = session.targetDistanceMeters, target > 0,
+                   let actual = activity.distanceMeters {
+                    let ratio = actual / target
+                    guard ratio.isFinite, ratio >= 0.65, ratio <= 1.5 else { continue }
+                    similarities.append(min(ratio, 1 / ratio))
+                } else if let target = session.prescribedDurationSeconds
+                    ?? session.estimatedDurationSeconds,
+                    target > 0 {
                     let ratio = activity.duration / target
                     guard ratio >= 0.65, ratio <= 1.5 else { continue }
                     similarities.append(min(ratio, 1 / ratio))
-                }
-                if let target = session.estimatedDistanceMeters, target > 0,
-                   let actual = activity.distanceMeters {
+                } else if let target = session.estimatedDistanceMeters, target > 0,
+                          let actual = activity.distanceMeters {
                     let ratio = actual / target
                     guard ratio.isFinite, ratio >= 0.65, ratio <= 1.5 else { continue }
                     similarities.append(min(ratio, 1 / ratio))
@@ -161,9 +167,9 @@ struct WorkoutMatcher: Sendable {
 extension PlannedWorkout {
     /// How much of the prescription the activity actually covered, 0...1.
     ///
-    /// Swimming is judged on distance and the other sports on duration, matching
-    /// how each is prescribed. Returns 1 when there is nothing to compare against,
-    /// since a session that happened is better evidence than no evidence.
+    /// Completion follows the workout's explicit primary target: distance when
+    /// one is prescribed, otherwise duration. Returns 1 when there is nothing
+    /// comparable, since a session that happened is better evidence than none.
     func completionRatio(for imported: ImportedWorkout) -> Double {
         if imported.plannedWorkoutID == id,
            let adherence = imported.prescriptionCompletion,
@@ -173,10 +179,13 @@ extension PlannedWorkout {
 
         let ratio: Double?
 
-        if discipline == .swimming, let target = estimatedDistanceMeters, target > 0 {
+        if let target = targetDistanceMeters, target > 0 {
             ratio = imported.distanceMeters.map { $0 / target }
-        } else if let target = estimatedDurationSeconds, target > 0 {
+        } else if let target = prescribedDurationSeconds ?? estimatedDurationSeconds,
+                  target > 0 {
             ratio = imported.duration / target
+        } else if let target = estimatedDistanceMeters, target > 0 {
+            ratio = imported.distanceMeters.map { $0 / target }
         } else {
             ratio = nil
         }

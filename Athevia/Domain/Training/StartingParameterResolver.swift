@@ -53,21 +53,21 @@ struct StartingParameterResolver: StartingParameterResolving {
         case .none:
             parameters.runIntervalSeconds = 60
             parameters.runWalkSeconds = 120
-            parameters.runRepeatCount = 6
+            parameters.runRepeatCount = 5
 
         case .runWalk:
             parameters.runIntervalSeconds = 120
             parameters.runWalkSeconds = 60
-            parameters.runRepeatCount = 6
+            parameters.runRepeatCount = 5
 
         case .continuous10Minutes:
-            parameters.runContinuousSeconds = scaled(8 * 60, by: caution)
+            parameters.runContinuousSeconds = scaledTrainingTime(10 * 60, by: caution, minimum: 5 * 60)
 
         case .continuous20To30Minutes:
-            parameters.runContinuousSeconds = scaled(20 * 60, by: caution)
+            parameters.runContinuousSeconds = scaledTrainingTime(20 * 60, by: caution, minimum: 5 * 60)
 
         case .regular5K:
-            parameters.runContinuousSeconds = scaled(30 * 60, by: caution)
+            parameters.runContinuousSeconds = scaledTrainingTime(30 * 60, by: caution, minimum: 5 * 60)
         }
 
         if !baseline.runsContinuously {
@@ -120,13 +120,27 @@ struct StartingParameterResolver: StartingParameterResolving {
         caution: Double,
         to parameters: inout TrainingParameters
     ) {
-        parameters.rideWorkSeconds = max(
-            scaled(TimeInterval(baseline.comfortableMinutes * 60), by: caution),
-            TrainingParameters.Limits.minimumRideWorkSeconds
+        parameters.rideWorkSeconds = scaledTrainingTime(
+            TimeInterval(baseline.comfortableMinutes * 60),
+            by: caution,
+            minimum: TrainingParameters.Limits.minimumRideWorkSeconds
         )
     }
 
-    private func scaled(_ seconds: TimeInterval, by caution: Double) -> TimeInterval {
-        (seconds * caution).rounded()
+    private func scaledTrainingTime(
+        _ seconds: TimeInterval,
+        by caution: Double,
+        minimum: TimeInterval
+    ) -> TimeInterval {
+        let scaled = seconds * caution
+        if caution < 1 {
+            let increment = TrainingParameters.Limits.trainingTimeIncrementSeconds
+            let floored = (scaled / increment).rounded(.down) * increment
+            return max(floored, minimum)
+        }
+        return TrainingParameters.normalizedTrainingTime(
+            scaled,
+            minimum: minimum
+        )
     }
 }

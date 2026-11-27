@@ -78,6 +78,11 @@ struct FirstWeekBuilder: Sendable {
 
         var workouts: [PlannedWorkout] = []
         var sportOrdinals: [Sport: Int] = [:]
+        let prescriptionBases = Dictionary(
+            uniqueKeysWithValues: Sport.allCases.map {
+                ($0, setup.prescriptionBasis(for: $0))
+            }
+        )
         let multisport = MultisportTrainingPolicy()
         let brickEligible = multisport.canScheduleBrick(
             journey: journey,
@@ -138,23 +143,26 @@ struct FirstWeekBuilder: Sendable {
                brickEligible,
                brickAllowedByCurrentRecovery,
                !brickPlaced {
+                let brick: PlannedWorkout
                 if simulationEligible {
-                    workouts.append(
-                        MultisportPrescribedSessions.raceSimulation(
-                            on: date,
-                            parameters: parameters,
-                            prescription: multisport.raceSimulation(parameters: parameters)
-                        )
+                    brick = MultisportPrescribedSessions.raceSimulation(
+                        on: date,
+                        parameters: parameters,
+                        prescription: multisport.raceSimulation(parameters: parameters)
                     )
                 } else {
-                    workouts.append(
-                        MultisportPrescribedSessions.brick(
-                            on: date,
-                            parameters: parameters,
-                            prescription: multisport.brick(parameters: parameters)
-                        )
+                    brick = MultisportPrescribedSessions.brick(
+                        on: date,
+                        parameters: parameters,
+                        prescription: multisport.brick(parameters: parameters)
                     )
                 }
+                WorkoutPrescriptionBasisAdapter.applyMultisport(
+                    brick,
+                    bases: prescriptionBases,
+                    capability: capability
+                )
+                workouts.append(brick)
                 brickPlaced = true
             } else {
                 workouts.append(
@@ -166,7 +174,8 @@ struct FirstWeekBuilder: Sendable {
                         objective: setup.objective,
                         capability: capability,
                         openWaterConsent: setup.openWaterTrainingConsent,
-                        sportOrdinal: ordinal
+                        sportOrdinal: ordinal,
+                        prescriptionBasis: setup.prescriptionBasis(for: sport)
                     )
                 )
             }
@@ -176,7 +185,10 @@ struct FirstWeekBuilder: Sendable {
         if multiplier < 1 {
             workouts
                 .filter { workout in
-                    guard workout.discipline.isTrainingSession else { return false }
+                    // Single-sport prescriptions already apply taper/race-week
+                    // volume in PhaseWorkoutPrescriptionBuilder. Only bricks
+                    // need this whole-workout scaling pass.
+                    guard workout.discipline == .multisport else { return false }
                     guard let eventDate = setup.objective.event?.eventDate else { return true }
                     return !calendar.isDate(workout.date, inSameDayAs: eventDate)
                 }
@@ -241,7 +253,7 @@ struct FirstWeekBuilder: Sendable {
             .max()
         let timeExplanation: String
         if let selectedMinutes, let plannedMinutes, plannedMinutes < selectedMinutes {
-            timeExplanation = " You selected \(selectedMinutes) minutes per training day. Normal sessions are sized to use most of that window; shorter sessions here are intentional for the workout type or training phase."
+            timeExplanation = " You selected \(selectedMinutes) minutes per training day. That time is an upper limit, not a target; capability, safety and training phase may make sessions shorter."
         } else {
             timeExplanation = ""
         }

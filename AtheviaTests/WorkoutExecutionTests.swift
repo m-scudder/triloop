@@ -164,23 +164,44 @@ struct WorkoutExecutionTests {
         #expect(engine.elapsedSeconds == 15)
     }
 
-    @Test("Distance steps use a stopwatch until explicitly completed")
-    func distanceStepIsManual() {
+    @Test("Distance steps advance automatically when the target is reached")
+    func distanceStepAdvancesFromRecordedDistance() {
+        var engine = WorkoutExecutionEngine(plan: plan(
+            WorkoutStep(order: 0, kind: .work, title: "Run 100m", distanceMeters: 100)
+        ))
+
+        engine.start()
+        engine.advance(by: 45)
+        engine.updateCurrentStepDistance(60)
+
+        #expect(engine.phase == .running)
+        #expect(engine.currentStep?.usesCountdown == false)
+        #expect(engine.stepElapsedSeconds == 45)
+        #expect(engine.stepDistanceMeters == 60)
+        #expect(engine.remainingDistanceMeters == 40)
+        #expect(engine.remainingSeconds == nil)
+
+        engine.updateCurrentStepDistance(100)
+        #expect(engine.phase == .finished)
+        #expect(engine.result?.elapsedSeconds == 45)
+    }
+
+    @Test("Distance steps without distance updates stay manual, e.g. pool swims")
+    func distanceStepWithoutGPSIsManual() {
         var engine = WorkoutExecutionEngine(plan: plan(
             WorkoutStep(order: 0, kind: .work, title: "Swim 100m", distanceMeters: 100)
         ))
 
         engine.start()
-        engine.advance(by: 45)
+        engine.advance(by: 120)
 
         #expect(engine.phase == .running)
-        #expect(engine.currentStep?.usesCountdown == false)
-        #expect(engine.stepElapsedSeconds == 45)
-        #expect(engine.remainingSeconds == nil)
+        #expect(engine.stepElapsedSeconds == 120)
+        #expect(engine.remainingDistanceMeters == 100)
 
         engine.completeCurrentStep()
         #expect(engine.phase == .finished)
-        #expect(engine.result?.elapsedSeconds == 45)
+        #expect(engine.result?.elapsedSeconds == 120)
     }
 
 

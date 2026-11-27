@@ -29,6 +29,7 @@ struct WorkoutPlayerView: View {
     @State private var inactiveAt: Date?
     @State private var immediateCountdownStepID: String?
     @State private var segmentStartDistance: Double = 0
+    @State private var stepStartDistance: Double = 0
     @State private var segmentStartElapsed: TimeInterval = 0
     @State private var activeSegmentKey: String?
     @State private var completedMultisportSegments: [RecordedMultisportSegment] = []
@@ -58,6 +59,17 @@ struct WorkoutPlayerView: View {
         workout.discipline == .running
             || workout.discipline == .cycling
             || workout.discipline == .multisport
+    }
+
+    /// GPS can only measure outdoor running and cycling. A distance step for a
+    /// swim (or a multisport swim segment) stays a stopwatch step that the
+    /// athlete completes manually.
+    private var currentStepProgressesByGPS: Bool {
+        guard recordsGPS,
+              let step = engine.currentStep,
+              step.distanceMeters != nil,
+              step.durationSeconds == nil else { return false }
+        return activeMetricSport == .running || activeMetricSport == .cycling
     }
 
     private var activeMetricSport: Sport? {
@@ -358,6 +370,10 @@ struct WorkoutPlayerView: View {
     }
 
     private var primaryClock: String {
+        if currentStepProgressesByGPS,
+           let remainingDistance = engine.remainingDistanceMeters {
+            return TrainingFormatter.distance(meters: remainingDistance)
+        }
         if let remaining = engine.remainingSeconds { return clock(remaining) }
         return clock(engine.stepElapsedSeconds)
     }
@@ -380,7 +396,9 @@ struct WorkoutPlayerView: View {
 
     private func clockCaption(for step: ExecutableWorkoutStep) -> String {
         if let distance = step.distanceMeters, !step.usesCountdown {
-            return "Stopwatch · \(TrainingFormatter.distance(meters: distance)) target"
+            return currentStepProgressesByGPS
+                ? "distance remaining"
+                : "Stopwatch · \(TrainingFormatter.distance(meters: distance)) target"
         }
         return step.usesCountdown ? "remaining" : "elapsed"
     }
@@ -480,6 +498,7 @@ struct WorkoutPlayerView: View {
         if recordsGPS {
             syncMultisportSegmentBoundary(force: true)
             locationTracker.start()
+            stepStartDistance = locationTracker.snapshot.distanceMeters
         }
         lastPulse = now
         if coach.isPrepared, !coach.play() {
@@ -542,6 +561,7 @@ struct WorkoutPlayerView: View {
         let wasPaused = engine.phase == .paused
         let previousSegmentKey = currentSegmentKey
         engine.completeCurrentStep(now: .now)
+        stepStartDistance = locationTracker.snapshot.distanceMeters
         if currentSegmentKey != previousSegmentKey {
             syncMultisportSegmentBoundary()
         }
@@ -621,12 +641,18 @@ struct WorkoutPlayerView: View {
         let previousIndex = engine.currentIndex
         engine.advance(by: max(now.timeIntervalSince(previous), 0), now: now)
 
+        if engine.phase != .finished,
+           engine.currentIndex == previousIndex {
+            updateGPSDistanceProgress(now: now)
+        }
+
         if engine.phase == .finished {
             completeTrackedWorkout()
             return
         }
 
         if engine.currentIndex != previousIndex {
+            stepStartDistance = locationTracker.snapshot.distanceMeters
             syncMultisportSegmentBoundary()
             immediateCountdownStepID = nil
 
@@ -680,13 +706,17 @@ struct WorkoutPlayerView: View {
 
         let previousIndex = engine.currentIndex
 
-        // A user-started timed workout continues while the phone is locked.
-        // Catch up across timed steps using the real inactive duration. Manual
-        // or distance steps remain manual and can never be completed by this.
+        // Timed work catches up from wall-clock time. Distance work uses the
+        // GPS distance accumulated since that step began.
         engine.advance(
             by: max(now.timeIntervalSince(inactiveAt), 0),
             now: now
         )
+
+        if engine.phase != .finished,
+           engine.currentIndex == previousIndex {
+            updateGPSDistanceProgress(now: now)
+        }
 
         if engine.phase == .finished {
             completeTrackedWorkout()
@@ -694,6 +724,7 @@ struct WorkoutPlayerView: View {
         }
 
         if engine.currentIndex != previousIndex {
+            stepStartDistance = locationTracker.snapshot.distanceMeters
             syncMultisportSegmentBoundary()
             immediateCountdownStepID = nil
 
@@ -711,6 +742,15 @@ struct WorkoutPlayerView: View {
             announceImmediateCountdownIfNeeded()
         }
         lastPulse = now
+    }
+
+    private func updateGPSDistanceProgress(now: Date) {
+        guard currentStepProgressesByGPS else { return }
+        let stepDistance = max(
+            locationTracker.snapshot.distanceMeters - stepStartDistance,
+            0
+        )
+        engine.updateCurrentStepDistance(stepDistance, now: now)
     }
 
     private func announceImmediateCountdownIfNeeded() {

@@ -76,7 +76,7 @@ struct TrainingDaysStepView: View {
             }
 
             VStack(alignment: .leading, spacing: 10) {
-                SectionEyebrow(text: "Time per training day")
+                SectionEyebrow(text: "Maximum time per training day")
 
                 LazyVGrid(
                     columns: [
@@ -91,6 +91,10 @@ struct TrainingDaysStepView: View {
                     }
                 }
             }
+
+            Text("This is a safety and scheduling ceiling. Distance-based workouts may finish sooner.")
+                .font(.caption)
+                .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
 
             if model.canChooseStartDate {
                 VStack(alignment: .leading, spacing: 10) {
@@ -117,7 +121,7 @@ struct TrainingDaysStepView: View {
             }
 
             if model.sharedTrainingMinutes == nil {
-                Label("Choose your training time.", systemImage: "info.circle")
+                Label("Choose your maximum training time.", systemImage: "info.circle")
                     .font(.footnote)
                     .foregroundStyle(AtheviaAdaptiveStyle(.secondary, gaming: .secondaryText))
             }

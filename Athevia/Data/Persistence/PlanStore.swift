@@ -142,13 +142,18 @@ struct PlanStore {
     /// The generator carries no athlete state of its own, so the stored setup is
     /// applied here. Without this the next week is built against every-day
     /// availability rather than the days the athlete chose.
-    private func configuredGenerator() -> WeeklyPlanGenerator {
+    func configuredGenerator() -> WeeklyPlanGenerator {
         var configured = generator
         guard let setup = (try? context.fetch(FetchDescriptor<AthleteProfile>()))?.first?.setup else {
             return configured
         }
         configured.schedule = setup.schedule
         configured.preferences = setup.preferences
+        configured.prescriptionBases = Dictionary(
+            uniqueKeysWithValues: Sport.allCases.map {
+                ($0, setup.prescriptionBasis(for: $0))
+            }
+        )
         configured.targetTrainingDays = setup.trainingDayTarget
         let history = (try? context.fetch(
             FetchDescriptor<WeeklyPlan>(sortBy: [SortDescriptor(\.startDate)])
@@ -277,8 +282,36 @@ struct PlanStore {
 
         guard !rebuildable.isEmpty else { return 0 }
 
+        let currentSetup = athleteSetup()
+        let history = (try? context.fetch(
+            FetchDescriptor<WeeklyPlan>(sortBy: [SortDescriptor(\.startDate)])
+        )) ?? []
+        let currentCapability = currentSetup.map {
+            AthleteCapabilityAssessmentBuilder(calendar: calendar)
+                .build(setup: $0, plans: history, startingParameters: parameters)
+        }
+        let bases = Dictionary(
+            uniqueKeysWithValues: Sport.allCases.map { sport in
+                (sport, currentSetup?.prescriptionBasis(for: sport) ?? .distance)
+            }
+        )
+
         for workout in rebuildable {
             let replacement = PrescribedSessions.session(workout.discipline, on: workout.date, parameters: parameters)
+            if let sport = workout.discipline.sport {
+                WorkoutPrescriptionBasisAdapter.apply(
+                    replacement,
+                    basis: bases[sport, default: .distance],
+                    sport: sport,
+                    capability: currentCapability
+                )
+            } else if workout.discipline == .multisport {
+                WorkoutPrescriptionBasisAdapter.applyMultisport(
+                    replacement,
+                    bases: bases,
+                    capability: currentCapability
+                )
+            }
             let oldSteps = workout.steps
             workout.title = replacement.title
             workout.goal = replacement.goal

@@ -28,7 +28,11 @@ struct ProgressOverviewView: View {
 
     private var recentTrainingSeconds: TimeInterval {
         completedRecentSessions.reduce(0) { total, session in
-            total + (session.importedSummary?.duration ?? session.estimatedDurationSeconds ?? 0)
+            total + (
+                session.importedSummary?.duration
+                    ?? (session.targetDistanceMeters == nil ? session.estimatedDurationSeconds : nil)
+                    ?? 0
+            )
         }
     }
 

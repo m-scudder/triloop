@@ -241,6 +241,15 @@ final class OnboardingModel {
         persist()
     }
 
+    func prescriptionBasis(for sport: Sport) -> WorkoutPrescriptionBasis {
+        setup.prescriptionBasis(for: sport)
+    }
+
+    func choose(prescriptionBasis: WorkoutPrescriptionBasis, for sport: Sport) {
+        setup.setPrescriptionBasis(prescriptionBasis, for: sport)
+        persist()
+    }
+
     func setPoolLength(_ meters: Double) {
         poolLengthMeters = meters
         persist()

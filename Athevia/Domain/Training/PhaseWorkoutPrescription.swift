@@ -14,7 +14,8 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
         objective: TrainingObjective?,
         capability: AthleteCapabilityAssessment?,
         openWaterConsent: OpenWaterTrainingConsent = .unavailable,
-        sportOrdinal: Int = 0
+        sportOrdinal: Int = 0,
+        prescriptionBasis: WorkoutPrescriptionBasis = .distance
     ) -> PlannedWorkout {
         guard let journey else {
             let workout = PrescribedSessions.session(
@@ -23,6 +24,12 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
                 parameters: parameters
             )
             workout.title = sport.displayName
+            WorkoutPrescriptionBasisAdapter.apply(
+                workout,
+                basis: prescriptionBasis,
+                sport: sport,
+                capability: capability
+            )
             return workout
         }
 
@@ -68,6 +75,12 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
             objective: objective,
             ordinal: sportOrdinal
         )
+        WorkoutPrescriptionBasisAdapter.apply(
+            workout,
+            basis: prescriptionBasis,
+            sport: sport,
+            capability: capability
+        )
         return workout
     }
 
@@ -80,11 +93,18 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
         objective: TrainingObjective?,
         ordinal: Int
     ) -> String {
-        guard objective?.kind == .event else {
-            return sport.displayName
-        }
-
         let sportName = sport.displayName
+
+        guard objective?.kind == .event else {
+            switch objective?.kind {
+            case .improveEndurance:
+                return "Endurance \(sportName)"
+            case .returnToTraining:
+                return "Easy \(sportName)"
+            default:
+                return sportName
+            }
+        }
 
         switch phase {
         case .foundation:
@@ -127,21 +147,56 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
     ) -> PlannedWorkout {
         guard parameters.runIsContinuous,
               capability?.running.hasContinuousCapability != false else {
-            let workout = PrescribedSessions.runWalk(on: date, parameters: parameters)
-            workout.title = "Run / Walk"
-            workout.goal = "Build consistency, impact tolerance and relaxed running continuity."
+            let startingParameters: TrainingParameters
+            if objective?.kind == .generalFitness {
+                startingParameters = reduced(parameters, sport: .running, by: 0.40)
+            } else {
+                startingParameters = parameters
+            }
+            let workout = PrescribedSessions.runWalk(on: date, parameters: startingParameters)
+            workout.title = objective?.kind == .improveEndurance ? "Run / Walk Endurance" : "Run / Walk"
+            workout.goal = objective?.kind == .returnToTraining
+                ? "Rebuild comfortable run / walk consistency without chasing previous fitness."
+                : "Build consistency, impact tolerance and relaxed running continuity."
             return workout
         }
 
         switch phase {
         case .foundation:
-            return namedRun(
-                on: date,
-                parameters: reduced(parameters, sport: .running, by: 0.10),
-                title: "Comfortable Run",
-                goal: "Build relaxed continuous running without adding intensity.",
-                intensity: .easy
-            )
+            switch objective?.kind {
+            case .improveEndurance:
+                return namedRun(
+                    on: date,
+                    parameters: parameters,
+                    title: "Endurance Run",
+                    goal: "Build continuous aerobic time while staying conversational.",
+                    intensity: .easy
+                )
+            case .returnToTraining:
+                return namedRun(
+                    on: date,
+                    parameters: parameters,
+                    title: "Return Run",
+                    goal: "Rebuild continuous running comfortably without chasing previous fitness.",
+                    intensity: .easy
+                )
+            case .event:
+                return namedRun(
+                    on: date,
+                    parameters: reduced(parameters, sport: .running, by: 0.10),
+                    title: "Comfortable Run",
+                    goal: "Build relaxed continuous running before event-specific work.",
+                    intensity: .easy
+                )
+            default:
+                return namedRun(
+                    on: date,
+                    parameters: reduced(parameters, sport: .running, by: 0.30),
+                    title: "Comfortable Run",
+                    goal: "Build sustainable running as part of general fitness.",
+                    intensity: .easy
+                )
+            }
 
         case .build:
             if ordinal.isMultiple(of: 2) {
@@ -228,16 +283,35 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
     ) -> PlannedWorkout {
         switch phase {
         case .foundation:
-            if ordinal.isMultiple(of: 2) {
+            switch objective?.kind {
+            case .improveEndurance:
                 let ride = PrescribedSessions.easyRide(
                     on: date,
-                    parameters: reduced(parameters, sport: .cycling, by: 0.15),
-                    goal: "Build bike comfort at an easy conversational effort."
+                    parameters: parameters,
+                    goal: "Build steady cycling endurance at an easy conversational effort."
                 )
-                ride.title = "Comfortable Bike Ride"
+                ride.title = "Endurance Bike Ride"
                 return ride
+            case .returnToTraining:
+                let ride = PrescribedSessions.easyRide(
+                    on: date,
+                    parameters: parameters,
+                    goal: "Rebuild comfortable riding without chasing previous volume."
+                )
+                ride.title = "Return Bike Ride"
+                return ride
+            default:
+                if ordinal.isMultiple(of: 2) {
+                    let ride = PrescribedSessions.easyRide(
+                        on: date,
+                        parameters: reduced(parameters, sport: .cycling, by: 0.15),
+                        goal: "Build bike comfort at an easy conversational effort."
+                    )
+                    ride.title = "Comfortable Bike Ride"
+                    return ride
+                }
+                return cadenceRide(on: date, parameters: parameters)
             }
-            return cadenceRide(on: date, parameters: parameters)
 
         case .build:
             let ride = PrescribedSessions.easyRide(
@@ -318,6 +392,7 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
         }
 
         let swimCapability = capability?.swimming
+        let preferredStroke = swimCapability?.preferredStroke ?? .freestyle
         let state = swimCapability?.foundationState
             ?? SwimFoundationState(continuousMeters: parameters.swimRepeatDistanceMeters)
 
@@ -344,36 +419,55 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
             )
         }
 
-        let kind = multisportPolicy.swimKind(
+        var kind = multisportPolicy.swimKind(
             foundationState: state,
             phase: phase,
             openWaterPermitted: openWaterPermitted
         )
+        var workingParameters = parameters
+
+        if phase == .foundation {
+            switch objective?.kind {
+            case .generalFitness:
+                if kind == .swimContinuous || kind == .swimEndurance {
+                    kind = .swimTechnique
+                }
+            case .returnToTraining:
+                workingParameters = reduced(parameters, sport: .swimming, by: 0.20)
+                if kind == .swimEndurance { kind = .swimContinuous }
+                else if kind == .swimContinuous { kind = .swimTechnique }
+            default:
+                break
+            }
+        }
 
         switch kind {
         case .swimFundamentals:
-            return swimFundamentals(on: date, parameters: parameters, state: state)
+            return swimFundamentals(on: date, parameters: workingParameters, state: state, stroke: preferredStroke)
         case .swimTechnique:
             return repeatSwim(
                 on: date,
-                parameters: parameters,
+                parameters: workingParameters,
                 repeatMeters: 50,
+                stroke: preferredStroke,
                 title: "Practice Comfortable Swimming",
                 goal: "Repeat relaxed 50 m efforts with enough rest to keep technique consistent."
             )
         case .swimContinuous:
             return repeatSwim(
                 on: date,
-                parameters: parameters,
+                parameters: workingParameters,
                 repeatMeters: 100,
+                stroke: preferredStroke,
                 title: "Swim Longer With Short Rests",
                 goal: "Develop longer continuous blocks without turning total volume into one uninterrupted effort."
             )
         case .swimEndurance:
             return repeatSwim(
                 on: date,
-                parameters: parameters,
+                parameters: workingParameters,
                 repeatMeters: max(100, min(swimCapability?.currentContinuousMeters ?? 200, 200)),
+                stroke: preferredStroke,
                 title: "Longer Comfortable Swim",
                 goal: "Build controlled swimming endurance through repeatable blocks."
             )
@@ -384,6 +478,7 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
                 on: date,
                 parameters: parameters,
                 repeatMeters: block,
+                stroke: preferredStroke,
                 title: "Practice for Your Event Swim",
                 goal: "Practise event-relevant swim blocks without repeatedly swimming the full event distance."
             )
@@ -394,6 +489,7 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
                 on: date,
                 parameters: reduced(parameters, sport: .swimming, by: phase == .raceWeek ? 0.40 : 0.20),
                 repeatMeters: min(max(parameters.swimRepeatDistanceMeters, 25), 100),
+                stroke: preferredStroke,
                 title: phase == .raceWeek ? "Short Easy Swim Before Your Event" : "Easy Practice Comfortable Swimming",
                 goal: "Keep familiar swim rhythm while volume comes down."
             )
@@ -461,7 +557,8 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
     private func swimFundamentals(
         on date: Date,
         parameters: TrainingParameters,
-        state: SwimFoundationState
+        state: SwimFoundationState,
+        stroke: SwimStroke
     ) -> PlannedWorkout {
         if state == .waterComfort {
             return PlannedWorkout(
@@ -488,6 +585,7 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
             on: date,
             parameters: parameters,
             repeatMeters: 25,
+            stroke: stroke,
             title: "Learn the Basics of Swimming",
             goal: "Practise breathing and relaxation over short lengths with full recovery."
         )
@@ -521,6 +619,7 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
         on date: Date,
         parameters: TrainingParameters,
         repeatMeters: Double,
+        stroke: SwimStroke,
         title: String,
         goal: String
     ) -> PlannedWorkout {
@@ -532,6 +631,12 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
         let total = max(parameters.swimTotalMeters, normalizedRepeat)
         let count = max(Int((total / normalizedRepeat).rounded(.down)), 1)
         let rest = max(parameters.swimRestSeconds, TrainingParameters.Limits.restFloor(forRepeat: normalizedRepeat))
+        let strokeTitle = stroke == .freestyle
+            ? "Relaxed freestyle"
+            : "Relaxed mixed strokes"
+        let strokeInstruction = stroke == .freestyle
+            ? "Keep freestyle long and relaxed."
+            : "Use comfortable strokes and switch before technique fades."
 
         let block = WorkoutStep.repeating(
             order: 0,
@@ -542,7 +647,8 @@ struct PhaseWorkoutPrescriptionBuilder: Sendable {
                 WorkoutStep(
                     order: 0,
                     kind: .work,
-                    title: "Relaxed swim",
+                    title: strokeTitle,
+                    instructions: strokeInstruction,
                     distanceMeters: normalizedRepeat,
                     targetIntensity: .easy
                 ),
@@ -651,5 +757,273 @@ extension MultisportTrainingPolicy {
         case .endurance:
             return phase == .specific ? .swimRaceDistance : .swimEndurance
         }
+    }
+}
+
+
+enum WorkoutPrescriptionBasisAdapter {
+    static func apply(
+        _ workout: PlannedWorkout,
+        basis: WorkoutPrescriptionBasis,
+        sport: Sport,
+        capability: AthleteCapabilityAssessment?
+    ) {
+        switch (sport, basis) {
+        case (.running, .distance):
+            convertWorkToDistance(
+                workout,
+                sport: .running,
+                metersPerSecond: runningMetersPerSecond(capability?.running),
+                incrementMeters: 250
+            )
+        case (.cycling, .distance):
+            convertWorkToDistance(
+                workout,
+                sport: .cycling,
+                metersPerSecond: cyclingMetersPerSecond(capability?.cycling),
+                incrementMeters: 500
+            )
+        case (.swimming, .time):
+            convertSwimToTime(workout, capability: capability?.swimming)
+        case (.swimming, .distance):
+            convertOpenWaterSwimToDistanceIfNeeded(workout)
+        default:
+            break
+        }
+    }
+
+    static func applyMultisport(
+        _ workout: PlannedWorkout,
+        bases: [Sport: WorkoutPrescriptionBasis],
+        capability: AthleteCapabilityAssessment?
+    ) {
+        for step in workout.steps {
+            guard let sport = step.kind.segmentSport,
+                  bases[sport, default: .distance] == .distance,
+                  let seconds = step.durationSeconds,
+                  seconds > 0 else {
+                continue
+            }
+
+            let rate: Double
+            let increment: Double
+            switch sport {
+            case .running:
+                rate = runningMetersPerSecond(capability?.running)
+                increment = 250
+            case .cycling:
+                rate = cyclingMetersPerSecond(capability?.cycling)
+                increment = 500
+            case .swimming:
+                continue
+            }
+
+            let meters = roundedDistance(
+                seconds * rate,
+                increment: increment
+            )
+            step.durationSeconds = nil
+            step.distanceMeters = meters
+        }
+
+        // Bricks may mix target bases (for example Bike = Time, Run =
+        // Distance). Keep the authoritative target on each segment rather than
+        // inventing one workout-level metric that hides the other segment.
+        workout.prescribedDurationSeconds = nil
+        workout.targetDistanceMeters = nil
+    }
+
+    private static func convertWorkToDistance(
+        _ workout: PlannedWorkout,
+        sport: Sport,
+        metersPerSecond: Double,
+        incrementMeters: Double
+    ) {
+        func convert(_ step: WorkoutStep) {
+            if step.kind == .work,
+               let seconds = step.durationSeconds,
+               seconds > 0 {
+                step.durationSeconds = nil
+                step.distanceMeters = roundedDistance(
+                    seconds * metersPerSecond,
+                    increment: incrementMeters
+                )
+            }
+            step.children.forEach(convert)
+        }
+
+        workout.steps.forEach(convert)
+
+        let distance = workout.steps
+            .compactMap(\.totalDistanceMeters)
+            .reduce(0, +)
+
+        if distance > 0 {
+            workout.prescribedDurationSeconds = nil
+            workout.targetDistanceMeters = distance
+        }
+
+        _ = sport
+    }
+
+    private static func convertOpenWaterSwimToDistanceIfNeeded(
+        _ workout: PlannedWorkout
+    ) {
+        // Supervised beginner water-confidence sessions intentionally stay
+        // time-based even when Distance is selected. There is no safe distance
+        // target until the athlete can actually swim a length.
+        let isOpenWater = workout.goal.localizedCaseInsensitiveContains("open-water")
+            || workout.orderedSteps.contains {
+                $0.title.localizedCaseInsensitiveContains("open-water")
+                    || $0.instructions?.localizedCaseInsensitiveContains("open-water") == true
+            }
+
+        guard workout.targetDistanceMeters == nil,
+              isOpenWater,
+              let work = workout.orderedSteps.first(where: { $0.kind == .work }),
+              let seconds = work.durationSeconds,
+              seconds > 0 else {
+            return
+        }
+
+        // Open-water duration is generated from swim volume at 2.2 sec/m.
+        // Reverse that deterministic policy so switching target basis does not
+        // invent a different training load.
+        let meters = roundedDistance(seconds / 2.2, increment: 50)
+        work.durationSeconds = nil
+        work.distanceMeters = meters
+        workout.prescribedDurationSeconds = nil
+        workout.targetDistanceMeters = meters
+    }
+
+    private static func convertSwimToTime(
+        _ workout: PlannedWorkout,
+        capability: SwimmingCapability?
+    ) {
+        // Beginner water-confidence and open-water prescriptions that are
+        // already time-based should stay exactly as prescribed.
+        guard workout.estimatedDistanceMeters != nil else { return }
+
+        let state = capability?.foundationState ?? .continuous
+        let referenceMeters: Double
+        let openingMinutes: Double
+
+        switch state {
+        case .waterComfort:
+            referenceMeters = 200
+            openingMinutes = 20
+        case .breathing:
+            referenceMeters = 300
+            openingMinutes = 20
+        case .shortContinuity:
+            referenceMeters = 400
+            openingMinutes = 25
+        case .continuous:
+            referenceMeters = 600
+            openingMinutes = 30
+        case .endurance:
+            referenceMeters = 800
+            openingMinutes = 35
+        }
+
+        let prescribedMeters = workout.estimatedDistanceMeters ?? referenceMeters
+        let ratio = min(max(prescribedMeters / referenceMeters, 0.5), 1.5)
+        let rawSeconds = openingMinutes * 60 * ratio
+        let targetSeconds = normalizedFiveMinutes(
+            rawSeconds,
+            minimum: 15 * 60
+        )
+
+        let warmup = min(5 * 60, targetSeconds / 3)
+        let cooldown = warmup
+        let work = max(targetSeconds - warmup - cooldown, 5 * 60)
+        let strokeTitle = capability?.preferredStroke == .mixed
+            ? "Relaxed mixed-stroke swimming"
+            : "Relaxed freestyle"
+        let intensity = firstWorkIntensity(in: workout) ?? .easy
+
+        workout.prescribedDurationSeconds = targetSeconds
+        workout.targetDistanceMeters = nil
+        workout.steps = [
+            WorkoutStep(
+                order: 0,
+                kind: .warmUp,
+                title: "Easy swim",
+                instructions: "Start relaxed and use the first few minutes to settle your breathing and technique.",
+                durationSeconds: warmup,
+                targetIntensity: .veryEasy
+            ),
+            WorkoutStep(
+                order: 1,
+                kind: .work,
+                title: strokeTitle,
+                instructions: "This is a time-based block. Keep the prescribed effort and take short rests if technique starts to fade; the clock, not distance, ends the block.",
+                durationSeconds: work,
+                targetIntensity: intensity
+            ),
+            WorkoutStep(
+                order: 2,
+                kind: .cooldown,
+                title: "Easy swim",
+                instructions: "Finish with relaxed swimming and let your breathing settle.",
+                durationSeconds: cooldown,
+                targetIntensity: .veryEasy
+            )
+        ]
+    }
+
+    private static func runningMetersPerSecond(
+        _ capability: RunningCapability?
+    ) -> Double {
+        _ = capability
+        // Distance mode must not turn the onboarding comparison-only distance
+        // estimates into pass/fail targets. Translate the internal easy-work
+        // duration at a deliberately conservative 100 m/min instead. Training
+        // history can progress the internal load; this conversion only changes
+        // how that same load is expressed to the athlete.
+        return 100.0 / 60.0
+    }
+
+    private static func cyclingMetersPerSecond(
+        _ capability: CyclingCapability?
+    ) -> Double {
+        _ = capability
+        // Terrain and equipment make inferred cycling pace especially noisy.
+        // Use a conservative 15 km/h workload conversion rather than treating
+        // onboarding distance estimates as demonstrated speed.
+        return 250.0 / 60.0
+    }
+
+    private static func roundedDistance(
+        _ meters: Double,
+        increment: Double
+    ) -> Double {
+        guard meters > 0, increment > 0 else { return 0 }
+        return max((meters / increment).rounded() * increment, increment)
+    }
+
+    private static func normalizedFiveMinutes(
+        _ seconds: TimeInterval,
+        minimum: TimeInterval
+    ) -> TimeInterval {
+        let increment: TimeInterval = 5 * 60
+        return max((seconds / increment).rounded() * increment, minimum)
+    }
+
+    private static func firstWorkIntensity(
+        in workout: PlannedWorkout
+    ) -> TargetIntensity? {
+        func find(_ step: WorkoutStep) -> TargetIntensity? {
+            if step.kind == .work { return step.targetIntensity }
+            for child in step.orderedChildren {
+                if let value = find(child) { return value }
+            }
+            return nil
+        }
+
+        for step in workout.orderedSteps {
+            if let value = find(step) { return value }
+        }
+        return nil
     }
 }

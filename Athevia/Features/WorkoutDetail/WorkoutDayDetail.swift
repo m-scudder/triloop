@@ -270,6 +270,7 @@ struct WorkoutDayDetail: View {
     @ViewBuilder
     private var availabilityExplanation: some View {
         if workout.discipline.isTrainingSession,
+           workout.targetDistanceMeters == nil,
            let setup = profiles.first?.setup,
            let weekday = Weekday(date: workout.date),
            let availableMinutes = setup.schedule.availability(on: weekday).maxDurationMinutes,

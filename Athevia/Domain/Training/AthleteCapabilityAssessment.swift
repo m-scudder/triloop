@@ -111,6 +111,7 @@ struct CyclingCapability: Equatable, Sendable {
 }
 
 struct SwimmingCapability: Equatable, Sendable {
+    var preferredStroke: SwimStroke = .freestyle
     var foundationState: SwimFoundationState
     var reportedContinuousMeters: Double?
     var prescribedRepeatMeters: Double
@@ -426,6 +427,7 @@ struct AthleteCapabilityAssessmentBuilder: Sendable {
                 recentDirection: cycleDirection
             ),
             swimming: SwimmingCapability(
+                preferredStroke: setup.baseline.stroke,
                 foundationState: SwimFoundationState(continuousMeters: currentSwimMeters),
                 reportedContinuousMeters: setup.baseline.swimming.continuousMeters,
                 prescribedRepeatMeters: currentParameters.swimRepeatDistanceMeters,

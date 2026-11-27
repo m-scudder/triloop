@@ -483,6 +483,23 @@ struct TrainingProfileView: View {
             } footer: {
                 Text("Adding a new sport asks for your current starting point before Athevia rebuilds upcoming training. Existing sport progress and completed workouts are preserved.")
             }
+
+            Section {
+                ForEach(preferences.filter(\.isTrained), id: \.sport) { preference in
+                    Picker(
+                        preference.sport.displayName,
+                        selection: prescriptionBasisBinding(preference.sport)
+                    ) {
+                        ForEach(WorkoutPrescriptionBasis.allCases, id: \.self) { basis in
+                            Text(basis.displayName).tag(basis)
+                        }
+                    }
+                }
+            } header: {
+                Text("Workout target")
+            } footer: {
+                Text("Distance is the default. Switch any sport to Time when you want its workouts prescribed by duration.")
+            }
             }
             .atheviaListRow()
         }
@@ -795,6 +812,15 @@ struct TrainingProfileView: View {
         )
     }
 
+    private func prescriptionBasisBinding(_ sport: Sport) -> Binding<WorkoutPrescriptionBasis> {
+        Binding(
+            get: { setup.prescriptionBasis(for: sport) },
+            set: { basis in
+                update { $0.setPrescriptionBasis(basis, for: sport) }
+            }
+        )
+    }
+
     private func sessionsBinding(_ sport: Sport) -> Binding<Int> {
         Binding(
             get: { preferences.first { $0.sport == sport }?.sessionsPerWeek ?? 0 },
@@ -996,7 +1022,11 @@ private struct WeeklyHistoryRow: View {
 
     private var trainingTime: TimeInterval {
         completed.reduce(0) { total, workout in
-            total + (workout.importedSummary?.duration ?? workout.estimatedDurationSeconds ?? 0)
+            total + (
+                workout.importedSummary?.duration
+                    ?? (workout.targetDistanceMeters == nil ? workout.estimatedDurationSeconds : nil)
+                    ?? 0
+            )
         }
     }
 

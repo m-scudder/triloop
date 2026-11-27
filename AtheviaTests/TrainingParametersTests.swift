@@ -48,7 +48,7 @@ struct TrainingParametersTests {
         #expect(run.runRepeatCount == 5)
         #expect(run.runIntervalSeconds == base.runIntervalSeconds)
         #expect(swim.swimTotalMeters == 250)
-        #expect(ride.rideWorkSeconds == TimeInterval(16 * 60))
+        #expect(ride.rideWorkSeconds == TimeInterval(15 * 60))
     }
 
     @Test("Swim volume stays in whole lengths")
@@ -72,25 +72,767 @@ struct TrainingParametersTests {
         #expect(parameters.rideWorkSeconds == TrainingParameters.Limits.minimumRideWorkSeconds)
     }
 
-    @Test("A sixty minute window produces a near-full cycling session")
-    func fillsSixtyMinuteCyclingWindow() {
+    @Test("A larger availability window never manufactures extra cycling load")
+    func largerWindowDoesNotInflateCycling() {
         let parameters = TrainingParameters().fillingTrainingWindow(minutes: 60)
-        #expect(parameters.rideWorkSeconds == 45 * 60)
+        #expect(parameters.rideWorkSeconds == 20 * 60)
         #expect(
             parameters.rideWarmUpSeconds
                 + parameters.rideWorkSeconds
-                + parameters.rideCooldownSeconds == 55 * 60
+                + parameters.rideCooldownSeconds == 30 * 60
         )
     }
 
-    @Test("Training window filler never exceeds selected time")
-    func filledWindowStaysInsideAvailability() {
+    @Test("Training window cap never exceeds selected time")
+    func cappedWindowStaysInsideAvailability() {
         let parameters = TrainingParameters().fillingTrainingWindow(minutes: 30)
         #expect(
             parameters.rideWarmUpSeconds
                 + parameters.rideWorkSeconds
                 + parameters.rideCooldownSeconds <= 30 * 60
         )
+    }
+
+
+    @Test("Continuous endurance durations normalize to five minute blocks")
+    func enduranceDurationsUseFiveMinuteBlocks() {
+        var parameters = TrainingParameters()
+        parameters.runIsContinuous = true
+        parameters.runContinuousSeconds = 30 * 60
+
+        let taperedRun = parameters.applying(.reduceVolume(fraction: 0.2), to: .running)
+        let taperedRide = parameters.applying(.reduceVolume(fraction: 0.2), to: .cycling)
+
+        #expect(taperedRun.runContinuousSeconds == 25 * 60)
+        #expect(taperedRide.rideWorkSeconds == 15 * 60)
+        #expect(taperedRun.runContinuousSeconds.truncatingRemainder(dividingBy: 5 * 60) == 0)
+        #expect(taperedRide.rideWorkSeconds.truncatingRemainder(dividingBy: 5 * 60) == 0)
+    }
+
+}
+
+
+@Suite("Onboarding prescription matrix")
+struct OnboardingPrescriptionMatrixTests {
+    private let timeOptions = [30, 45, 60, 90, 120]
+    private let dayTargets = [2, 3, 4]
+    private let nonEventGoals: [TrainingObjectiveKind] = [
+        .generalFitness, .improveEndurance, .returnToTraining
+    ]
+
+    private var calendar: Calendar {
+        var value = Calendar(identifier: .gregorian)
+        value.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+        return value
+    }
+
+    private var startDate: Date {
+        calendar.date(from: DateComponents(year: 2026, month: 10, day: 5)) ?? .now
+    }
+
+    private func schedule(minutes: Int) -> AthleteSchedule {
+        .everyDay(maxDurationMinutes: minutes)
+    }
+
+    private func setup(
+        sport: Sport,
+        baseline: AthleteBaseline,
+        objective: TrainingObjective,
+        targetDays: Int,
+        minutes: Int,
+        prescriptionBasis: WorkoutPrescriptionBasis = .distance
+    ) -> AthleteSetup {
+        var value = AthleteSetup(
+            objective: objective,
+            trainingDayTarget: targetDays,
+            baseline: baseline,
+            schedule: schedule(minutes: minutes),
+            preferences: [SportPreference(sport: sport, sessionsPerWeek: 1)],
+            stage: .complete,
+            completedAt: startDate
+        )
+        value.setPrescriptionBasis(prescriptionBasis, for: sport)
+        return value
+    }
+
+    private func build(
+        sport: Sport,
+        baseline: AthleteBaseline,
+        objective: TrainingObjective,
+        targetDays: Int,
+        minutes: Int,
+        poolLengthMeters: Double = 25,
+        prescriptionBasis: WorkoutPrescriptionBasis = .distance
+    ) throws -> WeeklyPlan {
+        try FirstWeekBuilder(calendar: calendar).build(
+            setup: setup(
+                sport: sport,
+                baseline: baseline,
+                objective: objective,
+                targetDays: targetDays,
+                minutes: minutes,
+                prescriptionBasis: prescriptionBasis
+            ),
+            poolLengthMeters: poolLengthMeters,
+            startDate: startDate
+        )
+    }
+
+    private func expectedOpeningDays(_ requested: Int) -> Int {
+        requested == 4 ? 3 : requested
+    }
+
+    private func stepSignature(_ step: WorkoutStep) -> String {
+        let children = step.orderedChildren.map(stepSignature).joined(separator: "|")
+        return [
+            step.kind.rawValue,
+            step.title,
+            step.durationSeconds.map { String($0) } ?? "-",
+            step.distanceMeters.map { String($0) } ?? "-",
+            step.repeatCount.map { String($0) } ?? "-",
+            step.targetIntensity?.rawValue ?? "-",
+            children
+        ].joined(separator: ":")
+    }
+
+    private func signature(_ workout: PlannedWorkout) -> String {
+        [
+            workout.title,
+            workout.goal,
+            workout.estimatedDurationSeconds.map { String($0) } ?? "-",
+            workout.estimatedDistanceMeters.map { String($0) } ?? "-",
+            workout.orderedSteps.map(stepSignature).joined(separator: "/")
+        ].joined(separator: "#")
+    }
+
+    private func assertWholeSeconds(_ step: WorkoutStep) {
+        if let duration = step.durationSeconds {
+            #expect(duration == duration.rounded())
+        }
+        step.children.forEach(assertWholeSeconds)
+    }
+
+    @Test("Every running onboarding combination respects capability, basis and availability")
+    func runningMatrix() throws {
+        for running in RunningBaseline.allCases {
+            for goal in nonEventGoals {
+                for targetDays in dayTargets {
+                    for minutes in timeOptions {
+                        for basis in WorkoutPrescriptionBasis.allCases {
+                            let baseline = AthleteBaseline(running: running)
+                            let objective = TrainingObjective(kind: goal)
+                            let plan = try build(
+                                sport: .running,
+                                baseline: baseline,
+                                objective: objective,
+                                targetDays: targetDays,
+                                minutes: minutes,
+                                prescriptionBasis: basis
+                            )
+
+                            let runs = plan.trainingSessions.filter { $0.discipline == .running }
+                            #expect(runs.count == expectedOpeningDays(targetDays))
+
+                            let resolved = StartingParameterResolver()
+                                .resolve(
+                                    baseline: baseline,
+                                    goal: objective.legacyGoal,
+                                    poolLengthMeters: 25
+                                )
+                                .capped(toTrainingMinutes: minutes)
+
+                            for run in runs {
+                                run.steps.forEach(assertWholeSeconds)
+
+                                let warmup = run.orderedSteps.first { $0.kind == .warmUp }
+                                let cooldown = run.orderedSteps.first { $0.kind == .cooldown }
+                                #expect(warmup?.durationSeconds == 5 * 60)
+                                #expect(cooldown?.durationSeconds == 5 * 60)
+
+                                if basis == .time {
+                                    if resolved.runIsContinuous {
+                                        let work = run.orderedSteps.first { $0.kind == .work }
+                                        let seconds = try #require(work?.durationSeconds)
+                                        #expect(seconds <= resolved.runContinuousSeconds)
+                                        #expect(seconds.truncatingRemainder(dividingBy: 5 * 60) == 0)
+                                    } else {
+                                        let repeats = run.orderedSteps.first { $0.kind == .repeatBlock }
+                                        let work = repeats?.orderedChildren.first { $0.kind == .work }
+                                        #expect(work?.durationSeconds != nil)
+                                        #expect((repeats?.repeatCount ?? 0) <= resolved.runRepeatCount)
+                                    }
+                                } else {
+                                    #expect((run.targetDistanceMeters ?? 0) > 0)
+                                    let workSteps = run.orderedSteps.flatMap { step in
+                                        step.kind == .repeatBlock ? step.orderedChildren : [step]
+                                    }.filter { $0.kind == .work }
+                                    #expect(workSteps.allSatisfy {
+                                        $0.distanceMeters != nil && $0.durationSeconds == nil
+                                    })
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @Test("Every cycling onboarding combination respects capability, basis and availability")
+    func cyclingMatrix() throws {
+        for cycling in CyclingBaseline.allCases {
+            for goal in nonEventGoals {
+                for targetDays in dayTargets {
+                    for minutes in timeOptions {
+                        for basis in WorkoutPrescriptionBasis.allCases {
+                            let baseline = AthleteBaseline(cycling: cycling)
+                            let objective = TrainingObjective(kind: goal)
+                            let plan = try build(
+                                sport: .cycling,
+                                baseline: baseline,
+                                objective: objective,
+                                targetDays: targetDays,
+                                minutes: minutes,
+                                prescriptionBasis: basis
+                            )
+
+                            let rides = plan.trainingSessions.filter { $0.discipline == .cycling }
+                            #expect(rides.count == expectedOpeningDays(targetDays))
+
+                            let resolved = StartingParameterResolver()
+                                .resolve(
+                                    baseline: baseline,
+                                    goal: objective.legacyGoal,
+                                    poolLengthMeters: 25
+                                )
+                                .capped(toTrainingMinutes: minutes)
+
+                            for ride in rides {
+                                ride.steps.forEach(assertWholeSeconds)
+                                let work = ride.orderedSteps.first { $0.kind == .work }
+                                    ?? ride.orderedSteps
+                                        .first { $0.kind == .repeatBlock }?
+                                        .orderedChildren.first { $0.kind == .work }
+
+                                if basis == .time {
+                                    if let seconds = work?.durationSeconds, seconds >= 10 * 60 {
+                                        #expect(seconds <= resolved.rideWorkSeconds)
+                                        #expect(seconds.truncatingRemainder(dividingBy: 5 * 60) == 0)
+                                    }
+                                } else {
+                                    #expect((ride.targetDistanceMeters ?? 0) > 0)
+                                    #expect(work?.distanceMeters != nil)
+                                    #expect(work?.durationSeconds == nil)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @Test("Every swimming onboarding combination respects capability, basis and pool geometry")
+    func swimmingMatrix() throws {
+        for swimming in SwimmingBaseline.allCases {
+            for goal in nonEventGoals {
+                for targetDays in dayTargets {
+                    for minutes in timeOptions {
+                        for basis in WorkoutPrescriptionBasis.allCases {
+                            let baseline = AthleteBaseline(swimming: swimming)
+                            let plan = try build(
+                                sport: .swimming,
+                                baseline: baseline,
+                                objective: TrainingObjective(kind: goal),
+                                targetDays: targetDays,
+                                minutes: minutes,
+                                prescriptionBasis: basis
+                            )
+
+                            let swims = plan.trainingSessions.filter { $0.discipline == .swimming }
+                            #expect(swims.count == expectedOpeningDays(targetDays))
+
+                            let resolved = StartingParameterResolver()
+                                .resolve(
+                                    baseline: baseline,
+                                    goal: TrainingObjective(kind: goal).legacyGoal,
+                                    poolLengthMeters: 25
+                                )
+                                .capped(toTrainingMinutes: minutes)
+
+                            for swim in swims {
+                                swim.steps.forEach(assertWholeSeconds)
+                                if basis == .distance {
+                                    if let distance = swim.estimatedDistanceMeters {
+                                        #expect(distance > 0)
+                                        #expect(distance <= resolved.swimTotalMeters)
+                                        #expect(distance.truncatingRemainder(dividingBy: 25) == 0)
+                                    }
+                                } else {
+                                    #expect(swim.targetDistanceMeters == nil)
+                                    if swimming != .none {
+                                        let duration = try #require(swim.estimatedDurationSeconds)
+                                        #expect(duration > 0)
+                                        #expect(duration <= TimeInterval(minutes * 60))
+                                        #expect(duration.truncatingRemainder(dividingBy: 5 * 60) == 0)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @Test("Running baselines create distinct first-week prescriptions")
+    func runningBaselinesAreDistinct() throws {
+        let signatures = try RunningBaseline.allCases.map { running in
+            let plan = try build(
+                sport: .running,
+                baseline: AthleteBaseline(running: running),
+                objective: TrainingObjective(kind: .improveEndurance),
+                targetDays: 2,
+                minutes: 120
+            )
+            return signature(try #require(plan.trainingSessions.first))
+        }
+
+        #expect(Set(signatures).count == RunningBaseline.allCases.count)
+    }
+
+    @Test("Cycling baselines create distinct first-week prescriptions")
+    func cyclingBaselinesAreDistinct() throws {
+        let signatures = try CyclingBaseline.allCases.map { cycling in
+            let plan = try build(
+                sport: .cycling,
+                baseline: AthleteBaseline(cycling: cycling),
+                objective: TrainingObjective(kind: .improveEndurance),
+                targetDays: 2,
+                minutes: 120
+            )
+            return signature(try #require(plan.trainingSessions.first))
+        }
+
+        #expect(Set(signatures).count == CyclingBaseline.allCases.count)
+    }
+
+    @Test("Swimming baselines create distinct first-week prescriptions")
+    func swimmingBaselinesAreDistinct() throws {
+        let signatures = try SwimmingBaseline.allCases.map { swimming in
+            let plan = try build(
+                sport: .swimming,
+                baseline: AthleteBaseline(swimming: swimming),
+                objective: TrainingObjective(kind: .improveEndurance),
+                targetDays: 2,
+                minutes: 120
+            )
+            return signature(try #require(plan.trainingSessions.first))
+        }
+
+        #expect(Set(signatures).count == SwimmingBaseline.allCases.count)
+    }
+
+    @Test("Non-event goals materially change each sport's prescription")
+    func goalsAreDistinctPerSport() throws {
+        let cases: [(Sport, AthleteBaseline)] = [
+            (.running, AthleteBaseline(running: .regular5K)),
+            (.cycling, AthleteBaseline(cycling: .fortyFiveToSixty)),
+            (.swimming, AthleteBaseline(swimming: .continuous200Plus))
+        ]
+
+        for (sport, baseline) in cases {
+            let signatures = try nonEventGoals.map { goal in
+                let plan = try build(
+                    sport: sport,
+                    baseline: baseline,
+                    objective: TrainingObjective(kind: goal),
+                    targetDays: 3,
+                    minutes: 60
+                )
+                return plan.trainingSessions
+                    .filter { $0.discipline.sport == sport }
+                    .map(signature)
+                    .joined(separator: "||")
+            }
+
+            #expect(Set(signatures).count == nonEventGoals.count)
+        }
+    }
+
+    @Test("Large time availability never inflates a ten minute runner")
+    func tenMinuteRunnerIsNotInflatedByAvailability() throws {
+        for minutes in timeOptions {
+            let plan = try build(
+                sport: .running,
+                baseline: AthleteBaseline(running: .continuous10Minutes),
+                objective: TrainingObjective(kind: .improveEndurance),
+                targetDays: 2,
+                minutes: minutes,
+                prescriptionBasis: .time
+            )
+            for run in plan.trainingSessions where run.discipline == .running {
+                let work = try #require(run.orderedSteps.first { $0.kind == .work })
+                #expect(work.durationSeconds == 10 * 60)
+            }
+        }
+    }
+
+    @Test("Taper is applied exactly once and keeps five minute warmup and cooldown")
+    func taperIsAppliedOnce() throws {
+        let eventDate = calendar.date(byAdding: .day, value: 10, to: startDate)
+        let objective = TrainingObjective.event(
+            sport: .running,
+            distance: EventDistance(kind: .run10K),
+            eventDate: eventDate,
+            targetIntent: .complete
+        )
+        let plan = try build(
+            sport: .running,
+            baseline: AthleteBaseline(running: .regular5K),
+            objective: objective,
+            targetDays: 3,
+            minutes: 60,
+            prescriptionBasis: .time
+        )
+
+        let run = try #require(plan.trainingSessions.first { $0.discipline == .running })
+        let warmup = try #require(run.orderedSteps.first { $0.kind == .warmUp })
+        let work = try #require(run.orderedSteps.first { $0.kind == .work })
+        let cooldown = try #require(run.orderedSteps.first { $0.kind == .cooldown })
+
+        #expect(warmup.durationSeconds == 5 * 60)
+        #expect(work.durationSeconds == 25 * 60)
+        #expect(cooldown.durationSeconds == 5 * 60)
+        #expect(run.estimatedDurationSeconds == 35 * 60)
+    }
+
+    @Test("Capability assessment keeps the selected swim stroke")
+    func capabilityCarriesSwimStroke() {
+        let baseline = AthleteBaseline(swimming: .continuous100, stroke: .mixed)
+        let setup = AthleteSetup(
+            objective: TrainingObjective(kind: .improveEndurance),
+            baseline: baseline,
+            schedule: .everyDay(maxDurationMinutes: 45),
+            preferences: [SportPreference(sport: .swimming, sessionsPerWeek: 1)],
+            stage: .complete,
+            completedAt: startDate
+        )
+        let parameters = StartingParameterResolver().resolve(
+            baseline: baseline,
+            goal: .improveEndurance,
+            poolLengthMeters: 25
+        )
+        let capability = AthleteCapabilityAssessmentBuilder(calendar: calendar).build(
+            setup: setup,
+            plans: [],
+            asOf: startDate,
+            startingParameters: parameters
+        )
+
+        #expect(capability.swimming.preferredStroke == .mixed)
+    }
+
+    @Test("Swim stroke changes the generated prescription")
+    func swimStrokeIsConsumed() throws {
+        let freestyle = try build(
+            sport: .swimming,
+            baseline: AthleteBaseline(swimming: .continuous100, stroke: .freestyle),
+            objective: TrainingObjective(kind: .improveEndurance),
+            targetDays: 2,
+            minutes: 45
+        )
+        let mixed = try build(
+            sport: .swimming,
+            baseline: AthleteBaseline(swimming: .continuous100, stroke: .mixed),
+            objective: TrainingObjective(kind: .improveEndurance),
+            targetDays: 2,
+            minutes: 45
+        )
+
+        let freestyleWorkout = try #require(freestyle.trainingSessions.first)
+        let mixedWorkout = try #require(mixed.trainingSessions.first)
+
+        #expect(signature(freestyleWorkout) != signature(mixedWorkout))
+    }
+
+    @Test("Pool length changes valid swim geometry")
+    func poolLengthIsConsumed() throws {
+        let pools = [25.0, 33.3, 50.0]
+        let signatures = try pools.map { pool in
+            let plan = try build(
+                sport: .swimming,
+                baseline: AthleteBaseline(swimming: .continuous200Plus),
+                objective: TrainingObjective(kind: .improveEndurance),
+                targetDays: 2,
+                minutes: 60,
+                poolLengthMeters: pool
+            )
+            return signature(try #require(plan.trainingSessions.first))
+        }
+
+        #expect(Set(signatures).count == pools.count)
+    }
+
+    @Test("Every running event distance and intent builds a bounded prescription")
+    func runningEventMatrix() throws {
+        for kind in EventDistanceKind.choices(for: .running) {
+            for intent in EventTargetIntent.allCases {
+                for minutes in timeOptions {
+                    let objective = TrainingObjective.event(
+                        sport: .running,
+                        distance: EventDistance(kind: kind),
+                        eventDate: calendar.date(byAdding: .day, value: 28, to: startDate),
+                        targetIntent: intent
+                    )
+                    let plan = try build(
+                        sport: .running,
+                        baseline: AthleteBaseline(running: .regular5K),
+                        objective: objective,
+                        targetDays: 3,
+                        minutes: minutes
+                    )
+
+                    #expect(plan.trainingSessions.contains { $0.discipline == .running })
+                    for workout in plan.trainingSessions where workout.discipline == .running {
+                        if let duration = workout.estimatedDurationSeconds {
+                            #expect(duration <= TimeInterval(minutes * 60))
+                        }
+                        workout.steps.forEach(assertWholeSeconds)
+                    }
+                }
+            }
+        }
+    }
+
+    @Test("Every cycling event distance and intent builds a bounded prescription")
+    func cyclingEventMatrix() throws {
+        for kind in EventDistanceKind.choices(for: .cycling) {
+            for intent in EventTargetIntent.allCases {
+                for minutes in timeOptions {
+                    let objective = TrainingObjective.event(
+                        sport: .cycling,
+                        distance: EventDistance(kind: kind),
+                        eventDate: calendar.date(byAdding: .day, value: 28, to: startDate),
+                        targetIntent: intent
+                    )
+                    let plan = try build(
+                        sport: .cycling,
+                        baseline: AthleteBaseline(cycling: .sixtyPlus),
+                        objective: objective,
+                        targetDays: 3,
+                        minutes: minutes
+                    )
+
+                    #expect(plan.trainingSessions.contains { $0.discipline == .cycling })
+                    for workout in plan.trainingSessions where workout.discipline == .cycling {
+                        if let duration = workout.estimatedDurationSeconds {
+                            #expect(duration <= TimeInterval(minutes * 60))
+                        }
+                        workout.steps.forEach(assertWholeSeconds)
+                    }
+                }
+            }
+        }
+    }
+
+    @Test("Every swimming event distance and intent preserves pool geometry")
+    func swimmingEventMatrix() throws {
+        for kind in EventDistanceKind.choices(for: .swimming) {
+            for intent in EventTargetIntent.allCases {
+                for minutes in timeOptions {
+                    let objective = TrainingObjective.event(
+                        sport: .swimming,
+                        distance: EventDistance(kind: kind),
+                        eventDate: calendar.date(byAdding: .day, value: 28, to: startDate),
+                        targetIntent: intent
+                    )
+                    let plan = try build(
+                        sport: .swimming,
+                        baseline: AthleteBaseline(swimming: .continuous200Plus),
+                        objective: objective,
+                        targetDays: 3,
+                        minutes: minutes
+                    )
+
+                    #expect(plan.trainingSessions.contains { $0.discipline == .swimming })
+                    for workout in plan.trainingSessions where workout.discipline == .swimming {
+                        workout.steps.forEach(assertWholeSeconds)
+                        if let distance = workout.estimatedDistanceMeters {
+                            #expect(distance > 0)
+                            #expect(distance.truncatingRemainder(dividingBy: 25) == 0)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+
+    @Test("Every valid sport-selection combination is represented without adding unselected sports")
+    func selectedSportCombinationMatrix() throws {
+        let combinations: [[Sport]] = [
+            [.running],
+            [.swimming],
+            [.cycling],
+            [.running, .swimming],
+            [.running, .cycling],
+            [.swimming, .cycling],
+            [.running, .swimming, .cycling]
+        ]
+
+        for sports in combinations {
+            let minimumTarget = max(2, sports.count)
+            for targetDays in minimumTarget...4 {
+                for minutes in timeOptions {
+                    let baseline = AthleteBaseline(
+                        running: .continuous20To30Minutes,
+                        swimming: .continuous100,
+                        cycling: .thirtyToFortyFive
+                    )
+                    let setup = AthleteSetup(
+                        objective: TrainingObjective(kind: .improveEndurance),
+                        trainingDayTarget: targetDays,
+                        baseline: baseline,
+                        schedule: schedule(minutes: minutes),
+                        preferences: sports.map {
+                            SportPreference(sport: $0, sessionsPerWeek: 1)
+                        },
+                        stage: .complete,
+                        completedAt: startDate
+                    )
+                    let plan = try FirstWeekBuilder(calendar: calendar).build(
+                        setup: setup,
+                        poolLengthMeters: 25,
+                        startDate: startDate
+                    )
+
+                    let generatedSports = Set(plan.trainingSessions.compactMap { $0.discipline.sport })
+                    #expect(generatedSports.isSubset(of: Set(sports)))
+                    #expect(Set(sports).isSubset(of: generatedSports))
+                    #expect(plan.trainingSessions.count <= min(targetDays, 3))
+                }
+            }
+        }
+    }
+
+
+    @Test("Distance is the default workout target and time can be selected per sport")
+    func workoutTargetDefaultsAndOverrides() throws {
+        let legacy = AthleteSetup()
+        #expect(legacy.prescriptionBasis(for: .running) == .distance)
+        #expect(legacy.prescriptionBasis(for: .cycling) == .distance)
+        #expect(legacy.prescriptionBasis(for: .swimming) == .distance)
+
+        var configured = legacy
+        configured.setPrescriptionBasis(.time, for: .running)
+        #expect(configured.prescriptionBasis(for: .running) == .time)
+        #expect(configured.prescriptionBasis(for: .cycling) == .distance)
+
+        let encoded = try JSONEncoder().encode(configured)
+        let decoded = try JSONDecoder().decode(AthleteSetup.self, from: encoded)
+        #expect(decoded.prescriptionBasis(for: .running) == .time)
+        #expect(decoded.prescriptionBasis(for: .cycling) == .distance)
+    }
+
+    @Test("Running distance and time modes change the actual WorkoutKit goal data")
+    func runningTargetBasisChangesPrescription() throws {
+        let baseline = AthleteBaseline(running: .continuous20To30Minutes)
+        let distancePlan = try build(
+            sport: .running,
+            baseline: baseline,
+            objective: TrainingObjective(kind: .improveEndurance),
+            targetDays: 2,
+            minutes: 45,
+            prescriptionBasis: .distance
+        )
+        let timePlan = try build(
+            sport: .running,
+            baseline: baseline,
+            objective: TrainingObjective(kind: .improveEndurance),
+            targetDays: 2,
+            minutes: 45,
+            prescriptionBasis: .time
+        )
+
+        let distanceWork = try #require(
+            distancePlan.trainingSessions.first?.orderedSteps.first { $0.kind == .work }
+        )
+        let timeWork = try #require(
+            timePlan.trainingSessions.first?.orderedSteps.first { $0.kind == .work }
+        )
+
+        #expect(distanceWork.distanceMeters != nil)
+        #expect(distanceWork.durationSeconds == nil)
+        #expect(timeWork.durationSeconds != nil)
+        #expect(timeWork.distanceMeters == nil)
+    }
+
+    @Test("Cycling distance and time modes change the actual WorkoutKit goal data")
+    func cyclingTargetBasisChangesPrescription() throws {
+        let baseline = AthleteBaseline(cycling: .thirtyToFortyFive)
+        let distancePlan = try build(
+            sport: .cycling,
+            baseline: baseline,
+            objective: TrainingObjective(kind: .improveEndurance),
+            targetDays: 2,
+            minutes: 60,
+            prescriptionBasis: .distance
+        )
+        let timePlan = try build(
+            sport: .cycling,
+            baseline: baseline,
+            objective: TrainingObjective(kind: .improveEndurance),
+            targetDays: 2,
+            minutes: 60,
+            prescriptionBasis: .time
+        )
+
+        let distanceWork = try #require(
+            distancePlan.trainingSessions.first?.orderedSteps.first { $0.kind == .work }
+        )
+        let timeWork = try #require(
+            timePlan.trainingSessions.first?.orderedSteps.first { $0.kind == .work }
+        )
+
+        #expect(distanceWork.distanceMeters != nil)
+        #expect(distanceWork.durationSeconds == nil)
+        #expect(timeWork.durationSeconds != nil)
+        #expect(timeWork.distanceMeters == nil)
+    }
+
+    @Test("Swimming distance and time modes change the actual WorkoutKit goal data")
+    func swimmingTargetBasisChangesPrescription() throws {
+        let baseline = AthleteBaseline(swimming: .continuous100)
+        let distancePlan = try build(
+            sport: .swimming,
+            baseline: baseline,
+            objective: TrainingObjective(kind: .improveEndurance),
+            targetDays: 2,
+            minutes: 45,
+            prescriptionBasis: .distance
+        )
+        let timePlan = try build(
+            sport: .swimming,
+            baseline: baseline,
+            objective: TrainingObjective(kind: .improveEndurance),
+            targetDays: 2,
+            minutes: 45,
+            prescriptionBasis: .time
+        )
+
+        let distanceWorkout = try #require(distancePlan.trainingSessions.first)
+        let timeWorkout = try #require(timePlan.trainingSessions.first)
+
+        #expect((distanceWorkout.targetDistanceMeters ?? 0) > 0)
+        #expect(distanceWorkout.orderedSteps.contains {
+            $0.totalDistanceMeters != nil
+        })
+        #expect(timeWorkout.targetDistanceMeters == nil)
+        #expect(timeWorkout.prescribedDurationSeconds != nil)
+        #expect(timeWorkout.orderedSteps.allSatisfy {
+            $0.durationSeconds != nil && $0.distanceMeters == nil
+        })
     }
 
 }
