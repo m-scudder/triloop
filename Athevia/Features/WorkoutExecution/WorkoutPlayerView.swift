@@ -61,6 +61,17 @@ struct WorkoutPlayerView: View {
             || workout.discipline == .multisport
     }
 
+    /// GPS can only measure outdoor running and cycling. A distance step for a
+    /// swim (or a multisport swim segment) stays a stopwatch step that the
+    /// athlete completes manually.
+    private var currentStepProgressesByGPS: Bool {
+        guard recordsGPS,
+              let step = engine.currentStep,
+              step.distanceMeters != nil,
+              step.durationSeconds == nil else { return false }
+        return activeMetricSport == .running || activeMetricSport == .cycling
+    }
+
     private var activeMetricSport: Sport? {
         if workout.discipline == .multisport {
             return engine.currentStep?.kind.segmentSport
@@ -359,7 +370,8 @@ struct WorkoutPlayerView: View {
     }
 
     private var primaryClock: String {
-        if let remainingDistance = engine.remainingDistanceMeters {
+        if currentStepProgressesByGPS,
+           let remainingDistance = engine.remainingDistanceMeters {
             return TrainingFormatter.distance(meters: remainingDistance)
         }
         if let remaining = engine.remainingSeconds { return clock(remaining) }
@@ -383,8 +395,10 @@ struct WorkoutPlayerView: View {
     }
 
     private func clockCaption(for step: ExecutableWorkoutStep) -> String {
-        if step.distanceMeters != nil, !step.usesCountdown {
-            return "distance remaining"
+        if let distance = step.distanceMeters, !step.usesCountdown {
+            return currentStepProgressesByGPS
+                ? "distance remaining"
+                : "Stopwatch · \(TrainingFormatter.distance(meters: distance)) target"
         }
         return step.usesCountdown ? "remaining" : "elapsed"
     }
@@ -628,14 +642,8 @@ struct WorkoutPlayerView: View {
         engine.advance(by: max(now.timeIntervalSince(previous), 0), now: now)
 
         if engine.phase != .finished,
-           engine.currentIndex == previousIndex,
-           engine.currentStep?.distanceMeters != nil,
-           engine.currentStep?.durationSeconds == nil {
-            let stepDistance = max(
-                locationTracker.snapshot.distanceMeters - stepStartDistance,
-                0
-            )
-            engine.updateCurrentStepDistance(stepDistance, now: now)
+           engine.currentIndex == previousIndex {
+            updateGPSDistanceProgress(now: now)
         }
 
         if engine.phase == .finished {
@@ -706,14 +714,8 @@ struct WorkoutPlayerView: View {
         )
 
         if engine.phase != .finished,
-           engine.currentIndex == previousIndex,
-           engine.currentStep?.distanceMeters != nil,
-           engine.currentStep?.durationSeconds == nil {
-            let stepDistance = max(
-                locationTracker.snapshot.distanceMeters - stepStartDistance,
-                0
-            )
-            engine.updateCurrentStepDistance(stepDistance, now: now)
+           engine.currentIndex == previousIndex {
+            updateGPSDistanceProgress(now: now)
         }
 
         if engine.phase == .finished {
@@ -740,6 +742,15 @@ struct WorkoutPlayerView: View {
             announceImmediateCountdownIfNeeded()
         }
         lastPulse = now
+    }
+
+    private func updateGPSDistanceProgress(now: Date) {
+        guard currentStepProgressesByGPS else { return }
+        let stepDistance = max(
+            locationTracker.snapshot.distanceMeters - stepStartDistance,
+            0
+        )
+        engine.updateCurrentStepDistance(stepDistance, now: now)
     }
 
     private func announceImmediateCountdownIfNeeded() {

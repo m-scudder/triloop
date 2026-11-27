@@ -186,6 +186,24 @@ struct WorkoutExecutionTests {
         #expect(engine.result?.elapsedSeconds == 45)
     }
 
+    @Test("Distance steps without distance updates stay manual, e.g. pool swims")
+    func distanceStepWithoutGPSIsManual() {
+        var engine = WorkoutExecutionEngine(plan: plan(
+            WorkoutStep(order: 0, kind: .work, title: "Swim 100m", distanceMeters: 100)
+        ))
+
+        engine.start()
+        engine.advance(by: 120)
+
+        #expect(engine.phase == .running)
+        #expect(engine.stepElapsedSeconds == 120)
+        #expect(engine.remainingDistanceMeters == 100)
+
+        engine.completeCurrentStep()
+        #expect(engine.phase == .finished)
+        #expect(engine.result?.elapsedSeconds == 120)
+    }
+
 
     @Test("Workout-level duration creates an executable fallback step")
     func workoutLevelDurationDoesNotAutoComplete() {
