@@ -109,7 +109,7 @@ final class ProductAnalytics {
          appBuild: String = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown") {
         self.configuration = configuration
         self.defaults = defaults
-        self.transport = transport ?? PostHogTransport()
+        self.transport = transport ?? SupabaseAnalyticsTransport()
         self.suppressed = suppressed
         self.accountResolved = !requiresAccountResolution
         self.now = now
@@ -420,8 +420,8 @@ final class ProductAnalytics {
             switch outcome {
             case .accepted, .rejected:
                 switch outcome {
-                case .accepted: self.deliveryStatus = "PostHog accepted the request. Check Activity → Live events."
-                default: self.deliveryStatus = "PostHog rejected the request. Check the HTTP status in Xcode."
+                case .accepted: self.deliveryStatus = "Supabase accepted the analytics batch."
+                default: self.deliveryStatus = "Supabase rejected the analytics batch. Check the HTTP status in Xcode."
                 }
                 Self.debugLog(self.deliveryStatus)
                 // Non-retryable 4xx is dropped; retries preserve event UUIDs.
@@ -473,7 +473,7 @@ final class ProductAnalytics {
         deliveryStatus = "Unsent events cleared"
         Self.debugLog("Cleared queue and analytics identity; cancelled pending sends")
         if let queueURL { try? FileManager.default.removeItem(at: queueURL) }
-        // Cancellation cannot retract a request already received by PostHog.
+        // Cancellation cannot retract a request already received by the analytics backend.
     }
 
     private func persist() {
